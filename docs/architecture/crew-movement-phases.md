@@ -870,7 +870,7 @@ php artisan crew-planning:migrate-legacy-planned --all-companies
 | Scope | Requires `--company=ID` or explicit `--all-companies`. Never processes every company implicitly. |
 | Mapping | `planned_arrival_at` → `planned_arrival_date`, `planned_join_at` → `planned_join_date`, `planned_signoff_at` → `planned_leave_date`, `remarks` → `notes`, relief preserved. Company-local calendar dates via `CompanyTimezone`. Do **not** copy `client_id`. |
 | Expected legacy shape | Migratable Planned rows must have exactly one **Planned** P0 phase with `actual_start_at` / `actual_end_at` null and `started_at` null. Any other phase status/code, multiple phases, or actual timestamps → **BLOCKED** (`unexpected_phase_status` / related codes). |
-| Linked vacant Planning | Reuse the row, convert to named plan, set `crew_assignment_id = null`. |
+| Linked vacant Planning | Reuse only when vessel/position/join/sign-off already agree with the legacy Planned row (company-local dates). Optional arrival/relief may be backfilled only when the vacant row has null; any non-null mismatch → `linked_vacant_planning_mismatch` (no overwrite). On reuse: populate employee, set `crew_assignment_id = null`. |
 | Linked named Planning | If the linked row is an exact compatible representation (same company/employee/vessel/position/dates/relief), reuse it and clear `crew_assignment_id`. Any mismatch → **BLOCKED** (`linked_named_planning_mismatch`). |
 | Equivalent named Planning | If exactly one unlinked compatible match exists, reuse it (no duplicate). |
 | Unsafe / ambiguous | Mark **BLOCKED**; do not guess. Apply aborts when any blocker exists in scope. |

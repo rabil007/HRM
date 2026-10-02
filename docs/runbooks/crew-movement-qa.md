@@ -157,7 +157,9 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 - [ ] `--company` or `--all-companies` is required (no implicit all-company run); `--apply` is explicit
 - [ ] Apply creates/reuses named `CrewPlanningAssignment` with `crew_assignment_id = null`
 - [ ] Arrival / Join / Sign-Off map to company-local planning dates; remarks → notes; relief preserved
-- [ ] Linked vacant Planning is reused (no duplicate); exact equivalent unlinked named Planning is reused
+- [ ] Compatible linked vacant Planning is reused (no duplicate); vessel/position/join/sign-off must agree; optional arrival/relief backfill only when Planning is null
+- [ ] Linked vacant mismatches (`linked_vacant_planning_mismatch`) abort apply with zero writes
+- [ ] Exact equivalent unlinked named Planning is reused
 - [ ] Exact compatible linked named Planning is reused and `crew_assignment_id` cleared (no duplicate)
 - [ ] Linked named Planning mismatches (vessel/position/dates/relief) abort apply with no writes
 - [ ] Blockers abort apply (missing masters/dates, non-Planned P0 status, non-P0/multiple phases, cross-company links, ambiguous matches, unexpected actuals/Sea Service/payroll)
