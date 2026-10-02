@@ -78,7 +78,6 @@ type Props = {
 function AssignmentBarPopoverContent({
     bar,
     can,
-    planningBackQuery = null,
     onEdit,
     onDelete,
 }: Props): ReactElement {
@@ -186,15 +185,11 @@ function AssignmentBarPopoverContent({
                     </p>
                 ) : null}
             </div>
-            {can.update ||
-            can.delete ||
-            bar.is_assigned ||
-            ((can.start_assignment ?? false) && bar.employee_id !== null) ? (
+            {can.update || can.delete || bar.crew_assignment_id !== null ? (
                 <div className="border-t px-4 pb-3">
                     <AssignmentBarActions
                         bar={bar}
                         can={can}
-                        planningBackQuery={planningBackQuery}
                         onEdit={onEdit}
                         onDelete={onDelete}
                     />

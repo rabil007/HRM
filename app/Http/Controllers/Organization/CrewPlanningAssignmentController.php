@@ -57,6 +57,12 @@ class CrewPlanningAssignmentController extends Controller
             abort(403);
         }
 
+        if ($assignment->employee_id !== null) {
+            return redirect()
+                ->route('organization.crew-planning.index')
+                ->with('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+        }
+
         return redirect()->route('organization.crew-assignments.create', array_filter([
             'planning_assignment_id' => $assignment->id,
             'view' => $request->query('view'),

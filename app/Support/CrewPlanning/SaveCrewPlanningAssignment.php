@@ -58,6 +58,33 @@ final class SaveCrewPlanningAssignment
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
                 return DB::transaction(function () use ($assignment, $companyId, $attributes, $actor): CrewPlanningAssignment {
+                    // Canonical lock order: Employee -> CrewAssignment -> CrewPlanningAssignment
+                    $hasIncomingEmployee = array_key_exists('employee_id', $attributes);
+                    $incomingEmployeeId = $hasIncomingEmployee && $attributes['employee_id'] !== null && $attributes['employee_id'] !== ''
+                        ? (int) $attributes['employee_id']
+                        : null;
+
+                    $preReadEmployeeId = CrewPlanningAssignment::query()
+                        ->whereKey($assignment->id)
+                        ->value('employee_id');
+                    $preReadEmployeeId = $preReadEmployeeId !== null && $preReadEmployeeId !== ''
+                        ? (int) $preReadEmployeeId
+                        : null;
+
+                    $employeeIdsToLock = array_values(array_filter(array_unique([
+                        $preReadEmployeeId,
+                        $incomingEmployeeId,
+                    ])));
+                    sort($employeeIdsToLock);
+
+                    foreach ($employeeIdsToLock as $empId) {
+                        Employee::query()
+                            ->where('company_id', $companyId)
+                            ->whereKey($empId)
+                            ->lockForUpdate()
+                            ->first();
+                    }
+
                     $hasIncomingRelief = array_key_exists('relieves_crew_assignment_id', $attributes);
                     $incomingRelievesId = $hasIncomingRelief && $attributes['relieves_crew_assignment_id'] !== null && $attributes['relieves_crew_assignment_id'] !== ''
                         ? (int) $attributes['relieves_crew_assignment_id']
@@ -93,8 +120,11 @@ final class SaveCrewPlanningAssignment
                     $lockedRelievesId = $locked->relieves_crew_assignment_id !== null && $locked->relieves_crew_assignment_id !== ''
                         ? (int) $locked->relieves_crew_assignment_id
                         : null;
+                    $lockedEmployeeId = $locked->employee_id !== null && $locked->employee_id !== ''
+                        ? (int) $locked->employee_id
+                        : null;
 
-                    if ($lockedRelievesId !== $preReadRelievesId) {
+                    if ($lockedRelievesId !== $preReadRelievesId || $lockedEmployeeId !== $preReadEmployeeId) {
                         throw new PlanningConcurrencyConflictException('The planning assignment was modified concurrently.');
                     }
 
@@ -182,8 +212,6 @@ final class SaveCrewPlanningAssignment
             }
         }
 
-        $this->assertReliefConstraints($companyId, $attributes, $exceptPlanningId, $actor);
-
         $employeeId = $attributes['employee_id'] ?? null;
         if ($employeeId !== null && $employeeId !== '') {
             $employeeId = (int) $employeeId;
@@ -211,12 +239,16 @@ final class SaveCrewPlanningAssignment
                     'employee_id' => 'The selected employee does not belong to this company.',
                 ]);
             }
+        }
 
+        $this->assertReliefConstraints($companyId, $attributes, $exceptPlanningId, $actor);
+
+        if ($employeeId !== null && $employeeId !== '') {
             if ($join !== null && $join !== '' && $leave !== null && $leave !== '') {
                 $timezone = CompanyTimezone::forCompanyId($companyId);
                 $conflictContext = new CrewAssignmentConflictContext(
                     companyId: $companyId,
-                    employeeId: $employeeId,
+                    employeeId: (int) $employeeId,
                     action: 'plan',
                     plannedJoinAt: CarbonImmutable::parse($join, $timezone)->startOfDay(),
                     plannedSignoffAt: CarbonImmutable::parse($leave, $timezone)->endOfDay(),

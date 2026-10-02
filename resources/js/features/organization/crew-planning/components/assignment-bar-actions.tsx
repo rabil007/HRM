@@ -1,19 +1,13 @@
-import { ExternalLink, Pencil, Play, Trash2 } from 'lucide-react';
+import { ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { create as createCrewAssignment } from '@/routes/organization/crew-assignments';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
-import type {
-    GanttBar,
-    PlanningBackQuery,
-    PlanningPagePermissions,
-} from '../types';
+import type { GanttBar, PlanningPagePermissions } from '../types';
 
 type Props = {
     bar: GanttBar;
     can: PlanningPagePermissions;
-    planningBackQuery?: PlanningBackQuery | null;
     onEdit?: (bar: GanttBar) => void;
     onDelete?: (bar: GanttBar) => void;
 };
@@ -21,7 +15,6 @@ type Props = {
 export function AssignmentBarActions({
     bar,
     can,
-    planningBackQuery = null,
     onEdit,
     onDelete,
 }: Props): ReactElement | null {
@@ -43,37 +36,12 @@ export function AssignmentBarActions({
         );
     }
 
-    const canStartAssignment =
-        (can.start_assignment ?? false) &&
-        bar.employee_id !== null &&
-        bar.crew_assignment_id === null;
-
-    if (!can.update && !can.delete && !canStartAssignment) {
+    if (!can.update && !can.delete) {
         return null;
     }
 
-    const startHref = createCrewAssignment.url({
-        query: {
-            planning_assignment_id: bar.id,
-            ...(planningBackQuery ?? {}),
-        },
-    });
-
     return (
         <div className="flex flex-wrap gap-2 border-t pt-2">
-            {canStartAssignment ? (
-                <Button
-                    size="sm"
-                    variant="default"
-                    className="h-7 w-full gap-1 rounded-lg text-xs font-semibold"
-                    asChild
-                >
-                    <a href={startHref}>
-                        <Play className="h-3.5 w-3.5" />
-                        Start Assignment
-                    </a>
-                </Button>
-            ) : null}
             {can.update ? (
                 <Button
                     size="sm"
