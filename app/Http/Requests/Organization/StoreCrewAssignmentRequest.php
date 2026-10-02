@@ -4,7 +4,6 @@ namespace App\Http\Requests\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Models\CrewPlanningAssignment;
-use App\Models\Employee;
 use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
@@ -27,11 +26,16 @@ class StoreCrewAssignmentRequest extends FormRequest
             return false;
         }
 
+        // Plan intent is rejected in validation with a Crew Planning guidance message.
+        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
+            return true;
+        }
+
         return match ($this->submissionIntent()) {
-            CrewAssignmentSubmissionIntent::Plan => $user->can('crew_operations.planning.create'),
             CrewAssignmentSubmissionIntent::Start => $user->can('crew_operations.assignments.create')
                 && $user->can('crew_operations.movements.perform'),
             CrewAssignmentSubmissionIntent::Draft => $user->can('crew_operations.assignments.create'),
+            default => false,
         };
     }
 
@@ -92,10 +96,23 @@ class StoreCrewAssignmentRequest extends FormRequest
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
-        $isPlanIntent = $this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan;
 
         return [
-            'submission_intent' => ['required', 'string', Rule::in(CrewAssignmentSubmissionIntent::values())],
+            'submission_intent' => [
+                'required',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if ($value === CrewAssignmentSubmissionIntent::Plan->value) {
+                        $fail(CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
+
+                        return;
+                    }
+
+                    if (! in_array($value, CrewAssignmentSubmissionIntent::createValues(), true)) {
+                        $fail('The selected submission intent is invalid.');
+                    }
+                },
+            ],
             'employee_id' => [
                 'required',
                 'integer',
@@ -103,31 +120,23 @@ class StoreCrewAssignmentRequest extends FormRequest
             ],
             'position_id' => ['nullable', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
-            'vessel_id' => [$isPlanIntent ? 'required' : 'nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
+            'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'planned_arrival_at' => ['nullable', 'date'],
-            'planned_join_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
-            'planned_signoff_at' => [$isPlanIntent ? 'required' : 'nullable', 'date'],
+            'planned_join_at' => ['nullable', 'date'],
+            'planned_signoff_at' => ['nullable', 'date'],
             'relieves_crew_assignment_id' => ['nullable', 'integer', Rule::exists('crew_assignments', 'id')->where('company_id', $companyId)],
             'planning_assignment_id' => ['nullable', 'integer', Rule::exists('crew_planning_assignments', 'id')->where('company_id', $companyId)],
             'remarks' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
-    /**
-     * @return array<string, string>
-     */
-    public function messages(): array
-    {
-        return [
-            'planned_join_at.required' => 'Expected Vessel Join is required when saving as Planned.',
-            'planned_signoff_at.required' => 'Expected Sign-off is required when saving as Planned.',
-            'vessel_id.required' => 'Vessel is required when saving as Planned.',
-        ];
-    }
-
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->input('submission_intent') === CrewAssignmentSubmissionIntent::Plan->value) {
+                return;
+            }
+
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
@@ -142,7 +151,10 @@ class StoreCrewAssignmentRequest extends FormRequest
                     ->first();
 
                 if ($planningSlot !== null && $planningSlot->employee_id !== null) {
-                    $validator->errors()->add('planning_assignment_id', 'Only vacant planning slots can be linked to a crew assignment in Phase 1.');
+                    $validator->errors()->add(
+                        'planning_assignment_id',
+                        'Only vacant planning slots can be linked to a crew assignment. Assign the named employee in Crew Planning, then use Start Mobilisation.',
+                    );
 
                     return;
                 }
@@ -156,25 +168,6 @@ class StoreCrewAssignmentRequest extends FormRequest
                 $clientId !== null && $clientId !== '' ? (int) $clientId : null,
                 $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
             );
-
-            if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
-                $positionId = $this->input('position_id');
-                $effectivePositionId = $positionId !== null && $positionId !== '' ? (int) $positionId : null;
-
-                if ($effectivePositionId === null) {
-                    $employeeId = (int) $this->input('employee_id');
-                    $employeePositionId = Employee::query()
-                        ->where('company_id', $companyId)
-                        ->whereKey($employeeId)
-                        ->value('position_id');
-
-                    $effectivePositionId = $employeePositionId !== null ? (int) $employeePositionId : null;
-                }
-
-                if ($effectivePositionId === null) {
-                    $validator->errors()->add('position_id', 'Position is required when saving as Planned.');
-                }
-            }
 
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $plannedArrival = $this->input('planned_arrival_at');

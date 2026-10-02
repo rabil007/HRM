@@ -145,13 +145,19 @@ class CrewAssignmentController extends Controller
 
     public function create(Request $request, ResolvePlanningStartHandoff $planningHandoff)
     {
-        $isPlanIntent = $request->query('intent') === 'plan';
+        // Legacy ?intent=plan bookmarks: future plans belong in Crew Planning.
+        if ($request->query('intent') === 'plan'
+            && ($request->query('planning_assignment_id') === null || $request->query('planning_assignment_id') === '')) {
+            if ($request->user()?->can('crew_operations.planning.view')) {
+                return redirect()
+                    ->route('organization.crew-planning.index')
+                    ->with('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
+            }
 
-        if ($isPlanIntent) {
-            Gate::authorize('plan', CrewAssignment::class);
-        } else {
-            Gate::authorize('create', CrewAssignment::class);
+            abort(403);
         }
+
+        Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $permissions = CrewAssignmentPagePermissions::for($request->user());
@@ -162,8 +168,10 @@ class CrewAssignmentController extends Controller
         $planningAssignmentId = $request->query('planning_assignment_id');
 
         if ($planningAssignmentId !== null && $planningAssignmentId !== '') {
+            // Vacant operational handoff: Draft needs planning.view + assignments.create.
+            // Start still requires movements.perform via Store / Gate::authorize('start').
             $canOpenHandoff = $request->user()?->can('crew_operations.planning.view')
-                && ($permissions['start'] || ($isPlanIntent && $permissions['plan']));
+                && $permissions['create'];
 
             if (! $canOpenHandoff) {
                 abort(403);
@@ -201,7 +209,7 @@ class CrewAssignmentController extends Controller
             if ($planning->employee_id !== null) {
                 return redirect()
                     ->route('organization.crew-planning.index')
-                    ->with('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+                    ->with('error', 'Named planning records must be started using Start Mobilisation.');
             }
 
             try {
@@ -224,7 +232,7 @@ class CrewAssignmentController extends Controller
             $initialRowCount = 1;
         }
 
-        $intent = $request->query('intent') === 'plan' ? 'plan' : ($request->query('intent') === 'start' ? 'start' : null);
+        $intent = $request->query('intent') === 'start' ? 'start' : null;
         $prefillPositionId = ($request->query('position_id') !== null && $request->query('position_id') !== '')
             ? (int) $request->query('position_id')
             : null;
@@ -254,10 +262,14 @@ class CrewAssignmentController extends Controller
     {
         $intent = $request->submissionIntent();
 
+        if ($intent === CrewAssignmentSubmissionIntent::Plan) {
+            throw ValidationException::withMessages([
+                'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+            ]);
+        }
+
         if ($intent === CrewAssignmentSubmissionIntent::Start) {
             Gate::authorize('start', CrewAssignment::class);
-        } elseif ($intent === CrewAssignmentSubmissionIntent::Plan) {
-            Gate::authorize('plan', CrewAssignment::class);
         } else {
             Gate::authorize('create', CrewAssignment::class);
         }
@@ -285,7 +297,7 @@ class CrewAssignmentController extends Controller
 
                     if ($slot->employee_id !== null) {
                         throw ValidationException::withMessages([
-                            'planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment in Phase 1.',
+                            'planning_assignment_id' => 'Only vacant planning slots can be linked to a crew assignment. Assign the named employee in Crew Planning, then use Start Mobilisation.',
                         ]);
                     }
 
@@ -328,21 +340,6 @@ class CrewAssignmentController extends Controller
                         ],
                         $request->user()?->id,
                     ),
-                    CrewAssignmentSubmissionIntent::Plan => $this->service->createPlanned(
-                        $companyId,
-                        (int) $validated['employee_id'],
-                        [
-                            'position_id' => $validated['position_id'] ?? null,
-                            'client_id' => $validated['client_id'] ?? null,
-                            'vessel_id' => $validated['vessel_id'] ?? null,
-                            'planned_join_at' => $validated['planned_join_at'] ?? null,
-                            'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
-                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                            'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
-                            'remarks' => $validated['remarks'] ?? null,
-                        ],
-                        $request->user()?->id,
-                    ),
                     CrewAssignmentSubmissionIntent::Draft => $this->service->createDraft(
                         $companyId,
                         (int) $validated['employee_id'],
@@ -358,6 +355,9 @@ class CrewAssignmentController extends Controller
                         ],
                         $request->user()?->id,
                     ),
+                    CrewAssignmentSubmissionIntent::Plan => throw ValidationException::withMessages([
+                        'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+                    ]),
                 };
 
                 if ($planningAssignmentId !== null) {
@@ -375,8 +375,10 @@ class CrewAssignmentController extends Controller
 
             $success = match ($intent) {
                 CrewAssignmentSubmissionIntent::Start => 'Crew assignment started successfully.',
-                CrewAssignmentSubmissionIntent::Plan => 'Crew assignment saved as planned.',
                 CrewAssignmentSubmissionIntent::Draft => 'Crew assignment created successfully.',
+                CrewAssignmentSubmissionIntent::Plan => throw ValidationException::withMessages([
+                    'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+                ]),
             };
 
             if (Gate::allows('view', $assignment)) {

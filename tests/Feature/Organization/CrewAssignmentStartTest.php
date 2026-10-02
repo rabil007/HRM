@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
@@ -640,7 +641,7 @@ test('direct start with arrival after expected join is blocked', function () {
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('save as planned still requires expected vessel join', function () {
+test('crafted submission_intent plan is blocked on create store', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
         'crew_operations.planning.create',
     ]);
@@ -655,11 +656,11 @@ test('save as planned still requires expected vessel join', function () {
             'planned_join_at' => '',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors(['planned_join_at']);
+        ->assertSessionHasErrors([
+            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+        ]);
 
-    expect(session('errors')->first('planned_join_at'))
-        ->toContain('Expected Vessel Join is required')
-        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
 test('planned to active keeps expected join and signoff forecasts on the same assignment', function () {
@@ -897,29 +898,21 @@ test('direct start still blocks when expected sign-off is before expected vessel
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('save as planned does not apply assignment start versus sign-off ordering', function () {
+test('legacy createPlanned still stores forecasts without assignment start ordering', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter([
         'crew_operations.planning.create',
     ]);
     $vessel = makeCrewMovementVessel('Plan Order Vessel', $company);
     Carbon::setTestNow(Carbon::parse('2026-09-25 12:00:00', $company->timezone));
 
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
-            'employee_id' => $employee->id,
-            'position_id' => $rank->id,
-            'vessel_id' => $vessel->id,
-            'planned_join_at' => '2026-10-10',
-            'planned_signoff_at' => '2026-11-30',
-        ])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
+    $assignment = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
 
-    $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
-
-    expect($assignment)->not->toBeNull()
-        ->and($assignment->status)->toBe(CrewAssignmentStatus::Planned)
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Planned)
         ->and($assignment->started_at)->toBeNull()
         ->and($assignment->planned_join_at?->toDateString())->toBe('2026-10-10')
         ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-30');

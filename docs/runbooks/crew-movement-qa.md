@@ -126,22 +126,37 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Link uses `crew_assignment_phase_id`
 - [ ] Re-running sync remains idempotent
 
-## 6. Planning (unified CrewAssignment architecture)
+## 6. Planning (Crew Planning + Crew Assignment)
 
-CrewAssignment is the authoritative named-crew allocation record. Planning/Gantt is a workspace over Planned and Active CrewAssignments. CrewPlanningAssignment remains only for genuine vacant/legacy slots — there is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
+```text
+CrewPlanningAssignment
+= future planning authority
+  vacant OR named
+
+CrewAssignment
+= operational authority
+  Draft / Active / Completed / Cancelled
+
+CrewAssignment(status=planned)
+= legacy compatibility only until Phase 4
+```
+
+There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 
 ### Status semantics
 
-- [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** appear as a named Planning allocation; does **not** count as committed relief
-- [ ] **Planned** — `CrewAssignment(status=planned)`: committed future reservation with vessel, rank, Expected Join, and Expected Sign-Off; appears directly on Planning/Gantt; **no** employee-backed duplicate `CrewPlanningAssignment`
-- [ ] **Active** — operational mobilisation (P0–P6); Planned → Active keeps the **same CrewAssignment ID**
+- [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** count as committed relief
+- [ ] **Planned (legacy)** — existing `CrewAssignment(status=planned)` records remain readable/editable/cancellable until Phase 4 migration; **new** Planned CrewAssignments cannot be created via normal Create (`submission_intent=plan` is blocked)
+- [ ] **Crew Planning** — vacant/named `CrewPlanningAssignment` is the only future-planning workflow (Expected Arrival / Join / Sign-Off)
+- [ ] **Active** — operational mobilisation (P0–P6); Start Mobilisation / Start Assignment create Active at P0
 - [ ] **Completed / Cancelled** — historical / end states
 
-### Direct Start and Save as Planned
+### Direct Start and Crew Planning
 
-- [ ] Save as Planned requires vessel + effective rank + Expected Join + Expected Sign-Off
-- [ ] Accepted Planned assignment appears on the Planning Gantt
-- [ ] Direct Start may create Active without a prior Planned record
+- [ ] Future plans are created in Crew Planning (vacant or named) — not via Save as Planned on Crew Assignment
+- [ ] Crafted `submission_intent=plan` is rejected with guidance to Crew Planning
+- [ ] Direct Start may create Active without a prior Planning record
+- [ ] Named Planning → Start Mobilisation → Active P0
 - [ ] Expected Vessel Join may be blank on direct Start (`planned_join_at` stays null — never invented from `started_at`)
 - [ ] Expected Sign-Off cannot precede Assignment Start on Start / Active edit
 - [ ] Planned dates remain forecasts; actual join/sign-off happen only through Movement Actions
@@ -149,18 +164,23 @@ CrewAssignment is the authoritative named-crew allocation record. Planning/Gantt
 ### Vacant slot handoff
 
 - [ ] Vacant `CrewPlanningAssignment` may represent an unfilled vessel/rank slot
-- [ ] Assigning a named employee creates/links the authoritative CrewAssignment
+- [ ] Assigning a named **future** employee is done in Crew Planning (edit the planning row)
+- [ ] `planning.view` + `assignments.create` can open vacant operational handoff and Save Draft
+- [ ] Start Assignment from vacant handoff still requires `movements.perform`
+- [ ] Optional operational Draft/Start from a vacant slot may link the CrewAssignment (`LinkVacantCrewPlanningSlot`)
+- [ ] Named Planning cannot use the vacant-slot create handoff (Start Mobilisation only)
 - [ ] Crafted POST cannot clear vessel/rank or escape slot compatibility while linking
-- [ ] Linked slot disappears from vacant Gantt; named bar is the CrewAssignment
+- [ ] Linked slot disappears from vacant Gantt once linked to a CrewAssignment
 - [ ] User without `crew_operations.planning.view` cannot link a vacant slot
 
-### Planning-only permissions (Planned CrewAssignment)
+### Planning-only permissions (legacy Planned CrewAssignment + Crew Planning)
 
-- [ ] `planning.view` can open a Planned assignment (without `assignments.view`)
-- [ ] `planning.update` can edit a Planned assignment (without `assignments.update`)
-- [ ] `planning.delete` can cancel a Planned assignment (without `assignments.cancel`)
-- [ ] Planning permissions do **not** grant Start Assignment / movements / Active edits
-- [ ] Conflict dialog Edit/Cancel Existing Plan actions match the same Gate results
+- [ ] `planning.view` can open a legacy Planned assignment (without `assignments.view`)
+- [ ] `planning.update` can edit a legacy Planned assignment (without `assignments.update`)
+- [ ] `planning.delete` can cancel a legacy Planned assignment (without `assignments.cancel`)
+- [ ] Planning permissions create/edit CrewPlanningAssignment future plans
+- [ ] Planning permissions do **not** grant Start Assignment / Start Mobilisation / movements / Active edits
+- [ ] Conflict dialog Edit/Cancel Existing Plan actions match the same Gate results for legacy Planned rows
 
 ### Edit integrity
 

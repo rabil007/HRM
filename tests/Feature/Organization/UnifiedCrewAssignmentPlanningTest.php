@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
@@ -64,7 +65,7 @@ test('assignment can be saved as draft and does not reserve employee', function 
     expect($result->blocking)->toBeFalse();
 });
 
-test('assignment can be saved as planned and reserves employee', function () {
+test('crafted submission_intent plan cannot create a new planned crew assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planned Test Vessel', $company);
 
@@ -72,6 +73,7 @@ test('assignment can be saved as planned and reserves employee', function () {
         'crew_operations.assignments.view',
         'crew_operations.assignments.create',
         'crew_operations.planning.create',
+        'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -84,18 +86,24 @@ test('assignment can be saved as planned and reserves employee', function () {
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors([
+            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+        ]);
 
-    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 
-    expect($assignment)->not->toBeNull()
-        ->and($assignment->status)->toBe(CrewAssignmentStatus::Planned)
+    $assignment = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ], $user->id);
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Planned)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
-        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0)
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+        ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 
-    // Now conflict evaluator detects the planned reservation
     $evaluator = new CrewAssignmentConflictEvaluator;
     $conflictContext = new CrewAssignmentConflictContext(
         companyId: $company->id,
@@ -311,21 +319,19 @@ test('cancelling a planned assignment releases employee reservation', function (
     expect($evaluator->evaluate($context)->blocking)->toBeFalse();
 });
 
-test('invalid date sequence is rejected on planning', function () {
+test('invalid date sequence is rejected on draft create', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Date Check Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
         'crew_operations.assignments.create',
-        'crew_operations.planning.create',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    // Sign-off before join
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'draft',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -334,10 +340,9 @@ test('invalid date sequence is rejected on planning', function () {
         ])
         ->assertSessionHasErrors('planned_signoff_at');
 
-    // Arrival after join
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'draft',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -348,14 +353,14 @@ test('invalid date sequence is rejected on planning', function () {
         ->assertSessionHasErrors('planned_arrival_at');
 });
 
-test('save as planned requires planning create permission and denies when missing', function () {
+test('submission_intent plan is blocked even when planning create permission is granted', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Perm Test Vessel', $company);
 
-    // Has assignment create but lacks planning create
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
         'crew_operations.assignments.create',
+        'crew_operations.planning.create',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -368,28 +373,14 @@ test('save as planned requires planning create permission and denies when missin
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertForbidden();
+        ->assertSessionHasErrors([
+            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+        ]);
 
-    // Now grant planning.create
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.create',
-        'crew_operations.planning.create',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
-            'employee_id' => $employee->id,
-            'position_id' => $rank->id,
-            'vessel_id' => $vessel->id,
-            'planned_join_at' => '2026-10-10',
-            'planned_signoff_at' => '2026-11-30',
-        ])
-        ->assertRedirect();
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('tenant isolation rejects cross-company employee and vessel on plan creation', function () {
+test('tenant isolation rejects cross-company employee and vessel on start creation', function () {
     ['user' => $user, 'company' => $company, 'employee' => $localEmployee] = makeCrewAssignmentFixtures();
     ['company' => $otherCompany, 'employee' => $foreignEmployee] = makeCrewAssignmentFixtures();
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
@@ -397,24 +388,22 @@ test('tenant isolation rejects cross-company employee and vessel on plan creatio
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
         'crew_operations.assignments.create',
-        'crew_operations.planning.create',
+        'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    // Foreign employee
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $foreignEmployee->id,
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
         ->assertSessionHasErrors('employee_id');
 
-    // Foreign vessel
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $localEmployee->id,
             'vessel_id' => $foreignVessel->id,
             'planned_join_at' => '2026-10-10',
@@ -537,7 +526,7 @@ test('concurrent conflict evaluator locks and prevents conflicting reservations'
         ->toThrow(ValidationException::class);
 });
 
-test('planning-only user can open plan form and save as planned without assignments.create', function () {
+test('planning-only user is redirected to crew planning and cannot craft plan create', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Plan Only Vessel', $company);
 
@@ -549,14 +538,8 @@ test('planning-only user can open plan form and save as planned without assignme
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', ['intent' => 'plan']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/crew/create')
-            ->where('intent', 'plan')
-            ->where('can.plan', true)
-            ->where('can.create', false)
-            ->where('can.start', false)
-        );
+        ->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
@@ -567,13 +550,28 @@ test('planning-only user can open plan form and save as planned without assignme
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors([
+            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+        ]);
 
-    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
 
-    expect($assignment)->not->toBeNull()
-        ->and($assignment->status)->toBe(CrewAssignmentStatus::Planned)
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+test('create intent plan redirects operators to crew planning', function () {
+    ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', ['intent' => 'plan']))
+        ->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
 });
 
 test('planning-only user cannot draft or start and crafted start intent is forbidden', function () {
@@ -669,13 +667,15 @@ test('same planned assignment can start successfully without conflicting with it
         ->and($active->status)->toBe(CrewAssignmentStatus::Active);
 });
 
-test('vacant planning slot can be linked on plan store and rejects already-linked or incompatible slots', function () {
+test('vacant planning slot can be linked on start store and rejects already-linked or incompatible slots', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Slot Link Vessel', $company);
     $otherVessel = makeCrewMovementVessel('Other Slot Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
         'crew_operations.planning.view',
         'crew_operations.planning.create',
     ]);
@@ -692,7 +692,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -703,13 +703,14 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
         ->assertRedirect();
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
-    expect($vacant->fresh()->crew_assignment_id)->toBe($assignment->id);
+    expect($vacant->fresh()->crew_assignment_id)->toBe($assignment->id)
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active);
 
     $employee2 = Employee::factory()->create(['company_id' => $company->id, 'position_id' => $rank->id, 'status' => 'active']);
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee2->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -730,7 +731,7 @@ test('vacant planning slot can be linked on plan store and rejects already-linke
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee2->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -754,6 +755,8 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
         'crew_operations.planning.create',
     ]);
     $user->update(['current_company_id' => $company->id]);
@@ -769,7 +772,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -791,7 +794,7 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
     // Missing planning.view → link authorization fails
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -909,7 +912,7 @@ test('employee visibility scope hides inaccessible relief source without leaking
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'draft',
             'employee_id' => $reliefEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -933,6 +936,8 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
         'crew_operations.planning.view',
         'crew_operations.planning.create',
     ]);
@@ -958,7 +963,6 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', [
             'planning_assignment_id' => $slot->id,
-            'intent' => 'plan',
         ]))
         ->assertRedirect(route('organization.crew-assignments.show', $planned))
         ->assertSessionHas(
@@ -973,6 +977,8 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
         'crew_operations.planning.view',
         'crew_operations.planning.create',
     ]);
@@ -991,7 +997,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $exact = $baseSlot();
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1011,7 +1017,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     $subset = $baseSlot();
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $subsetEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1031,7 +1037,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $overlongEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1051,7 +1057,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $beforeEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1070,7 +1076,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $afterEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1089,7 +1095,7 @@ test('vacant planning slot date compatibility allows subsets and rejects out-of-
     ]);
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $subsetOverlongEmployee->id,
             'position_id' => $rank->id,
             'vessel_id' => $vessel->id,
@@ -1349,7 +1355,7 @@ test('planned update conflict uses submitted effective dates not stale persisted
         ->and($existing->fresh()->status)->toBe(CrewAssignmentStatus::Planned);
 });
 
-test('save as planned without vessel is rejected', function () {
+test('submission_intent plan is blocked without creating an assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     grantCompanyPermissions($user, $company, ['crew_operations.planning.create']);
     $user->update(['current_company_id' => $company->id]);
@@ -1362,7 +1368,9 @@ test('save as planned without vessel is rejected', function () {
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors('vessel_id');
+        ->assertSessionHasErrors([
+            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
+        ]);
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
@@ -1485,6 +1493,8 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
         'crew_operations.planning.view',
         'crew_operations.planning.create',
         'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
@@ -1499,7 +1509,7 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
-            'submission_intent' => 'plan',
+            'submission_intent' => 'start',
             'employee_id' => $employee->id,
             'position_id' => null,
             'vessel_id' => null,
@@ -1515,4 +1525,142 @@ test('crafted vacant slot handoff cannot clear vessel or rank', function () {
         ->and($assignment->vessel_id)->toBe($vessel->id)
         ->and($assignment->position_id)->toBe($rank->id)
         ->and($slot->fresh()->crew_assignment_id)->toBe($assignment->id);
+});
+
+test('vacant planning handoff opens for create-only users without movements perform', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Create Only Handoff Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $vacant->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('planning_context.planning_assignment_id', $vacant->id)
+            ->where('planning_context.employee_id', null)
+            ->where('can.create', true)
+            ->where('can.start', false)
+        );
+});
+
+test('vacant planning create-only user can save draft and link the slot', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Draft Link Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'draft',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($vacant->fresh()->crew_assignment_id)->toBe($assignment->id);
+});
+
+test('vacant planning start remains forbidden without movements perform', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Start Forbidden Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-10',
+            'planned_signoff_at' => '2026-11-30',
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertForbidden();
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and($vacant->fresh()->crew_assignment_id)->toBeNull();
+});
+
+test('named planning cannot open vacant-slot create handoff', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Named Handoff Block Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $named = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $named->id,
+        ]))
+        ->assertRedirect(route('organization.crew-planning.index'))
+        ->assertSessionHas('error', 'Named planning records must be started using Start Mobilisation.');
 });

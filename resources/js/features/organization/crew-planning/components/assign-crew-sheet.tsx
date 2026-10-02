@@ -120,13 +120,16 @@ export function AssignCrewSheet({
                             />
                             <div className="space-y-1">
                                 <p>
-                                    Crew Planning captures future scheduling
-                                    forecasts. Leave the crew member field empty
-                                    for a vacant planning slot.
+                                    Crew Planning is the future-planning
+                                    workspace. Leave the crew member blank for a
+                                    vacant slot, or select a named employee for
+                                    Expected Arrival / Join / Sign-Off.
                                 </p>
                                 <p>
-                                    Planned dates remain forecasts until an
-                                    operational crew assignment is started.
+                                    Start Mobilisation begins the operational P0
+                                    cycle. Planning forecasts never create P4
+                                    actuals, Sea Service, or payroll, and do not
+                                    automatically disembark source crew.
                                 </p>
                             </div>
                         </div>

@@ -8,10 +8,11 @@ use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Atomically links a vacant CrewPlanningAssignment slot to a CrewAssignment.
+ * Atomically links a vacant CrewPlanningAssignment slot to a CrewAssignment
+ * during the vacant-slot operational handoff (Draft / Start Assignment).
  *
- * CrewPlanningAssignment remains a vacant/unfilled planning slot until linked.
- * Named employees live on CrewAssignment only.
+ * CrewPlanningAssignment is the future-planning authority (vacant or named).
+ * This helper only links vacant slots; named plans use Start Mobilisation instead.
  */
 final class LinkVacantCrewPlanningSlot
 {
