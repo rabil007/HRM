@@ -35,7 +35,7 @@ test('authorized user is redirected to unified start form from vacant planning s
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('named planning record does not enter start handoff in Phase 1 and redirects to planning index', function () {
+test('named planning record on legacy create-crew-assignment route redirects to planning index', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Named Planning Vessel');
     grantCompanyPermissions($user, $company, [
@@ -59,7 +59,7 @@ test('named planning record does not enter start handoff in Phase 1 and redirect
         ->post(route('organization.crew-planning.assignments.create-crew-assignment', $planning));
 
     $response->assertRedirect(route('organization.crew-planning.index'))
-        ->assertSessionHas('error', 'Mobilisation handoff for named planning records is not supported in Phase 1.');
+        ->assertSessionHas('error', 'Named planning records must be started using Start Mobilisation.');
 });
 
 test('direct access to create handoff with named planning record redirects to planning index with error', function () {

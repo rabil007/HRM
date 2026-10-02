@@ -13,7 +13,9 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewPlanning\StartPlanningMobilisation;
 use App\Support\MasterData\ClientAssignmentRules;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 test('named planning record starts mobilisation to active CrewAssignment with P0 Pre-Mobilisation', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
@@ -703,11 +705,37 @@ test('concurrent employee mutation during mobilisation retries safely and mobili
     ]);
 
     $mutatedConcurrently = false;
-    DB::listen(function ($query) use (&$mutatedConcurrently, $planning, $employee2) {
-        if (! $mutatedConcurrently && str_contains(strtolower($query->sql), 'from "employees"') && str_contains(strtolower($query->sql), 'for update')) {
-            $mutatedConcurrently = true;
-            CrewPlanningAssignment::query()->whereKey($planning->id)->update(['employee_id' => $employee2->id]);
+    $pendingExternalMutation = false;
+
+    DB::listen(function ($query) use (&$mutatedConcurrently, &$pendingExternalMutation, $planning, $employee2) {
+        if ($mutatedConcurrently || $pendingExternalMutation) {
+            return;
         }
+
+        // SQLite omits FOR UPDATE; match the canonical Employee lock query by table + company scope.
+        $sql = strtolower($query->sql);
+        $locksEmployee = (str_contains($sql, 'from "employees"') || str_contains($sql, 'from `employees`'))
+            && str_contains($sql, 'company_id');
+
+        if (! $locksEmployee) {
+            return;
+        }
+
+        // Mutate inside the open transaction so the subsequent planning lock observes employee2 and
+        // triggers PlanningConcurrencyConflictException. The in-transaction write is rolled back with
+        // the conflict, so TransactionRolledBack re-applies it for the retry attempt.
+        $pendingExternalMutation = true;
+        CrewPlanningAssignment::query()->whereKey($planning->id)->update(['employee_id' => $employee2->id]);
+    });
+
+    Event::listen(TransactionRolledBack::class, function () use (&$mutatedConcurrently, &$pendingExternalMutation, $planning, $employee2) {
+        if (! $pendingExternalMutation || $mutatedConcurrently) {
+            return;
+        }
+
+        $mutatedConcurrently = true;
+        $pendingExternalMutation = false;
+        CrewPlanningAssignment::query()->whereKey($planning->id)->update(['employee_id' => $employee2->id]);
     });
 
     $response = $this->actingAs($user)
