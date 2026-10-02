@@ -291,7 +291,7 @@ test('employee switch clears AI-owned values but keeps manual edits', () => {
 
 test('bulk to single transition clears AI-owned values but keeps manual edits', () => {
     assert.equal(shouldClearAiOwnedOnDraftCountChange(2, 1), true);
-    assert.equal(shouldClearAiOwnedOnDraftCountChange(1, 2), true);
+    assert.equal(shouldClearAiOwnedOnDraftCountChange(1, 2), false);
     assert.equal(shouldClearAiOwnedOnDraftCountChange(2, 3), false);
     assert.equal(shouldClearAiOwnedOnDraftCountChange(1, 1), false);
 

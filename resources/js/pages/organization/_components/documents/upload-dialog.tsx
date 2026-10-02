@@ -335,11 +335,20 @@ export function UploadDocumentDialog({
             documentAiSettings?.mode === 'automatic' &&
             bulkAiState.status === 'idle'
         ) {
-            void startBulkAi();
+            const pendingDrafts = drafts.filter(
+                (draft) => draft.ai_filled_fields.length === 0,
+            );
+
+            if (pendingDrafts.length === 0) {
+                return;
+            }
+
+            void startBulkAi(pendingDrafts);
         }
     }, [
         bulkAiAvailable,
         bulkAiState.status,
+        drafts,
         startBulkAi,
         documentAiSettings?.mode,
     ]);

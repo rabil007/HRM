@@ -79,72 +79,80 @@ export function useDocumentAiBatch(
         setState(emptyDocumentAiBatch());
     }, [employeeId]);
 
-    const start = useCallback(async () => {
-        if (
-            !employeeId ||
-            drafts.length < 2 ||
-            startingRef.current ||
-            (state.status !== 'idle' && state.status !== 'failed')
-        ) {
-            return;
-        }
+    const start = useCallback(
+        async (targetDrafts?: UploadDraft[]) => {
+            const files = targetDrafts ?? drafts;
+            // Manual bulk requires 2+ files; automatic follow-up may extract a
+            // single pending draft after an earlier single-file AI pass.
+            const minCount = targetDrafts ? 1 : 2;
 
-        startingRef.current = true;
-        const requestId = resolveBatchRequestId(
-            stateRef.current.requestId,
-            newBatchRequestId,
-        );
-        setState({
-            id: null,
-            status: 'pending',
-            items: {},
-            requestId,
-        });
-
-        try {
-            const data = new FormData();
-            data.append('batch_request_id', requestId);
-            // The backend prefers a parallel coordinator job so one worker can
-            // extract multiple files concurrently; per-item jobs remain as fallback.
-            drafts.forEach((d) => {
-                data.append('files[]', d.file);
-                data.append('draft_ids[]', d.id);
-            });
-            const r = await fetch(
-                BatchController.store.url({ employee: employeeId }),
-                {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': csrf(),
-                        Accept: 'application/json',
-                    },
-                    body: data,
-                },
-            );
-
-            if (!r.ok) {
-                throw new Error('batch failed');
+            if (
+                !employeeId ||
+                files.length < minCount ||
+                startingRef.current ||
+                (state.status !== 'idle' && state.status !== 'failed')
+            ) {
+                return;
             }
 
-            const p = await r.json();
-            setState(
-                mapBatchResponse(
-                    p.batch,
-                    {
-                        ...emptyDocumentAiBatch(),
-                        requestId,
-                    },
-                    validDraftIds,
-                ),
+            startingRef.current = true;
+            const requestId = resolveBatchRequestId(
+                stateRef.current.requestId,
+                newBatchRequestId,
             );
-        } catch {
-            // Preserve requestId so an ambiguous network failure can reuse the
-            // same server-side idempotency key instead of creating duplicates.
-            setState(failedStartPreservingRequestId(requestId));
-        } finally {
-            startingRef.current = false;
-        }
-    }, [drafts, employeeId, state.status, validDraftIds]);
+            setState({
+                id: null,
+                status: 'pending',
+                items: {},
+                requestId,
+            });
+
+            try {
+                const data = new FormData();
+                data.append('batch_request_id', requestId);
+                // The backend prefers a parallel coordinator job so one worker can
+                // extract multiple files concurrently; per-item jobs remain as fallback.
+                files.forEach((d) => {
+                    data.append('files[]', d.file);
+                    data.append('draft_ids[]', d.id);
+                });
+                const r = await fetch(
+                    BatchController.store.url({ employee: employeeId }),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrf(),
+                            Accept: 'application/json',
+                        },
+                        body: data,
+                    },
+                );
+
+                if (!r.ok) {
+                    throw new Error('batch failed');
+                }
+
+                const p = await r.json();
+                setState(
+                    mapBatchResponse(
+                        p.batch,
+                        {
+                            ...emptyDocumentAiBatch(),
+                            requestId,
+                        },
+                        validDraftIds,
+                    ),
+                );
+            } catch {
+                // Preserve requestId so an ambiguous network failure can reuse the
+                // same server-side idempotency key instead of creating duplicates.
+                setState(failedStartPreservingRequestId(requestId));
+            } finally {
+                startingRef.current = false;
+            }
+        },
+        [drafts, employeeId, state.status, validDraftIds],
+    );
 
     useEffect(() => {
         if (!state.id || !isActiveBatchStatus(state.status)) {
