@@ -673,7 +673,7 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
 
     $collisionId = 7777;
 
-    // Relief 1: CrewAssignment with id = 7777 for outgoing1
+    // Relief 1: Active CrewAssignment with id = 7777 for outgoing1
     $reliefEmp1 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $reliefAssignment = CrewAssignment::query()->forceCreate([
         'id' => $collisionId,
@@ -682,12 +682,22 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
         'employee_id' => $reliefEmp1->id,
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
-        'status' => CrewAssignmentStatus::Planned,
+        'status' => CrewAssignmentStatus::Active,
+        'started_at' => '2026-10-01 08:00:00',
         'relieves_crew_assignment_id' => $outgoing1->id,
         'planned_join_at' => '2026-10-25 00:00:00',
         'planned_signoff_at' => '2026-11-25 00:00:00',
         'source' => 'manual',
     ]);
+    $reliefPhase = CrewAssignmentPhase::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $reliefAssignment->id,
+        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-01 08:00:00',
+    ]);
+    $reliefAssignment->update(['current_phase_id' => $reliefPhase->id]);
 
     // Give reliefEmp1 an overlapping competing active assignment on another vessel -> HAS CONFLICT!
     $otherVessel = makeCrewMovementVessel('Competing Active Vessel', $company);
@@ -753,18 +763,12 @@ test('conflict detection identifies competing assignment for CrewPlanningAssignm
         'planned_leave_date' => '2026-11-25',
     ]);
 
-    // Give reliefEmp an overlapping competing planned assignment
-    $otherVessel = makeCrewMovementVessel('Other Competing Planned Vessel', $company);
-    CrewAssignment::query()->create([
-        'company_id' => $company->id,
-        'assignment_no' => 'CA-COMPETING-PLANNED',
-        'employee_id' => $reliefEmp->id,
-        'position_id' => $rank->id,
-        'vessel_id' => $otherVessel->id,
-        'status' => CrewAssignmentStatus::Planned,
+    // Give reliefEmp an overlapping competing active assignment
+    $otherVessel = makeCrewMovementVessel('Other Competing Active Vessel', $company);
+    makeActiveOnVesselAssignment($company, $reliefEmp, $rank, $otherVessel, [
+        'assignment_no' => 'CA-COMPETING-ACTIVE-PLANNING',
         'planned_join_at' => '2026-10-20 00:00:00',
         'planned_signoff_at' => '2026-11-20 00:00:00',
-        'source' => 'manual',
     ]);
 
     $this->actingAs($user)

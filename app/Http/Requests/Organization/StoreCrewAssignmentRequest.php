@@ -26,16 +26,10 @@ class StoreCrewAssignmentRequest extends FormRequest
             return false;
         }
 
-        // Plan intent is rejected in validation with a Crew Planning guidance message.
-        if ($this->submissionIntent() === CrewAssignmentSubmissionIntent::Plan) {
-            return true;
-        }
-
         return match ($this->submissionIntent()) {
             CrewAssignmentSubmissionIntent::Start => $user->can('crew_operations.assignments.create')
                 && $user->can('crew_operations.movements.perform'),
             CrewAssignmentSubmissionIntent::Draft => $user->can('crew_operations.assignments.create'),
-            default => false,
         };
     }
 
@@ -101,17 +95,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             'submission_intent' => [
                 'required',
                 'string',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if ($value === CrewAssignmentSubmissionIntent::Plan->value) {
-                        $fail(CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
-
-                        return;
-                    }
-
-                    if (! in_array($value, CrewAssignmentSubmissionIntent::createValues(), true)) {
-                        $fail('The selected submission intent is invalid.');
-                    }
-                },
+                Rule::in(CrewAssignmentSubmissionIntent::createValues()),
             ],
             'employee_id' => [
                 'required',
@@ -133,10 +117,6 @@ class StoreCrewAssignmentRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if ($this->input('submission_intent') === CrewAssignmentSubmissionIntent::Plan->value) {
-                return;
-            }
-
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }

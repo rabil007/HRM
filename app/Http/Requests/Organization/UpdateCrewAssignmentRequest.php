@@ -126,38 +126,19 @@ class UpdateCrewAssignmentRequest extends FormRequest
 
             $this->assertCandidateDateOrder($validator, $assignment, $candidate, $timezone);
 
-            if ($assignment->status === CrewAssignmentStatus::Planned) {
-                if ($candidate['vessel_id'] === null) {
-                    $validator->errors()->add('vessel_id', 'Vessel is required for Planned assignments.');
-                }
-
-                if ($candidate['position_id'] === null) {
-                    $validator->errors()->add('position_id', 'Position is required for Planned assignments.');
-                }
-
-                if ($candidate['planned_join_at'] === null) {
-                    $validator->errors()->add('planned_join_at', 'Expected Vessel Join is required for Planned assignments.');
-                }
-
-                if ($candidate['planned_signoff_at'] === null) {
-                    $validator->errors()->add('planned_signoff_at', 'Expected Sign-Off is required for Planned assignments.');
-                }
-            }
-
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
 
-            if (in_array($assignment->status, [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active], true)) {
-                $action = $assignment->status === CrewAssignmentStatus::Planned ? 'plan' : 'start';
+            if ($assignment->status === CrewAssignmentStatus::Active) {
                 $conflictContext = new CrewAssignmentConflictContext(
                     companyId: $companyId,
                     employeeId: (int) $assignment->employee_id,
-                    action: $action,
+                    action: 'start',
                     plannedJoinAt: $candidate['planned_join_at'],
                     plannedSignoffAt: $candidate['planned_signoff_at'],
                     plannedArrivalAt: $candidate['planned_arrival_at'],
-                    operationalStartAt: $action === 'start' ? $assignment->started_at : null,
+                    operationalStartAt: $assignment->started_at,
                     vesselId: $candidate['vessel_id'],
                     positionId: $candidate['position_id'],
                     clientId: $candidate['client_id'],

@@ -269,32 +269,9 @@ class CrewAssignment extends Model
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
-    public function scopePlanned(Builder $query): Builder
-    {
-        return $query->where('status', CrewAssignmentStatus::Planned);
-    }
-
-    /**
-     * @param  Builder<CrewAssignment>  $query
-     * @return Builder<CrewAssignment>
-     */
     public function scopeDraft(Builder $query): Builder
     {
         return $query->where('status', CrewAssignmentStatus::Draft);
-    }
-
-    /**
-     * Confirmed reservations that hold employee availability (planned + active).
-     *
-     * @param  Builder<CrewAssignment>  $query
-     * @return Builder<CrewAssignment>
-     */
-    public function scopeReservations(Builder $query): Builder
-    {
-        return $query->whereIn('status', [
-            CrewAssignmentStatus::Planned,
-            CrewAssignmentStatus::Active,
-        ]);
     }
 
     /**

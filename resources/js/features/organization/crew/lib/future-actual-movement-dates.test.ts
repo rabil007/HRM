@@ -4,7 +4,6 @@ import {
     resolveMovementOccurredAtMax,
     shouldBlockFutureActualMovementDate,
     shouldShowFutureMovementWarning,
-    shouldShowPlannedConflictAction,
     shouldShowTestingOverrideBanner,
 } from './future-actual-movement-dates.ts';
 
@@ -33,25 +32,5 @@ describe('future actual movement dates helpers', () => {
         assert.equal(shouldBlockFutureActualMovementDate(true, true), false);
         assert.equal(shouldBlockFutureActualMovementDate(false, false), false);
         assert.equal(shouldBlockFutureActualMovementDate(false, true), false);
-    });
-
-    it('shows Planned conflict actions from allowed_actions without create-page can flags', () => {
-        const allowed = ['edit_existing_plan', 'cancel_existing_plan'];
-
-        assert.equal(
-            shouldShowPlannedConflictAction(allowed, 'edit_existing_plan'),
-            true,
-        );
-        assert.equal(
-            shouldShowPlannedConflictAction(allowed, 'cancel_existing_plan'),
-            true,
-        );
-        assert.equal(
-            shouldShowPlannedConflictAction(
-                ['adjust_dates'],
-                'edit_existing_plan',
-            ),
-            false,
-        );
     });
 });

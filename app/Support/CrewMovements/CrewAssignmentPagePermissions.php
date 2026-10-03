@@ -28,7 +28,6 @@ class CrewAssignmentPagePermissions
      *     create: bool,
      *     create_historical: bool,
      *     start: bool,
-     *     plan: bool,
      *     update: bool,
      *     perform_movement: bool,
      *     cancel: bool,
@@ -50,14 +49,12 @@ class CrewAssignmentPagePermissions
     {
         $create = $user?->can('crew_operations.assignments.create') ?? false;
         $performMovement = $user?->can('crew_operations.movements.perform') ?? false;
-        $plan = $user?->can('crew_operations.planning.create') ?? false;
 
         return [
             'view' => $user?->can('crew_operations.assignments.view') ?? false,
             'create' => $create,
             'create_historical' => $user?->can('crew_operations.assignments.create_historical') ?? false,
             'start' => $create && $performMovement,
-            'plan' => $plan,
             'update' => $user?->can('crew_operations.assignments.update') ?? false,
             'perform_movement' => $performMovement,
             'cancel' => $user?->can('crew_operations.assignments.cancel') ?? false,
@@ -77,15 +74,13 @@ class CrewAssignmentPagePermissions
     }
 
     /**
-     * Instance-aware permissions for a specific CrewAssignment.
-     * Planned records may be opened/edited/cancelled via Planning permissions.
+     * Instance-aware permissions for a specific operational CrewAssignment.
      *
      * @return array{
      *     view: bool,
      *     create: bool,
      *     create_historical: bool,
      *     start: bool,
-     *     plan: bool,
      *     update: bool,
      *     perform_movement: bool,
      *     cancel: bool,

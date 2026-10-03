@@ -11,7 +11,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
-import { shouldShowPlannedConflictAction } from '../lib/future-actual-movement-dates';
 import type { CrewAssignmentPagePermissions } from '../types';
 
 export type ConflictDialogData = {
@@ -21,7 +20,7 @@ export type ConflictDialogData = {
     message: string;
     existing_assignment?: {
         id: number;
-        assignment_no: string;
+        assignment_no: string | null;
         status: string;
         status_label: string;
         vessel_id: number | null;
@@ -121,28 +120,6 @@ export function CrewAssignmentConflictDialog({
         router.visit(showAssignment.url(existing.id));
     };
 
-    const handleEditExistingPlan = (): void => {
-        if (!existing?.id) {
-            return;
-        }
-
-        onOpenChange(false);
-        router.visit(showAssignment.url(existing.id));
-    };
-
-    const handleCancelExistingPlan = (): void => {
-        if (!existing?.id) {
-            return;
-        }
-
-        onOpenChange(false);
-        router.visit(
-            showAssignment.url(existing.id, {
-                query: { action: 'cancel_assignment' },
-            }),
-        );
-    };
-
     const handleTransferVessel = (): void => {
         if (!existing?.id) {
             return;
@@ -179,12 +156,14 @@ export function CrewAssignmentConflictDialog({
                             <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
                                 <span>
                                     {isPlannedPlanned
-                                        ? 'Existing Planned Assignment'
+                                        ? 'Existing Crew Plan'
                                         : 'Current Operational Assignment'}
                                 </span>
-                                <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[11px]">
-                                    {existing.assignment_no}
-                                </span>
+                                {existing.assignment_no ? (
+                                    <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-[11px]">
+                                        {existing.assignment_no}
+                                    </span>
+                                ) : null}
                             </div>
                             <div className="flex items-center gap-2 font-medium text-foreground">
                                 <Ship className="h-4 w-4 text-muted-foreground" />
@@ -278,37 +257,6 @@ export function CrewAssignmentConflictDialog({
                             {isPlannedPlanned
                                 ? 'Adjust New Dates'
                                 : 'Reschedule'}
-                        </Button>
-                    ) : null}
-
-                    {/* Edit existing plan — allowed_actions is already instance-policy filtered */}
-                    {isPlannedPlanned &&
-                    shouldShowPlannedConflictAction(
-                        allowedActions,
-                        'edit_existing_plan',
-                    ) ? (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleEditExistingPlan}
-                        >
-                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                            Edit Existing Plan
-                        </Button>
-                    ) : null}
-
-                    {/* Cancel existing plan — allowed_actions is already instance-policy filtered */}
-                    {isPlannedPlanned &&
-                    shouldShowPlannedConflictAction(
-                        allowedActions,
-                        'cancel_existing_plan',
-                    ) ? (
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handleCancelExistingPlan}
-                        >
-                            Cancel Existing Plan
                         </Button>
                     ) : null}
 

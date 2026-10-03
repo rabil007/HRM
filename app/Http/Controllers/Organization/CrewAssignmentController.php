@@ -145,18 +145,6 @@ class CrewAssignmentController extends Controller
 
     public function create(Request $request, ResolvePlanningStartHandoff $planningHandoff)
     {
-        // Legacy ?intent=plan bookmarks: future plans belong in Crew Planning.
-        if ($request->query('intent') === 'plan'
-            && ($request->query('planning_assignment_id') === null || $request->query('planning_assignment_id') === '')) {
-            if ($request->user()?->can('crew_operations.planning.view')) {
-                return redirect()
-                    ->route('organization.crew-planning.index')
-                    ->with('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
-            }
-
-            abort(403);
-        }
-
         Gate::authorize('create', CrewAssignment::class);
 
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -262,12 +250,6 @@ class CrewAssignmentController extends Controller
     {
         $intent = $request->submissionIntent();
 
-        if ($intent === CrewAssignmentSubmissionIntent::Plan) {
-            throw ValidationException::withMessages([
-                'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-            ]);
-        }
-
         if ($intent === CrewAssignmentSubmissionIntent::Start) {
             Gate::authorize('start', CrewAssignment::class);
         } else {
@@ -355,9 +337,6 @@ class CrewAssignmentController extends Controller
                         ],
                         $request->user()?->id,
                     ),
-                    CrewAssignmentSubmissionIntent::Plan => throw ValidationException::withMessages([
-                        'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-                    ]),
                 };
 
                 if ($planningAssignmentId !== null) {
@@ -376,9 +355,6 @@ class CrewAssignmentController extends Controller
             $success = match ($intent) {
                 CrewAssignmentSubmissionIntent::Start => 'Crew assignment started successfully.',
                 CrewAssignmentSubmissionIntent::Draft => 'Crew assignment created successfully.',
-                CrewAssignmentSubmissionIntent::Plan => throw ValidationException::withMessages([
-                    'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-                ]),
             };
 
             if (Gate::allows('view', $assignment)) {

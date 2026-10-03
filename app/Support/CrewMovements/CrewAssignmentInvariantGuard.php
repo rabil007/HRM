@@ -128,10 +128,10 @@ class CrewAssignmentInvariantGuard
             );
         }
 
-        if (in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned], true)) {
+        if ($assignment->status === CrewAssignmentStatus::Draft) {
             if (! in_array($current->status, [CrewPhaseStatus::Planned, CrewPhaseStatus::Active], true)) {
                 throw CrewMovementException::make(
-                    'Draft or planned assignment current phase must be planned or active.',
+                    'Draft assignment current phase must be planned or active.',
                     'draft_current_phase_status',
                 );
             }

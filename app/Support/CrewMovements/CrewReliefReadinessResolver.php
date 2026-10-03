@@ -84,10 +84,7 @@ final class CrewReliefReadinessResolver
         $assignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
-            ->whereIn('status', [
-                CrewAssignmentStatus::Planned,
-                CrewAssignmentStatus::Active,
-            ])
+            ->where('status', CrewAssignmentStatus::Active)
             ->with([
                 'employee:id,name,employee_no',
                 'currentPhase',
@@ -101,7 +98,7 @@ final class CrewReliefReadinessResolver
             }
         }
 
-        // Fallback to legacy planning assignments if present
+        // Fallback to Crew Planning assignments
         $plans = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
@@ -130,10 +127,7 @@ final class CrewReliefReadinessResolver
         $hasAssignment = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)
-            ->whereIn('status', [
-                CrewAssignmentStatus::Planned,
-                CrewAssignmentStatus::Active,
-            ])
+            ->where('status', CrewAssignmentStatus::Active)
             ->when($exceptAssignmentId !== null, fn ($q) => $q->whereKeyNot($exceptAssignmentId))
             ->with('currentPhase')
             ->orderByDesc('id')
@@ -164,7 +158,7 @@ final class CrewReliefReadinessResolver
 
     /**
      * Active operational relief: non-deleted vacant Planning with no linked assignment,
-     * or a named Planned/Active CrewAssignment (or linked Active assignment) still in P0–P4.
+     * or a named Active CrewAssignment (or linked Active assignment) still in P0–P4.
      * Draft CrewAssignments are non-committed and do not count.
      * Active P5/P6 replacements are historical and must not block a new plan.
      */
@@ -175,16 +169,8 @@ final class CrewReliefReadinessResolver
         }
 
         if ($plan instanceof CrewAssignment) {
-            if (in_array($plan->status, [
-                CrewAssignmentStatus::Completed,
-                CrewAssignmentStatus::Cancelled,
-                CrewAssignmentStatus::Draft,
-            ], true)) {
+            if ($plan->status !== CrewAssignmentStatus::Active) {
                 return false;
-            }
-
-            if ($plan->status === CrewAssignmentStatus::Planned) {
-                return true;
             }
 
             $phase = $plan->currentPhase;
@@ -211,15 +197,8 @@ final class CrewReliefReadinessResolver
             return true;
         }
 
-        if (! in_array($linked->status, [
-            CrewAssignmentStatus::Planned,
-            CrewAssignmentStatus::Active,
-        ], true)) {
+        if ($linked->status !== CrewAssignmentStatus::Active) {
             return false;
-        }
-
-        if ($linked->status === CrewAssignmentStatus::Planned) {
-            return true;
         }
 
         $phase = $linked->relationLoaded('currentPhase')
@@ -332,10 +311,6 @@ final class CrewReliefReadinessResolver
 
     private function resolveAssignmentStatus(CrewAssignment $assignment): CrewReliefStatus
     {
-        if ($assignment->status === CrewAssignmentStatus::Planned) {
-            return CrewReliefStatus::ReliefPlanned;
-        }
-
         $phase = $assignment->currentPhase;
 
         if ($phase === null) {

@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\CrewAssignmentStatus;
-use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
@@ -65,7 +64,7 @@ test('assignment can be saved as draft and does not reserve employee', function 
     expect($result->blocking)->toBeFalse();
 });
 
-test('crafted submission_intent plan cannot create a new planned crew assignment', function () {
+test('crafted submission_intent plan cannot create a crew assignment and planning reserves instead', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planned Test Vessel', $company);
 
@@ -86,22 +85,20 @@ test('crafted submission_intent plan cannot create a new planned crew assignment
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors([
-            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-        ]);
+        ->assertSessionHasErrors(['submission_intent']);
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 
-    $assignment = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
-    expect($assignment->status)->toBe(CrewAssignmentStatus::Planned)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
-        ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
+    expect($planning->crew_assignment_id)->toBeNull()
         ->and(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 
     $evaluator = new CrewAssignmentConflictEvaluator;
@@ -116,32 +113,34 @@ test('crafted submission_intent plan cannot create a new planned crew assignment
     $result = $evaluator->evaluate($conflictContext);
     expect($result->blocking)->toBeTrue()
         ->and($result->code)->toBe('planned_planned_overlap')
-        ->and($result->allowedActions)->toContain('adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel');
+        ->and($result->allowedActions)->toContain('adjust_dates', 'cancel')
+        ->and($result->allowedActions)->not->toContain('edit_existing_plan', 'cancel_existing_plan');
 });
 
-test('planned assignment appears in Planning Gantt query without duplicate records', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+test('crew planning assignment appears in Planning Gantt query without duplicate records', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Gantt Test Vessel', $company);
 
-    $service = app(CrewMovementService::class);
-    $assignment = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $bars = CrewPlanningGanttQuery::bars($company->id, '2026-10-01', '2026-12-31');
-    $bar = collect($bars)->firstWhere('crew_assignment_id', $assignment->id);
+    $bar = collect($bars)->firstWhere('id', $planning->id);
 
     expect($bar)->not->toBeNull()
         ->and($bar['employee_id'])->toBe($employee->id)
         ->and($bar['vessel_name'])->toBe($vessel->name)
         ->and($bar['planned_join_date'])->toBe('2026-10-10')
         ->and($bar['planned_leave_date'])->toBe('2026-11-30')
-        ->and($bar['status'])->toBe(CrewAssignmentStatus::Planned->value)
+        ->and($bar['status'])->toBe('planned')
         ->and($bar['is_assigned'])->toBeFalse()
-        ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+        ->and($bar['crew_assignment_id'])->toBeNull();
 });
 
 test('assignment can start directly without planning first', function () {
@@ -176,25 +175,25 @@ test('assignment can start directly without planning first', function () {
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });
 
-test('planned assignment can transition to active on the SAME CrewAssignment record', function () {
+test('draft assignment can transition to active on the SAME CrewAssignment record', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Transition Vessel', $company);
 
     $service = app(CrewMovementService::class);
-    $planned = $service->createPlanned($company->id, $employee->id, [
+    $draft = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    $originalId = $planned->id;
-    $originalNo = $planned->assignment_no;
+    $originalId = $draft->id;
+    $originalNo = $draft->assignment_no;
 
-    expect($planned->status)->toBe(CrewAssignmentStatus::Planned);
+    expect($draft->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($draft->currentPhase?->status)->toBe(CrewPhaseStatus::Planned);
 
-    // Mobilisation approved (start assignment)
-    $active = $service->perform($company->id, $planned->id, CrewMovementAction::ApproveMobilisation, [
+    $active = $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-09-20 10:00:00',
     ], $user->id);
 
@@ -207,21 +206,21 @@ test('planned assignment can transition to active on the SAME CrewAssignment rec
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
 });
 
-test('planned to active transition reruns conflict check and blocks if circumstances changed', function () {
+test('draft to active transition reruns conflict check and blocks if circumstances changed', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel1 = makeCrewMovementVessel('Vessel 1', $company);
     $vessel2 = makeCrewMovementVessel('Vessel 2', $company);
 
     $service = app(CrewMovementService::class);
-    $planned = $service->createPlanned($company->id, $employee->id, [
+    $draft = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    // Concurrent Active that ends before the Planned window — allowed at start time,
-    // but still blocks Planned → Active because an Active assignment already exists.
+    // Concurrent Active that ends before the draft window — allowed at start time,
+    // but still blocks Draft → Active because an Active assignment already exists.
     $service->startAssignment($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel2->id,
@@ -229,8 +228,7 @@ test('planned to active transition reruns conflict check and blocks if circumsta
         'stage_started_at' => '2026-09-15 08:00:00',
     ], $user->id);
 
-    // Attempting to activate the planned assignment must be blocked
-    expect(fn () => $service->perform($company->id, $planned->id, CrewMovementAction::ApproveMobilisation, [
+    expect(fn () => $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-09-20 10:00:00',
     ], $user->id))->toThrow(ValidationException::class);
 });
@@ -284,17 +282,25 @@ test('incompatible active vs active start is hard blocked', function () {
     ], $user->id))->toThrow(CrewMovementException::class, 'already has an active assignment');
 });
 
-test('cancelling a planned assignment releases employee reservation', function () {
+test('deleting a crew planning reservation releases employee availability', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Cancel Plan Vessel', $company);
 
-    $service = app(CrewMovementService::class);
-    $planned = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+        'crew_operations.planning.delete',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $evaluator = new CrewAssignmentConflictEvaluator;
     $context = new CrewAssignmentConflictContext(
@@ -305,17 +311,13 @@ test('cancelling a planned assignment releases employee reservation', function (
         plannedSignoffAt: CarbonImmutable::parse('2026-11-20'),
     );
 
-    // Initially blocked
     expect($evaluator->evaluate($context)->blocking)->toBeTrue();
 
-    // Cancel the planned assignment
-    $service->perform($company->id, $planned->id, CrewMovementAction::CancelAssignment, [
-        'reason' => 'Operator cancelled test plan',
-    ], $user->id);
+    $this->actingAs($user)
+        ->delete(route('organization.crew-planning.assignments.destroy', $planning))
+        ->assertRedirect();
 
-    expect($planned->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
-
-    // Now employee is free for that date range
+    expect(CrewPlanningAssignment::query()->whereKey($planning->id)->exists())->toBeFalse();
     expect($evaluator->evaluate($context)->blocking)->toBeFalse();
 });
 
@@ -373,9 +375,7 @@ test('submission_intent plan is blocked even when planning create permission is 
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors([
-            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-        ]);
+        ->assertSessionHasErrors(['submission_intent']);
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
@@ -412,105 +412,124 @@ test('tenant isolation rejects cross-company employee and vessel on start creati
         ->assertSessionHasErrors('vessel_id');
 });
 
-test('planned save creates no actual movement events or sea service', function () {
+test('draft save creates no actual movement events or sea service', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('No Sea Service Vessel', $company);
 
     $service = app(CrewMovementService::class);
-    $assignment = $service->createPlanned($company->id, $employee->id, [
+    $assignment = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    // Phases count is 1, but status is Planned, actuals are null
-    expect($assignment->phases)->toHaveCount(1)
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($assignment->phases)->toHaveCount(1)
         ->and($assignment->phases->first()->status)->toBe(CrewPhaseStatus::Planned)
         ->and($assignment->phases->first()->actual_start_at)->toBeNull()
         ->and($assignment->phases->first()->actual_end_at)->toBeNull();
 
-    // Zero sea service
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
 
-    // Planned signoff remains purely planned
     expect($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-30')
         ->and($assignment->currentPhase?->actual_end_at)->toBeNull();
 });
 
-test('audit logs meaningful activity for planned lifecycle transitions', function () {
+test('named planning start mobilisation keeps forecasts without planned_assignment activity', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Audit Test Vessel', $company);
 
-    $service = app(CrewMovementService::class);
-    $assignment = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.view',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
-    $logged = Activity::query()
-        ->where('subject_type', CrewAssignment::class)
-        ->where('subject_id', $assignment->id)
-        ->where('description', 'planned_assignment_confirmed')
-        ->first();
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.start-mobilisation', $planning))
+        ->assertRedirect();
 
-    expect($logged)->not->toBeNull()
-        ->and($logged->causer_id)->toBe($user->id);
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->planned_join_at?->toDateString())->toBe('2026-10-10')
+        ->and($assignment->planned_signoff_at?->toDateString())->toBe('2026-11-30')
+        ->and(Activity::query()
+            ->where('subject_type', CrewAssignment::class)
+            ->where('subject_id', $assignment->id)
+            ->where('description', 'like', 'planned_assignment_%')
+            ->count())->toBe(0);
 });
 
-test('editing planned dates reruns conflict detection and blocks overlapping dates', function () {
+test('editing planning dates reruns conflict detection and blocks overlapping dates', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel1 = makeCrewMovementVessel('Edit Date Vessel 1', $company);
     $vessel2 = makeCrewMovementVessel('Edit Date Vessel 2', $company);
 
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.create',
-        'crew_operations.assignments.update',
+        'crew_operations.planning.view',
         'crew_operations.planning.create',
+        'crew_operations.planning.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $service = app(CrewMovementService::class);
-
-    // Plan A: Oct 10 - Oct 31
-    $planA = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $planA = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel1->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-10-31',
-    ], $user->id);
-
-    // Plan B: Dec 01 - Dec 31 (non-overlapping)
-    $planB = $service->createPlanned($company->id, $employee->id, [
         'position_id' => $rank->id,
-        'vessel_id' => $vessel2->id,
-        'planned_join_at' => '2026-12-01',
-        'planned_signoff_at' => '2026-12-31',
-    ], $user->id);
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-10-31',
+    ]);
 
-    // Now edit Plan B dates so they overlap Plan A (Oct 15 - Nov 15)
+    $planB = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel2->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-12-01',
+        'planned_leave_date' => '2026-12-31',
+    ]);
+
     $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $planB->id), [
-            'planned_join_at' => '2026-10-15',
-            'planned_signoff_at' => '2026-11-15',
+        ->put(route('organization.crew-planning.assignments.update', $planB), [
+            'vessel_id' => $vessel2->id,
+            'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-15',
+            'planned_leave_date' => '2026-11-15',
         ])
         ->assertSessionHasErrors('employee_id');
+
+    expect($planA->fresh()->planned_join_date?->toDateString())->toBe('2026-10-10')
+        ->and($planB->fresh()->planned_join_date?->toDateString())->toBe('2026-12-01');
 });
 
 test('concurrent conflict evaluator locks and prevents conflicting reservations', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Concurrent Lock Vessel', $company);
 
-    $service = app(CrewMovementService::class);
-    $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $evaluator = new CrewAssignmentConflictEvaluator;
     $context = new CrewAssignmentConflictContext(
@@ -521,12 +540,11 @@ test('concurrent conflict evaluator locks and prevents conflicting reservations'
         plannedSignoffAt: CarbonImmutable::parse('2026-11-15'),
     );
 
-    // Evaluator withLock: true detects conflicting reservation under transaction
     expect(fn () => DB::transaction(fn () => $evaluator->assertNoBlockingConflicts($context, withLock: true)))
         ->toThrow(ValidationException::class);
 });
 
-test('planning-only user is redirected to crew planning and cannot craft plan create', function () {
+test('planning-only user cannot open assignment create or craft plan intent', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Plan Only Vessel', $company);
 
@@ -538,9 +556,9 @@ test('planning-only user is redirected to crew planning and cannot craft plan cr
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', ['intent' => 'plan']))
-        ->assertRedirect(route('organization.crew-planning.index'))
-        ->assertSessionHas('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
+        ->assertForbidden();
 
+    // Invalid intent falls back to Draft for authorize(); planning-only still cannot create.
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.store'), [
             'submission_intent' => 'plan',
@@ -550,14 +568,12 @@ test('planning-only user is redirected to crew planning and cannot craft plan cr
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors([
-            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-        ]);
+        ->assertForbidden();
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('create intent plan redirects operators to crew planning', function () {
+test('create intent plan is ignored and does not create a planned assignment', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -570,8 +586,11 @@ test('create intent plan redirects operators to crew planning', function () {
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.create', ['intent' => 'plan']))
-        ->assertRedirect(route('organization.crew-planning.index'))
-        ->assertSessionHas('error', CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage());
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/create')
+            ->where('intent', null)
+        );
 });
 
 test('planning-only user cannot draft or start and crafted start intent is forbidden', function () {
@@ -609,61 +628,57 @@ test('planning-only user cannot draft or start and crafted start intent is forbi
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('planned to active rechecks full planned date range against overlapping planned assignment', function () {
+test('draft to active rechecks full planned date range against overlapping planning reservation', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel1 = makeCrewMovementVessel('Range Vessel A', $company);
     $vessel2 = makeCrewMovementVessel('Range Vessel B', $company);
 
     $service = app(CrewMovementService::class);
 
-    $planA = $service->createPlanned($company->id, $employee->id, [
+    $draft = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel1->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    // Create a non-overlapping plan, then force an overlapping reservation that would
-    // only be caught when Plan A activates (full planned range recheck).
-    $planB = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    // Overlapping planning reservation that blocks Draft → Active on full range recheck.
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel2->id,
-        'planned_join_at' => '2026-12-15',
-        'planned_signoff_at' => '2026-12-31',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-11-15',
+        'planned_leave_date' => '2026-12-31',
+    ]);
 
-    $planB->forceFill([
-        'planned_join_at' => '2026-11-15',
-        'planned_signoff_at' => '2026-12-31',
-    ])->save();
-
-    expect(fn () => $service->perform($company->id, $planA->id, CrewMovementAction::ApproveMobilisation, [
+    expect(fn () => $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-09-20 10:00:00',
     ], $user->id))->toThrow(ValidationException::class);
 
-    expect($planA->fresh()->status)->toBe(CrewAssignmentStatus::Planned)
-        ->and($planA->fresh()->id)->toBe($planA->id)
-        ->and($planA->fresh()->assignment_no)->toBe($planA->assignment_no);
+    expect($draft->fresh()->status)->toBe(CrewAssignmentStatus::Draft)
+        ->and($draft->fresh()->id)->toBe($draft->id)
+        ->and($draft->fresh()->assignment_no)->toBe($draft->assignment_no);
 });
 
-test('same planned assignment can start successfully without conflicting with itself', function () {
+test('same draft assignment can start successfully without conflicting with itself', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Self Start Vessel', $company);
 
     $service = app(CrewMovementService::class);
-    $planned = $service->createPlanned($company->id, $employee->id, [
+    $draft = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-01',
         'planned_signoff_at' => '2026-11-30',
     ], $user->id);
 
-    $active = $service->perform($company->id, $planned->id, CrewMovementAction::ApproveMobilisation, [
+    $active = $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
         'occurred_at' => '2026-09-20 10:00:00',
     ], $user->id);
 
-    expect($active->id)->toBe($planned->id)
-        ->and($active->assignment_no)->toBe($planned->assignment_no)
+    expect($active->id)->toBe($draft->id)
+        ->and($active->assignment_no)->toBe($draft->assignment_no)
         ->and($active->status)->toBe(CrewAssignmentStatus::Active);
 });
 
@@ -805,17 +820,18 @@ test('cross-company and unauthorized planning slot linkage is rejected', functio
         ->assertSessionHasErrors('planning_assignment_id');
 });
 
-test('conflict payload matches frontend schema for overlapping planned assignments', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+test('conflict payload matches frontend schema for overlapping planning reservations', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Schema Vessel', $company);
 
-    $service = app(CrewMovementService::class);
-    $existing = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $existing = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $evaluator = new CrewAssignmentConflictEvaluator;
     $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
@@ -825,7 +841,7 @@ test('conflict payload matches frontend schema for overlapping planned assignmen
         plannedJoinAt: CarbonImmutable::parse('2026-10-20'),
         plannedSignoffAt: CarbonImmutable::parse('2026-12-15'),
         vesselId: $vessel->id,
-        rankId: $rank->id,
+        positionId: $rank->id,
     ));
 
     $payload = $result->toArray();
@@ -872,7 +888,9 @@ test('conflict payload matches frontend schema for overlapping planned assignmen
         ->and($payload['new_assignment']['planned_join_at'])->toBe('2026-10-20')
         ->and($payload['new_assignment']['planned_signoff_at'])->toBe('2026-12-15')
         ->and($payload['affected_dates']['overlap_start'])->not->toBeNull()
-        ->and($payload['affected_dates']['overlap_end'])->not->toBeNull();
+        ->and($payload['affected_dates']['overlap_end'])->not->toBeNull()
+        ->and($payload['allowed_actions'])->toContain('adjust_dates', 'cancel')
+        ->and($payload['allowed_actions'])->not->toContain('edit_existing_plan', 'cancel_existing_plan');
 });
 
 test('employee visibility scope hides inaccessible relief source without leaking details', function () {
@@ -930,9 +948,9 @@ test('employee visibility scope hides inaccessible relief source without leaking
         ->and($message)->not->toContain($hiddenActive->assignment_no);
 });
 
-test('planning handoff for a slot linked to a planned crew assignment redirects without throwing', function () {
+test('planning handoff for a slot linked to a draft crew assignment redirects without throwing', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Planned Link Handoff Vessel', $company);
+    $vessel = makeCrewMovementVessel('Draft Link Handoff Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.assignments.view',
@@ -943,7 +961,7 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $planned = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
+    $draft = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
@@ -955,7 +973,7 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
         'vessel_id' => $vessel->id,
         'position_id' => $rank->id,
         'employee_id' => null,
-        'crew_assignment_id' => $planned->id,
+        'crew_assignment_id' => $draft->id,
         'planned_join_date' => '2026-10-10',
         'planned_leave_date' => '2026-11-30',
     ]);
@@ -964,10 +982,10 @@ test('planning handoff for a slot linked to a planned crew assignment redirects 
         ->get(route('organization.crew-assignments.create', [
             'planning_assignment_id' => $slot->id,
         ]))
-        ->assertRedirect(route('organization.crew-assignments.show', $planned))
+        ->assertRedirect(route('organization.crew-assignments.show', $draft))
         ->assertSessionHas(
             'success',
-            'This planning record is already linked to a planned crew assignment.',
+            'This planning record is linked to a draft crew assignment. Continue mobilisation from Crew Assignments.',
         );
 });
 
@@ -1277,87 +1295,98 @@ test('crew planning update supports modifying named employee, dates, arrival dat
     expect((int) $plan->employee_id)->toBe($secondEmployee->id);
 });
 
-test('planned update cannot clear expected join or sign-off via blank submission', function () {
+test('planning update cannot clear expected join or leave via blank submission', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Clear Join Vessel', $company);
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.update',
+        'crew_operations.planning.view',
         'crew_operations.planning.create',
+        'crew_operations.planning.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $assignment = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $plan = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $assignment), [
-            'planned_join_at' => '',
-            'planned_signoff_at' => '2026-11-30',
+        ->put(route('organization.crew-planning.assignments.update', $plan), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '',
+            'planned_leave_date' => '2026-11-30',
         ])
-        ->assertSessionHasErrors('planned_join_at');
+        ->assertSessionHasErrors('planned_join_date');
 
-    expect($assignment->fresh()->planned_join_at?->toDateString())->toBe('2026-10-10');
+    expect($plan->fresh()->planned_join_date?->toDateString())->toBe('2026-10-10');
 
     $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $assignment), [
-            'planned_join_at' => '2026-10-10',
-            'planned_signoff_at' => '',
+        ->put(route('organization.crew-planning.assignments.update', $plan), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-10',
+            'planned_leave_date' => '',
         ])
-        ->assertSessionHasErrors('planned_signoff_at');
+        ->assertSessionHasErrors('planned_leave_date');
 
-    expect($assignment->fresh()->planned_signoff_at?->toDateString())->toBe('2026-11-30');
+    expect($plan->fresh()->planned_leave_date?->toDateString())->toBe('2026-11-30');
 });
 
-test('planned update conflict uses submitted effective dates not stale persisted values', function () {
+test('planning update conflict uses submitted effective dates not stale persisted values', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Effective Dates Vessel', $company);
     grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.update',
+        'crew_operations.planning.view',
         'crew_operations.planning.create',
+        'crew_operations.planning.update',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $service = app(CrewMovementService::class);
-    $existing = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $existing = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-01',
-        'planned_signoff_at' => '2026-10-15',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-10-15',
+    ]);
 
-    $editable = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $editable = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-11-01',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-11-01',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $editable), [
-            'planned_join_at' => '2026-10-05',
-            'planned_signoff_at' => '2026-10-20',
+        ->put(route('organization.crew-planning.assignments.update', $editable), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-05',
+            'planned_leave_date' => '2026-10-20',
         ])
-        ->assertSessionHasErrors(['employee_id', 'conflict']);
+        ->assertSessionHasErrors(['employee_id']);
 
-    expect($editable->fresh()->planned_join_at?->toDateString())->toBe('2026-11-01')
-        ->and($existing->fresh()->status)->toBe(CrewAssignmentStatus::Planned);
+    expect($editable->fresh()->planned_join_date?->toDateString())->toBe('2026-11-01')
+        ->and($existing->fresh()->planned_join_date?->toDateString())->toBe('2026-10-01');
 });
 
 test('submission_intent plan is blocked without creating an assignment', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    grantCompanyPermissions($user, $company, ['crew_operations.planning.create']);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.create',
+        'crew_operations.assignments.create',
+    ]);
     $user->update(['current_company_id' => $company->id]);
 
     $this->actingAs($user)
@@ -1368,14 +1397,12 @@ test('submission_intent plan is blocked without creating an assignment', functio
             'planned_join_at' => '2026-10-10',
             'planned_signoff_at' => '2026-11-30',
         ])
-        ->assertSessionHasErrors([
-            'submission_intent' => CrewAssignmentSubmissionIntent::legacyPlanBlockedMessage(),
-        ]);
+        ->assertSessionHasErrors(['submission_intent']);
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
 
-test('planning-only user can view edit and cancel planned but cannot start or edit active', function () {
+test('planning-only user can manage planning records but cannot access crew assignments', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Planning Only Vessel', $company);
     grantCompanyPermissions($user, $company, [
@@ -1386,44 +1413,50 @@ test('planning-only user can view edit and cancel planned but cannot start or ed
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $service = app(CrewMovementService::class);
-    $planned = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    $planning = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-assignments.show', $planned))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('can.view', true)
-            ->where('can.update', true)
-            ->where('can.cancel', true)
-            ->where('can.start', false)
-            ->where('can.perform_movement', false));
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-assignments.edit', $planned))
-        ->assertOk();
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $planned), [
-            'remarks' => 'Planning edit',
-            'planned_join_at' => '2026-10-10',
-            'planned_signoff_at' => '2026-11-30',
+        ->put(route('organization.crew-planning.assignments.update', $planning), [
             'vessel_id' => $vessel->id,
             'position_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2026-10-12',
+            'planned_leave_date' => '2026-11-30',
+            'notes' => 'Planning edit',
         ])
         ->assertRedirect();
 
-    expect($planned->fresh()->remarks)->toBe('Planning edit');
+    expect($planning->fresh()->notes)->toBe('Planning edit')
+        ->and($planning->fresh()->planned_join_date?->toDateString())->toBe('2026-10-12');
 
-    $active = $service->startAssignment($company->id, Employee::factory()->forCompany($company)->create([
+    $service = app(CrewMovementService::class);
+    $draft = $service->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2027-01-01',
+        'planned_signoff_at' => '2027-02-01',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.show', $draft))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $draft))
+        ->assertForbidden();
+
+    $activeEmployee = Employee::factory()->forCompany($company)->create([
         'position_id' => $rank->id,
         'status' => 'active',
-    ])->id, [
+    ]);
+    $active = $service->startAssignment($company->id, $activeEmployee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'stage_started_at' => '2026-09-15 08:00:00',
@@ -1434,20 +1467,14 @@ test('planning-only user can view edit and cancel planned but cannot start or ed
         ->assertForbidden();
 
     $this->actingAs($user)
-        ->put(route('organization.crew-assignments.update', $active), [
-            'remarks' => 'Should fail',
-        ])
-        ->assertForbidden();
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.perform-action', $planned), [
+        ->post(route('organization.crew-assignments.perform-action', $draft), [
             'action' => CrewMovementAction::ApproveMobilisation->value,
             'occurred_at' => '2026-10-01 09:00:00',
         ])
         ->assertForbidden();
 });
 
-test('draft relief does not block a subsequent planned relief', function () {
+test('draft relief does not block a subsequent planning relief', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Relief Source Vessel', $company);
     $service = app(CrewMovementService::class);
@@ -1473,15 +1500,17 @@ test('draft relief does not block a subsequent planned relief', function () {
     expect($resolver->hasActiveOperationalRelief($company->id, $source->id))->toBeFalse()
         ->and($resolver->forSourceAssignment($source)->status->value)->toBe('no_relief');
 
-    $plannedRelief = $service->createPlanned($company->id, $reliefEmployee->id, [
-        'position_id' => $rank->id,
+    $planningRelief = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vessel->id,
-        'planned_join_at' => '2026-11-20',
-        'planned_signoff_at' => '2027-02-28',
-    ], $user->id);
-    $plannedRelief->update(['relieves_crew_assignment_id' => $source->id]);
+        'position_id' => $rank->id,
+        'employee_id' => $reliefEmployee->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'planned_join_date' => '2026-11-20',
+        'planned_leave_date' => '2027-02-28',
+    ]);
 
-    expect($plannedRelief->fresh()->status)->toBe(CrewAssignmentStatus::Planned)
+    expect($planningRelief->crew_assignment_id)->toBeNull()
         ->and($resolver->hasActiveOperationalRelief($company->id, $source->id))->toBeTrue()
         ->and($draftRelief->fresh()->status)->toBe(CrewAssignmentStatus::Draft);
 });

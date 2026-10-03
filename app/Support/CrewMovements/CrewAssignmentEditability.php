@@ -18,7 +18,7 @@ class CrewAssignmentEditability
             return false;
         }
 
-        if (in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned], true)) {
+        if ($assignment->status === CrewAssignmentStatus::Draft) {
             return true;
         }
 

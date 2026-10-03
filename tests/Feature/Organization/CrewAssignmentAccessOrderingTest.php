@@ -2,30 +2,32 @@
 
 use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Position;
-use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Validation\ValidationException;
 
-test('cross-company planned assignment show returns 404 for planning viewer', function () {
+test('cross-company draft assignment show returns 404 even with planning permissions', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank, 'user' => $otherUser] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Foreign Plan Vessel', $otherCompany);
+    $vessel = makeCrewMovementVessel('Foreign Draft Vessel', $otherCompany);
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.planning.view',
+        'crew_operations.planning.create',
+        'crew_operations.assignments.view',
     ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $foreign = app(CrewMovementService::class)->createPlanned($otherCompany->id, $otherEmployee->id, [
+    $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
         'position_id' => $otherRank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ], $otherUser->id);
 
-    expect($foreign->status)->toBe(CrewAssignmentStatus::Planned);
+    expect($foreign->status)->toBe(CrewAssignmentStatus::Draft);
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.show', $foreign))
@@ -36,7 +38,7 @@ test('cross-company planned assignment show returns 404 for planning viewer', fu
         ->assertNotFound();
 });
 
-test('hidden employee planned assignment show returns 404 for planning viewer', function () {
+test('hidden employee draft assignment show returns 404 for assignment viewer', function () {
     [
         'user' => $user,
         'company' => $company,
@@ -51,31 +53,26 @@ test('hidden employee planned assignment show returns 404 for planning viewer', 
     ]);
     $position = ensureRankMappedPosition($company, $rank);
     $officeEmployee->update(['position_id' => $rank->id, 'position_id' => $position->id]);
-    $vessel = makeCrewMovementVessel('Hidden Plan Vessel', $company);
+    $vessel = makeCrewMovementVessel('Hidden Draft Vessel', $company);
 
     grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.update',
+        'crew_operations.assignments.create',
         'crew_operations.planning.view',
-        'crew_operations.planning.update',
-        'crew_operations.planning.create',
     ]);
     $user->update(['current_company_id' => $company->id]);
     restrictUserToDepartments($user, $company, [$marineDept->id]);
 
-    $actor = User::factory()->create();
-    grantCompanyPermissions($actor, $company, [
-        'crew_operations.planning.create',
-        'crew_operations.planning.view',
-    ]);
-
-    $hidden = app(CrewMovementService::class)->createPlanned($company->id, $officeEmployee->id, [
+    $hidden = app(CrewMovementService::class)->createDraft($company->id, $officeEmployee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
-    ], $actor->id);
+    ], $user->id);
 
     expect(EmployeeVisibilityScope::canAccess($user, $officeEmployee, $company->id))->toBeFalse()
-        ->and($hidden->status)->toBe(CrewAssignmentStatus::Planned);
+        ->and($hidden->status)->toBe(CrewAssignmentStatus::Draft);
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.show', $hidden))
@@ -86,55 +83,86 @@ test('hidden employee planned assignment show returns 404 for planning viewer', 
         ->assertNotFound();
 });
 
-test('visible same-company planned assignment without permission returns forbidden', function () {
+test('planning permissions alone do not grant crew assignment access', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Visible Plan Vessel', $company);
+    $vessel = makeCrewMovementVessel('Planning Only Access Vessel', $company);
 
-    // Visibility OK (SCOPE_ALL via role) but no crew assignment/planning view permission.
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.planning.create',
+        'crew_operations.planning.update',
+    ]);
     $user->update(['current_company_id' => $company->id]);
 
-    $planned = app(CrewMovementService::class)->createPlanned($company->id, $employee->id, [
+    $draft = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vessel->id,
         'planned_join_at' => '2026-10-10',
         'planned_signoff_at' => '2026-11-30',
     ]);
 
-    expect($planned)->toBeInstanceOf(CrewAssignment::class);
+    expect($draft)->toBeInstanceOf(CrewAssignment::class);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-assignments.show', $planned))
+        ->get(route('organization.crew-assignments.show', $draft))
+        ->assertForbidden();
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.edit', $draft))
         ->assertForbidden();
 });
 
-test('updateAssignment locks employee before assignment and still rechecks conflicts', function () {
+test('visible same-company draft assignment without permission returns forbidden', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Visible Draft Vessel', $company);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $draft = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-10-10',
+        'planned_signoff_at' => '2026-11-30',
+    ]);
+
+    expect($draft)->toBeInstanceOf(CrewAssignment::class);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.show', $draft))
+        ->assertForbidden();
+});
+
+test('updateAssignment locks employee before assignment and still rechecks planning conflicts', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vesselA = makeCrewMovementVessel('Lock Order Vessel A', $company);
     $vesselB = makeCrewMovementVessel('Lock Order Vessel B', $company);
     $service = app(CrewMovementService::class);
 
-    $existing = $service->createPlanned($company->id, $employee->id, [
-        'position_id' => $rank->id,
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
         'vessel_id' => $vesselA->id,
-        'planned_join_at' => '2026-10-10',
-        'planned_signoff_at' => '2026-11-30',
-    ], $user->id);
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
 
-    $editable = $service->createPlanned($company->id, $employee->id, [
+    $active = $service->startAssignment($company->id, $employee->id, [
         'position_id' => $rank->id,
         'vessel_id' => $vesselB->id,
-        'planned_join_at' => '2026-12-01',
-        'planned_signoff_at' => '2027-01-15',
+        'planned_join_at' => '2026-09-01',
+        'planned_signoff_at' => '2026-09-30',
+        'stage_started_at' => '2026-09-01 08:00:00',
     ], $user->id);
 
-    expect(fn () => $service->updateAssignment($company->id, $editable->id, [
-        'planned_join_at' => '2026-10-15',
-        'planned_signoff_at' => '2026-11-20',
+    expect(fn () => $service->updateAssignment($company->id, $active->id, [
+        'planned_join_at' => '2026-09-01',
+        'planned_signoff_at' => '2026-10-15',
         'vessel_id' => $vesselB->id,
         'position_id' => $rank->id,
     ], $user->id, $user))->toThrow(ValidationException::class);
 
-    expect($existing->fresh()->status)->toBe(CrewAssignmentStatus::Planned)
-        ->and($editable->fresh()->planned_join_at?->toDateString())->toBe('2026-12-01');
+    expect($active->fresh()->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($active->fresh()->planned_signoff_at?->toDateString())->toBe('2026-09-30');
 });
