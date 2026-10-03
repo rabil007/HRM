@@ -125,15 +125,14 @@ describe('signoffBeforeJoinMessage / resolveSignoffDateDisplayError', () => {
         );
     });
 
-    it('preserves unrelated sign-off server errors such as required-for-planned', () => {
+    it('preserves unrelated sign-off server errors', () => {
         assert.equal(
             resolveSignoffDateDisplayError({
-                serverError:
-                    'Expected Sign-off is required when saving as Planned.',
+                serverError: 'Expected Sign-off could not be updated.',
                 join: '2026-09-30',
                 signoff: '',
             }),
-            'Expected Sign-off is required when saving as Planned.',
+            'Expected Sign-off could not be updated.',
         );
     });
 });

@@ -209,7 +209,7 @@ export function CrewAssignmentCommonFields({
                             <Label htmlFor="planned_signoff_at">
                                 Expected Sign-Off{' '}
                                 <span className="font-normal text-muted-foreground">
-                                    (required for Planned)
+                                    (optional forecast)
                                 </span>
                             </Label>
                             <Input
@@ -228,8 +228,9 @@ export function CrewAssignmentCommonFields({
                                 }}
                             />
                             <p className="text-xs text-muted-foreground">
-                                Expected sign-off date. Required when saving as
-                                Planned to reserve the crew member.
+                                Expected sign-off date. This is a forecast only;
+                                actual disembarkation is recorded through the
+                                movement workflow.
                             </p>
                             <InputError message={signoffDisplayError} />
                         </div>
