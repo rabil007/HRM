@@ -23,9 +23,9 @@ Operational checklist after deploying Crew Movement changes.
 - [ ] Expected Vessel Join stores in `planned_join_at`
 - [ ] Arrival Date (`planned_arrival_at`) is optional forecast only on Create and Edit
 - [ ] Create and Edit use the same **Arrival Date** label and helper copy (not “Planned Arrival Date” on Edit)
-- [ ] Edit Assignment matches Single Create layout: Crew Members (Employee locked, Rank, Arrival Date, Current Assignment Stage read-only) + Assignment Details (Client, Vessel, Expected Vessel Join, Remarks)
-- [ ] Planned Sign-Off, Planned Travel Home, and Assignment Start Date & Time are not on Edit; those values stay owned by movement/planning workflows
-- [ ] Expected Vessel Join cannot be saved after an existing Planned Sign-Off; the sign-off plan is not silently changed
+- [ ] Edit Assignment matches Single Create layout: Crew Members (Employee locked, Rank, Arrival Date, Current Assignment Stage read-only) + Assignment Details (Client, Vessel, Expected Vessel Join, Expected Sign-Off optional forecast, Remarks)
+- [ ] Expected Sign-Off is an optional forecast on Edit; Planned Travel Home and Assignment Start Date & Time are not editable there
+- [ ] Expected Vessel Join cannot be saved after an existing Expected Sign-Off; the sign-off forecast is not silently changed
 - [ ] Arrival Date cannot be saved after Expected Vessel Join
 
 ## 2A0. Crew Assignment index guidance
@@ -184,7 +184,8 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] Planning permissions create/edit/view/delete `CrewPlanningAssignment` future plans
 - [ ] Planning permissions do **not** authorize CrewAssignment view/update/cancel (no Planned CrewAssignment path)
 - [ ] Planning permissions do **not** grant Start Assignment / Start Mobilisation / movements / Active edits
-- [ ] Conflict dialog Edit/Cancel Existing Plan actions target Crew Planning rows (Gate results for Planning permissions)
+- [ ] Crew Planning overlap conflicts identify the existing Crew Plan without linking the Planning row to a CrewAssignment show route
+- [ ] Conflict dialog allows adjusting/rescheduling the new request as supported; obsolete Edit/Cancel Existing Plan CrewAssignment actions are not shown
 
 ### Edit integrity
 

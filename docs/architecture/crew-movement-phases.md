@@ -256,7 +256,7 @@ Prior phases are **never invented**. A normal start has only P0 in the timeline.
 
 The create form does **not** collect Assignment Start Date & Time. Normal `/organization/crew/create` Start Assignment always uses company-local server submit time (`now()` in the company timezone). The Store request and controller do **not** accept, validate, or forward a client-supplied `stage_started_at`; crafted timestamps cannot backdate or future-date a normal web start. `CrewMovementService::startAssignment()` may still accept an explicit timestamp internally for tests, Bulk Add Crew, and historical import compatibility.
 
-Quick create does **not** accept Planned Sign-Off or Planned Travel Home. Those columns remain on the assignment for P4 Plan Sign-Off, Confirm Disembarkation, Crew Planning, and Movement Correction. Normal Edit Assignment does not expose or mutate them.
+Quick create does **not** accept Expected Sign-Off or Planned Travel Home. Expected Sign-Off (`planned_signoff_at`) remains editable on normal Edit Assignment as an optional forecast. Planned Travel Home stays owned by movement workflows (Confirm Disembarkation / related actions).
 
 Start Assignment does **not** snapshot Tour of Duty, create Sea Service, mark the employee On Vessel, or create P4. Expected Vessel Join never becomes P4 `actual_start_at`. `CrewAssignment.started_at` is the assignment lifecycle timestamp and is not a payroll input; the first phase `actual_start_at` is recorded as the same company-local submit instant for operational history.
 
@@ -305,7 +305,27 @@ Existing Draft assignments remain operable.
 
 ### Edit Assignment
 
-Single Create and Edit share the same crew-member and assignment-details field components (`CrewMemberFields`, `CrewAssignmentCommonFields`). The edit form updates assignment master data, Expected Vessel Join (`planned_join_at`), Arrival Date (`planned_arrival_at`), plus remarks. Employee is locked on Edit. Current Assignment Stage is read-only context. The form does **not** expose Assignment Start Date & Time, Planned Sign-Off, Planned Travel Home, or editable actual movement timestamps. Stored `planned_signoff_at` / `planned_travel_at` remain on the record and continue to be owned by P4 Plan Sign-Off, Confirm Disembarkation, and Crew Planning (Movement Correction updates `planned_signoff_at` reactively only when recalculating Tour of Duty following a P4 join date or rank correction). The update request accepts only `rank_id`, `client_id`, `vessel_id`, `planned_join_at`, `planned_arrival_at`, and `remarks`. It does not accept `started_at`, `current_stage`, phase `actual_start_at` / `actual_end_at`, `planned_signoff_at`, or `planned_travel_at`. Omitting those fields preserves existing stored values. If Expected Vessel Join is submitted and an existing Planned Sign-Off is present, the join date cannot be after that sign-off date. Arrival Date cannot be after Expected Vessel Join.
+Single Create and Edit share the same crew-member and assignment-details field components (`CrewMemberFields`, `CrewAssignmentCommonFields`). The edit form updates assignment master data, Arrival Date (`planned_arrival_at`), Expected Vessel Join (`planned_join_at`), Expected Sign-Off (`planned_signoff_at`), plus remarks, subject to current validation and editability rules. Employee is locked on Edit. Current Assignment Stage is read-only context.
+
+Normal Edit may update:
+
+- position / rank
+- client
+- vessel
+- `planned_arrival_at`
+- `planned_join_at`
+- `planned_signoff_at` (optional forecast only; does not reserve future availability — that belongs to `CrewPlanningAssignment`)
+- remarks
+
+Normal Edit does **not** directly edit:
+
+- `started_at`
+- current phase
+- phase `actual_start_at` / `actual_end_at`
+- `planned_travel_at`
+- actual disembarkation
+
+Actual movement history remains owned by movement actions and corrections. Movement Correction may still recalculate `planned_signoff_at` reactively when Tour of Duty follows a P4 join date or rank correction. If Expected Vessel Join is submitted and an existing Expected Sign-Off is present, the join date cannot be after that sign-off date. Arrival Date cannot be after Expected Vessel Join.
 
 ### Start Assignment (`approve_mobilisation`)
 
@@ -972,7 +992,7 @@ Company-local calendar days. Event **display** order on a shared date is join be
 | `projected_count_at_start` | Forecast coverage at `from` using actual end when present, otherwise planned sign-off / planned end / Planning leave |
 | `starting_count` | Compatibility alias of `projected_count_at_start` |
 
-Overdue Planning rows and pre-P4 Draft/planned assignments are **not** actual onboard. They may still contribute to `projected_count_at_start` when their resolved join ≤ `from` and leave is open or ≥ `from`. An open actual P4 with a planned sign-off already before `from` remains `actual_onboard_at_start = 1` and `projected_count_at_start = 0`. Planned Sign-Off is never Actual Disembarkation.
+Overdue Planning rows and pre-P4 Draft/Active assignments are **not** actual onboard. They may still contribute to `projected_count_at_start` when their resolved join ≤ `from` and leave is open or ≥ `from`. An open actual P4 with a planned sign-off already before `from` remains `actual_onboard_at_start = 1` and `projected_count_at_start = 0`. Planned Sign-Off is never Actual Disembarkation.
 
 ### Repeatable P4 phases
 
