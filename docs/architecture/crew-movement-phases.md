@@ -883,6 +883,47 @@ php artisan crew-planning:migrate-legacy-planned --all-companies
 
 Implementation: `MigrateLegacyPlannedAssignments` + `crew-planning:migrate-legacy-planned`.
 
+### Soft-deleted Planned tombstones
+
+Soft-deleted `CrewAssignment(status=planned)` rows are **not** Phase 4 Planning conversions. Void/delete already removed them from the operational future; they must stay deleted.
+
+```text
+Active / non-deleted legacy Planned
+→ migrate to Crew Planning (`crew-planning:migrate-legacy-planned`)
+
+Soft-deleted legacy Planned tombstones
+→ remain deleted
+→ status normalized to Cancelled (`crew-planning:retire-soft-deleted-planned`)
+→ never recreated as future Planning
+```
+
+```bash
+# Dry-run (default)
+php artisan crew-planning:retire-soft-deleted-planned --company=1
+
+# Targeted apply after review
+php artisan crew-planning:retire-soft-deleted-planned --company=1 --assignment=94 --apply
+```
+
+| Concern | Behaviour |
+|---------|-----------|
+| Scope | Requires `--company=ID`. Optional `--assignment=ID`. Soft-deleted Planned only (`withTrashed` + `deleted_at IS NOT NULL`). Never touches live Planned rows. |
+| Safe shape | Exactly one Planned P0 with null actuals; `started_at` null; no Sea Service / payroll / timesheet preparation lines / **timesheet segments (incl. soft-deleted)** / accommodation / movement-correction history. Unexpected operational data → **BLOCKED** (`unexpected_timesheet_segments`, etc.). |
+| Mutation | `status planned → cancelled`; P0 `Planned → Cancelled` without inventing actuals; `closed_at = deleted_at` when previously null; **`deleted_at` preserved**; never restore. When run without an actor, preserve historical `updated_by` / `completed_by` (do not null them). |
+| Planning | Never creates, reuses, or links `CrewPlanningAssignment`. |
+| Activity | `legacy_soft_deleted_planned_retired` (`old_status`, `new_status`, `original_deleted_at`, maintenance version). |
+
+Phase 5 may begin only after the raw database count returns zero **including soft-deleted rows**:
+
+```sql
+SELECT COUNT(*) AS total_planned
+FROM crew_assignments
+WHERE status = 'planned';
+-- required: total_planned = 0
+```
+
+Implementation: `RetireSoftDeletedPlannedAssignments` + `crew-planning:retire-soft-deleted-planned`.
+
 ## Phase 2A — Crew Relief Readiness
 
 Crew Planning remains the management surface for creating and editing relief plans. Current Crew, Assignment Show, and the Crew Operations dashboard display derived readiness and risk; they do not introduce a separate Relief workflow or table.
