@@ -98,7 +98,7 @@ final class CrewReliefReadinessResolver
             }
         }
 
-        // Fallback to legacy planning assignments if present
+        // Fallback to Crew Planning assignments
         $plans = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->where('relieves_crew_assignment_id', $sourceAssignmentId)

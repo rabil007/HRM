@@ -559,7 +559,6 @@ export interface CrewAssignmentFilters {
 export interface CrewAssignmentPagePermissions {
     view: boolean;
     create: boolean;
-    plan?: boolean;
     create_historical?: boolean;
     start: boolean;
     update: boolean;

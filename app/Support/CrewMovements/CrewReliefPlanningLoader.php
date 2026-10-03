@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
  * Batch-load active operational relief for source assignments.
  *
  * Prefer named Active CrewAssignment relief. Fall back to
- * CrewPlanningAssignment vacant/legacy relief rows when no assignment exists.
+ * CrewPlanningAssignment relief plans when no assignment exists.
  * Draft CrewAssignments are non-committed and do not count as operational relief.
  */
 final class CrewReliefPlanningLoader

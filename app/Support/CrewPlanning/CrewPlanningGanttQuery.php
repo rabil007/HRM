@@ -499,7 +499,7 @@ final class CrewPlanningGanttQuery
             ->filter()
             ->values();
 
-        // 2. Legacy / unlinked CrewPlanningAssignment records
+        // 2. Future / unlinked CrewPlanningAssignment records
         $planQuery = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
             ->whereNull('crew_assignment_id')
