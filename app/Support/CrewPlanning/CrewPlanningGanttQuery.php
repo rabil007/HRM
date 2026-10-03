@@ -371,31 +371,20 @@ final class CrewPlanningGanttQuery
         $fromTimestamp = CarbonImmutable::parse($from, $timezone)->startOfDay();
         $toTimestamp = CarbonImmutable::parse($to, $timezone)->endOfDay();
 
-        // 1. Authoritative: CrewAssignment records (Planned and Active)
+        // 1. Authoritative: CrewAssignment records (Active)
         $assignmentQuery = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereNotNull('vessel_id')
             ->whereNotNull('position_id')
-            ->whereIn('status', [CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active])
-            ->where(function (Builder $q) use ($fromTimestamp, $toTimestamp): void {
-                $q->where(function (Builder $planned) use ($fromTimestamp, $toTimestamp): void {
-                    $planned->where('status', CrewAssignmentStatus::Planned)
-                        ->where('planned_join_at', '<=', $toTimestamp)
-                        ->where(function (Builder $dates) use ($fromTimestamp): void {
-                            $dates->where('planned_signoff_at', '>=', $fromTimestamp)
-                                ->orWhereNull('planned_signoff_at');
-                        });
+            ->where('status', CrewAssignmentStatus::Active)
+            ->where(function (Builder $active) use ($fromTimestamp, $toTimestamp): void {
+                $active->where(function (Builder $starts) use ($toTimestamp): void {
+                    $starts->where('started_at', '<=', $toTimestamp)
+                        ->orWhere('planned_join_at', '<=', $toTimestamp);
                 })
-                    ->orWhere(function (Builder $active) use ($fromTimestamp, $toTimestamp): void {
-                        $active->where('status', CrewAssignmentStatus::Active)
-                            ->where(function (Builder $starts) use ($toTimestamp): void {
-                                $starts->where('started_at', '<=', $toTimestamp)
-                                    ->orWhere('planned_join_at', '<=', $toTimestamp);
-                            })
-                            ->where(function (Builder $dates) use ($fromTimestamp): void {
-                                $dates->where('planned_signoff_at', '>=', $fromTimestamp)
-                                    ->orWhereNull('planned_signoff_at');
-                            });
+                    ->where(function (Builder $dates) use ($fromTimestamp): void {
+                        $dates->where('planned_signoff_at', '>=', $fromTimestamp)
+                            ->orWhereNull('planned_signoff_at');
                     });
             })
             ->where(function (Builder $query) use ($companyId): void {
@@ -469,7 +458,7 @@ final class CrewPlanningGanttQuery
                     ?? $assignment->planned_signoff_at)?->copy()->timezone($timezone)->toDateString();
                 $arrivalDate = $assignment->planned_arrival_at?->copy()->timezone($timezone)->toDateString();
 
-                $planningKind = self::planningKind($assignment);
+                $planningKind = 'assignment_created';
 
                 $relievedEmployee = $assignment->relievedAssignment?->employee;
                 $canSeeRelievedEmployee = $relievedEmployee === null
@@ -643,22 +632,6 @@ final class CrewPlanningGanttQuery
     public static function rowKey(int $vesselId, int $positionId): string
     {
         return "vessel:{$vesselId}|position:{$positionId}";
-    }
-
-    /**
-     * @return 'vacant_slot'|'planned'|'planned_relief'|'assignment_created'
-     */
-    private static function planningKind(CrewAssignment $assignment): string
-    {
-        if ($assignment->status === CrewAssignmentStatus::Active) {
-            return 'assignment_created';
-        }
-
-        if ($assignment->relieves_crew_assignment_id !== null) {
-            return 'planned_relief';
-        }
-
-        return 'planned';
     }
 
     private static function planningKindLabel(string $kind): string

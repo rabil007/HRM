@@ -112,7 +112,6 @@ final class CrewProjectedManningQuery
             ->where(function ($query) use ($fromDate, $companyId): void {
                 $query->whereIn('status', [
                     CrewAssignmentStatus::Draft->value,
-                    CrewAssignmentStatus::Planned->value,
                     CrewAssignmentStatus::Active->value,
                 ])->orWhere(function ($completed) use ($fromDate, $companyId): void {
                     $completed->where('status', CrewAssignmentStatus::Completed->value)
@@ -346,7 +345,7 @@ final class CrewProjectedManningQuery
             }
 
             if (
-                in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned, CrewAssignmentStatus::Active], true)
+                in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active], true)
                 && $employee->status !== 'active'
             ) {
                 return [];
@@ -433,7 +432,6 @@ final class CrewProjectedManningQuery
 
         if (! in_array($assignment->status, [
             CrewAssignmentStatus::Draft,
-            CrewAssignmentStatus::Planned,
             CrewAssignmentStatus::Active,
         ], true)) {
             return false;

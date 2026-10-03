@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\User;
 
@@ -15,12 +14,7 @@ class CrewAssignmentPolicy
 
     public function view(User $user, CrewAssignment $assignment): bool
     {
-        if ($user->can('crew_operations.assignments.view')) {
-            return true;
-        }
-
-        return $assignment->status === CrewAssignmentStatus::Planned
-            && $user->can('crew_operations.planning.view');
+        return $user->can('crew_operations.assignments.view');
     }
 
     public function create(User $user): bool
@@ -39,19 +33,9 @@ class CrewAssignmentPolicy
             && $user->can('crew_operations.movements.perform');
     }
 
-    public function plan(User $user): bool
-    {
-        return $user->can('crew_operations.planning.create');
-    }
-
     public function update(User $user, CrewAssignment $assignment): bool
     {
-        if ($user->can('crew_operations.assignments.update')) {
-            return true;
-        }
-
-        return $assignment->status === CrewAssignmentStatus::Planned
-            && $user->can('crew_operations.planning.update');
+        return $user->can('crew_operations.assignments.update');
     }
 
     public function performMovement(User $user, CrewAssignment $assignment): bool
@@ -61,11 +45,6 @@ class CrewAssignmentPolicy
 
     public function cancel(User $user, CrewAssignment $assignment): bool
     {
-        if ($assignment->status === CrewAssignmentStatus::Planned) {
-            return $user->can('crew_operations.assignments.cancel')
-                || $user->can('crew_operations.planning.delete');
-        }
-
         return $user->can('crew_operations.assignments.cancel');
     }
 

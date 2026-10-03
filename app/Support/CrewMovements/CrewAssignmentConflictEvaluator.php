@@ -14,7 +14,6 @@ use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 final class CrewAssignmentConflictEvaluator
@@ -279,7 +278,7 @@ final class CrewAssignmentConflictEvaluator
             $conflictStart = $operationalStartDate ?? $joinDate;
 
             if ($conflictStart !== null) {
-                $plannedOverlaps = $this->findPlannedOverlaps(
+                $planningOverlaps = $this->findCrewPlanningOverlaps(
                     $context,
                     $conflictStart,
                     $signoffDate,
@@ -287,8 +286,8 @@ final class CrewAssignmentConflictEvaluator
                     $withLock,
                 );
 
-                if ($plannedOverlaps !== null) {
-                    return $plannedOverlaps;
+                if ($planningOverlaps !== null) {
+                    return $planningOverlaps;
                 }
 
                 if ($signoffDate !== null) {
@@ -379,8 +378,8 @@ final class CrewAssignmentConflictEvaluator
                 }
             }
 
-            // Check overlap with other planned assignments
-            $plannedOverlaps = $this->findPlannedOverlaps(
+            // Check overlap with Crew Planning assignments
+            $planningOverlaps = $this->findCrewPlanningOverlaps(
                 $context,
                 $reqStart,
                 $reqEnd,
@@ -388,8 +387,8 @@ final class CrewAssignmentConflictEvaluator
                 $withLock,
             );
 
-            if ($plannedOverlaps !== null) {
-                return $plannedOverlaps;
+            if ($planningOverlaps !== null) {
+                return $planningOverlaps;
             }
 
             // Check historical completed assignments
@@ -425,90 +424,15 @@ final class CrewAssignmentConflictEvaluator
         return $result;
     }
 
-    private function findPlannedOverlaps(
+    private function findCrewPlanningOverlaps(
         CrewAssignmentConflictContext $context,
         string $reqStart,
         ?string $reqEnd,
         string $timezone,
         bool $withLock,
     ): ?CrewAssignmentConflictResult {
-        $query = CrewAssignment::query()
-            ->where('company_id', $context->companyId)
-            ->where('employee_id', $context->employeeId)
-            ->where('status', CrewAssignmentStatus::Planned)
-            ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
-
-        if ($withLock) {
-            $query->lockForUpdate();
-        }
-
-        $existingPlans = $query->get();
         $forecastJoin = $context->plannedJoinAt?->copy()->timezone($timezone)->toDateString();
         $forecastSignoff = $context->plannedSignoffAt?->copy()->timezone($timezone)->toDateString();
-
-        foreach ($existingPlans as $plan) {
-            if (! $this->overlapDetector->overlapsPlanned($reqStart, $reqEnd, $plan, $timezone)) {
-                continue;
-            }
-
-            $pStart = ($plan->planned_arrival_at ?? $plan->planned_join_at)?->copy()->timezone($timezone)->toDateString();
-            $pEnd = $plan->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
-            $effectivePEnd = $pEnd ?? $pStart;
-
-            if ($reqEnd === null) {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = $effectivePEnd;
-                $reqEndLabel = 'open-ended';
-            } else {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = min($reqEnd, $effectivePEnd);
-                $reqEndLabel = $reqEnd;
-            }
-
-            $employeeName = $plan->employee?->name ?? 'Employee';
-            $existingVessel = $plan->vessel?->name ?? 'Unassigned Vessel';
-            $newVessel = $context->vesselId ? (Vessel::find($context->vesselId)?->name ?? 'Selected Vessel') : 'New Assignment';
-
-            $allowedActions = ['adjust_dates', 'edit_existing_plan', 'cancel_existing_plan', 'cancel'];
-            if ($context->actor !== null) {
-                $allowedActions = ['adjust_dates', 'cancel'];
-                if (Gate::forUser($context->actor)->allows('update', $plan)) {
-                    $allowedActions[] = 'edit_existing_plan';
-                }
-                if (Gate::forUser($context->actor)->allows('cancel', $plan)) {
-                    $allowedActions[] = 'cancel_existing_plan';
-                }
-            }
-
-            return CrewAssignmentConflictResult::blocking(
-                code: 'planned_planned_overlap',
-                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
-                existingAssignment: [
-                    'id' => $plan->id,
-                    'assignment_no' => $plan->assignment_no,
-                    'vessel_id' => $plan->vessel_id,
-                    'vessel_name' => $existingVessel,
-                    'position_id' => $plan->position_id,
-                    'position_name' => $plan->position?->title,
-                    'status' => $plan->status->value,
-                    'start_date' => $pStart,
-                    'end_date' => $effectivePEnd,
-                ],
-                newAssignment: [
-                    'vessel_id' => $context->vesselId,
-                    'vessel_name' => $newVessel,
-                    'position_id' => $context->positionId,
-                    'planned_join_at' => $forecastJoin,
-                    'planned_signoff_at' => $forecastSignoff,
-                ],
-                affectedDates: [
-                    'start' => $overlapStart,
-                    'end' => $overlapEnd,
-                ],
-                allowedActions: $allowedActions,
-            );
-        }
 
         $planningQuery = CrewPlanningAssignment::query()
             ->where('company_id', $context->companyId)

@@ -118,130 +118,7 @@ final class CrewMovementService
     }
 
     /**
-     * Create a planned Crew Assignment that reserves the employee's availability
-     * for a deterministic planned date range without creating operational movements.
-     *
-     * Legacy-only helper: normal HTTP create no longer calls this.
-     * Future planning belongs in CrewPlanningAssignment; Start Mobilisation creates Active.
-     * Keep for existing Planned records, tests, and fixtures. Phase 4 migrates remaining
-     * Planned rows via `php artisan crew-planning:migrate-legacy-planned` (dry-run by default).
-     * Phase 5 removes this helper and CrewAssignmentStatus::Planned.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    public function createPlanned(
-        int $companyId,
-        int $employeeId,
-        array $attributes = [],
-        ?int $actorId = null,
-    ): CrewAssignment {
-        return DB::transaction(function () use ($companyId, $employeeId, $attributes, $actorId): CrewAssignment {
-            $employee = $this->lockActiveEmployee(
-                $companyId,
-                $employeeId,
-                'Only active employees can receive a planned crew assignment.',
-            );
-
-            $plannedJoinAt = isset($attributes['planned_join_at']) && $attributes['planned_join_at'] !== null && $attributes['planned_join_at'] !== ''
-                ? $this->parseTimestamp($companyId, (string) $attributes['planned_join_at'])
-                : null;
-            $plannedSignoffAt = isset($attributes['planned_signoff_at']) && $attributes['planned_signoff_at'] !== null && $attributes['planned_signoff_at'] !== ''
-                ? $this->parseTimestamp($companyId, (string) $attributes['planned_signoff_at'])
-                : null;
-            $plannedArrivalAt = isset($attributes['planned_arrival_at']) && $attributes['planned_arrival_at'] !== null && $attributes['planned_arrival_at'] !== ''
-                ? $this->parseTimestamp($companyId, (string) $attributes['planned_arrival_at'])
-                : null;
-
-            $masters = $this->resolveCreateMasters($companyId, $employee, $attributes);
-
-            $relievesId = isset($attributes['relieves_crew_assignment_id']) && $attributes['relieves_crew_assignment_id'] !== ''
-                ? (int) $attributes['relieves_crew_assignment_id']
-                : null;
-
-            $actor = $actorId !== null ? User::query()->find($actorId) : null;
-
-            if ($masters['vesselId'] === null) {
-                throw ValidationException::withMessages([
-                    'vessel_id' => 'Vessel is required when saving as Planned.',
-                ]);
-            }
-
-            if ($masters['positionId'] === null) {
-                throw ValidationException::withMessages([
-                    'position_id' => 'Position is required when saving as Planned.',
-                ]);
-            }
-
-            $conflictContext = new CrewAssignmentConflictContext(
-                companyId: $companyId,
-                employeeId: $employeeId,
-                action: 'plan',
-                plannedJoinAt: $plannedJoinAt,
-                plannedSignoffAt: $plannedSignoffAt,
-                plannedArrivalAt: $plannedArrivalAt,
-                vesselId: $masters['vesselId'],
-                positionId: $masters['positionId'],
-                clientId: $masters['clientId'],
-                relievesCrewAssignmentId: $relievesId,
-                actor: $actor,
-            );
-
-            $this->conflictEvaluator->assertNoBlockingConflicts($conflictContext, withLock: true);
-
-            $assignmentNo = $this->numbers->next($companyId);
-
-            $assignment = CrewAssignment::query()->create([
-                'company_id' => $companyId,
-                'assignment_no' => $assignmentNo,
-                'employee_id' => $employeeId,
-                'position_id' => $masters['positionId'],
-                'client_id' => $masters['clientId'],
-                'vessel_id' => $masters['vesselId'],
-                'status' => CrewAssignmentStatus::Planned,
-                'planned_arrival_at' => $plannedArrivalAt,
-                'planned_join_at' => $plannedJoinAt,
-                'planned_signoff_at' => $plannedSignoffAt,
-                'planned_travel_at' => $attributes['planned_travel_at'] ?? null,
-                'relieves_crew_assignment_id' => $relievesId,
-                'previous_assignment_id' => $attributes['previous_assignment_id'] ?? null,
-                'source' => $attributes['source'] ?? 'planning',
-                'remarks' => $attributes['remarks'] ?? null,
-                'created_by' => $actorId,
-                'updated_by' => $actorId,
-            ]);
-
-            $phase = CrewAssignmentPhase::query()->create([
-                'company_id' => $companyId,
-                'crew_assignment_id' => $assignment->id,
-                'phase_code' => CrewPhaseCode::PreMobilisation,
-                'sequence' => 1,
-                'status' => CrewPhaseStatus::Planned,
-                'remarks' => null,
-            ]);
-
-            $assignment->update([
-                'current_phase_id' => $phase->id,
-                'updated_by' => $actorId,
-            ]);
-
-            $assignment = $this->reloadLocked($companyId, $assignment->id);
-            $this->invariants->assertValid($assignment);
-
-            activity()
-                ->performedOn($assignment)
-                ->causedBy($actorId)
-                ->withProperties([
-                    'assignment_no' => $assignmentNo,
-                    'company_id' => $companyId,
-                ])
-                ->log('planned_assignment_confirmed');
-
-            return $assignment;
-        });
-    }
-
-    /**
-     * Authoritative update for editable Draft / Planned / pre-P4 Active assignments.
+     * Authoritative update for editable Draft / pre-P4 Active assignments.
      *
      * FormRequest may provide early UX validation; this method re-locks, rebuilds the
      * effective candidate from submitted keys, re-checks state-specific invariants and
@@ -321,32 +198,6 @@ final class CrewMovementService
         $join = $candidate['planned_join_at']?->copy()->timezone($timezone)->toDateString();
         $signoff = $candidate['planned_signoff_at']?->copy()->timezone($timezone)->toDateString();
 
-        if ($assignment->status === CrewAssignmentStatus::Planned) {
-            if ($candidate['vessel_id'] === null) {
-                throw ValidationException::withMessages([
-                    'vessel_id' => 'Vessel is required for Planned assignments.',
-                ]);
-            }
-
-            if ($candidate['position_id'] === null) {
-                throw ValidationException::withMessages([
-                    'position_id' => 'Position is required for Planned assignments.',
-                ]);
-            }
-
-            if ($candidate['planned_join_at'] === null) {
-                throw ValidationException::withMessages([
-                    'planned_join_at' => 'Expected Vessel Join is required for Planned assignments.',
-                ]);
-            }
-
-            if ($candidate['planned_signoff_at'] === null) {
-                throw ValidationException::withMessages([
-                    'planned_signoff_at' => 'Expected Sign-Off is required for Planned assignments.',
-                ]);
-            }
-        }
-
         if ($arrival !== null && $join !== null && $arrival > $join) {
             throw ValidationException::withMessages([
                 'planned_arrival_at' => 'Arrival Date cannot be after Expected Vessel Join.',
@@ -394,25 +245,6 @@ final class CrewMovementService
         }
 
         $companyId = (int) $assignment->company_id;
-
-        if ($assignment->status === CrewAssignmentStatus::Planned) {
-            $context = new CrewAssignmentConflictContext(
-                companyId: $companyId,
-                employeeId: (int) $assignment->employee_id,
-                action: 'plan',
-                plannedJoinAt: $candidate['planned_join_at'],
-                plannedSignoffAt: $candidate['planned_signoff_at'],
-                plannedArrivalAt: $candidate['planned_arrival_at'],
-                vesselId: $candidate['vessel_id'],
-                positionId: $candidate['position_id'],
-                clientId: $candidate['client_id'],
-                currentAssignmentId: (int) $assignment->id,
-                actor: $actor,
-            );
-            $this->conflictEvaluator->assertNoBlockingConflicts($context, withLock: true);
-
-            return;
-        }
 
         if ($assignment->status === CrewAssignmentStatus::Active) {
             $context = new CrewAssignmentConflictContext(
@@ -607,15 +439,13 @@ final class CrewMovementService
         $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::PreMobilisation);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
 
-        if (! in_array($assignment->status, [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Planned], true)
+        if ($assignment->status !== CrewAssignmentStatus::Draft
             || $current->status !== CrewPhaseStatus::Planned) {
             throw CrewMovementException::make(
-                'Start Assignment can only be performed on a draft or planned assignment in planned pre-mobilisation.',
+                'Start Assignment can only be performed on a draft assignment in planned pre-mobilisation.',
                 'invalid_phase_for_action',
             );
         }
-
-        $wasPlanned = $assignment->status === CrewAssignmentStatus::Planned;
 
         $conflictContext = new CrewAssignmentConflictContext(
             companyId: (int) $assignment->company_id,
@@ -645,17 +475,6 @@ final class CrewMovementService
             'started_at' => $occurredAt,
             'updated_by' => $actorId,
         ]);
-
-        if ($wasPlanned) {
-            activity()
-                ->performedOn($assignment)
-                ->causedBy($actorId)
-                ->withProperties([
-                    'assignment_no' => $assignment->assignment_no,
-                    'company_id' => $assignment->company_id,
-                ])
-                ->log('planned_assignment_started');
-        }
 
         return $assignment;
     }
@@ -1513,26 +1332,12 @@ final class CrewMovementService
             }
         }
 
-        $wasPlanned = $assignment->status === CrewAssignmentStatus::Planned;
-
         $assignment->update([
             'status' => CrewAssignmentStatus::Cancelled,
             'closed_at' => $occurredAt,
             'updated_by' => $actorId,
             'remarks' => trim(($assignment->remarks ? $assignment->remarks."\n" : '').'Cancelled: '.$reason),
         ]);
-
-        if ($wasPlanned) {
-            activity()
-                ->performedOn($assignment)
-                ->causedBy($actorId)
-                ->withProperties([
-                    'assignment_no' => $assignment->assignment_no,
-                    'company_id' => $assignment->company_id,
-                    'reason' => $reason,
-                ])
-                ->log('planned_assignment_cancelled');
-        }
 
         if ($current !== null) {
             $this->seaServiceSync->syncFromPhase($current->fresh());

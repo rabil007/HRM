@@ -279,7 +279,7 @@ final class CrewReliefStatusResolver
         $otherAssignments = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('employee_id', $employeeIds)
-            ->whereIn('status', [CrewAssignmentStatus::Active, CrewAssignmentStatus::Planned])
+            ->where('status', CrewAssignmentStatus::Active)
             ->when($excludedAssignmentIds !== [], fn ($q) => $q->whereNotIn('id', $excludedAssignmentIds))
             ->with(['currentPhase', 'vessel:id,name'])
             ->get()
@@ -348,16 +348,9 @@ final class CrewReliefStatusResolver
                 foreach ($competing as $other) {
                     $otherVessel = $other->vessel?->name ?? 'another vessel';
 
-                    if ($other->status === CrewAssignmentStatus::Active) {
-                        if ($this->overlapDetector->overlapsActive($planStart, $planEnd, $other, $timezone)) {
-                            $conflicts[$planKey] = "Employee has competing active assignment on {$otherVessel}.";
-                            break;
-                        }
-                    } elseif ($other->status === CrewAssignmentStatus::Planned) {
-                        if ($this->overlapDetector->overlapsPlanned($planStart, $planEnd, $other, $timezone)) {
-                            $conflicts[$planKey] = "Employee has overlapping planned assignment on {$otherVessel}.";
-                            break;
-                        }
+                    if ($this->overlapDetector->overlapsActive($planStart, $planEnd, $other, $timezone)) {
+                        $conflicts[$planKey] = "Employee has competing active assignment on {$otherVessel}.";
+                        break;
                     }
                 }
             }

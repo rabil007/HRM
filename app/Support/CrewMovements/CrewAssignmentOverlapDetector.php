@@ -34,30 +34,6 @@ final class CrewAssignmentOverlapDetector
     }
 
     /**
-     * Determine if a candidate date window overlaps a planned assignment.
-     */
-    public function overlapsPlanned(
-        string $candidateStart,
-        ?string $candidateEnd,
-        CrewAssignment $plannedAssignment,
-        string $timezone,
-    ): bool {
-        $pStart = ($plannedAssignment->planned_arrival_at ?? $plannedAssignment->planned_join_at)?->copy()->timezone($timezone)->toDateString();
-
-        if ($pStart === null) {
-            return false;
-        }
-
-        $effectivePEnd = $plannedAssignment->planned_signoff_at?->copy()->timezone($timezone)->toDateString() ?? $pStart;
-
-        if ($candidateEnd === null) {
-            return $candidateStart <= $effectivePEnd;
-        }
-
-        return max($candidateStart, $pStart) <= min($candidateEnd, $effectivePEnd);
-    }
-
-    /**
      * Determine if a candidate date window overlaps a planned crew planning assignment.
      */
     public function overlapsPlannedPlanningAssignment(
