@@ -34,14 +34,3 @@ export function shouldShowTestingOverrideBanner(
 ): boolean {
     return allowFutureActualMovementDates;
 }
-
-/**
- * Planned ↔ Planned conflict actions are already filtered by instance policy
- * in allowed_actions. Do not also require create-page can.update / can.cancel.
- */
-export function shouldShowPlannedConflictAction(
-    allowedActions: readonly string[],
-    action: 'edit_existing_plan' | 'cancel_existing_plan',
-): boolean {
-    return allowedActions.includes(action);
-}

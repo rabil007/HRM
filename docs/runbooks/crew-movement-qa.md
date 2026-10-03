@@ -132,56 +132,40 @@ Operational checklist after deploying Crew Movement changes.
 CrewPlanningAssignment
 = future planning authority
   vacant OR named
+  (reserves future availability)
 
 CrewAssignment
-= operational authority
+= operational execution authority
   Draft / Active / Completed / Cancelled
 
-CrewAssignment(status=planned)
-= legacy compatibility only until Phase 4
+NO CrewAssignment(status=planned)
 ```
 
 There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 
 ### Status semantics
 
-- [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** count as committed relief
-- [ ] **Planned (legacy)** — existing `CrewAssignment(status=planned)` records remain readable/editable/cancellable until Phase 4 migration; **new** Planned CrewAssignments cannot be created via normal Create (`submission_intent=plan` is blocked). `CrewAssignmentStatus::Planned` still exists until Phase 5
-- [ ] **Crew Planning** — vacant/named `CrewPlanningAssignment` is the only future-planning workflow (Expected Arrival / Join / Sign-Off)
-- [ ] **Active** — operational mobilisation (P0–P6); Start Mobilisation / Start Assignment create Active at P0
+- [ ] **Draft** — `CrewAssignment(status=draft)`: incomplete/non-committed; does **not** reserve employee availability; does **not** count as committed or operational relief. Draft P0 may still use `CrewPhaseStatus::Planned`
+- [ ] **Crew Planning** — vacant/named `CrewPlanningAssignment` is the only future-planning workflow and the only future availability reservation (Expected Arrival / Join / Sign-Off)
+- [ ] **Active** — operational mobilisation (P0–P6); Start Mobilisation / Start Assignment create Active at P0. Active is operational execution, not a future reservation
 - [ ] **Completed / Cancelled** — historical / end states
+- [ ] Final assignment statuses are only Draft, Active, Completed, Cancelled — never `CrewAssignment(status=planned)`
 
-### Phase 4 — legacy Planned → Crew Planning migration
+### Phase 4 / Phase 5 (historical)
 
-- [ ] Dry-run inventories Planned rows with mapping + blockers and performs **zero** writes (`php artisan crew-planning:migrate-legacy-planned --company=…`)
-- [ ] `--company` or `--all-companies` is required (no implicit all-company run); `--apply` is explicit
-- [ ] Apply creates/reuses named `CrewPlanningAssignment` with `crew_assignment_id = null`
-- [ ] Arrival / Join / Sign-Off map to company-local planning dates; remarks → notes; relief preserved
-- [ ] Compatible linked vacant Planning is reused (no duplicate); vessel/position/join/sign-off must agree; optional arrival/relief backfill only when Planning is null
-- [ ] Linked vacant mismatches (`linked_vacant_planning_mismatch`) abort apply with zero writes
-- [ ] Exact equivalent unlinked named Planning is reused
-- [ ] Exact compatible linked named Planning is reused and `crew_assignment_id` cleared (no duplicate)
-- [ ] Linked named Planning mismatches (vessel/position/dates/relief) abort apply with no writes
-- [ ] Blockers abort apply (missing masters/dates, non-Planned P0 status, non-P0/multiple phases, cross-company links, ambiguous matches, unexpected actuals/Sea Service/payroll)
-- [ ] Legacy Planned retires to Cancelled assignment + Cancelled P0 **without** inventing `actual_start_at` / `actual_end_at`; no mobilisation / P4 / Sea Service / payroll / source disembarkation
-- [ ] Activity `legacy_planned_migrated_to_crew_planning` records provenance
-- [ ] Post-apply: `Remaining CrewAssignment(status=planned): 0` for the selected scope; conflict checks see Planning once
-- [ ] Second `--apply` is idempotent (no duplicate Planning rows)
-- [ ] Soft-deleted Planned tombstones are **not** migrated by `migrate-legacy-planned`; use `crew-planning:retire-soft-deleted-planned --company=…` (dry-run default)
-- [ ] Soft-deleted retirement: `planned → cancelled`, `deleted_at` unchanged, never restored, no `CrewPlanningAssignment` created
-- [ ] Soft-deleted tombstones with actuals / P4 / Sea Service / payroll / timesheet segments (incl. soft-deleted segments) are blocked with zero writes
-- [ ] Retirement without an actor preserves historical `updated_by` / P0 `completed_by` (does not null them)
-- [ ] Phase 5 gate: raw SQL `SELECT COUNT(*) FROM crew_assignments WHERE status = 'planned'` returns `0` (includes soft-deleted)
+Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (including soft-deleted Planned tombstones) before Phase 5. Phase 5 removed the legacy Planned assignment architecture (`CrewAssignmentStatus::Planned`, `createPlanned()`, `submission_intent=plan`, migrate/retire Artisan commands). Do **not** run `crew-planning:migrate-legacy-planned` or `crew-planning:retire-soft-deleted-planned` — those commands are gone.
+
+`CrewPhaseStatus::Planned`, forecast `planned_*` fields, and Crew Planning terminology remain valid.
 
 ### Direct Start and Crew Planning
 
-- [ ] Future plans are created in Crew Planning (vacant or named) — not via Save as Planned on Crew Assignment
-- [ ] Crafted `submission_intent=plan` is rejected with guidance to Crew Planning
+- [ ] Future plans are created in Crew Planning (vacant or named) — not via Crew Assignment create intents
+- [ ] Crafted `submission_intent=plan` is an invalid / unsupported intent (validation error; nothing created)
 - [ ] Direct Start may create Active without a prior Planning record
 - [ ] Named Planning → Start Mobilisation → Active P0
 - [ ] Expected Vessel Join may be blank on direct Start (`planned_join_at` stays null — never invented from `started_at`)
 - [ ] Expected Sign-Off cannot precede Assignment Start on Start / Active edit
-- [ ] Planned dates remain forecasts; actual join/sign-off happen only through Movement Actions
+- [ ] Planned dates (`planned_*`) remain forecasts; actual join/sign-off happen only through Movement Actions
 
 ### Vacant slot handoff
 
@@ -195,28 +179,27 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 - [ ] Linked slot disappears from vacant Gantt once linked to a CrewAssignment
 - [ ] User without `crew_operations.planning.view` cannot link a vacant slot
 
-### Planning-only permissions (legacy Planned CrewAssignment + Crew Planning)
+### Planning-only permissions (Crew Planning)
 
-- [ ] `planning.view` can open a legacy Planned assignment (without `assignments.view`)
-- [ ] `planning.update` can edit a legacy Planned assignment (without `assignments.update`)
-- [ ] `planning.delete` can cancel a legacy Planned assignment (without `assignments.cancel`)
-- [ ] Planning permissions create/edit CrewPlanningAssignment future plans
+- [ ] Planning permissions create/edit/view/delete `CrewPlanningAssignment` future plans
+- [ ] Planning permissions do **not** authorize CrewAssignment view/update/cancel (no Planned CrewAssignment path)
 - [ ] Planning permissions do **not** grant Start Assignment / Start Mobilisation / movements / Active edits
-- [ ] Conflict dialog Edit/Cancel Existing Plan actions match the same Gate results for legacy Planned rows
+- [ ] Conflict dialog Edit/Cancel Existing Plan actions target Crew Planning rows (Gate results for Planning permissions)
 
 ### Edit integrity
 
-- [ ] Planned update cannot clear Expected Join or Expected Sign-Off
+- [ ] Crew Planning update cannot clear Expected Join or Expected Sign-Off on committed future plans
 - [ ] Update validation uses the effective candidate state (explicit blank ≠ silent fallback to old value)
 - [ ] Authoritative conflict re-check runs inside the write transaction with locking
 - [ ] Draft date-order invariants still apply; Draft still does not reserve availability
 
 ### Relief
 
-- [ ] Draft relief does **not** satisfy “relief planned” or block a committed Planned relief
-- [ ] Planned / Active relief remains authoritative
-- [ ] Cancelled / Completed relief does not block replacement planning
-- [ ] Legacy vacant `CrewPlanningAssignment` relief slots still work when no named assignment exists
+- [ ] **Future committed relief** = `CrewPlanningAssignment` (vacant or named)
+- [ ] **Operational relief** = linked Active assignment still in P0–P4
+- [ ] **Draft** linked relief is non-committed and does **not** satisfy “relief planned” or block a committed Planning relief
+- [ ] Cancelled / Completed linked relief does not block replacement planning
+- [ ] Vacant `CrewPlanningAssignment` relief slots still work when no named assignment exists
 
 ### Obsolete (do not expect)
 
@@ -224,6 +207,7 @@ There is **no** automatic CrewAssignment ↔ CrewPlanningAssignment mirror/sync.
 - Every CrewAssignment does **not** require a CrewPlanningAssignment mirror
 - Starting from Planning does **not** create a second CrewAssignment copy
 - Planning does **not** manufacture actual movement / sea-service history
+- `CrewAssignment(status=planned)` / Save as Planned / `submission_intent=plan` are not supported
 
 ## 7. Dashboard / manning
 
