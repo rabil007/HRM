@@ -42,6 +42,24 @@ describe('Crew Readiness Query & Helpers', () => {
             q.getValue(summary),
         );
         assert.deepEqual(values, [25, 12, 8, 3, 6, 2]);
+
+        const readyView = CREW_READINESS_QUICK_VIEWS.find(
+            (q) => q.key === 'ready',
+        );
+        assert.equal(readyView?.label, 'Ready');
+        assert.equal(readyView?.getValue(summary), 12);
+
+        const noChecksView = CREW_READINESS_QUICK_VIEWS.find(
+            (q) => q.key === 'no_checks',
+        );
+        assert.equal(noChecksView?.label, 'No Checks Configured');
+        assert.equal(noChecksView?.getValue(summary), 2);
+
+        const joining7View = CREW_READINESS_QUICK_VIEWS.find(
+            (q) => q.key === 'joining_7',
+        );
+        assert.equal(joining7View?.label, 'Joining in 7 Days');
+        assert.equal(joining7View?.getValue(summary), 6);
     });
 
     it('formats join timeline correctly for past, present, and future join dates', () => {

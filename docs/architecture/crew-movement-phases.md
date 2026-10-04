@@ -48,6 +48,12 @@ OMS-HRM maintains an explicit separation of concerns across the four operational
 
 Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Relief Desk** (`/organization/crew-operations/relief-desk`) is a standalone operational replacement-management workspace over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`). It is not a new Relief entity or workflow. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
 
+Crew Readiness operational semantics:
+- **Ready vs No Checks Configured**: In Crew Readiness presentation, summary metrics, and filtering, `Ready` strictly means status is Ready AND has configured checks (`hasConfiguredChecks()`). Crew with zero configured checks are presented and filtered as `No Checks Configured` (`focus=no_checks`), ensuring the summary card, quick view focus, and dropdown filter return the exact same population.
+- **Joining in 7 Days**: Strictly counts today through +7 days (`0 <= days_until_join <= 7`). Overdue crew (`days_until_join < 0`) are excluded from this metric and have dedicated overdue indicators and sorting.
+- **Join Window Semantics**: Finite windows (`7`, `14`, `30` days, labeled `Overdue + next X days`) require a dated expected join (`join IS NOT NULL AND join <= cutoff`), retaining dated overdue pre-join records because operationally they require attention, while excluding undated records. `window=all` (`All pre-join`) includes undated pre-join records.
+- **Crew Planning Focus Links**: Navigating from Crew Readiness or Relief Desk to Crew Planning with an authorized `planning_assignment_id` automatically adjusts the Gantt date range if needed (unless the caller explicitly supplied valid custom `from`/`to`), guaranteeing the target plan bar is loaded and focused even if it falls outside the default 2-month window.
+
 Vessel View / Onboard by Vessel answers: which vessels currently have crew onboard, and who is onboard each vessel.
 
 A person is onboard only when all of the following are true:

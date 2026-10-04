@@ -313,8 +313,11 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] Assignment row scope: Draft and active pre-join phases (P0 Pre-Mobilisation, P2A Join Standby, P2B Training, and legacy pre-join phases)
 - [ ] Assignment row exclusions: P4 On Vessel, P5, P6, Completed, and Cancelled assignments are excluded
 - [ ] Deduplication: When a Planning row is linked to an operational CrewAssignment (`crew_assignment_id != null`), only the operational Assignment appears
-- [ ] Document readiness checks: Authoritative company-configured document requirements determine Ready / Needs Attention / Not Ready statuses
-- [ ] Zero checks state: Shows "No Checks Configured" when no requirements match rank/company
+- [ ] Document readiness checks: Authoritative company-configured document requirements determine Ready / Needs Attention / Not Ready statuses. In presentation, summary metrics, and filtering, `Ready` requires configured checks (`hasConfiguredChecks() === true`), while `readiness_status=ready` and `focus=ready` strictly exclude zero-check rows
+- [ ] Zero checks state: Shows "No Checks Configured" (`focus=no_checks`) when no requirements match rank/company, keeping `Ready` and `No Checks Configured` populations strictly separated across cards, quick views, and filters
+- [ ] Joining in 7 Days: Strictly covers today through +7 days (`0 <= days_until_join <= 7`); overdue crew are excluded from this card/focus and tracked separately
+- [ ] Finite Join Windows: Options `Overdue + next 7 days`, `Overdue + next 14 days`, and `Overdue + next 30 days` retain dated overdue pre-join crew through the selected future cutoff date, while excluding undated records (`Expected Join = null`). `All pre-join` (`window=all`) includes eligible undated records
+- [ ] Crew Planning focus links: Clicking "Open Crew Plan" (`plan_href`) with an authorized `planning_assignment_id` guarantees Crew Planning loads a Gantt date range encompassing the plan so the bar is loaded and focused even if it lies far in the future
 - [ ] Document links authorization: Document links (`documents_href`) are generated only when user has `documents.view`
 - [ ] Employee visibility: Employees restricted by `EmployeeVisibilityScope` never appear in rows, search results, or summary counts
 - [ ] Advisory readiness: Readiness status is advisory and does not block starting assignments or movement transitions

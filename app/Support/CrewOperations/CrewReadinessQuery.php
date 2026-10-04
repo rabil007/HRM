@@ -102,6 +102,7 @@ final class CrewReadinessQuery
         $canViewDocuments = $user->can('documents.view');
 
         $candidates = $this->buildCandidates(
+            $companyId,
             $planningRows,
             $assignmentRows,
             $complianceByEmployee,
@@ -135,7 +136,7 @@ final class CrewReadinessQuery
             ]
         );
 
-        $filterOptions = $this->resolveFilterOptions($companyId);
+        $filterOptions = $this->resolveFilterOptions($companyId, $user);
 
         return [
             'rows' => $presentedRows,
@@ -163,6 +164,16 @@ final class CrewReadinessQuery
             ->whereNull('crew_planning_assignments.crew_assignment_id')
             ->whereDate('crew_planning_assignments.planned_leave_date', '>=', $todayLocal);
 
+        $query->where(function (Builder $vq) use ($companyId): void {
+            $vq->whereNull('crew_planning_assignments.vessel_id')
+                ->orWhereHas('vessel', fn (Builder $v) => $v->where('company_id', $companyId));
+        });
+
+        $query->where(function (Builder $pq) use ($companyId): void {
+            $pq->whereNull('crew_planning_assignments.position_id')
+                ->orWhereHas('position', fn (Builder $p) => $p->where('company_id', $companyId));
+        });
+
         $query->whereHas('employee', function (Builder $eq) use ($user, $companyId): void {
             EmployeeVisibilityScope::apply($eq, $user, $companyId);
         });
@@ -177,24 +188,22 @@ final class CrewReadinessQuery
 
         if ($filters['search'] !== null) {
             $search = $filters['search'];
-            $query->where(function (Builder $sq) use ($search): void {
+            $query->where(function (Builder $sq) use ($search, $companyId): void {
                 $sq->whereHas('employee', fn (Builder $eq) => $eq->where('name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%"))
-                    ->orWhereHas('vessel', fn (Builder $vq) => $vq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('position', fn (Builder $pq) => $pq->where('title', 'like', "%{$search}%"));
+                    ->orWhereHas('vessel', fn (Builder $vq) => $vq->where('company_id', $companyId)->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('position', fn (Builder $pq) => $pq->where('company_id', $companyId)->where('title', 'like', "%{$search}%"));
             });
         }
 
         if ($windowCutoff !== null) {
-            $query->where(function (Builder $wq) use ($windowCutoff): void {
-                $wq->whereNull('crew_planning_assignments.planned_join_date')
-                    ->orWhereDate('crew_planning_assignments.planned_join_date', '<=', $windowCutoff);
-            });
+            $query->whereNotNull('crew_planning_assignments.planned_join_date')
+                ->whereDate('crew_planning_assignments.planned_join_date', '<=', $windowCutoff);
         }
 
         return $query->with([
             'employee:id,company_id,name,employee_no,position_id,department_id',
-            'vessel:id,name',
-            'position:id,title',
+            'vessel:id,company_id,name',
+            'position:id,company_id,title',
         ])->get();
     }
 
@@ -212,6 +221,16 @@ final class CrewReadinessQuery
             ->where('crew_assignments.company_id', $companyId)
             ->whereNotNull('crew_assignments.employee_id')
             ->whereIn('crew_assignments.status', [CrewAssignmentStatus::Draft, CrewAssignmentStatus::Active]);
+
+        $query->where(function (Builder $vq) use ($companyId): void {
+            $vq->whereNull('crew_assignments.vessel_id')
+                ->orWhereHas('vessel', fn (Builder $v) => $v->where('company_id', $companyId));
+        });
+
+        $query->where(function (Builder $pq) use ($companyId): void {
+            $pq->whereNull('crew_assignments.position_id')
+                ->orWhereHas('position', fn (Builder $p) => $p->where('company_id', $companyId));
+        });
 
         $preJoinValues = CrewPhaseCode::preJoinValues();
 
@@ -242,24 +261,22 @@ final class CrewReadinessQuery
 
         if ($filters['search'] !== null) {
             $search = $filters['search'];
-            $query->where(function (Builder $sq) use ($search): void {
+            $query->where(function (Builder $sq) use ($search, $companyId): void {
                 $sq->whereHas('employee', fn (Builder $eq) => $eq->where('name', 'like', "%{$search}%")->orWhere('employee_no', 'like', "%{$search}%"))
-                    ->orWhereHas('vessel', fn (Builder $vq) => $vq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('position', fn (Builder $pq) => $pq->where('title', 'like', "%{$search}%"));
+                    ->orWhereHas('vessel', fn (Builder $vq) => $vq->where('company_id', $companyId)->where('name', 'like', "%{$search}%"))
+                    ->orWhereHas('position', fn (Builder $pq) => $pq->where('company_id', $companyId)->where('title', 'like', "%{$search}%"));
             });
         }
 
         if ($windowCutoff !== null) {
-            $query->where(function (Builder $wq) use ($windowCutoff): void {
-                $wq->whereNull('crew_assignments.planned_join_at')
-                    ->orWhereDate('crew_assignments.planned_join_at', '<=', $windowCutoff);
-            });
+            $query->whereNotNull('crew_assignments.planned_join_at')
+                ->whereDate('crew_assignments.planned_join_at', '<=', $windowCutoff);
         }
 
         return $query->with([
             'employee:id,company_id,name,employee_no,position_id,department_id',
-            'vessel:id,name',
-            'position:id,title',
+            'vessel:id,company_id,name',
+            'position:id,company_id,title',
             'currentPhase',
         ])->get();
     }
@@ -287,6 +304,7 @@ final class CrewReadinessQuery
      * }>
      */
     private function buildCandidates(
+        int $companyId,
         Collection $planningRows,
         Collection $assignmentRows,
         Collection $complianceByEmployee,
@@ -300,6 +318,14 @@ final class CrewReadinessQuery
         foreach ($planningRows as $plan) {
             $employee = $plan->employee;
             if ($employee === null) {
+                continue;
+            }
+
+            if ($plan->vessel_id !== null && ($plan->vessel === null || (int) $plan->vessel->company_id !== $companyId)) {
+                continue;
+            }
+
+            if ($plan->position_id !== null && ($plan->position === null || (int) $plan->position->company_id !== $companyId)) {
                 continue;
             }
 
@@ -359,6 +385,14 @@ final class CrewReadinessQuery
         foreach ($assignmentRows as $assignment) {
             $employee = $assignment->employee;
             if ($employee === null) {
+                continue;
+            }
+
+            if ($assignment->vessel_id !== null && ($assignment->vessel === null || (int) $assignment->vessel->company_id !== $companyId)) {
+                continue;
+            }
+
+            if ($assignment->position_id !== null && ($assignment->position === null || (int) $assignment->position->company_id !== $companyId)) {
                 continue;
             }
 
@@ -438,7 +472,7 @@ final class CrewReadinessQuery
             'ready' => $candidates->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::Ready && $c['readiness']->hasConfiguredChecks())->count(),
             'attention' => $candidates->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::Attention)->count(),
             'not_ready' => $candidates->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::NotReady)->count(),
-            'joining_7' => $candidates->filter(fn (array $c): bool => $c['days_until_join'] !== null && $c['days_until_join'] <= 7)->count(),
+            'joining_7' => $candidates->filter(fn (array $c): bool => (bool) $c['is_joining_soon'])->count(),
             'no_checks' => $candidates->filter(fn (array $c): bool => ! $c['readiness']->hasConfiguredChecks())->count(),
         ];
     }
@@ -453,7 +487,13 @@ final class CrewReadinessQuery
         $filtered = $candidates;
 
         if ($filters['readiness_status'] !== CrewReadinessFilters::STATUS_ALL) {
-            $filtered = $filtered->filter(fn (array $c): bool => $c['readiness']->status->value === $filters['readiness_status']);
+            $filtered = $filtered->filter(function (array $c) use ($filters): bool {
+                if ($filters['readiness_status'] === CrewReadinessFilters::STATUS_READY) {
+                    return $c['readiness']->status === CrewMobilisationReadinessStatus::Ready && $c['readiness']->hasConfiguredChecks();
+                }
+
+                return $c['readiness']->status->value === $filters['readiness_status'];
+            });
         }
 
         if ($filters['focus'] !== '') {
@@ -461,7 +501,7 @@ final class CrewReadinessQuery
                 CrewReadinessFilters::FOCUS_READY => $filtered->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::Ready && $c['readiness']->hasConfiguredChecks()),
                 CrewReadinessFilters::FOCUS_ATTENTION => $filtered->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::Attention),
                 CrewReadinessFilters::FOCUS_NOT_READY => $filtered->filter(fn (array $c): bool => $c['readiness']->status === CrewMobilisationReadinessStatus::NotReady),
-                CrewReadinessFilters::FOCUS_JOINING_7 => $filtered->filter(fn (array $c): bool => $c['days_until_join'] !== null && $c['days_until_join'] <= 7),
+                CrewReadinessFilters::FOCUS_JOINING_7 => $filtered->filter(fn (array $c): bool => (bool) $c['is_joining_soon']),
                 CrewReadinessFilters::FOCUS_NO_CHECKS => $filtered->filter(fn (array $c): bool => ! $c['readiness']->hasConfiguredChecks()),
                 default => $filtered,
             };
@@ -511,7 +551,7 @@ final class CrewReadinessQuery
     /**
      * @return array<string, mixed>
      */
-    private function resolveFilterOptions(int $companyId): array
+    private function resolveFilterOptions(int $companyId, User $user): array
     {
         $vessels = Vessel::query()
             ->where('company_id', $companyId)
@@ -536,20 +576,31 @@ final class CrewReadinessQuery
             ])
             ->all();
 
+        $canViewPlanning = $user->can('crew_operations.planning.view');
+        $canViewAssignments = $user->can('crew_operations.assignments.view');
+
+        $sources = [
+            ['value' => CrewReadinessFilters::SOURCE_ALL, 'label' => 'All Sources'],
+        ];
+
+        if ($canViewPlanning) {
+            $sources[] = ['value' => CrewReadinessFilters::SOURCE_PLANNING, 'label' => 'Future Planning'];
+        }
+
+        if ($canViewAssignments) {
+            $sources[] = ['value' => CrewReadinessFilters::SOURCE_ASSIGNMENT, 'label' => 'Operational Pre-Join'];
+        }
+
         return [
             'vessels' => $vessels,
             'positions' => $positions,
             'windows' => [
-                ['value' => CrewReadinessFilters::WINDOW_7, 'label' => 'Next 7 days'],
-                ['value' => CrewReadinessFilters::WINDOW_14, 'label' => 'Next 14 days'],
-                ['value' => CrewReadinessFilters::WINDOW_30, 'label' => 'Next 30 days'],
-                ['value' => CrewReadinessFilters::WINDOW_ALL, 'label' => 'All upcoming'],
+                ['value' => CrewReadinessFilters::WINDOW_7, 'label' => 'Overdue + next 7 days'],
+                ['value' => CrewReadinessFilters::WINDOW_14, 'label' => 'Overdue + next 14 days'],
+                ['value' => CrewReadinessFilters::WINDOW_30, 'label' => 'Overdue + next 30 days'],
+                ['value' => CrewReadinessFilters::WINDOW_ALL, 'label' => 'All pre-join'],
             ],
-            'sources' => [
-                ['value' => CrewReadinessFilters::SOURCE_ALL, 'label' => 'All Sources'],
-                ['value' => CrewReadinessFilters::SOURCE_PLANNING, 'label' => 'Future Planning'],
-                ['value' => CrewReadinessFilters::SOURCE_ASSIGNMENT, 'label' => 'Operational Pre-Join'],
-            ],
+            'sources' => $sources,
             'statuses' => [
                 ['value' => CrewReadinessFilters::STATUS_ALL, 'label' => 'All Statuses'],
                 ['value' => CrewReadinessFilters::STATUS_READY, 'label' => 'Ready'],

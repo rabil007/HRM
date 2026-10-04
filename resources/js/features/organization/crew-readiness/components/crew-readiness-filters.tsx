@@ -107,16 +107,11 @@ export function CrewReadinessFiltersBar({
                             placeholder="All Statuses"
                             className="hidden w-[145px] lg:inline-flex"
                         >
-                            <AppSelectItem value="all">
-                                All Statuses
-                            </AppSelectItem>
-                            <AppSelectItem value="ready">Ready</AppSelectItem>
-                            <AppSelectItem value="attention">
-                                Needs Attention
-                            </AppSelectItem>
-                            <AppSelectItem value="not_ready">
-                                Not Ready
-                            </AppSelectItem>
+                            {(filterOptions.statuses ?? []).map((s) => (
+                                <AppSelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
 
                         <AppSelect
@@ -126,17 +121,13 @@ export function CrewReadinessFiltersBar({
                             }
                             variant="dark"
                             placeholder="All Sources"
-                            className="hidden w-[155px] lg:inline-flex"
+                            className="hidden w-[165px] lg:inline-flex"
                         >
-                            <AppSelectItem value="all">
-                                All Sources
-                            </AppSelectItem>
-                            <AppSelectItem value="planning">
-                                Future Planning
-                            </AppSelectItem>
-                            <AppSelectItem value="assignment">
-                                Operational Pre-Join
-                            </AppSelectItem>
+                            {(filterOptions.sources ?? []).map((s) => (
+                                <AppSelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
 
                         <AppSelect
@@ -146,18 +137,13 @@ export function CrewReadinessFiltersBar({
                             }
                             variant="dark"
                             placeholder="Join Window"
-                            className="hidden w-[145px] sm:inline-flex"
+                            className="hidden w-[185px] sm:inline-flex"
                         >
-                            <AppSelectItem value="7">Next 7 days</AppSelectItem>
-                            <AppSelectItem value="14">
-                                Next 14 days
-                            </AppSelectItem>
-                            <AppSelectItem value="30">
-                                Next 30 days
-                            </AppSelectItem>
-                            <AppSelectItem value="all">
-                                All upcoming
-                            </AppSelectItem>
+                            {(filterOptions.windows ?? []).map((w) => (
+                                <AppSelectItem key={w.value} value={w.value}>
+                                    {w.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
 
                         <Button
@@ -255,16 +241,11 @@ export function CrewReadinessFiltersBar({
                             placeholder="All Statuses"
                             className="w-full"
                         >
-                            <AppSelectItem value="all">
-                                All Statuses
-                            </AppSelectItem>
-                            <AppSelectItem value="ready">Ready</AppSelectItem>
-                            <AppSelectItem value="attention">
-                                Needs Attention
-                            </AppSelectItem>
-                            <AppSelectItem value="not_ready">
-                                Not Ready
-                            </AppSelectItem>
+                            {(filterOptions.statuses ?? []).map((s) => (
+                                <AppSelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
                     </div>
 
@@ -278,15 +259,11 @@ export function CrewReadinessFiltersBar({
                             placeholder="All Sources"
                             className="w-full"
                         >
-                            <AppSelectItem value="all">
-                                All Sources
-                            </AppSelectItem>
-                            <AppSelectItem value="planning">
-                                Future Planning
-                            </AppSelectItem>
-                            <AppSelectItem value="assignment">
-                                Operational Pre-Join
-                            </AppSelectItem>
+                            {(filterOptions.sources ?? []).map((s) => (
+                                <AppSelectItem key={s.value} value={s.value}>
+                                    {s.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
                     </div>
 
@@ -300,16 +277,11 @@ export function CrewReadinessFiltersBar({
                             placeholder="Join Window"
                             className="w-full"
                         >
-                            <AppSelectItem value="7">Next 7 days</AppSelectItem>
-                            <AppSelectItem value="14">
-                                Next 14 days
-                            </AppSelectItem>
-                            <AppSelectItem value="30">
-                                Next 30 days
-                            </AppSelectItem>
-                            <AppSelectItem value="all">
-                                All upcoming
-                            </AppSelectItem>
+                            {(filterOptions.windows ?? []).map((w) => (
+                                <AppSelectItem key={w.value} value={w.value}>
+                                    {w.label}
+                                </AppSelectItem>
+                            ))}
                         </AppSelect>
                     </div>
                 </div>

@@ -763,3 +763,439 @@ it('prioritizes overdue and not ready rows first', function () {
             ->where('readiness.rows.2.employee.name', 'Alpha')
         );
 });
+
+it('correctly calculates joining in 7 days summary and focus filter, strictly including today through +7 and excluding overdue and beyond +7', function () {
+    $fixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.assignments.view',
+    ]);
+    $company = $fixtures['company'];
+    $rank = $fixtures['rank'];
+    $vessel = $fixtures['vessel'];
+    $today = $fixtures['today'];
+
+    $makeCrew = function (string $name, ?CarbonImmutable $joinDate) use ($company, $rank, $vessel) {
+        $employee = Employee::factory()->forCompany($company)->create([
+            'name' => $name,
+            'position_id' => $rank->id,
+        ]);
+
+        return CrewAssignment::factory()->forEmployee($employee)->create([
+            'company_id' => $company->id,
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'status' => CrewAssignmentStatus::Draft,
+            'planned_join_at' => $joinDate?->toDateTimeString(),
+        ]);
+    };
+
+    // Join yesterday: overdue -> NOT joining in 7 days
+    $makeCrew('Yesterday Overdue', $today->subDay());
+    // Join today: YES
+    $makeCrew('Today Sailor', $today);
+    // Join +1 day: YES
+    $makeCrew('Day 1 Sailor', $today->addDays(1));
+    // Join +7 days: YES
+    $makeCrew('Day 7 Sailor', $today->addDays(7));
+    // Join +8 days: NO
+    $makeCrew('Day 8 Sailor', $today->addDays(8));
+    // No expected join: NO
+    $makeCrew('Undated Sailor', null);
+
+    // 1. Check summary counts with window=all so all candidates are loaded
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-readiness/index')
+            ->where('readiness.summary.upcoming_crew', 6)
+            ->where('readiness.summary.joining_7', 3)
+        );
+
+    // 2. Check focus=joining_7 returns exactly the 3 rows (today, +1, +7)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all', 'focus' => 'joining_7']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-readiness/index')
+            ->has('readiness.rows', 3)
+            ->where('readiness.rows.0.employee.name', fn ($name) => in_array($name, ['Today Sailor', 'Day 1 Sailor', 'Day 7 Sailor'], true))
+            ->where('readiness.rows.1.employee.name', fn ($name) => in_array($name, ['Today Sailor', 'Day 1 Sailor', 'Day 7 Sailor'], true))
+            ->where('readiness.rows.2.employee.name', fn ($name) => in_array($name, ['Today Sailor', 'Day 1 Sailor', 'Day 7 Sailor'], true))
+        );
+});
+
+it('consistently treats Ready as configured clear checks and No Checks Configured as zero checks across summary, dropdown filter, and focus', function () {
+    $fixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.assignments.view',
+    ]);
+    $company = $fixtures['company'];
+    $rank1 = $fixtures['rank'];
+    $rank2 = Position::query()->create([
+        'company_id' => $company->id,
+        'title' => 'Zero Checks Rank '.Str::uuid()->toString(),
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+    $vessel = $fixtures['vessel'];
+    $today = $fixtures['today'];
+
+    $type = DocumentType::query()->create(['title' => 'Passport '.uniqid(), 'is_active' => true]);
+    makeDocumentRequirement($company->id, $type->id, requiredForAll: false, positionIds: [$rank1->id]);
+
+    // 1. Ready Crew: has check + compliant document
+    $readyEmp = Employee::factory()->forCompany($company)->create(['name' => 'Ready Crew', 'position_id' => $rank1->id]);
+    makeReadinessEmployeeDocument($company->id, $readyEmp->id, $type->id, 'valid', $today->addMonths(12)->toDateString());
+    CrewAssignment::factory()->forEmployee($readyEmp)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank1->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(2)->toDateTimeString(),
+    ]);
+
+    // 2. Attention Crew: has check + expiring soon document
+    $attnEmp = Employee::factory()->forCompany($company)->create(['name' => 'Attention Crew', 'position_id' => $rank1->id]);
+    makeReadinessEmployeeDocument($company->id, $attnEmp->id, $type->id, 'valid', $today->addDays(10)->toDateString());
+    CrewAssignment::factory()->forEmployee($attnEmp)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank1->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(3)->toDateTimeString(),
+    ]);
+
+    // 3. Zero-check Crew: rank2 has no requirements
+    $zeroEmp = Employee::factory()->forCompany($company)->create(['name' => 'Zero Check Crew', 'position_id' => $rank2->id]);
+    CrewAssignment::factory()->forEmployee($zeroEmp)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank2->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(4)->toDateTimeString(),
+    ]);
+
+    // Summary counts check
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-readiness/index')
+            ->where('readiness.summary.upcoming_crew', 3)
+            ->where('readiness.summary.ready', 1)
+            ->where('readiness.summary.attention', 1)
+            ->where('readiness.summary.not_ready', 0)
+            ->where('readiness.summary.no_checks', 1)
+        );
+
+    // Dropdown filter: readiness_status=ready must return ONLY Ready Crew (excludes zero-check crew)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all', 'readiness_status' => 'ready']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 1)
+            ->where('readiness.rows.0.employee.name', 'Ready Crew')
+            ->where('readiness.rows.0.readiness.status', CrewMobilisationReadinessStatus::Ready->value)
+            ->where('readiness.rows.0.readiness.has_configured_checks', true)
+        );
+
+    // Focus filter: focus=ready must return ONLY Ready Crew
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all', 'focus' => 'ready']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 1)
+            ->where('readiness.rows.0.employee.name', 'Ready Crew')
+        );
+
+    // Focus filter: focus=no_checks must return ONLY Zero Check Crew
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all', 'focus' => 'no_checks']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 1)
+            ->where('readiness.rows.0.employee.name', 'Zero Check Crew')
+            ->where('readiness.rows.0.readiness.has_configured_checks', false)
+        );
+});
+
+it('enforces finite join window semantics excluding undated records and retaining overdue dated records', function () {
+    $fixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.assignments.view',
+    ]);
+    $company = $fixtures['company'];
+    $rank = $fixtures['rank'];
+    $vessel = $fixtures['vessel'];
+    $today = $fixtures['today'];
+
+    $makeCrew = function (string $name, ?CarbonImmutable $joinDate) use ($company, $rank, $vessel) {
+        $employee = Employee::factory()->forCompany($company)->create([
+            'name' => $name,
+            'position_id' => $rank->id,
+        ]);
+
+        return CrewAssignment::factory()->forEmployee($employee)->create([
+            'company_id' => $company->id,
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'status' => CrewAssignmentStatus::Draft,
+            'planned_join_at' => $joinDate?->toDateTimeString(),
+        ]);
+    };
+
+    $makeCrew('Overdue Sailor', $today->subDays(5));
+    $makeCrew('Today Sailor', $today);
+    $makeCrew('Day 7 Sailor', $today->addDays(7));
+    $makeCrew('Day 8 Sailor', $today->addDays(8));
+    $makeCrew('Day 15 Sailor', $today->addDays(15));
+    $makeCrew('Undated Sailor', null);
+
+    // window=7: overdue, today, day 7 (3 rows)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => '7']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 3)
+            ->where('readiness.rows.0.employee.name', fn ($name) => in_array($name, ['Overdue Sailor', 'Today Sailor', 'Day 7 Sailor'], true))
+            ->where('readiness.rows.1.employee.name', fn ($name) => in_array($name, ['Overdue Sailor', 'Today Sailor', 'Day 7 Sailor'], true))
+            ->where('readiness.rows.2.employee.name', fn ($name) => in_array($name, ['Overdue Sailor', 'Today Sailor', 'Day 7 Sailor'], true))
+        );
+
+    // window=14: overdue, today, day 7, day 8 (4 rows)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => '14']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 4)
+        );
+
+    // window=30: overdue, today, day 7, day 8, day 15 (5 rows)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => '30']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 5)
+        );
+
+    // window=all: includes undated as well (6 rows)
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 6)
+        );
+});
+
+it('hardens against malformed cross-company vessel and position relations', function () {
+    $fixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.planning.view',
+        'crew_operations.assignments.view',
+    ]);
+    $company = $fixtures['company'];
+    $rank = $fixtures['rank'];
+    $vessel = $fixtures['vessel'];
+    $today = $fixtures['today'];
+
+    $foreignCompany = makeReadinessCompany('Foreign Shipping Corp');
+    $foreignVessel = makeCrewMovementVessel('Secret Foreign Vessel', $foreignCompany);
+    $foreignPosition = Position::query()->create([
+        'company_id' => $foreignCompany->id,
+        'title' => 'Secret Foreign Captain',
+        'status' => 'active',
+        'is_crew_position' => true,
+    ]);
+
+    // Local employee for company A
+    $empLocal = Employee::factory()->forCompany($company)->create(['name' => 'Valid Local', 'position_id' => $rank->id]);
+    $empPlanForeignVessel = Employee::factory()->forCompany($company)->create(['name' => 'Plan Bad Vessel', 'position_id' => $rank->id]);
+    $empPlanForeignPos = Employee::factory()->forCompany($company)->create(['name' => 'Plan Bad Position', 'position_id' => $rank->id]);
+    $empAssignForeignVessel = Employee::factory()->forCompany($company)->create(['name' => 'Assign Bad Vessel', 'position_id' => $rank->id]);
+    $empAssignForeignPos = Employee::factory()->forCompany($company)->create(['name' => 'Assign Bad Position', 'position_id' => $rank->id]);
+
+    // 1. Valid local assignment
+    CrewAssignment::factory()->forEmployee($empLocal)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(3)->toDateTimeString(),
+    ]);
+
+    // 2. Malformed local planning row + foreign vessel
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $empPlanForeignVessel->id,
+        'position_id' => $rank->id,
+        'vessel_id' => $foreignVessel->id,
+        'planned_join_date' => $today->addDays(4)->toDateString(),
+        'planned_leave_date' => $today->addDays(34)->toDateString(),
+    ]);
+
+    // 3. Malformed local planning row + foreign position
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $empPlanForeignPos->id,
+        'position_id' => $foreignPosition->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_date' => $today->addDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(35)->toDateString(),
+    ]);
+
+    // 4. Malformed local assignment + foreign vessel
+    CrewAssignment::factory()->forEmployee($empAssignForeignVessel)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $foreignVessel->id,
+        'position_id' => $rank->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(6)->toDateTimeString(),
+    ]);
+
+    // 5. Malformed local assignment + foreign position
+    CrewAssignment::factory()->forEmployee($empAssignForeignPos)->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $foreignPosition->id,
+        'status' => CrewAssignmentStatus::Draft,
+        'planned_join_at' => $today->addDays(7)->toDateTimeString(),
+    ]);
+
+    // Request workspace
+    $response = $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all']))
+        ->assertOk();
+
+    $response->assertInertia(fn (Assert $page) => $page
+        ->component('organization/crew-readiness/index')
+        ->where('readiness.summary.upcoming_crew', 1)
+        ->has('readiness.rows', 1)
+        ->where('readiness.rows.0.employee.name', 'Valid Local')
+    );
+
+    // Ensure foreign names/ids are nowhere in the output
+    $content = $response->getContent();
+    expect($content)->not->toContain('Secret Foreign Vessel')
+        ->and($content)->not->toContain('Secret Foreign Captain')
+        ->and($content)->not->toContain('Plan Bad Vessel')
+        ->and($content)->not->toContain('Plan Bad Position')
+        ->and($content)->not->toContain('Assign Bad Vessel')
+        ->and($content)->not->toContain('Assign Bad Position');
+
+    // Search by foreign vessel name must return 0 results and summary count 0
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['search' => 'Secret Foreign Vessel', 'window' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 0)
+            ->where('readiness.summary.upcoming_crew', 0)
+        );
+
+    // Search by foreign position name must return 0 results and summary count 0
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['search' => 'Secret Foreign Captain', 'window' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('readiness.rows', 0)
+            ->where('readiness.summary.upcoming_crew', 0)
+        );
+});
+
+it('provides permission-aware source filter options', function () {
+    // 1. Planning-only viewer
+    $planFixtures = makeCrewReadinessTestFixtures(['crew_operations.planning.view']);
+    $this->actingAs($planFixtures['user'])
+        ->get(route('organization.crew-readiness.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('readiness.filter_options.sources', [
+                ['value' => 'all', 'label' => 'All Sources'],
+                ['value' => 'planning', 'label' => 'Future Planning'],
+            ])
+        );
+
+    // 2. Assignment-only viewer
+    $assignFixtures = makeCrewReadinessTestFixtures(['crew_operations.assignments.view']);
+    $this->actingAs($assignFixtures['user'])
+        ->get(route('organization.crew-readiness.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('readiness.filter_options.sources', [
+                ['value' => 'all', 'label' => 'All Sources'],
+                ['value' => 'assignment', 'label' => 'Operational Pre-Join'],
+            ])
+        );
+
+    // 3. Both permissions viewer
+    $bothFixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.planning.view',
+        'crew_operations.assignments.view',
+    ]);
+    $this->actingAs($bothFixtures['user'])
+        ->get(route('organization.crew-readiness.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('readiness.filter_options.sources', [
+                ['value' => 'all', 'label' => 'All Sources'],
+                ['value' => 'planning', 'label' => 'Future Planning'],
+                ['value' => 'assignment', 'label' => 'Operational Pre-Join'],
+            ])
+        );
+});
+
+it('guarantees Open Crew Plan href navigates to Crew Planning with a date range containing a far-future plan', function () {
+    $fixtures = makeCrewReadinessTestFixtures([
+        'crew_operations.planning.view',
+        'crew_operations.assignments.view',
+    ]);
+    $company = $fixtures['company'];
+    $rank = $fixtures['rank'];
+    $vessel = $fixtures['vessel'];
+    $today = $fixtures['today'];
+
+    // Plan 7 months in the future, well outside standard 2-month default Gantt window
+    $futureStart = $today->addMonths(7);
+    $futureEnd = $futureStart->addMonths(1);
+
+    $futureEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Far Future Navigator',
+        'position_id' => $rank->id,
+    ]);
+
+    $plan = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $futureEmp->id,
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_date' => $futureStart->toDateString(),
+        'planned_leave_date' => $futureEnd->toDateString(),
+    ]);
+
+    // Access readiness index with window=all to see future plans
+    $readinessResponse = $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-readiness.index', ['window' => 'all']))
+        ->assertOk();
+
+    $row = null;
+    $readinessResponse->assertInertia(function (Assert $page) use (&$row) {
+        $rows = $page->toArray()['props']['readiness']['rows'];
+        foreach ($rows as $r) {
+            if ($r['employee']['name'] === 'Far Future Navigator') {
+                $row = $r;
+                break;
+            }
+        }
+    });
+
+    expect($row)->not->toBeNull()
+        ->and($row['plan_href'])->toBeString()->toContain('planning_assignment_id='.$plan->id);
+
+    // Now follow the plan_href
+    $this->actingAs($fixtures['user'])
+        ->get($row['plan_href'])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-planning/index')
+            ->where('relief_prefill.planning_assignment_id', $plan->id)
+            ->where('filters.from', fn (string $from) => $from <= $plan->planned_join_date->toDateString())
+            ->where('filters.to', fn (string $to) => $to >= $plan->planned_leave_date->toDateString())
+            ->where('bars', fn ($bars) => collect($bars)->contains(fn ($bar) => (int) ($bar['id'] ?? 0) === (int) $plan->id))
+        );
+});
