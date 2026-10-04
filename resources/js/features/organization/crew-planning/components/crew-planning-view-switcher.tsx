@@ -1,4 +1,4 @@
-import { CalendarRange, Replace, Ship } from 'lucide-react';
+import { CalendarRange, Ship } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { CrewPlanningView } from '@/features/organization/crew-planning/types';
 import { cn } from '@/lib/utils';
@@ -48,20 +48,6 @@ export function CrewPlanningViewSwitcher({
                     <span className="sm:hidden">Onboard</span>
                 </Button>
             ) : null}
-            <Button
-                type="button"
-                variant={value === 'relief' ? 'default' : 'ghost'}
-                className={cn(
-                    'h-11 rounded-lg px-3 sm:px-4',
-                    value !== 'relief' && 'hover:bg-accent',
-                )}
-                aria-pressed={value === 'relief'}
-                onClick={() => onChange('relief')}
-            >
-                <Replace className="h-4 w-4" aria-hidden />
-                <span className="hidden sm:inline">Relief Desk</span>
-                <span className="sm:hidden">Relief</span>
-            </Button>
         </div>
     );
 }

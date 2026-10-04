@@ -209,7 +209,7 @@ test('relief desk hides hidden relief employee identity while keeping source vis
     restrictUserToDepartments($user, $company, [$marineDept->id]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index', ['view' => 'relief']))
+        ->get(route('organization.crew-relief-desk.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('relief_desk.rows', 1)

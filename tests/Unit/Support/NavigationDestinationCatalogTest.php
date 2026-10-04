@@ -88,7 +88,8 @@ test('planning view cannot unlock crew operations settings destination', functio
     grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeFalse()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeTrue();
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.relief-desk'))->toBeTrue();
 });
 
 test('settings view unlocks crew operations settings destination', function () {
@@ -98,7 +99,8 @@ test('settings view unlocks crew operations settings destination', function () {
     grantCompanyPermissions($user, $company, ['crew_operations.settings.view']);
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeTrue()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse();
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.relief-desk'))->toBeFalse();
 });
 
 test('leave and crew report destinations are grouped under Attendance and Crew Operations', function () {
@@ -147,6 +149,7 @@ test('leave and crew report destinations are grouped under Attendance and Crew O
         'Overview',
         'Crew Assignments',
         'Planning',
+        'Relief Desk',
         'Vessels',
         'Movement Corrections',
         'Crew Movement History',

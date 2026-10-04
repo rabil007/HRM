@@ -2,7 +2,6 @@ import type { ServerQueryParams } from '@/hooks/use-server-pagination-filters';
 import type { ReliefDeskFocus, ReliefDeskSummary } from '../types';
 
 export const RELIEF_DESK_RESET_QUERY: ServerQueryParams = {
-    view: 'relief',
     search: '',
     vessel_id: null,
     position_id: null,

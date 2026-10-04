@@ -20,6 +20,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as crewAssignmentsIndex } from '@/routes/organization/crew-assignments';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
+import { index as crewReliefDeskIndex } from '@/routes/organization/crew-relief-desk';
 import {
     vesselManningHealthBadgeClass,
     vesselManningHealthDot,
@@ -149,8 +150,8 @@ export function VesselManningHealthCard({
     canEditManning: boolean;
     onEditManning?: () => void;
 }) {
-    const reliefDeskHref = crewPlanningIndex.url({
-        query: { view: 'relief', vessel_id: vesselId },
+    const reliefDeskHref = crewReliefDeskIndex.url({
+        query: { vessel_id: vesselId },
     });
     const planningHref = crewPlanningIndex.url({
         query: { vessel_id: vesselId },

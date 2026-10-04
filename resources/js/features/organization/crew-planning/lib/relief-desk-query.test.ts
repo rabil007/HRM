@@ -8,7 +8,6 @@ import {
 describe('relief desk reset query', () => {
     it('explicitly clears every desk filter instead of relying on omitted keys', () => {
         const dirty: Record<string, string | number | boolean | null> = {
-            view: 'relief',
             search: 'Ahmed',
             vessel_id: 12,
             position_id: 4,
@@ -28,7 +27,6 @@ describe('relief desk reset query', () => {
             ...RELIEF_DESK_RESET_QUERY,
         };
 
-        assert.equal(merged.view, 'relief');
         assert.equal(merged.search, '');
         assert.equal(merged.vessel_id, null);
         assert.equal(merged.position_id, null);
