@@ -35,8 +35,18 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel scheduling and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
 | **Relief Desk** | `/organization/crew-operations/relief-desk` | Standalone replacement-management workspace of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
+| **Crew Readiness** | `/organization/crew-operations/readiness` | Standalone operational workspace tracking upcoming crew preparing to mobilise (future named Planning rows + pre-join Assignments) and their document compliance readiness before joining |
 
-Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Relief Desk** (`/organization/crew-operations/relief-desk`) is a standalone operational replacement-management workspace over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`). It is not a new Relief entity or workflow.
+### Operational Model Distinction
+
+OMS-HRM maintains an explicit separation of concerns across the four operational pillars of Crew Operations:
+
+- **Crew Planning** (`/organization/crew-planning`): Future vessel and rank scheduling (Gantt, availability, and vacant/named plan requirements). Planning decides the future.
+- **Relief Desk** (`/organization/crew-operations/relief-desk`): Who needs replacement and relief progress. Operational tracking of onboard crew sign-off windows, risk levels, and identified relief candidates.
+- **Crew Readiness** (`/organization/crew-operations/readiness`): Who is preparing to mobilise, when they are expected to join, and what currently requires attention before mobilisation. Unified derived view of eligible future named planning rows and pre-join operational assignments with authoritative document compliance checks.
+- **Crew Assignments** (`/organization/crew`): Actual operational mobilisation and lifecycle execution (Draft → P0 → P2A/P2B → P4 → P5 → P6). Crew Assignment controls execution.
+
+Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Relief Desk** (`/organization/crew-operations/relief-desk`) is a standalone operational replacement-management workspace over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`). It is not a new Relief entity or workflow. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
 
 Vessel View / Onboard by Vessel answers: which vessels currently have crew onboard, and who is onboard each vessel.
 

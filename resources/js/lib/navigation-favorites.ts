@@ -167,6 +167,12 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Crew Operations',
     },
     {
+        key: 'crew.readiness',
+        label: 'Crew Readiness',
+        href: '/organization/crew-operations/readiness',
+        group: 'Crew Operations',
+    },
+    {
         key: 'crew.vessels',
         label: 'Vessels',
         href: '/organization/vessels',

@@ -300,6 +300,27 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] Arrival Date (`planned_arrival_at`) remains forecast-only and does not create payroll days
 - [ ] Existing Arrival-first payroll regression tests remain green
 
+## 14. Crew Readiness Workspace QA
+
+- [ ] Standalone navigation: `/organization/crew-operations/readiness` appears under Crew Operations between Relief Desk and Vessels
+- [ ] Permission gating: Accessible if user has `crew_operations.planning.view` OR `crew_operations.assignments.view`
+- [ ] Source-aware data visibility:
+  - Planning-only viewers see eligible named Planning rows and zero Assignment rows
+  - Assignment-only viewers see operational pre-join Assignments and zero Planning rows
+  - Viewers with both see a unified, deduplicated queue
+- [ ] Planning row scope: Eligible future named rows (`employee_id IS NOT NULL`, `crew_assignment_id IS NULL`, `planned_leave_date >= company-local today`)
+- [ ] Planning row exclusions: Vacant plans and past expired plans are excluded
+- [ ] Assignment row scope: Draft and active pre-join phases (P0 Pre-Mobilisation, P2A Join Standby, P2B Training, and legacy pre-join phases)
+- [ ] Assignment row exclusions: P4 On Vessel, P5, P6, Completed, and Cancelled assignments are excluded
+- [ ] Deduplication: When a Planning row is linked to an operational CrewAssignment (`crew_assignment_id != null`), only the operational Assignment appears
+- [ ] Document readiness checks: Authoritative company-configured document requirements determine Ready / Needs Attention / Not Ready statuses
+- [ ] Zero checks state: Shows "No Checks Configured" when no requirements match rank/company
+- [ ] Document links authorization: Document links (`documents_href`) are generated only when user has `documents.view`
+- [ ] Employee visibility: Employees restricted by `EmployeeVisibilityScope` never appear in rows, search results, or summary counts
+- [ ] Advisory readiness: Readiness status is advisory and does not block starting assignments or movement transitions
+- [ ] Clickable summary cards: Upcoming Crew, Ready, Needs Attention, Not Ready, Joining in 7 Days, and No Checks Configured
+- [ ] Row detail sheet: Opens slide-over displaying employee, rank, vessel, expected dates, and status for each configured check
+
 ## Movement Correction Production Readiness QA
 
 ### Reusable pre-deployment checklist

@@ -24,6 +24,7 @@ const CREW_URLS = [
     '/organization/crew',
     '/organization/crew-planning',
     '/organization/crew-operations/relief-desk',
+    '/organization/crew-operations/readiness',
     '/organization/vessels',
     '/organization/crew-operations/settings',
     '/organization/crew-movement-corrections',
@@ -157,6 +158,24 @@ describe('Crew navigation', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/crew-operations/relief-desk', [
                 'crew_operations.assignments.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/readiness', [
+                'crew_operations.planning.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/readiness', [
+                'crew_operations.assignments.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/readiness', [
+                'crew_operations.settings.view',
             ]),
             false,
         );
@@ -524,7 +543,7 @@ describe('Parent groups', () => {
     it('keeps a group when any child is accessible', () => {
         assert.deepEqual(
             visibleGroupUrls(CREW_URLS, ['crew_operations.assignments.view']),
-            ['/organization/crew'],
+            ['/organization/crew', '/organization/crew-operations/readiness'],
         );
     });
 });

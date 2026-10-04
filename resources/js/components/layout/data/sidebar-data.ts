@@ -234,6 +234,11 @@ const baseSidebarData: SidebarData = {
                     icon: UsersRound,
                 },
                 {
+                    title: 'Crew Readiness',
+                    url: '/organization/crew-operations/readiness',
+                    icon: UserCheck,
+                },
+                {
                     title: 'Vessels',
                     url: '/organization/vessels',
                     icon: Ship,

@@ -82,6 +82,7 @@ use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
+use App\Http\Controllers\Organization\CrewReadinessController;
 use App\Http\Controllers\Organization\CrewReliefDeskController;
 use App\Http\Controllers\Organization\CrewReliefReportController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
@@ -603,6 +604,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
     Route::get('organization/crew-operations/relief-desk', [CrewReliefDeskController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-relief-desk.index');
+    Route::get('organization/crew-operations/readiness', [CrewReadinessController::class, 'index'])->name('organization.crew-readiness.index');
 
     Route::get('organization/reports/crew-movement-history', [CrewMovementHistoryController::class, 'index'])
         ->middleware('can:reports.crew_movement_history.view')

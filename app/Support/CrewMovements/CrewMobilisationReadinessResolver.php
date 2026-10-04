@@ -5,6 +5,7 @@ namespace App\Support\CrewMovements;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMobilisationReadinessStatus;
 use App\Models\CrewAssignment;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentComplianceQuery;
 use App\Support\EmployeeDocuments\DocumentExpiry;
@@ -29,6 +30,25 @@ final class CrewMobilisationReadinessResolver
         $phase = $assignment->currentPhase?->phase_code;
 
         return $phase !== null && $phase->isPreJoin();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>|null  $preloadedComplianceItems
+     */
+    public function forEmployee(
+        Employee $employee,
+        ?User $user = null,
+        ?array $preloadedComplianceItems = null,
+        bool $includeHrefs = true,
+    ): CrewMobilisationReadinessResult {
+        $items = $preloadedComplianceItems ?? $this->complianceQuery->itemsForEmployee($employee);
+
+        return $this->resultForComplianceItems(
+            $employee->id,
+            $this->uniqueByDocumentType($items),
+            $user,
+            $includeHrefs,
+        );
     }
 
     /**
@@ -97,11 +117,11 @@ final class CrewMobilisationReadinessResolver
     /**
      * @param  list<array<string, mixed>>  $complianceItems
      */
-    private function buildResult(
-        CrewAssignment $assignment,
+    public function resultForComplianceItems(
+        ?int $employeeId,
         array $complianceItems,
-        ?User $user,
-        bool $includeHrefs,
+        ?User $user = null,
+        bool $includeHrefs = true,
     ): CrewMobilisationReadinessResult {
         $checks = [];
         $problems = [];
@@ -121,7 +141,6 @@ final class CrewMobilisationReadinessResolver
         }
 
         $status = $this->resolveStatus($problems);
-        $employeeId = $assignment->employee_id !== null ? (int) $assignment->employee_id : null;
 
         return new CrewMobilisationReadinessResult(
             status: $status,
@@ -131,6 +150,25 @@ final class CrewMobilisationReadinessResolver
             problems: $problems,
             documentsHref: $includeHrefs ? $this->documentsHref($user, $employeeId) : null,
             applies: true,
+        );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $complianceItems
+     */
+    private function buildResult(
+        CrewAssignment $assignment,
+        array $complianceItems,
+        ?User $user,
+        bool $includeHrefs,
+    ): CrewMobilisationReadinessResult {
+        $employeeId = $assignment->employee_id !== null ? (int) $assignment->employee_id : null;
+
+        return $this->resultForComplianceItems(
+            $employeeId,
+            $complianceItems,
+            $user,
+            $includeHrefs,
         );
     }
 
@@ -208,7 +246,7 @@ final class CrewMobilisationReadinessResolver
      * @param  list<array<string, mixed>>  $items
      * @return list<array<string, mixed>>
      */
-    private function uniqueByDocumentType(array $items): array
+    public function uniqueByDocumentType(array $items): array
     {
         $unique = [];
 
