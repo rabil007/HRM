@@ -38,7 +38,7 @@ it('keeps relief desk query count bounded as onboard rows grow', function () {
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-    $one = $query->page((int) $fixtures['company']->id, $filters, $fixtures['user'], 1, '/organization/crew-planning');
+    $one = $query->page((int) $fixtures['company']->id, $filters, $fixtures['user'], 1, '/organization/crew-operations/relief-desk');
     $oneCount = count(DB::getQueryLog());
     DB::disableQueryLog();
 
@@ -50,7 +50,7 @@ it('keeps relief desk query count bounded as onboard rows grow', function () {
 
     DB::flushQueryLog();
     DB::enableQueryLog();
-    $many = $query->page((int) $fixtures['company']->id, $filters, $fixtures['user'], 1, '/organization/crew-planning');
+    $many = $query->page((int) $fixtures['company']->id, $filters, $fixtures['user'], 1, '/organization/crew-operations/relief-desk');
     $manyCount = count(DB::getQueryLog());
     DB::disableQueryLog();
 

@@ -23,6 +23,7 @@ const CREW_URLS = [
     '/organization/crew-operations',
     '/organization/crew',
     '/organization/crew-planning',
+    '/organization/crew-operations/relief-desk',
     '/organization/vessels',
     '/organization/crew-operations/settings',
     '/organization/crew-movement-corrections',
@@ -144,6 +145,18 @@ describe('Crew navigation', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/crew-planning', [
                 'crew_operations.planning.create',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/relief-desk', [
+                'crew_operations.planning.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-operations/relief-desk', [
+                'crew_operations.assignments.view',
             ]),
             false,
         );

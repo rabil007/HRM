@@ -22,7 +22,7 @@ import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
 } from '@/lib/mobile-operational-list';
-import { index as planningIndex } from '@/routes/organization/crew-planning';
+import { index as crewReliefDeskIndex } from '@/routes/organization/crew-relief-desk';
 
 export function ReliefDesk({
     desk,
@@ -41,10 +41,9 @@ export function ReliefDesk({
         goToPage,
         setPerPage,
     } = useServerPaginationFilters({
-        url: planningIndex.url(),
+        url: crewReliefDeskIndex.url(),
         search: desk.filters.search,
         filters: {
-            view: 'relief',
             vessel_id: desk.filters.vessel_id,
             position_id: desk.filters.position_id,
             client_id: desk.filters.client_id,
@@ -56,7 +55,7 @@ export function ReliefDesk({
             focus: desk.filters.focus,
         },
         pagination: desk.pagination,
-        only: ['view', 'relief_desk', 'filters', 'can', 'vessels', 'positions'],
+        only: ['relief_desk', 'vessels', 'positions'],
     });
 
     const applyDeskFilters = (
@@ -66,7 +65,6 @@ export function ReliefDesk({
         },
     ): void => {
         applyFilters({
-            view: 'relief',
             vessel_id: desk.filters.vessel_id,
             position_id: desk.filters.position_id,
             client_id: desk.filters.client_id,

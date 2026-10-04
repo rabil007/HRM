@@ -77,7 +77,7 @@ export type TreeVessel = {
     positions: TreePosition[];
 };
 
-export type CrewPlanningView = 'planning' | 'onboard-vessels' | 'relief';
+export type CrewPlanningView = 'planning' | 'onboard-vessels';
 
 export type PlanningFilters = {
     vessel_id: number | null;

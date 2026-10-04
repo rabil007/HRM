@@ -53,7 +53,7 @@ final class CrewReliefDeskQuery
         array $filters,
         User $user,
         int $page = 1,
-        string $path = '/organization/crew-planning',
+        string $path = '/organization/crew-operations/relief-desk',
         array $queryString = [],
     ): array {
         $timezone = CompanyTimezone::forCompanyId($companyId);

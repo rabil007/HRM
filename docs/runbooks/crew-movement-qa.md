@@ -194,13 +194,17 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] Authoritative conflict re-check runs inside the write transaction with locking
 - [ ] Draft date-order invariants still apply; Draft still does not reserve availability
 
-### Relief
+### Relief Desk & Relief Planning
 
+- [ ] **Relief Desk** is a standalone workspace at `/organization/crew-operations/relief-desk` (distinct from Crew Planning Gantt and reporting-only Relief Report)
+- [ ] Legacy `/organization/crew-planning?view=relief` redirects cleanly to `/organization/crew-operations/relief-desk` preserving filter state
+- [ ] Crew Planning view switcher contains only **Planning** (future scheduling/Gantt) and **Onboard by Vessel** (current P4 actual roster)
 - [ ] **Future committed relief** = `CrewPlanningAssignment` (vacant or named)
 - [ ] **Operational relief** = linked Active assignment still in P0–P4
 - [ ] **Draft** linked relief is non-committed and does **not** satisfy “relief planned” or block a committed Planning relief
 - [ ] Cancelled / Completed linked relief does not block replacement planning
 - [ ] Vacant `CrewPlanningAssignment` relief slots still work when no named assignment exists
+- [ ] Relief Desk actions (Plan Relief, Open Relief Plan) link into Crew Planning with proper context
 
 ### Obsolete (do not expect)
 

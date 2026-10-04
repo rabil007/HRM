@@ -257,6 +257,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
     '/organization/vessel-manning': () => false,
     '/organization/crew-planning': (permissions) =>
         has(permissions, 'crew_operations.planning.view'),
+    '/organization/crew-operations/relief-desk': (permissions) =>
+        has(permissions, 'crew_operations.planning.view'),
     '/organization/crew-operations/settings': (permissions) =>
         has(permissions, 'crew_operations.settings.view'),
     '/organization/crew-movement-corrections': (permissions) =>

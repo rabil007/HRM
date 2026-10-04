@@ -11,7 +11,6 @@ import type {
     PlanningPoolEmployee,
     PlanningProjection,
     PlanningReliefPrefill,
-    ReliefDeskPayload,
     TreeVessel,
 } from '@/features/organization/crew-planning/types';
 import type { PaginationMeta } from '@/types/pagination';
@@ -31,7 +30,6 @@ type Props = {
     relief_prefill?: PlanningReliefPrefill | null;
     onboard_vessels?: CurrentCrewVesselRow[];
     onboard_pagination?: PaginationMeta;
-    relief_desk?: ReliefDeskPayload;
 };
 
 export default function CrewPlanningIndex({
@@ -49,7 +47,6 @@ export default function CrewPlanningIndex({
     relief_prefill = null,
     onboard_vessels = [],
     onboard_pagination,
-    relief_desk,
 }: Props) {
     return (
         <>
@@ -69,7 +66,6 @@ export default function CrewPlanningIndex({
                 relief_prefill={relief_prefill}
                 onboard_vessels={onboard_vessels}
                 onboard_pagination={onboard_pagination}
-                relief_desk={relief_desk}
             />
         </>
     );

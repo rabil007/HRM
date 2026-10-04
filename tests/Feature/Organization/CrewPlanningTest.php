@@ -126,7 +126,7 @@ test('authorized users can view the crew planning index', function () {
             ->where('projection', null)
             ->where('relief_prefill', null)
             ->where('view', 'planning')
-            ->has('relief_desk.rows', 0)
+            ->missing('relief_desk')
         );
 });
 
