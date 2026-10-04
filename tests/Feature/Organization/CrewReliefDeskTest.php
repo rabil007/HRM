@@ -641,6 +641,9 @@ test('old crew planning view relief url redirects to standalone relief desk pres
             'position_id' => $fixtures['rank']->id,
             'focus' => 'needs_relief',
             'relief_status' => CrewReliefStatus::NoRelief->value,
+            'planned_signoff_from' => '2026-10-01',
+            'planned_signoff_to' => '2026-10-31',
+            'horizon' => 'all',
             'from' => '2026-01-01',
             'to' => '2026-03-31',
             'zoom' => 'month',
@@ -651,6 +654,9 @@ test('old crew planning view relief url redirects to standalone relief desk pres
             'position_id' => $fixtures['rank']->id,
             'focus' => 'needs_relief',
             'relief_status' => CrewReliefStatus::NoRelief->value,
+            'planned_signoff_from' => '2026-10-01',
+            'planned_signoff_to' => '2026-10-31',
+            'horizon' => 'all',
         ]));
 });
 

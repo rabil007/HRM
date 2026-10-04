@@ -153,6 +153,7 @@ describe('Attendance and Crew Operations report destinations', () => {
             'Crew Assignments',
             'Planning',
             'Relief Desk',
+            'Crew Readiness',
             'Vessels',
             'Movement Corrections',
             'Crew Movement History',

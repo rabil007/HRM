@@ -47,6 +47,9 @@ class CrewPlanningController extends Controller
                 'focus',
                 'relief_status',
                 'relief_risk',
+                'planned_signoff_from',
+                'planned_signoff_to',
+                'horizon',
                 'page',
                 'per_page',
             ];
@@ -61,8 +64,57 @@ class CrewPlanningController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $view = $this->resolveView($request);
 
+        $hasCustomFrom = $request->query('from') !== null && $request->query('from') !== '';
+        $hasCustomTo = $request->query('to') !== null && $request->query('to') !== '';
+
         $from = $this->resolveDate($request->query('from'), CarbonImmutable::now()->startOfMonth()->toDateString());
         $to = $this->resolveDate($request->query('to'), CarbonImmutable::now()->addMonths(2)->endOfMonth()->toDateString());
+
+        $planningAssignmentIdRaw = $request->query('planning_assignment_id');
+        $planningAssignmentId = $planningAssignmentIdRaw !== null && $planningAssignmentIdRaw !== ''
+            ? (int) $planningAssignmentIdRaw
+            : null;
+
+        if ($planningAssignmentId !== null && (! $hasCustomFrom || ! $hasCustomTo)) {
+            $targetPlan = CrewPlanningAssignment::query()
+                ->where('company_id', $companyId)
+                ->find($planningAssignmentId);
+
+            if ($targetPlan !== null && CrewPlanningAssignmentAccess::canAccess($targetPlan, $companyId, $request->user())) {
+                $dates = collect([
+                    $targetPlan->planned_arrival_date,
+                    $targetPlan->planned_join_date,
+                    $targetPlan->planned_leave_date,
+                ])->filter();
+
+                if ($dates->isNotEmpty()) {
+                    $minDate = $dates->min();
+                    $maxDate = $dates->max();
+                    $planStart = CarbonImmutable::parse($minDate)->startOfMonth();
+                    $planEnd = CarbonImmutable::parse($maxDate)->endOfMonth();
+
+                    $defaultFrom = CarbonImmutable::now()->startOfMonth();
+                    $defaultTo = CarbonImmutable::now()->addMonths(2)->endOfMonth();
+
+                    if (! $hasCustomFrom && ! $hasCustomTo) {
+                        if ($planStart->gt($defaultTo)) {
+                            $from = $planStart->toDateString();
+                            $to = max($planStart->addMonths(2)->endOfMonth(), $planEnd)->toDateString();
+                        } elseif ($planEnd->lt($defaultFrom)) {
+                            $from = min($planEnd->subMonths(2)->startOfMonth(), $planStart)->toDateString();
+                            $to = $planEnd->toDateString();
+                        } else {
+                            $from = min($defaultFrom, $planStart)->toDateString();
+                            $to = max($defaultTo, $planEnd)->toDateString();
+                        }
+                    } elseif (! $hasCustomFrom) {
+                        $from = min(CarbonImmutable::parse($from), $planStart)->toDateString();
+                    } elseif (! $hasCustomTo) {
+                        $to = max(CarbonImmutable::parse($to), $planEnd)->toDateString();
+                    }
+                }
+            }
+        }
 
         $vesselId = $request->query('vessel_id');
         $vesselId = $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null;

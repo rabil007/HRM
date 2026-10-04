@@ -47,6 +47,20 @@ enum CrewPhaseCode: string
     }
 
     /**
+     * @return list<string>
+     */
+    public static function preJoinValues(): array
+    {
+        return [
+            self::PreMobilisation->value,
+            self::TravelIn->value,
+            self::JoinStandby->value,
+            self::Training->value,
+            self::ReadyToJoin->value,
+        ];
+    }
+
+    /**
      * Phases Operations may choose as the first known stage on manual Start Assignment.
      *
      * Normal web Start Assignment always begins at P0. P1 is legacy compatibility only.
