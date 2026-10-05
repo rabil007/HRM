@@ -237,7 +237,7 @@ export function RepeatRequirementDialog({
                                     htmlFor="repeat_required_by_date"
                                     className="text-xs font-semibold"
                                 >
-                                    Required-By Target Date{' '}
+                                    Target Date{' '}
                                     <span className="text-rose-500">*</span>
                                 </Label>
                                 <Input

@@ -22,7 +22,6 @@ import {
     RequirementPriorityBadge,
     RequirementStatusBadge,
 } from './components/requirement-status-badge';
-import { RequirementWhatsNextPanel } from './components/requirement-whats-next-panel';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
 import { RequirementDetailsCard } from './components/show/requirement-details-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
@@ -33,7 +32,6 @@ import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dial
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
-import type { RequirementWhatsNextAction } from './lib/requirement-whats-next';
 
 export function RequirementsShowContent({
     requirement,
@@ -145,42 +143,6 @@ export function RequirementsShowContent({
         );
     };
 
-    const handleWhatsNext = (
-        action: Exclude<RequirementWhatsNextAction, null>,
-    ) => {
-        switch (action) {
-            case 'submit':
-                handleSubmit();
-                break;
-            case 'approve':
-                handleApprove();
-                break;
-            case 'resubmit':
-                handleResubmit();
-                break;
-            case 'resume':
-                handleResume();
-                break;
-            case 'fill':
-                handleFill();
-                break;
-            case 'extend':
-                setIsExtendOpen(true);
-                break;
-            case 'repeat':
-                setIsRepeatOpen(true);
-                break;
-            case 'edit':
-                setIsEditOpen(true);
-                break;
-            case 'reopen':
-                setIsReopenOpen(true);
-                break;
-            default:
-                break;
-        }
-    };
-
     return (
         <Main>
             <RecruitmentBreadcrumbs
@@ -196,7 +158,7 @@ export function RequirementsShowContent({
             <DetailsHeader
                 kicker="Recruitment / Requirements"
                 title={requirement.requirement_number}
-                description={`${requirement.client_name}${requirement.project_title ? ` • ${requirement.project_title}` : ''}${requirement.required_by_date_formatted ? ` • Required by ${requirement.required_by_date_formatted}` : ''}`}
+                description={`${requirement.client_name}${requirement.project_title ? ` • ${requirement.project_title}` : ''}${requirement.required_by_date_formatted ? ` • Target Date ${requirement.required_by_date_formatted}` : ''}`}
                 backHref={RequirementController.index.url()}
                 backLabel="Requirements"
                 badges={
@@ -214,12 +176,6 @@ export function RequirementsShowContent({
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div className="order-1 space-y-6 lg:order-2 lg:col-span-1">
-                    <RequirementWhatsNextPanel
-                        requirement={requirement}
-                        onAction={handleWhatsNext}
-                        processing={isWorkflowProcessing}
-                    />
-
                     <RequirementOverviewCard
                         requirement={requirement}
                         processing={isWorkflowProcessing}

@@ -17,6 +17,19 @@ export type VisibleRequirementActions = {
     canCancel: boolean;
 };
 
+export type RequirementPrimaryWorkflowAction =
+    | 'approve'
+    | 'submit'
+    | 'resubmit'
+    | 'resume'
+    | 'fill'
+    | null;
+
+type RequirementPrimaryActionCapabilities = Pick<
+    RequirementIndexRow,
+    'can_approve' | 'can_submit' | 'can_resubmit' | 'can_resume' | 'can_fill'
+>;
+
 export function visibleRequirementActions(
     row: Pick<
         RequirementIndexRow,
@@ -51,4 +64,51 @@ export function visibleRequirementActions(
         canRepeat: row.can_repeat,
         canCancel: row.can_cancel,
     };
+}
+
+/**
+ * Resolve the single primary workflow action for the requirement detail sidebar.
+ * Priority matches the Status & actions card — never more than one primary CTA.
+ */
+export function resolveRequirementPrimaryWorkflowAction(
+    requirement: RequirementPrimaryActionCapabilities,
+): RequirementPrimaryWorkflowAction {
+    if (requirement.can_approve) {
+        return 'approve';
+    }
+
+    if (requirement.can_submit) {
+        return 'submit';
+    }
+
+    if (requirement.can_resubmit) {
+        return 'resubmit';
+    }
+
+    if (requirement.can_resume) {
+        return 'resume';
+    }
+
+    if (requirement.can_fill) {
+        return 'fill';
+    }
+
+    return null;
+}
+
+export function requirementPrimaryWorkflowActionLabel(
+    action: Exclude<RequirementPrimaryWorkflowAction, null>,
+): string {
+    switch (action) {
+        case 'approve':
+            return 'Approve requirement';
+        case 'submit':
+            return 'Submit for approval';
+        case 'resubmit':
+            return 'Resubmit for approval';
+        case 'resume':
+            return 'Resume requirement';
+        case 'fill':
+            return 'Mark as filled';
+    }
 }

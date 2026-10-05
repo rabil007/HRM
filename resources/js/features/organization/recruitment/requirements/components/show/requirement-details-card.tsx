@@ -3,7 +3,6 @@ import {
     AlertTriangle,
     Building2,
     Calendar,
-    Clock3,
     Copy,
     FileText,
     Mail,
@@ -21,10 +20,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import type { RequirementDetail } from '@/types/recruitment';
-import {
-    resolveActiveRecruitmentDurationDisplay,
-    resolveRecruitmentClockSummary,
-} from '../../lib/requirement-recruitment-clock';
+import { resolveActiveRecruitmentDurationDisplay } from '../../lib/requirement-recruitment-clock';
 
 type Props = {
     requirement: RequirementDetail;
@@ -50,13 +46,9 @@ function DetailRow({
 }
 
 export function RequirementDetailsCard({ requirement }: Props) {
-    const clockSummary = resolveRecruitmentClockSummary({
-        clockState: requirement.recruitment_clock_state,
-        durationLabel: requirement.recruitment_duration_label,
-        startedAtFormatted: requirement.recruitment_started_at_formatted,
-    });
     const durationDisplay = resolveActiveRecruitmentDurationDisplay({
-        durationLabel: requirement.recruitment_duration_label,
+        clockState: requirement.recruitment_clock_state,
+        activeSeconds: requirement.active_recruitment_seconds,
         isEstimated: requirement.duration_is_estimated,
         estimateNote: requirement.duration_estimate_note,
     });
@@ -186,7 +178,7 @@ export function RequirementDetailsCard({ requirement }: Props) {
                     />
 
                     <DetailRow
-                        label="Required-By Date"
+                        label="Target Date"
                         value={
                             <div className="flex items-center gap-1.5">
                                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -212,16 +204,6 @@ export function RequirementDetailsCard({ requirement }: Props) {
                                     Unassigned
                                 </span>
                             )
-                        }
-                    />
-
-                    <DetailRow
-                        label="Recruitment clock"
-                        value={
-                            <div className="flex items-start gap-1.5">
-                                <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                                <span>{clockSummary}</span>
-                            </div>
                         }
                     />
                 </div>
@@ -252,40 +234,36 @@ export function RequirementDetailsCard({ requirement }: Props) {
                     <DetailRow
                         label="Active recruitment"
                         value={
-                            durationDisplay.label ? (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <span>{durationDisplay.label}</span>
-                                    {durationDisplay.showEstimated ? (
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Badge
-                                                        variant="secondary"
-                                                        className="cursor-help text-[10px] font-medium tracking-wide text-muted-foreground"
-                                                    >
-                                                        Estimated
-                                                    </Badge>
-                                                </TooltipTrigger>
-                                                {durationDisplay.estimateNote ? (
-                                                    <TooltipContent className="max-w-xs text-xs">
-                                                        {
-                                                            durationDisplay.estimateNote
-                                                        }
-                                                    </TooltipContent>
-                                                ) : null}
-                                            </Tooltip>
-                                        </TooltipProvider>
-                                    ) : null}
-                                    {durationDisplay.showEstimated &&
-                                    durationDisplay.estimateNote ? (
-                                        <span className="basis-full text-xs font-normal text-muted-foreground sm:hidden">
-                                            {durationDisplay.estimateNote}
-                                        </span>
-                                    ) : null}
-                                </div>
-                            ) : (
-                                '—'
-                            )
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span>{durationDisplay.label}</span>
+                                {durationDisplay.showEstimated ? (
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="cursor-help text-[10px] font-medium tracking-wide text-muted-foreground"
+                                                >
+                                                    Estimated
+                                                </Badge>
+                                            </TooltipTrigger>
+                                            {durationDisplay.estimateNote ? (
+                                                <TooltipContent className="max-w-xs text-xs">
+                                                    {
+                                                        durationDisplay.estimateNote
+                                                    }
+                                                </TooltipContent>
+                                            ) : null}
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                ) : null}
+                                {durationDisplay.showEstimated &&
+                                durationDisplay.estimateNote ? (
+                                    <span className="basis-full text-xs font-normal text-muted-foreground sm:hidden">
+                                        {durationDisplay.estimateNote}
+                                    </span>
+                                ) : null}
+                            </div>
                         }
                     />
                 </div>

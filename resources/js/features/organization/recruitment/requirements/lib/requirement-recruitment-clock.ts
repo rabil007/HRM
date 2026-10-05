@@ -1,54 +1,66 @@
 import type { RecruitmentClockState } from '@/types/recruitment';
 
-export const RECRUITMENT_CLOCK_STATE_LABELS: Record<
-    RecruitmentClockState,
-    string
-> = {
-    not_started: 'Not started',
-    running: 'Running',
-    paused: 'Paused (on hold)',
-    completed: 'Completed',
-    cancelled: 'Cancelled',
-};
+const SECONDS_PER_DAY = 86400;
 
-export function resolveRecruitmentClockSummary(input: {
-    clockState: RecruitmentClockState;
-    durationLabel: string | null;
-    startedAtFormatted: string | null;
-}): string {
-    const stateLabel = RECRUITMENT_CLOCK_STATE_LABELS[input.clockState];
-
-    if (input.clockState === 'not_started') {
-        return stateLabel;
+/**
+ * Format active recruitment seconds as whole days for detail-page display.
+ * Does not change the underlying duration calculation — display only.
+ */
+export function formatRecruitmentDurationInDays(
+    seconds: number | null | undefined,
+): string {
+    if (seconds === null || seconds === undefined) {
+        return 'Not started';
     }
 
-    if (input.durationLabel) {
-        return `${stateLabel} · ${input.durationLabel} active`;
+    if (seconds < SECONDS_PER_DAY) {
+        return 'Less than 1 day';
     }
 
-    if (input.startedAtFormatted) {
-        return `${stateLabel} · since ${input.startedAtFormatted}`;
-    }
+    const days = Math.floor(seconds / SECONDS_PER_DAY);
 
-    return stateLabel;
+    return days === 1 ? '1 day' : `${days} days`;
 }
 
 export function resolveActiveRecruitmentDurationDisplay(input: {
-    durationLabel: string | null | undefined;
+    clockState: RecruitmentClockState;
+    activeSeconds: number | null | undefined;
     isEstimated?: boolean | null;
     estimateNote?: string | null;
 }): {
-    label: string | null;
+    label: string;
     showEstimated: boolean;
     estimateNote: string | null;
 } {
-    const label =
-        typeof input.durationLabel === 'string' &&
-        input.durationLabel.trim() !== ''
-            ? input.durationLabel
-            : null;
+    if (
+        input.clockState === 'not_started' ||
+        input.activeSeconds === null ||
+        input.activeSeconds === undefined
+    ) {
+        return {
+            label: 'Not started',
+            showEstimated: false,
+            estimateNote: null,
+        };
+    }
 
-    const showEstimated = label !== null && input.isEstimated === true;
+    const daysPart = formatRecruitmentDurationInDays(input.activeSeconds);
+
+    let label: string;
+
+    switch (input.clockState) {
+        case 'paused':
+            label = `Paused at ${daysPart}`;
+            break;
+        case 'completed':
+            label = `Completed in ${daysPart}`;
+            break;
+        default:
+            label = daysPart;
+            break;
+    }
+
+    const showEstimated = input.isEstimated === true;
     const estimateNote =
         showEstimated &&
         typeof input.estimateNote === 'string' &&

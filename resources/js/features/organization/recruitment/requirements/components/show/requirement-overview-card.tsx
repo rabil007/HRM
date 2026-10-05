@@ -13,7 +13,7 @@ import {
     Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -23,6 +23,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { RequirementDetail } from '@/types/recruitment';
+import {
+    requirementPrimaryWorkflowActionLabel,
+    resolveRequirementPrimaryWorkflowAction,
+} from '../../lib/requirement-actions';
+import { resolveActiveRecruitmentDurationDisplay } from '../../lib/requirement-recruitment-clock';
 import {
     RequirementDeadlineBadge,
     RequirementPriorityBadge,
@@ -64,78 +69,58 @@ export function RequirementOverviewCard({
     onReopen,
     onRepeat,
 }: Props) {
+    const primaryActionKey =
+        resolveRequirementPrimaryWorkflowAction(requirement);
+    const durationDisplay = resolveActiveRecruitmentDurationDisplay({
+        clockState: requirement.recruitment_clock_state,
+        activeSeconds: requirement.active_recruitment_seconds,
+        isEstimated: requirement.duration_is_estimated,
+        estimateNote: requirement.duration_estimate_note,
+    });
+
     const primaryAction = (() => {
-        if (requirement.can_approve) {
-            return (
-                <Button
-                    size="sm"
-                    disabled={processing}
-                    onClick={onApprove}
-                    className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
-                >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    Approve requirement
-                </Button>
-            );
+        if (primaryActionKey === null) {
+            return null;
         }
 
-        if (requirement.can_submit) {
-            return (
-                <Button
-                    size="sm"
-                    disabled={processing}
-                    onClick={onSubmit}
-                    className="w-full gap-1.5 sm:w-auto"
-                >
-                    <Send className="h-4 w-4" aria-hidden="true" />
-                    Submit for approval
-                </Button>
-            );
-        }
+        const label = requirementPrimaryWorkflowActionLabel(primaryActionKey);
+        const onClick = {
+            approve: onApprove,
+            submit: onSubmit,
+            resubmit: onResubmit,
+            resume: onResume,
+            fill: onFill,
+        }[primaryActionKey];
 
-        if (requirement.can_resubmit) {
-            return (
-                <Button
-                    size="sm"
-                    disabled={processing}
-                    onClick={onResubmit}
-                    className="w-full gap-1.5 sm:w-auto"
-                >
-                    <Send className="h-4 w-4" aria-hidden="true" />
-                    Resubmit for approval
-                </Button>
-            );
-        }
+        const icon = {
+            approve: <CheckCircle2 className="h-4 w-4" aria-hidden="true" />,
+            submit: <Send className="h-4 w-4" aria-hidden="true" />,
+            resubmit: <Send className="h-4 w-4" aria-hidden="true" />,
+            resume: <PlayCircle className="h-4 w-4" aria-hidden="true" />,
+            fill: <CheckCircle2 className="h-4 w-4" aria-hidden="true" />,
+        }[primaryActionKey];
 
-        if (requirement.can_resume) {
-            return (
-                <Button
-                    size="sm"
-                    disabled={processing}
-                    onClick={onResume}
-                    className="w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
-                >
-                    <PlayCircle className="h-4 w-4" aria-hidden="true" />
-                    Resume requirement
-                </Button>
-            );
-        }
+        const className = {
+            approve:
+                'w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto',
+            submit: 'w-full gap-1.5 sm:w-auto',
+            resubmit: 'w-full gap-1.5 sm:w-auto',
+            resume: 'w-full gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto',
+            fill: 'w-full gap-1.5 bg-sky-600 text-white hover:bg-sky-700 sm:w-auto',
+        }[primaryActionKey];
 
-        if (requirement.can_fill) {
-            return (
-                <Button
-                    size="sm"
-                    disabled={processing}
-                    onClick={onFill}
-                    className="w-full gap-1.5 bg-sky-600 text-white hover:bg-sky-700 sm:w-auto"
-                >
-                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-                    Mark as filled
-                </Button>
-            );
-        }
-
-        return null;
+        return (
+            <Button
+                size="sm"
+                disabled={processing}
+                onClick={onClick}
+                className={className}
+                data-primary-workflow-action={primaryActionKey}
+            >
+                {icon}
+                {label}
+            </Button>
+        );
     })();
 
     const hasSecondaryActions =
@@ -150,7 +135,12 @@ export function RequirementOverviewCard({
 
     return (
         <Card className="overflow-hidden border-border/70 shadow-xs">
-            <CardContent className="space-y-4 p-5">
+            <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">
+                    Status & actions
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0">
                 <div className="flex flex-wrap items-center gap-2">
                     <RequirementStatusBadge
                         status={requirement.status}
@@ -180,21 +170,25 @@ export function RequirementOverviewCard({
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">
-                            Required by
+                            Target Date
                         </p>
                         <p className="mt-1 text-sm font-semibold">
                             {requirement.required_by_date_formatted ||
                                 'No deadline'}
                         </p>
-                        {requirement.assigned_recruiter_name ? (
-                            <p className="truncate text-xs text-muted-foreground">
-                                Owner: {requirement.assigned_recruiter_name}
-                            </p>
-                        ) : (
-                            <p className="text-xs text-muted-foreground">
-                                Owner: Unassigned
-                            </p>
-                        )}
+                        <p className="truncate text-xs text-muted-foreground">
+                            {requirement.assigned_recruiter_name
+                                ? `Recruiter: ${requirement.assigned_recruiter_name}`
+                                : 'Recruiter: Unassigned'}
+                        </p>
+                    </div>
+                    <div className="col-span-2 border-t border-border/50 pt-2">
+                        <p className="text-xs text-muted-foreground">
+                            Active recruitment
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                            {durationDisplay.label}
+                        </p>
                     </div>
                 </div>
 

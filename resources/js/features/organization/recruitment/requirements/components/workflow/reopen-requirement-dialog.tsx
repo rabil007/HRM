@@ -102,7 +102,7 @@ export function ReopenRequirementDialog({
                                 htmlFor="reopen_new_required_by_date"
                                 className="text-xs font-semibold"
                             >
-                                New Required-By Target Date{' '}
+                                New Target Date{' '}
                                 <span className="text-rose-500">*</span>
                             </Label>
                             <div className="relative">

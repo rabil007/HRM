@@ -104,7 +104,7 @@ export function ExtendDeadlineDialog({
                                 htmlFor="new_required_by_date"
                                 className="text-xs font-semibold"
                             >
-                                New Required-By Date{' '}
+                                New Target Date{' '}
                                 <span className="text-rose-500">*</span>
                             </Label>
                             <div className="relative">

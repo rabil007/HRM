@@ -264,7 +264,7 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
             submitterName: $submitterName,
-            details: $this->commonDetails($requirement, $submitterName),
+            details: $this->commonDetails($requirement),
             requirementUrl: $this->requirementUrl($requirement),
         );
 
@@ -518,7 +518,7 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
     /**
      * @return list<array{label: string, value: string}>
      */
-    private function commonDetails(RecruitmentRequirement $requirement, ?string $submitterName = null): array
+    private function commonDetails(RecruitmentRequirement $requirement): array
     {
         $positions = $requirement->lines
             ->map(function ($line): string {
@@ -554,7 +554,7 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
             'value' => $positions === [] ? '—' : implode(', ', $positions),
         ];
         $details[] = [
-            'label' => 'Required by',
+            'label' => 'Target Date',
             'value' => $requirement->required_by_date?->format('d-m-Y') ?? '—',
         ];
         $details[] = [
@@ -568,13 +568,6 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
                 '—',
             ),
         ];
-
-        if ($submitterName !== null) {
-            $details[] = [
-                'label' => 'Submitted by',
-                'value' => $submitterName,
-            ];
-        }
 
         return $details;
     }
