@@ -25,7 +25,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 function createApprovalTestCompany(string $name, string $code): Company
@@ -1174,4 +1176,188 @@ test('expected ineligible recipient skips do not throw from lifecycle email jobs
     expect(fn () => $job->handle())->not->toThrow(Throwable::class);
     Mail::assertNothingSent();
     expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
+});
+
+test('assigned recruiter options include active same-company users with approval role and respect team scoping', function () {
+    // 1. Create a company-specific HR role with recruitment.requirements.approve in companyA
+    $hrRoleA = Role::query()->create([
+        'company_id' => $this->companyA->id,
+        'name' => 'HR Approver Role A',
+        'guard_name' => 'web',
+    ]);
+    $approvePermission = Permission::query()->firstOrCreate([
+        'name' => 'recruitment.requirements.approve',
+        'guard_name' => 'web',
+    ]);
+    $hrRoleA->givePermissionTo($approvePermission);
+
+    // Active same-company user with approval role
+    $activeHrUser = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'active',
+        'name' => 'Active HR User',
+        'email' => 'active.hr@companya.com',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->companyA->id,
+        'user_id' => $activeHrUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    $activeHrUser->assignRole($hrRoleA);
+
+    // Same-company user without approval permission
+    $userWithoutApprove = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'active',
+        'name' => 'No Approve User',
+        'email' => 'no.approve@companya.com',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->companyA->id,
+        'user_id' => $userWithoutApprove->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // Inactive same-company user whose role has approval permission
+    $inactiveHrUser = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'inactive',
+        'name' => 'Inactive HR User',
+        'email' => 'inactive.hr@companya.com',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->companyA->id,
+        'user_id' => $inactiveHrUser->id,
+        'status' => 'inactive',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    $inactiveHrUser->assignRole($hrRoleA);
+
+    // User belonging only to another company (companyB) with approval role in companyB
+    $hrRoleB = Role::query()->create([
+        'company_id' => $this->companyB->id,
+        'name' => 'HR Approver Role B',
+        'guard_name' => 'web',
+    ]);
+    $hrRoleB->givePermissionTo($approvePermission);
+
+    $companyBUser = User::factory()->create([
+        'company_id' => $this->companyB->id,
+        'status' => 'active',
+        'name' => 'Company B User',
+        'email' => 'hr@companyb.com',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->companyB->id,
+        'user_id' => $companyBUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyB->id);
+    $companyBUser->assignRole($hrRoleB);
+
+    // Cross-company member whose approval role is scoped only to companyB, not companyA
+    $crossCompanyUser = User::factory()->create([
+        'company_id' => $this->companyA->id,
+        'status' => 'active',
+        'name' => 'Cross Company User',
+        'email' => 'cross@example.com',
+    ]);
+    DB::table('company_user')->insert([
+        [
+            'company_id' => $this->companyA->id,
+            'user_id' => $crossCompanyUser->id,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'company_id' => $this->companyB->id,
+            'user_id' => $crossCompanyUser->id,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyB->id);
+    $crossCompanyUser->assignRole($hrRoleB);
+
+    // Query options directly
+    $recruiterOptions = RecruiterOptionsQuery::forCompany($this->companyA->id);
+    $recruiterIds = collect($recruiterOptions)->pluck('id');
+
+    expect($recruiterIds)->toContain($activeHrUser->id)
+        ->and($recruiterIds)->not->toContain($userWithoutApprove->id)
+        ->and($recruiterIds)->not->toContain($inactiveHrUser->id)
+        ->and($recruiterIds)->not->toContain($companyBUser->id)
+        ->and($recruiterIds)->not->toContain($crossCompanyUser->id);
+
+    // Verify on the HTTP requirements index page Inertia options
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/index')
+            ->has('options.recruiters')
+            ->where('options.recruiters', function ($recruiters) use ($activeHrUser, $userWithoutApprove, $inactiveHrUser, $companyBUser, $crossCompanyUser) {
+                $ids = collect($recruiters)->pluck('id');
+
+                return $ids->contains($activeHrUser->id)
+                    && ! $ids->contains($userWithoutApprove->id)
+                    && ! $ids->contains($inactiveHrUser->id)
+                    && ! $ids->contains($companyBUser->id)
+                    && ! $ids->contains($crossCompanyUser->id);
+            })
+        );
+
+    // An eligible recruiter can be selected during requirement creation and submission
+    Mail::fake();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $activeHrUser->id,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertRedirect();
+
+    $createdRequirement = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->where('assigned_to', $activeHrUser->id)
+        ->latest('id')
+        ->first();
+
+    expect($createdRequirement)->not->toBeNull()
+        ->and($createdRequirement->assigned_to)->toBe($activeHrUser->id)
+        ->and($createdRequirement->status)->toBe(RequirementStatus::Draft);
+
+    // Submit for recruiter approval
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$createdRequirement->id}/submit")
+        ->assertRedirect();
+
+    $fresh = $createdRequirement->fresh();
+    expect($fresh->status)->toBe(RequirementStatus::PendingApproval)
+        ->and($fresh->assigned_to)->toBe($activeHrUser->id);
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) use ($activeHrUser) {
+        return $mail->hasTo($activeHrUser->email);
+    });
 });

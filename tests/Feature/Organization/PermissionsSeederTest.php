@@ -35,6 +35,8 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'reports.leave_balance.export')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'crew_operations.settings.view')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'crew_operations.settings.update')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.requirements.submit')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.requirements.approve')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -59,6 +61,8 @@ test('permission metadata follows current module categories without changing nam
         'settings.appearance.view' => 'Settings',
         'settings.integrations.hikvision.view' => 'Integrations',
         'crew_operations.vessels.view' => 'Crew Operations',
+        'recruitment.requirements.submit' => 'Recruitment',
+        'recruitment.requirements.approve' => 'Recruitment',
     ];
 
     foreach ($groups as $name => $group) {
@@ -150,6 +154,72 @@ test('roles page does not expose a platform or rank policies permission group af
                     && ! $names->contains('platform.settings.update')
                     && ! $names->contains('crew_operations.rank_policies.view')
                     && ! $names->contains('crew_operations.rank_policies.update');
+            }),
+        );
+});
+
+test('roles page exposes all recruitment requirement permissions under Recruitment group after seeding', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    $user = User::factory()->create();
+    $country = Country::query()->create([
+        'code' => 'RPR',
+        'name' => 'Recruitment Role Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        [
+            'name' => 'Dirham',
+            'symbol' => 'د.إ',
+            'is_active' => true,
+        ],
+    );
+    $company = Company::query()->create([
+        'name' => 'Recruitment Role Co',
+        'slug' => 'recruitment-role-co-permissions',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Recruiter Role',
+        'guard_name' => 'web',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['roles.view']);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get("/organization/roles/{$role->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/role')
+            ->has('permissions')
+            ->where('permissions', function ($permissions) {
+                $options = collect($permissions)->keyBy('name');
+                $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
+
+                return $recruitmentOptions->count() === 9
+                    && $options->has('recruitment.requirements.view')
+                    && $options->has('recruitment.requirements.create')
+                    && $options->has('recruitment.requirements.update')
+                    && $options->has('recruitment.requirements.close')
+                    && $options->has('recruitment.requirements.cancel')
+                    && $options->has('recruitment.requirements.reopen')
+                    && $options->has('recruitment.requirements.attachments.download')
+                    && $options->has('recruitment.requirements.submit')
+                    && $options->get('recruitment.requirements.submit')['label'] === 'Submit Recruitment Requirements'
+                    && $options->get('recruitment.requirements.submit')['group'] === 'Recruitment'
+                    && $options->has('recruitment.requirements.approve')
+                    && $options->get('recruitment.requirements.approve')['label'] === 'Approve Recruitment Requirements'
+                    && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment';
             }),
         );
 });

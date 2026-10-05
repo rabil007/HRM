@@ -1947,6 +1947,18 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to create, update, enable, disable, and delete employee document expiry notification routing rules for the active company.',
                 'group' => 'Documents',
             ],
+            331 => [
+                'name' => 'recruitment.requirements.submit',
+                'label' => 'Submit Recruitment Requirements',
+                'description' => 'Allows the user to submit recruitment requirements for recruiter approval.',
+                'group' => 'Recruitment',
+            ],
+            332 => [
+                'name' => 'recruitment.requirements.approve',
+                'label' => 'Approve Recruitment Requirements',
+                'description' => 'Allows the user to approve or return submitted recruitment requirements for the active company.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }
