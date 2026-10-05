@@ -37,7 +37,8 @@ final class CrewMovementHistoryFilters
         public readonly string $tourStatus = '',
         public readonly string $hasApprovedCorrections = '',
         public readonly string $hasPendingCorrections = '',
-        public readonly string $sort = 'started_at',
+        public readonly string $vesselServicePeriod = '',
+        public readonly string $sort = 'actual_join',
         public readonly string $direction = 'desc',
     ) {}
 
@@ -74,7 +75,8 @@ final class CrewMovementHistoryFilters
             tourStatus: (string) $request->query('tour_status', ''),
             hasApprovedCorrections: self::booleanFilter($request->query('has_approved_corrections')),
             hasPendingCorrections: self::booleanFilter($request->query('has_pending_corrections')),
-            sort: (string) $request->query('sort', 'started_at'),
+            vesselServicePeriod: (string) $request->query('vessel_service_period', ''),
+            sort: (string) $request->query('sort', 'actual_join'),
             direction: strtolower((string) $request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc',
         );
     }
@@ -87,7 +89,7 @@ final class CrewMovementHistoryFilters
         return array_filter(
             $this->toArray(),
             fn (string $value, string $key): bool => $value !== ''
-                && ! ($key === 'sort' && $value === 'started_at')
+                && ! ($key === 'sort' && $value === 'actual_join')
                 && ! ($key === 'direction' && $value === 'desc'),
             ARRAY_FILTER_USE_BOTH,
         );
@@ -129,6 +131,7 @@ final class CrewMovementHistoryFilters
             'tour_status' => $this->tourStatus,
             'has_approved_corrections' => $this->hasApprovedCorrections,
             'has_pending_corrections' => $this->hasPendingCorrections,
+            'vessel_service_period' => $this->vesselServicePeriod,
             'sort' => $this->sort,
             'direction' => $this->direction,
         ];

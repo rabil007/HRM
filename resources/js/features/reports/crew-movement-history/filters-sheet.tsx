@@ -135,6 +135,18 @@ export function CrewMovementHistoryFiltersSheet({
             }}
         >
             <SelectFilter
+                label="Vessel service period"
+                value={draft.vessel_service_period}
+                options={[
+                    { value: '', label: 'All history' },
+                    { value: 'this_month', label: 'This Month' },
+                    { value: 'last_month', label: 'Last Month' },
+                    { value: 'last_3_months', label: 'Last 3 Months' },
+                    { value: 'this_year', label: 'This Year' },
+                ]}
+                onChange={(value) => set('vessel_service_period', value)}
+            />
+            <SelectFilter
                 label="Status"
                 value={draft.status}
                 options={options.statuses}

@@ -108,23 +108,64 @@ Supports identity, status, current phase, vessel, rank, client, source, needs at
 
 Search may match assignment no, employee no/name, vessel, client, rank, previous/next assignment no, hotel, room type, and training provider/course — always company-scoped with `EmployeeVisibilityScope`.
 
+## Presentation hierarchy
+
+Crew Movement History separates fast operational history scanning from deep OMS audit details:
+
+- **Crew Movement History summary (Default Table)** — an operator-friendly assignment and service history structured like an operational Excel `CREW HISTORY` sheet. It answers the primary operational questions at a glance:
+  - *Who worked where?* (Employee No, Crew Name, Rank, Vessel, Client)
+  - *When did they arrive?* (Arrival — authoritative actual arrival)
+  - *When did they join the vessel?* (Joined Vessel — actual P4 join)
+  - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P4 end, or `Ongoing` if active)
+  - *When did they return home?* (Returned Home — actual P6 start, or `Redeployed` if transferred directly without returning home)
+  - *How many days onboard?* (Vessel Days — authoritative P4 elapsed days)
+  - *What is the current status?* (Assignment status badge, with `On Vessel` for active P4)
+- **Expanded history** — complete OMS movement/audit record, organized in 9 structured sections:
+  1. Assignment Summary
+  2. Actual Movement
+  3. Planned / Forecast Dates
+  4. Movement Timeline
+  5. Accommodation
+  6. Training
+  7. Assignment Links / Transfer / Redeployment
+  8. Payroll Day Preview
+  9. Corrections / Audit
+
+### Date accuracy and provenance
+
+Actual dates are derived strictly from authoritative movement phases:
+- Forecast/planned dates are **never silently promoted** to actual history.
+- `planned_signoff_at` must never appear as actual sign-off. If P4 is still active, sign-off is displayed as `Ongoing`.
+- If a crew member is redeployed or transferred directly to another vessel without returning home, the outcome is clearly labeled `Redeployed` (with date), preserving true operational semantics.
+
+## Vessel Service Period filter
+
+In addition to granular date range filters, a primary quick filter for **Vessel Service Period** allows filtering assignments by actual P4 vessel period overlap:
+- `All History`
+- `This Month`
+- `Last Month`
+- `Last 3 Months`
+- `This Year`
+
+A CrewAssignment qualifies if its actual P4 vessel service period overlaps the selected calendar interval.
+
 ## Permissions and tenancy
 
 - `reports.crew_movement_history.view`
 - `reports.crew_movement_history.export`
 
-Every query is scoped to `current_company_id`. Soft-deleted/voided assignments are not automatically exposed via `withTrashed()`. Linked assignment previous/next/first-phase/current-phase/vessel/rank/client data never bypass company boundaries.
+Every query is scoped to `current_company_id`. Soft-deleted/voided assignments are not automatically exposed via `withTrashed()`. Linked assignment previous/next/first-phase/current-phase/vessel/rank/client data never bypass company boundaries. `EmployeeVisibilityScope` is strictly applied across table rows, summary counts, search, filters, and export.
 
 ## Export
 
-Excel/CSV: one row per assignment. Repeated phases, training, accommodation, and linked assignments use semicolon-separated (or multi-line) plain text. Actual timestamps export with time. Filenames use `crew-movement-history-YYYY-MM-DD`.
+Export provides both operator-friendly summaries and deep movement details:
 
-Rich export columns include:
+- **XLSX Workbook (Multi-sheet)**:
+  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Vessel Days, Assignment Status, Assignment No, Assignment Source, Remarks).
+  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P6 phase timeline occurrences, training history, accommodation stays, payroll preview days, and corrections.
+- **CSV Export**:
+  - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.
 
-- **Phase Timeline** — each occurrence with code, occurrence, sequence, status, planned/actual windows, days, remarks, and details; legacy entries are labeled `Legacy`.
-- **Training History** — each P2B occurrence with provider, course, planned/actual windows, status, employee-training link, and remarks.
-- **Starting Checkpoint** — first persisted phase of the assignment row.
-
-Legacy columns (`Legacy Planned Travel In`, `Legacy Travel In …`, `Legacy Ready To Join …`) append only when the filtered set contains P1/P3 movement. They are not permanent normal columns for every dataset.
+Filenames use `crew-movement-history-YYYY-MM-DD.[xlsx|csv]`.
 
 See also [Crew Movement Corrections](../architecture/crew-movement-corrections.md), [Crew Movement Phases](../architecture/crew-movement-phases.md), and [Crew Payroll Timeline Preparation](../architecture/crew-payroll-timeline-preparation.md).

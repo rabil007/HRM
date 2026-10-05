@@ -636,3 +636,72 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
         ->and(collect($row['legacy_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1', 'p3'])
         ->and($row['legacy_phase_timeline'][0]['remarks'])->toBe('Legacy travel');
 });
+
+test('it identifies direct redeployment without return home phase', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignmentA = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-DIRECT-A',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+        ]);
+
+    $p4A = CrewAssignmentPhase::factory()->forAssignment($assignmentA)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    $assignmentA->update(['current_phase_id' => $p4A->id]);
+
+    $assignmentB = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-DIRECT-B',
+            'position_id' => $rank->id,
+            'source' => 'vessel_transfer',
+            'previous_assignment_id' => $assignmentA->id,
+            'started_at' => '2026-06-30 09:00:00',
+        ]);
+
+    $p4B = CrewAssignmentPhase::factory()->forAssignment($assignmentB)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-06-30 09:00:00',
+        'actual_end_at' => null,
+    ]);
+    $assignmentB->update(['current_phase_id' => $p4B->id]);
+
+    $rowA = CrewMovementHistoryPresenter::toArray(
+        $assignmentA->fresh([
+            'company',
+            'employee',
+            'position',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'previousAssignment.phases',
+            'previousAssignment.currentPhase',
+            'previousAssignment.vessel',
+            'previousAssignment.position',
+            'previousAssignment.client',
+            'nextAssignments.phases',
+            'nextAssignments.currentPhase',
+            'nextAssignments.vessel',
+            'nextAssignments.position',
+            'nextAssignments.client',
+        ]),
+    );
+
+    expect($rowA['home_redeploy']['is_redeployed_directly'])->toBeTrue()
+        ->and($rowA['home_redeploy']['redeployed_at'])->toBe('2026-06-30 09:00:00')
+        ->and($rowA['home_redeploy']['actual_return_home_at'])->toBeNull()
+        ->and($rowA['home_redeploy']['from'])->toBeNull();
+});

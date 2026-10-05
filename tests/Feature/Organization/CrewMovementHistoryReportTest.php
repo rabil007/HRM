@@ -9,6 +9,7 @@ use App\Enums\CrewPlannedSignoffSource;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
@@ -541,4 +542,97 @@ test('report query count stays constant when page size increases', function () {
     expect($queriesForFive)->toBeLessThanOrEqual(30)
         ->and($queriesForTwentyFive)->toBeLessThanOrEqual(30)
         ->and(abs($queriesForTwentyFive - $queriesForFive))->toBeLessThanOrEqual(2);
+});
+
+test('report filters by vessel service period overlapping actual p4 vessel phase', function () {
+    CarbonImmutable::setTestNow('2026-10-05 12:00:00');
+    ['user' => $user, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+
+    // Assignment 1: On vessel this month
+    $thisMonth = CrewAssignment::factory()->forEmployee($employee)->active()->create(['assignment_no' => 'CA-PERIOD-THIS-MONTH']);
+    CrewAssignmentPhase::factory()->forAssignment($thisMonth)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    // Assignment 2: On vessel last month
+    $lastMonth = CrewAssignment::factory()->forEmployee($employee)->completed()->create(['assignment_no' => 'CA-PERIOD-LAST-MONTH']);
+    CrewAssignmentPhase::factory()->forAssignment($lastMonth)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-01 08:00:00',
+        'actual_end_at' => '2026-09-25 08:00:00',
+    ]);
+
+    // Filter by this_month
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'vessel_service_period' => 'this_month',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-PERIOD-THIS-MONTH'));
+
+    // Filter by last_month
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'vessel_service_period' => 'last_month',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.assignment_no', 'CA-PERIOD-LAST-MONTH'));
+});
+
+test('report supports sorting by actual_join and employee_no', function () {
+    ['user' => $user, 'company' => $company] = authorizeCrewMovementHistoryReport();
+
+    $empA = Employee::factory()->create([
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-001',
+        'name' => 'Alice',
+    ]);
+    $empB = Employee::factory()->create([
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-002',
+        'name' => 'Bob',
+    ]);
+
+    $assignA = CrewAssignment::factory()->forEmployee($empA)->create(['assignment_no' => 'CA-SORT-A']);
+    CrewAssignmentPhase::factory()->forAssignment($assignA)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'actual_start_at' => '2026-05-01 08:00:00',
+    ]);
+
+    $assignB = CrewAssignment::factory()->forEmployee($empB)->create(['assignment_no' => 'CA-SORT-B']);
+    CrewAssignmentPhase::factory()->forAssignment($assignB)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'actual_start_at' => '2026-08-01 08:00:00',
+    ]);
+
+    // Default sort: actual_join desc -> assignB (Aug) then assignA (May)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.assignment_no', 'CA-SORT-B')
+            ->where('assignments.1.assignment_no', 'CA-SORT-A'));
+
+    // Sort by employee_no asc -> EMP-001 (Alice/assignA) then EMP-002 (Bob/assignB)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'sort' => 'employee_no',
+            'direction' => 'asc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.assignment_no', 'CA-SORT-A')
+            ->where('assignments.1.assignment_no', 'CA-SORT-B'));
 });

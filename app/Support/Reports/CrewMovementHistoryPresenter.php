@@ -95,6 +95,21 @@ final class CrewMovementHistoryPresenter
         $actualDisembarkationAt = self::lastCompletedEndAt($onVessel);
         $actualReturnHomeAt = $homeRedeploy['periods'][0]['start_at'] ?? null;
 
+        $hasReturnHomePhase = $homeRedeploy['periods'] !== [];
+        $isRedeployedDirectly = false;
+        $redeployedAt = null;
+
+        if (! $hasReturnHomePhase) {
+            $nextList = $linked['next'] ?? [];
+            if ($nextList !== []) {
+                $firstNext = $nextList[0];
+                if (in_array($firstNext['source'] ?? null, ['vessel_transfer', 'redeployment'], true)) {
+                    $isRedeployedDirectly = true;
+                    $redeployedAt = $firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone);
+                }
+            }
+        }
+
         return [
             'id' => $assignment->id,
             'assignment_no' => $assignment->assignment_no,
@@ -172,6 +187,8 @@ final class CrewMovementHistoryPresenter
             'home_redeploy' => [
                 ...$homeRedeploy,
                 'actual_return_home_at' => $actualReturnHomeAt,
+                'is_redeployed_directly' => $isRedeployedDirectly,
+                'redeployed_at' => $redeployedAt,
             ],
             'assignment_started' => self::date($assignment->started_at, $timezone),
             'assignment_started_at' => self::dateTime($assignment->started_at, $timezone),

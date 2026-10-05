@@ -90,7 +90,39 @@ test('export has clear headings and one mapped row per crew assignment', functio
     $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
     $assignment = $query->exportQuery()->whereKey($active->id)->firstOrFail();
 
+    // Summary sheet headings (operator-friendly)
     expect($export->headings())
+        ->toContain(
+            'Employee No',
+            'Employee Name',
+            'Rank',
+            'Vessel',
+            'Client',
+            'Arrival Date',
+            'Join Vessel Date',
+            'Sign-Off / Disembarkation Date',
+            'Return Home Date',
+            'Vessel Days',
+            'Assignment Status',
+            'Assignment No',
+            'Assignment Source',
+            'Remarks',
+        )
+        ->not->toContain(
+            'Planned Travel In',
+            'P1 From',
+            'Legacy Travel In Periods',
+        );
+
+    // Multi-sheet XLSX verification
+    $sheets = $export->sheets();
+    expect($sheets)->toHaveCount(2)
+        ->and($sheets[0]->title())->toBe('CREW HISTORY')
+        ->and($sheets[1]->title())->toBe('MOVEMENT DETAILS');
+
+    // Rich movement details sheet
+    $detailsSheet = $sheets[1];
+    expect($detailsSheet->headings())
         ->toContain(
             'Assignment No',
             'Planned Arrival',
@@ -107,15 +139,19 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Training Details',
             'Needs Attention',
             'Pending Correction',
-        )
-        ->not->toContain(
-            'Planned Travel In',
-            'P1 From',
-            'Ready From',
-            'Legacy Travel In Periods',
-        )
-        ->and($export->map($assignment)[0])->toBe('CA-EXPORT-ACTIVE')
+        );
+
+    $summaryMapped = $export->map($assignment);
+    $summaryByHeading = array_combine($export->headings(), $summaryMapped);
+
+    expect($summaryByHeading['Assignment No'])->toBe('CA-EXPORT-ACTIVE')
+        ->and($summaryByHeading['Assignment Status'])->toBe('Active')
         ->and($export->query()->count())->toBe(2);
+
+    // CSV format produces only the CREW HISTORY summary sheet
+    $csvExport = CrewMovementHistoryExport::forQuery($query->exportQuery(), 'csv');
+    expect($csvExport->sheets())->toHaveCount(1)
+        ->and($csvExport->sheets()[0]->title())->toBe('CREW HISTORY');
 });
 
 test('export adds legacy columns only when the filtered result set contains legacy phases', function () {
@@ -150,13 +186,14 @@ test('export adds legacy columns only when the filtered result set contains lega
     $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
     $assignment = $query->exportQuery()->whereKey($legacyAssignment->id)->firstOrFail();
 
-    expect($export->headings())->toContain(
+    $detailsSheet = $export->sheets()[1];
+    expect($detailsSheet->headings())->toContain(
         'Legacy Planned Travel In',
         'Legacy Travel In Periods',
         'Legacy Ready To Join Periods',
     );
 
-    $mapped = $export->map($assignment);
+    $mapped = $detailsSheet->map($assignment);
     expect($mapped[0])->toBe('CA-EXPORT-LEGACY')
         ->and($mapped)->toContain('03 Jan 2026', '04 Jan 2026');
 });
@@ -255,8 +292,10 @@ test('export maps rich training phase timeline accommodation and redeployment va
     $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
     $assignment = $query->exportQuery()->whereKey($destination->id)->firstOrFail();
 
-    $headings = $export->headings();
-    $mapped = $export->map($assignment);
+    // Verify detailed sheet
+    $detailsSheet = $export->sheets()[1];
+    $headings = $detailsSheet->headings();
+    $mapped = $detailsSheet->map($assignment);
     $byHeading = array_combine($headings, $mapped);
 
     expect($byHeading['Assignment No'])->toBe('CA-EXPORT-RICH')
@@ -275,4 +314,26 @@ test('export maps rich training phase timeline accommodation and redeployment va
         ->and($byHeading['Movement Relationship'])->toBe('Redeployment')
         ->and($byHeading['Accommodation History'])->toContain('Harbor Inn')
         ->and($byHeading['Tour of Duty Days'])->toBe(60);
+
+    // Verify summary sheet
+    $summarySheet = $export->sheets()[0];
+    $summaryHeadings = $summarySheet->headings();
+    $summaryMapped = $summarySheet->map($assignment);
+    $summaryByHeading = array_combine($summaryHeadings, $summaryMapped);
+
+    expect($summaryByHeading['Assignment No'])->toBe('CA-EXPORT-RICH')
+        ->and($summaryByHeading['Assignment Status'])->toBe('Active')
+        ->and($summaryByHeading['Sign-Off / Disembarkation Date'])->toBe('Ongoing')
+        ->and($summaryByHeading['Return Home Date'])->toBe('—');
+
+    // Verify source assignment has 'Redeployed' as Return Home Date
+    $sourceQuery = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters(search: 'CA-EXPORT-SOURCE'),
+        $company->timezone,
+    );
+    $sourceAssignment = $sourceQuery->exportQuery()->whereKey($source->id)->firstOrFail();
+    $sourceMapped = $export->sheets()[0]->map($sourceAssignment);
+    $sourceByHeading = array_combine($summaryHeadings, $sourceMapped);
+    expect($sourceByHeading['Return Home Date'])->toContain('Redeployed');
 });
