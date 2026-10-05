@@ -48,18 +48,23 @@ describe('crew movement history presentation logic', () => {
         assert.equal(draftRow.display, '—');
     });
 
-    it('identifies direct redeployment vs return home correctly', () => {
+    it('identifies direct redeployment vs return home vs home/redeploy correctly', () => {
         const resolveReturnHomeOrRedeployed = (homeRedeploy: {
+            outcome?: 'returned_home' | 'redeployed' | 'home_redeploy' | null;
+            outcome_label?: string | null;
             is_redeployed_directly?: boolean;
             redeployed_at?: string | null;
             actual_return_home_at?: string | null;
             from?: string | null;
         }): {
-            type: 'redeployed' | 'home' | 'none';
+            type: 'redeployed' | 'returned_home' | 'home_redeploy' | 'none';
             label: string;
             date: string | null;
         } => {
-            if (homeRedeploy.is_redeployed_directly) {
+            if (
+                homeRedeploy.outcome === 'redeployed' ||
+                homeRedeploy.is_redeployed_directly
+            ) {
                 return {
                     type: 'redeployed',
                     label: 'Redeployed',
@@ -67,14 +72,22 @@ describe('crew movement history presentation logic', () => {
                 };
             }
 
-            const homeDate =
-                homeRedeploy.actual_return_home_at ?? homeRedeploy.from ?? null;
-
-            if (homeDate) {
+            if (
+                homeRedeploy.outcome === 'returned_home' &&
+                homeRedeploy.actual_return_home_at
+            ) {
                 return {
-                    type: 'home',
+                    type: 'returned_home',
                     label: 'Returned Home',
-                    date: homeDate,
+                    date: homeRedeploy.actual_return_home_at,
+                };
+            }
+
+            if (homeRedeploy.outcome === 'home_redeploy') {
+                return {
+                    type: 'home_redeploy',
+                    label: 'Home / Redeploy',
+                    date: homeRedeploy.from ?? null,
                 };
             }
 
@@ -87,6 +100,8 @@ describe('crew movement history presentation logic', () => {
 
         // Directly redeployed without going home
         const redeployed = resolveReturnHomeOrRedeployed({
+            outcome: 'redeployed',
+            outcome_label: 'Redeployed',
             is_redeployed_directly: true,
             redeployed_at: '2026-07-01',
             actual_return_home_at: null,
@@ -96,14 +111,29 @@ describe('crew movement history presentation logic', () => {
         assert.equal(redeployed.label, 'Redeployed');
         assert.equal(redeployed.date, '2026-07-01');
 
-        // Returned home normally
+        // Returned home normally (P5 -> P6)
         const normalHome = resolveReturnHomeOrRedeployed({
+            outcome: 'returned_home',
+            outcome_label: 'Returned Home',
             is_redeployed_directly: false,
             actual_return_home_at: '2026-09-02',
             from: '2026-09-02',
         });
-        assert.equal(normalHome.type, 'home');
+        assert.equal(normalHome.type, 'returned_home');
+        assert.equal(normalHome.label, 'Returned Home');
         assert.equal(normalHome.date, '2026-09-02');
+
+        // Direct P4 -> P6 (neutral Home / Redeploy)
+        const directP4P6 = resolveReturnHomeOrRedeployed({
+            outcome: 'home_redeploy',
+            outcome_label: 'Home / Redeploy',
+            is_redeployed_directly: false,
+            actual_return_home_at: null,
+            from: '2026-09-10',
+        });
+        assert.equal(directP4P6.type, 'home_redeploy');
+        assert.equal(directP4P6.label, 'Home / Redeploy');
+        assert.equal(directP4P6.date, '2026-09-10');
 
         // Neither
         const neither = resolveReturnHomeOrRedeployed({});

@@ -24,9 +24,14 @@ final class CrewMovementHistoryPresenter
      */
     public static function toArray(CrewAssignment $assignment): array
     {
+        $companyId = (int) $assignment->company_id;
+        $employeeId = (int) $assignment->employee_id;
         $timezone = (string) ($assignment->company?->timezone ?? config('app.timezone', 'UTC'));
         $today = now($timezone);
-        $phases = $assignment->phases->sortBy('sequence')->values();
+        $phases = $assignment->phases
+            ->filter(fn (CrewAssignmentPhase $phase): bool => ! isset($phase->company_id) || (int) $phase->company_id === $companyId)
+            ->sortBy('sequence')
+            ->values();
         $tour = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
         $warnings = CrewMovementAttentionQuery::forAssignment($assignment, $tour);
         $summaries = [];
@@ -54,10 +59,14 @@ final class CrewMovementHistoryPresenter
             $today,
         );
         $approvedCorrections = $assignment->relationLoaded('corrections')
-            ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Approved)
+            ? $assignment->corrections
+                ->where('company_id', $companyId)
+                ->where('status', CrewMovementCorrectionStatus::Approved)
             : collect();
         $pendingCorrections = $assignment->relationLoaded('corrections')
-            ? $assignment->corrections->where('status', CrewMovementCorrectionStatus::Pending)
+            ? $assignment->corrections
+                ->where('company_id', $companyId)
+                ->where('status', CrewMovementCorrectionStatus::Pending)
             : collect();
 
         $plannedJoin = CrewDateProvenance::plannedJoin($assignment, $timezone);
@@ -77,7 +86,7 @@ final class CrewMovementHistoryPresenter
         $travelIn = self::flatten($summaries[CrewPhaseCode::TravelIn->value]);
         $readyToJoin = self::flatten($summaries[CrewPhaseCode::ReadyToJoin->value]);
         $homeRedeploy = self::flatten($summaries[CrewPhaseCode::HomeRedeploy->value]);
-        $trainingHistory = self::trainingHistory($phases, $timezone);
+        $trainingHistory = self::trainingHistory($phases, $timezone, $companyId);
         $phaseTimeline = self::phaseTimeline($phases, $timezone, $today);
         $modernTimeline = array_values(array_filter(
             $phaseTimeline,
@@ -93,21 +102,43 @@ final class CrewMovementHistoryPresenter
 
         $actualJoinAt = self::firstPeriodDateTime($onVessel, 'start_at');
         $actualDisembarkationAt = self::lastCompletedEndAt($onVessel);
-        $actualReturnHomeAt = $homeRedeploy['periods'][0]['start_at'] ?? null;
 
-        $hasReturnHomePhase = $homeRedeploy['periods'] !== [];
+        $firstP6 = $phases->first(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::HomeRedeploy);
+        $nextList = $linked['next'] ?? [];
+        $firstNext = $nextList[0] ?? null;
+        $hasLinkedNextRedeployment = $firstNext !== null && in_array($firstNext['source'] ?? null, ['vessel_transfer', 'redeployment'], true);
+        $redeployedAt = $hasLinkedNextRedeployment
+            ? ($firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone))
+            : null;
+
+        $hasCompletedP5BeforeP6 = false;
+        if ($firstP6 !== null) {
+            $priorPhase = $phases
+                ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->sequence < $firstP6->sequence)
+                ->sortByDesc('sequence')
+                ->first();
+
+            $hasCompletedP5BeforeP6 = $priorPhase !== null
+                && $priorPhase->phase_code === CrewPhaseCode::DemobStandby
+                && ($priorPhase->status === CrewPhaseStatus::Completed || $priorPhase->actual_end_at !== null);
+        }
+
+        $outcome = null;
+        $outcomeLabel = null;
+        $actualReturnHomeAt = null;
         $isRedeployedDirectly = false;
-        $redeployedAt = null;
 
-        if (! $hasReturnHomePhase) {
-            $nextList = $linked['next'] ?? [];
-            if ($nextList !== []) {
-                $firstNext = $nextList[0];
-                if (in_array($firstNext['source'] ?? null, ['vessel_transfer', 'redeployment'], true)) {
-                    $isRedeployedDirectly = true;
-                    $redeployedAt = $firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone);
-                }
-            }
+        if ($firstP6 === null && $hasLinkedNextRedeployment) {
+            $outcome = 'redeployed';
+            $outcomeLabel = 'Redeployed';
+            $isRedeployedDirectly = true;
+        } elseif ($firstP6 !== null && $hasCompletedP5BeforeP6) {
+            $outcome = 'returned_home';
+            $outcomeLabel = 'Returned Home';
+            $actualReturnHomeAt = self::dateTime($firstP6->actual_start_at, $timezone);
+        } elseif ($firstP6 !== null) {
+            $outcome = 'home_redeploy';
+            $outcomeLabel = 'Home / Redeploy';
         }
 
         return [
@@ -118,12 +149,12 @@ final class CrewMovementHistoryPresenter
                 'employee_no' => $assignment->employee?->employee_no,
                 'name' => $assignment->employee?->name,
             ],
-            'position' => CrewAssignmentPositionPresenter::option($assignment, (int) $assignment->company_id),
-            'vessel' => self::option($assignment->vessel),
-            'client' => self::option($assignment->client),
+            'position' => CrewAssignmentPositionPresenter::option($assignment, $companyId),
+            'vessel' => self::option($assignment->vessel, $companyId),
+            'client' => self::option($assignment->client, $companyId),
             'status' => $assignment->status->value,
             'status_label' => $assignment->status->label(),
-            'current_phase' => $assignment->currentPhase ? [
+            'current_phase' => ($assignment->currentPhase && (! isset($assignment->currentPhase->company_id) || (int) $assignment->currentPhase->company_id === $companyId)) ? [
                 'code' => $assignment->currentPhase->phase_code->value,
                 'label' => $assignment->currentPhase->phase_code->label(),
                 'status' => $assignment->currentPhase->status->value,
@@ -186,6 +217,8 @@ final class CrewMovementHistoryPresenter
             'demob_standby' => self::flatten($summaries[CrewPhaseCode::DemobStandby->value]),
             'home_redeploy' => [
                 ...$homeRedeploy,
+                'outcome' => $outcome,
+                'outcome_label' => $outcomeLabel,
                 'actual_return_home_at' => $actualReturnHomeAt,
                 'is_redeployed_directly' => $isRedeployedDirectly,
                 'redeployed_at' => $redeployedAt,
@@ -392,7 +425,7 @@ final class CrewMovementHistoryPresenter
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      * @return list<array<string, mixed>>
      */
-    private static function trainingHistory(Collection $phases, string $timezone): array
+    private static function trainingHistory(Collection $phases, string $timezone, int $companyId): array
     {
         $occurrence = 0;
 
@@ -400,7 +433,7 @@ final class CrewMovementHistoryPresenter
             ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::Training)
             ->sortBy('sequence')
             ->values()
-            ->map(function (CrewAssignmentPhase $phase) use ($timezone, &$occurrence): array {
+            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $companyId, &$occurrence): array {
                 $occurrence++;
                 $details = is_array($phase->details) ? $phase->details : [];
                 $provider = isset($details['provider']) ? (string) $details['provider'] : null;
@@ -409,6 +442,10 @@ final class CrewMovementHistoryPresenter
                 $employeeTraining = $phase->relationLoaded('employeeTraining')
                     ? $phase->employeeTraining
                     : null;
+
+                if ($employeeTraining !== null && isset($employeeTraining->company_id) && (int) $employeeTraining->company_id !== $companyId) {
+                    $employeeTraining = null;
+                }
 
                 return [
                     'occurrence' => $occurrence,
@@ -446,9 +483,18 @@ final class CrewMovementHistoryPresenter
             return $stays;
         }
 
+        $companyId = (int) $assignment->company_id;
         $phaseById = $assignment->accommodationStays
+            ->filter(fn ($stay) => ! isset($stay->company_id) || (int) $stay->company_id === $companyId)
             ->keyBy('id')
-            ->map(fn ($stay) => $stay->startedFromPhase);
+            ->map(function ($stay) use ($companyId) {
+                $phase = $stay->startedFromPhase;
+                if ($phase !== null && isset($phase->company_id) && (int) $phase->company_id !== $companyId) {
+                    return null;
+                }
+
+                return $phase;
+            });
 
         return collect($stays)
             ->map(function (array $stay) use ($phaseById): array {
@@ -474,12 +520,14 @@ final class CrewMovementHistoryPresenter
      */
     private static function linkedAssignments(CrewAssignment $assignment, string $timezone): array
     {
+        $companyId = (int) $assignment->company_id;
+        $employeeId = (int) $assignment->employee_id;
         $previous = null;
 
         if ($assignment->relationLoaded('previousAssignment') && $assignment->previousAssignment !== null) {
             $prev = $assignment->previousAssignment;
 
-            if ((int) $prev->company_id === (int) $assignment->company_id) {
+            if ((int) $prev->company_id === $companyId && (int) $prev->employee_id === $employeeId) {
                 $previous = self::linkedAssignmentSummary($prev, $timezone, 'previous');
             }
         }
@@ -488,7 +536,7 @@ final class CrewMovementHistoryPresenter
 
         if ($assignment->relationLoaded('nextAssignments')) {
             $next = $assignment->nextAssignments
-                ->filter(fn (CrewAssignment $linked): bool => (int) $linked->company_id === (int) $assignment->company_id)
+                ->filter(fn (CrewAssignment $linked): bool => (int) $linked->company_id === $companyId && (int) $linked->employee_id === $employeeId)
                 ->sortBy('id')
                 ->values()
                 ->map(fn (CrewAssignment $linked): array => self::linkedAssignmentSummary(
@@ -503,8 +551,10 @@ final class CrewMovementHistoryPresenter
         $relationshipLabel = null;
 
         if ($assignment->source === 'vessel_transfer' || $assignment->source === 'redeployment') {
-            $relationship = $assignment->source;
-            $relationshipLabel = self::sourceLabel($assignment->source);
+            if ($previous !== null) {
+                $relationship = $assignment->source;
+                $relationshipLabel = self::sourceLabel($assignment->source);
+            }
         } elseif ($next !== []) {
             $firstNext = $next[0];
             $relationship = $firstNext['source'] ?? null;
@@ -527,10 +577,20 @@ final class CrewMovementHistoryPresenter
         string $timezone,
         string $direction,
     ): array {
+        $companyId = (int) $assignment->company_id;
+        $phases = ($assignment->relationLoaded('phases') ? $assignment->phases : collect())
+            ->filter(fn ($phase) => ! isset($phase->company_id) || (int) $phase->company_id === $companyId);
+
         $starting = self::startingCheckpoint(
-            $assignment->relationLoaded('phases') ? $assignment->phases : collect(),
+            $phases,
             $timezone,
         );
+
+        $currentPhase = ($assignment->relationLoaded('currentPhase') && $assignment->currentPhase)
+            ? ((! isset($assignment->currentPhase->company_id) || (int) $assignment->currentPhase->company_id === $companyId)
+                ? $assignment->currentPhase
+                : null)
+            : null;
 
         return [
             'id' => $assignment->id,
@@ -540,20 +600,16 @@ final class CrewMovementHistoryPresenter
             'source_label' => self::sourceLabel($assignment->source),
             'status' => $assignment->status->value,
             'status_label' => $assignment->status->label(),
-            'vessel' => self::option($assignment->relationLoaded('vessel') ? $assignment->vessel : null),
-            'position' => CrewAssignmentPositionPresenter::option($assignment, (int) $assignment->company_id),
-            'client' => self::option($assignment->relationLoaded('client') ? $assignment->client : null),
+            'vessel' => self::option($assignment->relationLoaded('vessel') ? $assignment->vessel : null, $companyId),
+            'position' => CrewAssignmentPositionPresenter::option($assignment, $companyId),
+            'client' => self::option($assignment->relationLoaded('client') ? $assignment->client : null, $companyId),
             'started_at' => self::dateTime($assignment->started_at, $timezone),
             'closed_at' => self::dateTime($assignment->closed_at, $timezone),
             'starting_phase_code' => $starting['code'],
             'starting_phase_label' => $starting['label'],
             'starting_phase_started_at' => $starting['started_at'],
-            'current_phase_code' => $assignment->relationLoaded('currentPhase') && $assignment->currentPhase
-                ? $assignment->currentPhase->phase_code->value
-                : null,
-            'current_phase_label' => $assignment->relationLoaded('currentPhase') && $assignment->currentPhase
-                ? $assignment->currentPhase->phase_code->label()
-                : null,
+            'current_phase_code' => $currentPhase?->phase_code?->value,
+            'current_phase_label' => $currentPhase?->phase_code?->label(),
         ];
     }
 
@@ -596,13 +652,19 @@ final class CrewMovementHistoryPresenter
     /**
      * @return array{id: int, name: string}|null
      */
-    private static function option(?object $model): ?array
+    private static function option(?object $model, ?int $companyId = null): ?array
     {
         if ($model === null) {
             return null;
         }
 
-        return ['id' => (int) $model->id, 'name' => (string) $model->name];
+        if ($companyId !== null && isset($model->company_id) && (int) $model->company_id !== $companyId) {
+            return null;
+        }
+
+        $name = (string) ($model->name ?? $model->title ?? '');
+
+        return ['id' => (int) $model->id, 'name' => $name];
     }
 
     private static function date(?CarbonInterface $value, string $timezone): ?string

@@ -75,6 +75,30 @@ final class CrewArrivalResolver
     }
 
     /**
+     * SQL expression for the authoritative arrival timestamp: the first P2A actual_start_at by sequence,
+     * else the first completed P1 actual_end_at by sequence when no P2A arrival exists.
+     *
+     * @param  Builder<Model>  $query
+     */
+    public static function arrivalTimestampSql(Builder $query): string
+    {
+        return self::authoritativeArrivalTimestampSql($query);
+    }
+
+    /**
+     * Apply authoritative arrival ordering to the query.
+     *
+     * @param  Builder<Model>  $query
+     */
+    public static function applyOrderBy(Builder $query, string $direction = 'asc'): Builder
+    {
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+        $expression = self::authoritativeArrivalTimestampSql($query);
+
+        return $query->orderByRaw("{$expression} {$direction}");
+    }
+
+    /**
      * @param  Builder<Model>  $query
      */
     private static function authoritativeArrivalTimestampSql(Builder $query): string

@@ -139,13 +139,18 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
             ? 'Ongoing'
             : ($row['on_vessel']['actual_disembarkation_at'] ?? $row['on_vessel']['actual_disembarkation'] ?? null);
 
-        $returnHome = '—';
-        if (! empty($row['home_redeploy']['is_redeployed_directly'])) {
-            $redeployDate = $row['home_redeploy']['redeployed_at'] ?? null;
-            $returnHome = $redeployDate ? 'Redeployed: '.$this->date($redeployDate) : 'Redeployed';
-        } elseif (! empty($row['home_redeploy']['actual_return_home_at']) || ! empty($row['home_redeploy']['from'])) {
-            $returnHome = $this->date($row['home_redeploy']['actual_return_home_at'] ?? $row['home_redeploy']['from']);
-        }
+        $returnHome = match ($row['home_redeploy']['outcome'] ?? null) {
+            'redeployed' => ! empty($row['home_redeploy']['redeployed_at'])
+                ? 'Redeployed: '.$this->date($row['home_redeploy']['redeployed_at'])
+                : 'Redeployed',
+            'returned_home' => ! empty($row['home_redeploy']['actual_return_home_at'])
+                ? $this->date($row['home_redeploy']['actual_return_home_at'])
+                : '—',
+            'home_redeploy' => ! empty($row['home_redeploy']['from'])
+                ? 'Home / Redeploy: '.$this->date($row['home_redeploy']['from'])
+                : 'Home / Redeploy',
+            default => '—',
+        };
 
         return [
             $row['employee']['employee_no'] ?? null,

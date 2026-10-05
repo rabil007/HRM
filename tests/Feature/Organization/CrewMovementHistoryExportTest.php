@@ -337,3 +337,85 @@ test('export maps rich training phase timeline accommodation and redeployment va
     $sourceByHeading = array_combine($summaryHeadings, $sourceMapped);
     expect($sourceByHeading['Return Home Date'])->toContain('Redeployed');
 });
+
+test('export accurately maps returned home vs home redeploy vs redeployed semantics across sheets', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewMovementHistoryExportFixture();
+
+    // 1. Returned Home: completed P5 demobilisation standby, then P6 home/redeploy
+    $returnedHomeAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create(['assignment_no' => 'CA-EXPORT-RET-HOME']);
+
+    CrewAssignmentPhase::factory()->forAssignment($returnedHomeAssignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-01 08:00:00',
+        'actual_end_at' => '2026-09-30 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($returnedHomeAssignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 09:00:00',
+        'actual_end_at' => '2026-10-02 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($returnedHomeAssignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-02 14:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+
+    // 2. Direct P4 -> P6: on-vessel directly to home/redeploy without demob standby
+    $directP6Assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create(['assignment_no' => 'CA-EXPORT-DIR-P6']);
+
+    CrewAssignmentPhase::factory()->forAssignment($directP6Assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-01 08:00:00',
+        'actual_end_at' => '2026-09-30 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($directP6Assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 09:00:00',
+        'actual_end_at' => '2026-10-15 18:00:00',
+    ]);
+
+    $query = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters,
+        $company->timezone,
+    );
+    $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
+    $sheets = $export->sheets();
+    $summarySheet = $sheets[0];
+    $detailsSheet = $sheets[1];
+
+    $summaryHeadings = $summarySheet->headings();
+    $detailsHeadings = $detailsSheet->headings();
+
+    // Verify 1: Returned Home
+    $retHomeModel = $query->exportQuery()->whereKey($returnedHomeAssignment->id)->firstOrFail();
+    $summaryRet = array_combine($summaryHeadings, $summarySheet->map($retHomeModel));
+    $detailsRet = array_combine($detailsHeadings, $detailsSheet->map($retHomeModel));
+
+    expect($summaryRet['Return Home Date'])->toBe('02 Oct 2026')
+        ->and($detailsRet['Actual Return Home Date/Time'])->toContain('02 Oct 2026');
+
+    // Verify 2: Direct P4 -> P6
+    $dirP6Model = $query->exportQuery()->whereKey($directP6Assignment->id)->firstOrFail();
+    $summaryDir = array_combine($summaryHeadings, $summarySheet->map($dirP6Model));
+    $detailsDir = array_combine($detailsHeadings, $detailsSheet->map($dirP6Model));
+
+    expect($summaryDir['Return Home Date'])->toBe('Home / Redeploy: 01 Oct 2026')
+        ->and($detailsDir['Actual Return Home Date/Time'])->toBe('Not recorded');
+});

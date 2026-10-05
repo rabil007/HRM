@@ -201,6 +201,8 @@ export type CrewMovementHistoryRow = {
     };
     demob_standby: FlattenedPhaseSummary;
     home_redeploy: FlattenedPhaseSummary & {
+        outcome?: 'returned_home' | 'redeployed' | 'home_redeploy' | null;
+        outcome_label?: string | null;
         actual_return_home_at?: string | null;
         is_redeployed_directly?: boolean;
         redeployed_at?: string | null;

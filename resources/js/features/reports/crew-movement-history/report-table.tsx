@@ -751,15 +751,28 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         }
                     />
                     <DetailField
-                        label="Returned home / P6 start"
+                        label={
+                            row.home_redeploy.outcome === 'redeployed'
+                                ? 'Redeployment'
+                                : row.home_redeploy.outcome === 'home_redeploy'
+                                  ? 'Home / Redeploy'
+                                  : 'Returned home'
+                        }
                         value={
-                            row.home_redeploy.is_redeployed_directly
+                            row.home_redeploy.outcome === 'redeployed'
                                 ? `Redeployed${row.home_redeploy.redeployed_at ? ` · ${formatCompanyDateTime(row.home_redeploy.redeployed_at, timezone)}` : ''}`
-                                : formatCompanyDateTime(
-                                      row.home_redeploy.actual_return_home_at ??
-                                          row.home_redeploy.from,
-                                      timezone,
-                                  )
+                                : row.home_redeploy.outcome ===
+                                        'returned_home' &&
+                                    row.home_redeploy.actual_return_home_at
+                                  ? formatCompanyDateTime(
+                                        row.home_redeploy.actual_return_home_at,
+                                        timezone,
+                                    )
+                                  : row.home_redeploy.outcome ===
+                                          'home_redeploy' &&
+                                      row.home_redeploy.from
+                                    ? `Home / Redeploy · ${formatCompanyDateTime(row.home_redeploy.from, timezone)}`
+                                    : 'Not recorded'
                         }
                     />
                     <DetailField
@@ -1424,8 +1437,8 @@ export function CrewMovementHistoryReportTable({
                                     )}
                                 </Cell>
                                 <Cell className={columns.returnedHome}>
-                                    {row.home_redeploy
-                                        .is_redeployed_directly ? (
+                                    {row.home_redeploy.outcome ===
+                                    'redeployed' ? (
                                         <div className="text-xs">
                                             <Badge
                                                 variant="outline"
@@ -1442,16 +1455,33 @@ export function CrewMovementHistoryReportTable({
                                                 </span>
                                             ) : null}
                                         </div>
-                                    ) : row.home_redeploy
-                                          .actual_return_home_at ||
-                                      row.home_redeploy.from ? (
+                                    ) : row.home_redeploy.outcome ===
+                                          'returned_home' &&
+                                      row.home_redeploy
+                                          .actual_return_home_at ? (
                                         <span className="text-xs font-medium text-foreground tabular-nums">
                                             {formatDisplayDate(
                                                 row.home_redeploy
-                                                    .actual_return_home_at ??
-                                                    row.home_redeploy.from,
+                                                    .actual_return_home_at,
                                             )}
                                         </span>
+                                    ) : row.home_redeploy.outcome ===
+                                      'home_redeploy' ? (
+                                        <div className="text-xs">
+                                            <Badge
+                                                variant="outline"
+                                                className="border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400"
+                                            >
+                                                Home / Redeploy
+                                            </Badge>
+                                            {row.home_redeploy.from ? (
+                                                <span className="mt-0.5 block text-[10px] text-muted-foreground tabular-nums">
+                                                    {formatDisplayDate(
+                                                        row.home_redeploy.from,
+                                                    )}
+                                                </span>
+                                            ) : null}
+                                        </div>
                                     ) : (
                                         <span className="text-xs text-muted-foreground">
                                             —
