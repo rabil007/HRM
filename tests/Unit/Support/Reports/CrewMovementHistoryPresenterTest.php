@@ -1024,3 +1024,147 @@ test('foreign hotel and employee training do not leak across companies', functio
         ->and($row['accommodation_stays'][0]['hotel_name'])->toBeNull()
         ->and($row['accommodation_stays'][0]['room_type_name'])->toBeNull();
 });
+
+test('case a: p4 to p6 with no linked next assignment reports home redeploy', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-CASE-A',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-02 12:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    $p6 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => '2026-07-02 12:00:00',
+    ]);
+    $assignment->update(['current_phase_id' => $p6->id]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'nextAssignments']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('home_redeploy')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Home / Redeploy')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBeNull();
+});
+
+test('case b: p4 to p6 followed by linked redeployment reports redeployed', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-CASE-B',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-02 12:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    $p6 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => '2026-07-02 12:00:00',
+    ]);
+    $assignment->update(['current_phase_id' => $p6->id]);
+
+    CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-CASE-B-NEXT',
+            'position_id' => $rank->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $assignment->id,
+            'started_at' => '2026-07-15 09:00:00',
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'nextAssignments']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('redeployed')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Redeployed')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBeNull()
+        ->and($row['home_redeploy']['redeployed_at'])->toBe('2026-07-15 09:00:00');
+});
+
+test('case c: p5 to p6 followed by later redeployment still reports returned home', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-CASE-C',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-10 18:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => '2026-07-02 12:00:00',
+    ]);
+    $p6 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-02 12:00:00',
+        'actual_end_at' => '2026-07-10 18:00:00',
+    ]);
+    $assignment->update(['current_phase_id' => $p6->id]);
+
+    CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-CASE-C-NEXT',
+            'position_id' => $rank->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $assignment->id,
+            'started_at' => '2026-08-01 09:00:00',
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'nextAssignments']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('returned_home')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Returned Home')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBe('2026-07-02 12:00:00');
+});

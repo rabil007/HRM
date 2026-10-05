@@ -18,7 +18,24 @@ final class CrewArrivalResolver
             $assignment->loadMissing('phases');
         }
 
-        $sortedPhases = $assignment->phases->sortBy('sequence');
+        $companyId = $assignment->company_id !== null ? (int) $assignment->company_id : null;
+        $sortedPhases = $assignment->phases
+            ->filter(function (CrewAssignmentPhase $phase) use ($companyId): bool {
+                if ($companyId === null) {
+                    return true;
+                }
+
+                if (array_key_exists('company_id', $phase->getAttributes())) {
+                    return (int) $phase->company_id === $companyId;
+                }
+
+                if (isset($phase->company_id)) {
+                    return (int) $phase->company_id === $companyId;
+                }
+
+                return true;
+            })
+            ->sortBy('sequence');
 
         $p2aPhase = $sortedPhases->first(
             fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::JoinStandby && $phase->actual_start_at !== null
@@ -108,6 +125,8 @@ final class CrewArrivalResolver
         $phasesTable = $grammar->wrapTable((new CrewAssignmentPhase)->getTable());
         $assignmentId = $grammar->wrap('id');
         $phaseAssignmentId = $grammar->wrap('crew_assignment_id');
+        $phaseCompanyId = $grammar->wrap('company_id');
+        $assignmentCompanyId = $grammar->wrap('company_id');
         $phaseCode = $grammar->wrap('phase_code');
         $status = $grammar->wrap('status');
         $sequence = $grammar->wrap('sequence');
@@ -123,7 +142,8 @@ final class CrewArrivalResolver
 (
     select {$actualStart}
     from {$phasesTable}
-    where {$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+    where {$phasesTable}.{$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+      and {$phasesTable}.{$phaseCompanyId} = {$assignmentTable}.{$assignmentCompanyId}
       and {$phaseCode} = '{$p2a}'
       and {$actualStart} is not null
       and {$deletedAt} is null
@@ -136,7 +156,8 @@ SQL;
 (
     select {$actualEnd}
     from {$phasesTable}
-    where {$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+    where {$phasesTable}.{$phaseAssignmentId} = {$assignmentTable}.{$assignmentId}
+      and {$phasesTable}.{$phaseCompanyId} = {$assignmentTable}.{$assignmentCompanyId}
       and {$phaseCode} = '{$p1}'
       and {$status} = '{$completed}'
       and {$actualEnd} is not null
