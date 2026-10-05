@@ -637,11 +637,6 @@ export function RequirementFormSheet({
                                                 *
                                             </span>
                                         </Label>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Choose the client requesting these
-                                            roles. Projects are filtered to this
-                                            client.
-                                        </p>
                                         <AppSelect
                                             value={
                                                 data.client_id
@@ -676,6 +671,11 @@ export function RequirementFormSheet({
                                                 </AppSelectItem>
                                             ))}
                                         </AppSelect>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Choose the client requesting these
+                                            roles. Projects are filtered to this
+                                            client.
+                                        </p>
                                         {errors.client_id && (
                                             <p className="text-xs text-rose-500">
                                                 {errors.client_id}
@@ -683,7 +683,10 @@ export function RequirementFormSheet({
                                         )}
                                     </div>
 
-                                    <div className="space-y-1.5">
+                                    <div
+                                        className="space-y-1.5"
+                                        data-requirement-field="project_id"
+                                    >
                                         <Label className="text-xs font-semibold">
                                             Project / Site
                                         </Label>
