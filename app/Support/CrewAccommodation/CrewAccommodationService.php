@@ -789,23 +789,33 @@ final class CrewAccommodationService
      */
     public function assignmentAccommodationSummary(CrewAssignment $assignment, ?string $timezone = null): array
     {
-        $timezone ??= CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $companyId = (int) $assignment->company_id;
+        $timezone ??= CompanyTimezone::forCompanyId($companyId);
 
         $stays = $assignment->relationLoaded('accommodationStays')
             ? $assignment->accommodationStays
             : CrewAccommodationStay::query()
-                ->where('company_id', $assignment->company_id)
+                ->where('company_id', $companyId)
                 ->where('crew_assignment_id', $assignment->id)
                 ->with(['hotel', 'roomType', 'startedFromPhase'])
                 ->get();
 
+        $stays = $stays->filter(fn (CrewAccommodationStay $stay): bool => (int) $stay->company_id === $companyId);
         $stays = $this->sortAccommodationStaysForHistory($stays);
 
         return $stays
-            ->map(function (CrewAccommodationStay $stay) use ($timezone): array {
+            ->map(function (CrewAccommodationStay $stay) use ($companyId, $timezone): array {
                 if (! $stay->relationLoaded('hotel')) {
                     $stay->loadMissing(['hotel', 'roomType']);
                 }
+
+                $hotelName = ($stay->hotel !== null && (! isset($stay->hotel->company_id) || (int) $stay->hotel->company_id === $companyId))
+                    ? $stay->hotel->name
+                    : null;
+
+                $roomTypeName = ($stay->roomType !== null && (! isset($stay->roomType->company_id) || (int) $stay->roomType->company_id === $companyId))
+                    ? $stay->roomType->name
+                    : null;
 
                 $isOpenHotel = $stay->accommodation_status === CrewAccommodationStatus::Hotel
                     && $stay->check_out_date === null;
@@ -816,8 +826,8 @@ final class CrewAccommodationService
                     'stay_type_label' => $stay->stay_type->label(),
                     'accommodation_status' => $stay->accommodation_status->value,
                     'accommodation_status_label' => $stay->accommodation_status->label(),
-                    'hotel_name' => $stay->hotel?->name,
-                    'room_type_name' => $stay->roomType?->name,
+                    'hotel_name' => $hotelName,
+                    'room_type_name' => $roomTypeName,
                     'check_in_date' => $stay->check_in_date?->toDateString(),
                     'check_out_date' => $stay->check_out_date?->toDateString(),
                     'is_open' => $isOpenHotel,

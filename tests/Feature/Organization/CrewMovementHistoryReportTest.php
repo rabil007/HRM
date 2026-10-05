@@ -11,6 +11,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Hotel;
+use App\Models\Position;
 use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryQuery;
@@ -635,4 +636,156 @@ test('report supports sorting by actual_join and employee_no', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('assignments.0.assignment_no', 'CA-SORT-A')
             ->where('assignments.1.assignment_no', 'CA-SORT-B'));
+});
+
+test('report sorts by actual_arrival using authoritative resolver with p1 fallback and p2a precedence', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+
+    // 1. P2A arrival: June 10
+    $p2aAssign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARR-P2A',
+        'started_at' => '2026-06-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($p2aAssign)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-10 08:00:00',
+    ]);
+
+    // 2. Legacy P1-only completed arrival: April 15 (completed P1 actual_end_at)
+    $legacyP1Assign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARR-LEGACY-P1',
+        'started_at' => '2026-04-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($legacyP1Assign)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-04-14 08:00:00',
+        'actual_end_at' => '2026-04-15 12:00:00',
+    ]);
+
+    // 3. Both P2A and legacy P1: P2A is August 20, P1 is August 01 -> P2A takes precedence!
+    $bothAssign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-ARR-BOTH',
+        'started_at' => '2026-08-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($bothAssign)->create([
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-30 08:00:00',
+        'actual_end_at' => '2026-08-01 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($bothAssign)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-20 08:00:00',
+    ]);
+
+    // Sort actual_arrival asc: April 15 (legacy) -> June 10 (P2A) -> August 20 (Both, P2A priority)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'sort' => 'actual_arrival',
+            'direction' => 'asc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.assignment_no', 'CA-ARR-LEGACY-P1')
+            ->where('assignments.1.assignment_no', 'CA-ARR-P2A')
+            ->where('assignments.2.assignment_no', 'CA-ARR-BOTH'));
+
+    // Sort actual_arrival desc: August 20 -> June 10 -> April 15
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'sort' => 'actual_arrival',
+            'direction' => 'desc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.assignment_no', 'CA-ARR-BOTH')
+            ->where('assignments.1.assignment_no', 'CA-ARR-P2A')
+            ->where('assignments.2.assignment_no', 'CA-ARR-LEGACY-P1'));
+});
+
+test('foreign vessel, position, and search terms cannot leak into report', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+    ['company' => $foreignCompany] = makeCrewAssignmentFixtures();
+
+    $foreignVessel = Vessel::factory()->create([
+        'company_id' => $foreignCompany->id,
+        'name' => 'Ghost Ship 404',
+    ]);
+    $foreignPosition = Position::query()->create([
+        'company_id' => $foreignCompany->id,
+        'title' => 'Secret Spy Rank',
+        'status' => 'active',
+    ]);
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-FOREIGN-LEAK-TEST',
+        'vessel_id' => $foreignVessel->id,
+        'position_id' => $foreignPosition->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-FOREIGN-LEAK-TEST',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.vessel', null)
+            ->where('assignments.0.position', null));
+
+    // Search by foreign vessel name must not discover local assignment
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'Ghost Ship 404',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
+
+    // Search by foreign rank title must not discover local assignment
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'Secret Spy Rank',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
+});
+
+test('malformed previous and next assignments across companies or hidden employees do not leak in report or search', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+    ['company' => $foreignCompany, 'employee' => $foreignEmployee] = makeCrewAssignmentFixtures();
+
+    $foreignPrevious = CrewAssignment::factory()->forEmployee($foreignEmployee)->create([
+        'company_id' => $foreignCompany->id,
+        'assignment_no' => 'CA-FOREIGN-SECRET-PREV',
+    ]);
+
+    $localAssignment = CrewAssignment::factory()->forEmployee($employee)->create([
+        'assignment_no' => 'CA-LOCAL-TARGET-REPORT',
+        'previous_assignment_id' => $foreignPrevious->id,
+    ]);
+
+    // Foreign previous assignment must be sanitized to null in response
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-LOCAL-TARGET-REPORT',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.linked_assignments.previous', null));
+
+    // Searching by foreign assignment number must not return the local assignment
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-FOREIGN-SECRET-PREV',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
 });

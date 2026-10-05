@@ -10,8 +10,10 @@ use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
+use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Models\Hotel;
+use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryPresenter;
@@ -701,7 +703,324 @@ test('it identifies direct redeployment without return home phase', function () 
     );
 
     expect($rowA['home_redeploy']['is_redeployed_directly'])->toBeTrue()
+        ->and($rowA['home_redeploy']['outcome'])->toBe('redeployed')
+        ->and($rowA['home_redeploy']['outcome_label'])->toBe('Redeployed')
         ->and($rowA['home_redeploy']['redeployed_at'])->toBe('2026-06-30 09:00:00')
         ->and($rowA['home_redeploy']['actual_return_home_at'])->toBeNull()
         ->and($rowA['home_redeploy']['from'])->toBeNull();
+});
+
+test('p5 then return home to p6 reports actual returned home', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-P5-RETURN-HOME',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-05 18:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => '2026-07-02 12:00:00',
+    ]);
+    $p6 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-02 12:00:00',
+        'actual_end_at' => '2026-07-05 18:00:00',
+    ]);
+    $assignment->update(['current_phase_id' => $p6->id]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('returned_home')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Returned Home')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBe('2026-07-02 12:00:00')
+        ->and($row['home_redeploy']['is_redeployed_directly'])->toBeFalse()
+        ->and($row['home_redeploy']['redeployed_at'])->toBeNull();
+});
+
+test('direct p4 to p6 does not falsely claim actual returned home', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-P4-P6-DIRECT',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-02 12:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    $p6 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $assignment->update(['current_phase_id' => $p6->id]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('home_redeploy')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Home / Redeploy')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBeNull()
+        ->and($row['home_redeploy']['from'])->toBe('2026-06-30')
+        ->and($row['home_redeploy']['is_redeployed_directly'])->toBeFalse();
+});
+
+test('p5 direct redeployment reports redeployed appropriately', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $source = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-P5-REDEPLOY-SOURCE',
+            'position_id' => $rank->id,
+            'started_at' => '2026-05-01 08:00:00',
+            'closed_at' => '2026-06-15 10:00:00',
+        ]);
+
+    CrewAssignmentPhase::factory()->forAssignment($source)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-05-01 08:00:00',
+        'actual_end_at' => '2026-06-10 08:00:00',
+    ]);
+    $p5 = CrewAssignmentPhase::factory()->forAssignment($source)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-10 08:00:00',
+        'actual_end_at' => '2026-06-15 10:00:00',
+    ]);
+    $source->update(['current_phase_id' => $p5->id]);
+
+    $next = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-P5-REDEPLOY-DEST',
+            'position_id' => $rank->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $source->id,
+            'started_at' => '2026-06-15 10:00:00',
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $source->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'nextAssignments']),
+    );
+
+    expect($row['home_redeploy']['outcome'])->toBe('redeployed')
+        ->and($row['home_redeploy']['outcome_label'])->toBe('Redeployed')
+        ->and($row['home_redeploy']['is_redeployed_directly'])->toBeTrue()
+        ->and($row['home_redeploy']['redeployed_at'])->toBe('2026-06-15 10:00:00')
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBeNull();
+});
+
+test('local assignment with foreign vessel and position does not expose foreign master data', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    ['company' => $foreignCompany] = makeCrewAssignmentFixtures();
+
+    $foreignVessel = Vessel::factory()->create([
+        'company_id' => $foreignCompany->id,
+        'name' => 'Foreign Vessel X',
+    ]);
+    $foreignPosition = Position::query()->create([
+        'company_id' => $foreignCompany->id,
+        'title' => 'Foreign Chief Officer',
+        'status' => 'active',
+    ]);
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->create([
+            'company_id' => $company->id,
+            'vessel_id' => $foreignVessel->id,
+            'position_id' => $foreignPosition->id,
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['vessel'])->toBeNull()
+        ->and($row['position'])->toBeNull();
+});
+
+test('malformed previous and next assignments from other company or hidden employee are sanitized', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    ['company' => $foreignCompany, 'employee' => $foreignEmployee, 'rank' => $foreignRank] = makeCrewAssignmentFixtures();
+
+    $foreignPrevious = CrewAssignment::factory()
+        ->forEmployee($foreignEmployee)
+        ->create([
+            'company_id' => $foreignCompany->id,
+            'assignment_no' => 'CA-FOREIGN-PREV',
+            'position_id' => $foreignRank->id,
+        ]);
+
+    $localAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->create([
+            'company_id' => $company->id,
+            'assignment_no' => 'CA-LOCAL-TARGET',
+            'position_id' => $rank->id,
+            'source' => 'vessel_transfer',
+            'previous_assignment_id' => $foreignPrevious->id,
+        ]);
+
+    $foreignNext = CrewAssignment::factory()
+        ->forEmployee($foreignEmployee)
+        ->create([
+            'company_id' => $foreignCompany->id,
+            'assignment_no' => 'CA-FOREIGN-NEXT',
+            'previous_assignment_id' => $localAssignment->id,
+        ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $localAssignment->fresh([
+            'company',
+            'employee',
+            'position',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'previousAssignment',
+            'nextAssignments',
+        ]),
+    );
+
+    expect($row['linked_assignments']['previous'])->toBeNull()
+        ->and($row['linked_assignments']['next'])->toBe([])
+        ->and($row['linked_assignments']['relationship'])->toBeNull()
+        ->and($row['linked_assignments']['relationship_label'])->toBeNull();
+
+    // Now test mismatched employee in same company
+    $otherEmployeeSameCompany = Employee::factory()->create(['company_id' => $company->id]);
+    $mismatchedEmployeePrev = CrewAssignment::factory()
+        ->forEmployee($otherEmployeeSameCompany)
+        ->create([
+            'company_id' => $company->id,
+            'assignment_no' => 'CA-MISMATCHED-PREV',
+            'position_id' => $rank->id,
+        ]);
+
+    $localAssignment->update(['previous_assignment_id' => $mismatchedEmployeePrev->id]);
+
+    $mismatchedRow = CrewMovementHistoryPresenter::toArray(
+        $localAssignment->fresh([
+            'company',
+            'employee',
+            'position',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+            'previousAssignment',
+            'nextAssignments',
+        ]),
+    );
+
+    expect($mismatchedRow['linked_assignments']['previous'])->toBeNull();
+});
+
+test('foreign hotel and employee training do not leak across companies', function () {
+    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    ['company' => $foreignCompany, 'employee' => $foreignEmployee] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+
+    $trainingPhase = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-09-01 08:00:00',
+        'actual_end_at' => '2026-09-02 17:00:00',
+        'details' => ['provider' => 'Local Academy', 'course' => 'Safety'],
+    ]);
+
+    // Foreign employee training
+    EmployeeTraining::factory()
+        ->forEmployee($foreignEmployee)
+        ->create([
+            'company_id' => $foreignCompany->id,
+            'source_crew_assignment_phase_id' => $trainingPhase->id,
+        ]);
+
+    // Foreign hotel
+    $foreignHotel = Hotel::factory()->create([
+        'company_id' => $foreignCompany->id,
+        'name' => 'Foreign Secret Hotel',
+    ]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $foreignCompany->id,
+        'hotel_id' => $foreignHotel->id,
+        'name' => 'Foreign Suite',
+    ]);
+
+    $stay = CrewAccommodationStay::factory()->make([
+        'crew_assignment_id' => $assignment->id,
+        'company_id' => $company->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'hotel_id' => $foreignHotel->id,
+        'room_type_id' => $foreignRoomType->id,
+        'check_in_date' => '2026-09-01',
+        'check_out_date' => '2026-09-03',
+    ]);
+    $stay->saveQuietly();
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'position',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases.employeeTraining.course',
+            'accommodationStays.hotel',
+            'accommodationStays.roomType',
+            'accommodationStays.startedFromPhase',
+        ]),
+    );
+
+    // Foreign employee training must not be reported as linked
+    expect($row['training']['history'][0]['employee_training_linked'])->toBeFalse()
+        ->and($row['training']['history'][0]['employee_training'])->toBeNull()
+        // Foreign hotel name and room type must be sanitized to null
+        ->and($row['accommodation_stays'][0]['hotel_name'])->toBeNull()
+        ->and($row['accommodation_stays'][0]['room_type_name'])->toBeNull();
 });

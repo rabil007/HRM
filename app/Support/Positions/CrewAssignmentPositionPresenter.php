@@ -38,6 +38,10 @@ final class CrewAssignmentPositionPresenter
         $position = $assignment->relationLoaded('position') ? $assignment->position : null;
 
         if ($position instanceof Position) {
+            if ($companyId > 0 && isset($position->company_id) && (int) $position->company_id !== $companyId) {
+                return null;
+            }
+
             return (string) $position->title;
         }
 
@@ -48,6 +52,12 @@ final class CrewAssignmentPositionPresenter
     {
         if ($assignment === null) {
             return null;
+        }
+
+        if ($assignment->relationLoaded('position') && $assignment->position instanceof Position) {
+            if ($companyId > 0 && isset($assignment->position->company_id) && (int) $assignment->position->company_id !== $companyId) {
+                return null;
+            }
         }
 
         return $assignment->position_id !== null ? (int) $assignment->position_id : null;
