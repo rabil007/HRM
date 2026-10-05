@@ -789,3 +789,149 @@ test('malformed previous and next assignments across companies or hidden employe
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
 });
+
+test('arrival tenancy: report display, filtering, and sorting ignore foreign phases and preserve same-company rules', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+    ['company' => $foreignCompany] = makeCrewAssignmentFixtures();
+
+    // 1. Assignment with foreign P2A phase (actual_start_at: 2026-06-10)
+    $foreignP2aAssign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-ARR-TENANT-P2A',
+        'started_at' => '2026-06-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->create([
+        'crew_assignment_id' => $foreignP2aAssign->id,
+        'company_id' => $foreignCompany->id,
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-06-10 08:00:00',
+    ]);
+
+    // 2. Assignment with foreign completed legacy P1 phase (actual_end_at: 2026-05-15)
+    $foreignP1Assign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-ARR-TENANT-P1',
+        'started_at' => '2026-05-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->create([
+        'crew_assignment_id' => $foreignP1Assign->id,
+        'company_id' => $foreignCompany->id,
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-05-10 08:00:00',
+        'actual_end_at' => '2026-05-15 12:00:00',
+    ]);
+
+    // 3. Legitimate assignment with same-company P2A + completed legacy P1: P2A takes precedence!
+    // P1 end is 2026-07-10, P2A start is 2026-07-20 -> Arrival is 2026-07-20
+    $localBothAssign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-ARR-LOCAL-BOTH',
+        'started_at' => '2026-07-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->create([
+        'crew_assignment_id' => $localBothAssign->id,
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-05 08:00:00',
+        'actual_end_at' => '2026-07-10 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->create([
+        'crew_assignment_id' => $localBothAssign->id,
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-20 08:00:00',
+    ]);
+
+    // 4. Legitimate assignment with same-company completed legacy P1 only (fallback arrival: 2026-08-05)
+    $localP1OnlyAssign = CrewAssignment::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'assignment_no' => 'CA-ARR-LOCAL-P1-ONLY',
+        'started_at' => '2026-08-01 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->create([
+        'crew_assignment_id' => $localP1OnlyAssign->id,
+        'company_id' => $company->id,
+        'phase_code' => CrewPhaseCode::TravelIn,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-01 08:00:00',
+        'actual_end_at' => '2026-08-05 14:00:00',
+    ]);
+
+    // Verify display: foreign P2A and foreign P1 do NOT populate actual_arrival
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-ARR-TENANT-P2A',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.actual_arrival', null)
+            ->where('assignments.0.actual_arrival_at', null));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-ARR-TENANT-P1',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.actual_arrival', null)
+            ->where('assignments.0.actual_arrival_at', null));
+
+    // Verify display: legitimate assignments have correct arrival dates (P2A precedence & P1 fallback)
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-ARR-LOCAL-BOTH',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.actual_arrival', '2026-07-20'));
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => 'CA-ARR-LOCAL-P1-ONLY',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.actual_arrival', '2026-08-05'));
+
+    // Verify date filtering: filtering by foreign P2A date (2026-06-10) finds 0 assignments
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-06-10',
+            'actual_arrival_to' => '2026-06-10',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
+
+    // Verify date filtering: filtering by foreign P1 date (2026-05-15) finds 0 assignments
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'actual_arrival_from' => '2026-05-15',
+            'actual_arrival_to' => '2026-05-15',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('assignments', 0));
+
+    // Verify sorting: actual_arrival desc puts local assignments with legitimate arrivals first
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'sort' => 'actual_arrival',
+            'direction' => 'desc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.assignment_no', 'CA-ARR-LOCAL-P1-ONLY')
+            ->where('assignments.1.assignment_no', 'CA-ARR-LOCAL-BOTH'));
+});

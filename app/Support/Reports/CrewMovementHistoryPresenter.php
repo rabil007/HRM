@@ -107,9 +107,6 @@ final class CrewMovementHistoryPresenter
         $nextList = $linked['next'] ?? [];
         $firstNext = $nextList[0] ?? null;
         $hasLinkedNextRedeployment = $firstNext !== null && in_array($firstNext['source'] ?? null, ['vessel_transfer', 'redeployment'], true);
-        $redeployedAt = $hasLinkedNextRedeployment
-            ? ($firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone))
-            : null;
 
         $hasCompletedP5BeforeP6 = false;
         if ($firstP6 !== null) {
@@ -126,16 +123,18 @@ final class CrewMovementHistoryPresenter
         $outcome = null;
         $outcomeLabel = null;
         $actualReturnHomeAt = null;
+        $redeployedAt = null;
         $isRedeployedDirectly = false;
 
-        if ($firstP6 === null && $hasLinkedNextRedeployment) {
-            $outcome = 'redeployed';
-            $outcomeLabel = 'Redeployed';
-            $isRedeployedDirectly = true;
-        } elseif ($firstP6 !== null && $hasCompletedP5BeforeP6) {
+        if ($firstP6 !== null && $hasCompletedP5BeforeP6) {
             $outcome = 'returned_home';
             $outcomeLabel = 'Returned Home';
             $actualReturnHomeAt = self::dateTime($firstP6->actual_start_at, $timezone);
+        } elseif ($hasLinkedNextRedeployment) {
+            $outcome = 'redeployed';
+            $outcomeLabel = 'Redeployed';
+            $redeployedAt = $firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone);
+            $isRedeployedDirectly = $firstP6 === null;
         } elseif ($firstP6 !== null) {
             $outcome = 'home_redeploy';
             $outcomeLabel = 'Home / Redeploy';

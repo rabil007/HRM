@@ -15,6 +15,7 @@ use App\Models\Hotel;
 use App\Models\RoomType;
 use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
+use App\Support\Reports\CrewMovementHistoryPresenter;
 use App\Support\Reports\CrewMovementHistoryQuery;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -418,4 +419,154 @@ test('export accurately maps returned home vs home redeploy vs redeployed semant
 
     expect($summaryDir['Return Home Date'])->toBe('Home / Redeploy: 01 Oct 2026')
         ->and($detailsDir['Actual Return Home Date/Time'])->toBe('Not recorded');
+});
+
+test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to redeploy, and p5 to p6 to later redeploy in xlsx and csv', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    // 1. P4 -> P6 (no linked next assignment)
+    $p4p6Assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-EXP-P4-P6',
+            'position_id' => $rank->id,
+            'started_at' => '2026-06-01 08:00:00',
+            'closed_at' => '2026-07-02 12:00:00',
+        ]);
+    CrewAssignmentPhase::factory()->forAssignment($p4p6Assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-01 08:00:00',
+        'actual_end_at' => '2026-06-30 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($p4p6Assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-06-30 08:00:00',
+        'actual_end_at' => '2026-07-02 12:00:00',
+    ]);
+
+    // 2. P4 -> P6 -> Redeploy
+    $p4p6RedeployAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-EXP-P4-P6-REDEPLOY',
+            'position_id' => $rank->id,
+            'started_at' => '2026-07-01 08:00:00',
+            'closed_at' => '2026-07-20 12:00:00',
+        ]);
+    CrewAssignmentPhase::factory()->forAssignment($p4p6RedeployAssignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-01 08:00:00',
+        'actual_end_at' => '2026-07-15 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($p4p6RedeployAssignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-07-15 08:00:00',
+        'actual_end_at' => '2026-07-20 12:00:00',
+    ]);
+    CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-EXP-P4-P6-REDEPLOY-NEXT',
+            'position_id' => $rank->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $p4p6RedeployAssignment->id,
+            'started_at' => '2026-07-25 09:00:00',
+        ]);
+
+    // 3. P5 -> P6 -> later Redeploy
+    $p5p6RedeployAssignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->completed()
+        ->create([
+            'assignment_no' => 'CA-EXP-P5-P6-LATER-REDEPLOY',
+            'position_id' => $rank->id,
+            'started_at' => '2026-08-01 08:00:00',
+            'closed_at' => '2026-08-25 18:00:00',
+        ]);
+    CrewAssignmentPhase::factory()->forAssignment($p5p6RedeployAssignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-01 08:00:00',
+        'actual_end_at' => '2026-08-20 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($p5p6RedeployAssignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-20 08:00:00',
+        'actual_end_at' => '2026-08-22 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($p5p6RedeployAssignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-08-22 12:00:00',
+        'actual_end_at' => '2026-08-25 18:00:00',
+    ]);
+    CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->active()
+        ->create([
+            'assignment_no' => 'CA-EXP-P5-P6-REDEPLOY-NEXT',
+            'position_id' => $rank->id,
+            'source' => 'redeployment',
+            'previous_assignment_id' => $p5p6RedeployAssignment->id,
+            'started_at' => '2026-09-05 09:00:00',
+        ]);
+
+    $query = new CrewMovementHistoryQuery(
+        $company->id,
+        new CrewMovementHistoryFilters,
+        $company->timezone,
+    );
+    $xlsxExport = CrewMovementHistoryExport::forQuery($query->exportQuery(), 'xlsx');
+    $csvExport = CrewMovementHistoryExport::forQuery($query->exportQuery(), 'csv');
+
+    $summarySheet = $xlsxExport->sheets()[0];
+    $headings = $summarySheet->headings();
+
+    // 1. Verify P4 -> P6
+    $model1 = $query->exportQuery()->whereKey($p4p6Assignment->id)->firstOrFail();
+    $presenter1 = CrewMovementHistoryPresenter::toArray($model1);
+    $xlsxRow1 = array_combine($headings, $summarySheet->map($model1));
+    $csvRow1 = array_combine($headings, $csvExport->map($model1));
+
+    expect($presenter1['home_redeploy']['outcome'])->toBe('home_redeploy')
+        ->and($presenter1['home_redeploy']['from'])->toBe('2026-06-30')
+        ->and($xlsxRow1['Return Home Date'])->toBe('Home / Redeploy: 30 Jun 2026')
+        ->and($csvRow1['Return Home Date'])->toBe('Home / Redeploy: 30 Jun 2026');
+
+    // 2. Verify P4 -> P6 -> Redeploy
+    $model2 = $query->exportQuery()->whereKey($p4p6RedeployAssignment->id)->firstOrFail();
+    $presenter2 = CrewMovementHistoryPresenter::toArray($model2);
+    $xlsxRow2 = array_combine($headings, $summarySheet->map($model2));
+    $csvRow2 = array_combine($headings, $csvExport->map($model2));
+
+    expect($presenter2['home_redeploy']['outcome'])->toBe('redeployed')
+        ->and($presenter2['home_redeploy']['redeployed_at'])->toBe('2026-07-25 09:00:00')
+        ->and($xlsxRow2['Return Home Date'])->toBe('Redeployed: 25 Jul 2026')
+        ->and($csvRow2['Return Home Date'])->toBe('Redeployed: 25 Jul 2026');
+
+    // 3. Verify P5 -> P6 -> later Redeploy
+    $model3 = $query->exportQuery()->whereKey($p5p6RedeployAssignment->id)->firstOrFail();
+    $presenter3 = CrewMovementHistoryPresenter::toArray($model3);
+    $xlsxRow3 = array_combine($headings, $summarySheet->map($model3));
+    $csvRow3 = array_combine($headings, $csvExport->map($model3));
+
+    expect($presenter3['home_redeploy']['outcome'])->toBe('returned_home')
+        ->and($presenter3['home_redeploy']['actual_return_home_at'])->toBe('2026-08-22 12:00:00')
+        ->and($xlsxRow3['Return Home Date'])->toBe('22 Aug 2026')
+        ->and($csvRow3['Return Home Date'])->toBe('22 Aug 2026');
 });
