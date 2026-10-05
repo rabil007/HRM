@@ -45,6 +45,33 @@ describe('requirement form helpers', () => {
             ),
             true,
         );
+        assert.equal(
+            isRequirementFormDirty(
+                baseline,
+                createRequirementFormSnapshot({
+                    client_id: baseline.client_id,
+                    project_id: baseline.project_id,
+                    location: baseline.location,
+                    assigned_to: baseline.assigned_to,
+                    notification_recipient_ids:
+                        baseline.notification_recipient_ids,
+                    request_received_date: baseline.request_received_date,
+                    required_by_date: baseline.required_by_date,
+                    priority: baseline.priority,
+                    notes: baseline.notes,
+                    positions: [
+                        {
+                            position_id: '4',
+                            required_headcount: 2,
+                            salary_min: '5000',
+                            salary_max: '7000',
+                        },
+                    ],
+                    attachment: null,
+                }),
+            ),
+            true,
+        );
     });
 
     it('dedupes notification recipient ids', () => {

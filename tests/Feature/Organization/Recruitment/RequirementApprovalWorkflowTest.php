@@ -164,6 +164,9 @@ function createDraftRequirement(object $context, array $overrides = []): Recruit
         'recruitment_requirement_id' => $req->id,
         'position_id' => $context->position->id,
         'required_headcount' => 2,
+        'salary_min' => 5000.00,
+        'salary_max' => 8000.00,
+        'salary_currency_code' => 'AED',
         'status' => RequirementLineStatus::Open,
     ]);
 
@@ -1332,7 +1335,12 @@ test('assigned recruiter options include active same-company users with approval
             'priority' => 'normal',
             'assigned_to' => $activeHrUser->id,
             'positions' => [
-                ['position_id' => $this->position->id, 'required_headcount' => 1],
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 5000,
+                    'salary_max' => 8000,
+                ],
             ],
         ])
         ->assertRedirect();

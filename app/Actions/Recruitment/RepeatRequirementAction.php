@@ -10,6 +10,7 @@ use App\Support\Recruitment\GenerateRequirementNumber;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
+use App\Support\Settings\CompanyCurrency;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -64,12 +65,28 @@ final class RepeatRequirementAction
                 'updated_by' => $userId,
             ]);
 
+            $sourceLines = $source->lines->keyBy('position_id');
+
             foreach ($data['lines'] as $lineInput) {
+                $sourceLine = $sourceLines->get($lineInput['position_id']);
+                $salaryMin = array_key_exists('salary_min', $lineInput)
+                    ? $lineInput['salary_min']
+                    : $sourceLine?->salary_min;
+                $salaryMax = array_key_exists('salary_max', $lineInput)
+                    ? $lineInput['salary_max']
+                    : $sourceLine?->salary_max;
+                $salaryCurrency = array_key_exists('salary_currency_code', $lineInput)
+                    ? $lineInput['salary_currency_code']
+                    : ($sourceLine?->salary_currency_code ?? CompanyCurrency::codeForCompany($companyId));
+
                 RecruitmentRequirementLine::create([
                     'company_id' => $companyId,
                     'recruitment_requirement_id' => $newRequirement->id,
                     'position_id' => $lineInput['position_id'],
                     'required_headcount' => $lineInput['required_headcount'],
+                    'salary_min' => $salaryMin,
+                    'salary_max' => $salaryMax,
+                    'salary_currency_code' => $salaryCurrency,
                     'line_notes' => $lineInput['line_notes'] ?? null,
                     'status' => RequirementLineStatus::Open,
                 ]);

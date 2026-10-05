@@ -5,6 +5,7 @@ import {
     FileUp,
     Loader2,
     Plus,
+    RotateCcw,
     Trash2,
     Users,
 } from 'lucide-react';
@@ -56,6 +57,11 @@ import {
     resolveDuplicateDialogSubmitIntent,
 } from '../lib/requirement-form';
 import type { RequirementFormSnapshot } from '../lib/requirement-form';
+import {
+    isSalaryAtPositionDefault,
+    isSalaryEditedFromPosition,
+    resolveDefaultSalaryForPosition,
+} from '../lib/requirement-salary';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
 import { DuplicateDecisionDialog } from './duplicate-decision-dialog';
 import { RequirementNotificationRecipientsMultiSelect } from './requirement-notification-recipients-multi-select';
@@ -70,6 +76,7 @@ type Props = {
         positions: PositionOption[];
         recruiters: UserOption[];
         notification_users?: UserOption[];
+        currency_code?: string;
     };
     onSuccess?: () => void;
 };
@@ -94,6 +101,9 @@ export function RequirementFormSheet({
     const defaultPositionLine: FormPositionLineInput = {
         position_id: '',
         required_headcount: 1,
+        salary_min: '',
+        salary_max: '',
+        salary_currency_code: options.currency_code || 'AED',
         line_notes: '',
     };
 
@@ -205,6 +215,20 @@ export function RequirementFormSheet({
                                 id: l.id,
                                 position_id: String(l.position_id),
                                 required_headcount: l.required_headcount,
+                                salary_min:
+                                    l.salary_min !== null &&
+                                    l.salary_min !== undefined
+                                        ? String(l.salary_min)
+                                        : '',
+                                salary_max:
+                                    l.salary_max !== null &&
+                                    l.salary_max !== undefined
+                                        ? String(l.salary_max)
+                                        : '',
+                                salary_currency_code:
+                                    l.salary_currency_code ||
+                                    options.currency_code ||
+                                    'AED',
                                 line_notes: l.line_notes || '',
                             }))
                           : [{ ...defaultPositionLine }],
@@ -337,6 +361,44 @@ export function RequirementFormSheet({
         setData('positions', next);
     };
 
+    const handleSelectPosition = (index: number, positionIdVal: string) => {
+        const next = [...data.positions];
+        const selectedPos = options.positions.find(
+            (p) => String(p.id) === String(positionIdVal),
+        );
+        const defaults = resolveDefaultSalaryForPosition(selectedPos);
+
+        next[index] = {
+            ...next[index],
+            position_id: positionIdVal === 'none' ? '' : positionIdVal,
+            salary_min:
+                defaults.salary_min !== null ? String(defaults.salary_min) : '',
+            salary_max:
+                defaults.salary_max !== null ? String(defaults.salary_max) : '',
+            salary_currency_code: options.currency_code || 'AED',
+        };
+        setData('positions', next);
+    };
+
+    const handleResetPositionSalary = (index: number) => {
+        const line = data.positions[index];
+        const selectedPos = options.positions.find(
+            (p) => String(p.id) === String(line.position_id),
+        );
+        const defaults = resolveDefaultSalaryForPosition(selectedPos);
+
+        const next = [...data.positions];
+        next[index] = {
+            ...next[index],
+            salary_min:
+                defaults.salary_min !== null ? String(defaults.salary_min) : '',
+            salary_max:
+                defaults.salary_max !== null ? String(defaults.salary_max) : '',
+            salary_currency_code: options.currency_code || 'AED',
+        };
+        setData('positions', next);
+    };
+
     const normalizedNotificationRecipientIds = useMemo(
         () =>
             dedupeNotificationRecipientIds(
@@ -371,6 +433,7 @@ export function RequirementFormSheet({
                     request_received_date: data.request_received_date,
                     priority: data.priority,
                     notes: data.notes || null,
+                    positions: data.positions,
                     attachment: data.attachment,
                     _method: 'PUT',
                 },
@@ -939,8 +1002,9 @@ export function RequirementFormSheet({
 
                                 {isEditing && (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-                                        Position lines and headcounts are locked
-                                        in generic edit. To adjust headcounts,
+                                        Position titles and headcounts are
+                                        locked in generic edit. Salary ranges
+                                        remain editable. To adjust headcounts,
                                         use <strong>Change Headcount</strong> on
                                         the requirement details page.
                                     </div>
@@ -954,137 +1018,340 @@ export function RequirementFormSheet({
                                 )}
 
                                 <div className="space-y-3">
-                                    {data.positions.map((line, index) => (
-                                        <div
-                                            key={index}
-                                            className="group relative rounded-xl border border-border/70 bg-muted/20 p-4 transition-all hover:border-border hover:bg-muted/30"
-                                        >
-                                            <div className="grid grid-cols-12 items-start gap-3">
-                                                <div className="col-span-12 space-y-1.5 sm:col-span-6">
-                                                    <Label className="text-[11px] font-semibold text-muted-foreground">
-                                                        Position Title{' '}
-                                                        <span className="text-rose-500">
-                                                            *
-                                                        </span>
-                                                    </Label>
-                                                    <AppSelect
-                                                        value={
-                                                            line.position_id
-                                                                ? String(
-                                                                      line.position_id,
-                                                                  )
-                                                                : 'none'
-                                                        }
-                                                        disabled={isEditing}
-                                                        onValueChange={(val) =>
-                                                            handlePositionChange(
-                                                                index,
-                                                                'position_id',
-                                                                val === 'none'
-                                                                    ? ''
-                                                                    : val,
-                                                            )
-                                                        }
-                                                    >
-                                                        <AppSelectItem value="none">
-                                                            Choose position...
-                                                        </AppSelectItem>
-                                                        {options.positions.map(
-                                                            (pos) => (
-                                                                <AppSelectItem
-                                                                    key={pos.id}
-                                                                    value={String(
-                                                                        pos.id,
-                                                                    )}
-                                                                >
-                                                                    {pos.title}
-                                                                    {pos.grade
-                                                                        ? ` (${pos.grade})`
-                                                                        : ''}
-                                                                </AppSelectItem>
-                                                            ),
-                                                        )}
-                                                    </AppSelect>
-                                                </div>
+                                    {data.positions.map((line, index) => {
+                                        const selectedPos =
+                                            options.positions.find(
+                                                (p) =>
+                                                    String(p.id) ===
+                                                    String(line.position_id),
+                                            );
+                                        const posHasSalary = Boolean(
+                                            selectedPos &&
+                                            (selectedPos.min_salary !== null ||
+                                                selectedPos.max_salary !==
+                                                    null),
+                                        );
+                                        const isAtDefault = Boolean(
+                                            selectedPos &&
+                                            isSalaryAtPositionDefault(
+                                                line,
+                                                selectedPos,
+                                            ),
+                                        );
+                                        const isCopiedFromPosition = Boolean(
+                                            posHasSalary &&
+                                            isAtDefault &&
+                                            (line.salary_min ||
+                                                line.salary_max),
+                                        );
+                                        const isEditedFromPosition = Boolean(
+                                            selectedPos &&
+                                            isSalaryEditedFromPosition(
+                                                line,
+                                                selectedPos,
+                                            ),
+                                        );
+                                        const canResetToDefault = Boolean(
+                                            posHasSalary &&
+                                            isEditedFromPosition,
+                                        );
+                                        const anyErrors = errors as Record<
+                                            string,
+                                            string | undefined
+                                        >;
+                                        const minSalaryError =
+                                            anyErrors[
+                                                `positions.${index}.salary_min`
+                                            ] ||
+                                            anyErrors[
+                                                `lines.${index}.salary_min`
+                                            ];
+                                        const maxSalaryError =
+                                            anyErrors[
+                                                `positions.${index}.salary_max`
+                                            ] ||
+                                            anyErrors[
+                                                `lines.${index}.salary_max`
+                                            ];
 
-                                                <div className="col-span-8 space-y-1.5 sm:col-span-4">
-                                                    <Label className="text-[11px] font-semibold text-muted-foreground">
-                                                        Required Headcount{' '}
-                                                        <span className="text-rose-500">
-                                                            *
-                                                        </span>
-                                                    </Label>
-                                                    <Input
-                                                        type="number"
-                                                        min={1}
-                                                        max={500}
-                                                        disabled={isEditing}
-                                                        value={
-                                                            line.required_headcount
-                                                        }
-                                                        onChange={(e) =>
-                                                            handlePositionChange(
-                                                                index,
-                                                                'required_headcount',
-                                                                parseInt(
-                                                                    e.target
-                                                                        .value,
-                                                                    10,
-                                                                ) || 1,
-                                                            )
-                                                        }
-                                                    />
-                                                </div>
-
-                                                {!isEditing && (
-                                                    <div className="col-span-4 flex items-end justify-end pt-5 sm:col-span-2">
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            disabled={
-                                                                data.positions
-                                                                    .length <= 1
+                                        return (
+                                            <div
+                                                key={index}
+                                                className="group relative rounded-xl border border-border/70 bg-muted/20 p-4 transition-all hover:border-border hover:bg-muted/30"
+                                            >
+                                                <div className="grid grid-cols-12 items-start gap-3">
+                                                    <div className="col-span-12 space-y-1.5 sm:col-span-6">
+                                                        <Label className="text-[11px] font-semibold text-muted-foreground">
+                                                            Position Title{' '}
+                                                            <span className="text-rose-500">
+                                                                *
+                                                            </span>
+                                                        </Label>
+                                                        <AppSelect
+                                                            value={
+                                                                line.position_id
+                                                                    ? String(
+                                                                          line.position_id,
+                                                                      )
+                                                                    : 'none'
                                                             }
-                                                            onClick={() =>
-                                                                handleRemovePositionLine(
+                                                            disabled={isEditing}
+                                                            onValueChange={(
+                                                                val,
+                                                            ) =>
+                                                                handleSelectPosition(
                                                                     index,
+                                                                    val,
                                                                 )
                                                             }
-                                                            className="text-muted-foreground hover:text-rose-500"
-                                                            title="Remove position line"
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                            <AppSelectItem value="none">
+                                                                Choose
+                                                                position...
+                                                            </AppSelectItem>
+                                                            {options.positions.map(
+                                                                (pos) => (
+                                                                    <AppSelectItem
+                                                                        key={
+                                                                            pos.id
+                                                                        }
+                                                                        value={String(
+                                                                            pos.id,
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            pos.title
+                                                                        }
+                                                                        {pos.grade
+                                                                            ? ` (${pos.grade})`
+                                                                            : ''}
+                                                                    </AppSelectItem>
+                                                                ),
+                                                            )}
+                                                        </AppSelect>
                                                     </div>
-                                                )}
 
-                                                <div className="col-span-12 space-y-1.5">
-                                                    <Label className="text-[11px] font-semibold text-muted-foreground">
-                                                        Position Specific Notes
-                                                        / Certifications
-                                                        (optional)
-                                                    </Label>
-                                                    <Input
-                                                        placeholder="e.g. Valid BOSIET required, min 3 years offshore experience"
-                                                        disabled={isEditing}
-                                                        value={
-                                                            line.line_notes ||
-                                                            ''
-                                                        }
-                                                        onChange={(e) =>
-                                                            handlePositionChange(
-                                                                index,
-                                                                'line_notes',
-                                                                e.target.value,
-                                                            )
-                                                        }
-                                                    />
+                                                    <div className="col-span-8 space-y-1.5 sm:col-span-4">
+                                                        <Label className="text-[11px] font-semibold text-muted-foreground">
+                                                            Required Headcount{' '}
+                                                            <span className="text-rose-500">
+                                                                *
+                                                            </span>
+                                                        </Label>
+                                                        <Input
+                                                            type="number"
+                                                            min={1}
+                                                            max={500}
+                                                            disabled={isEditing}
+                                                            value={
+                                                                line.required_headcount
+                                                            }
+                                                            onChange={(e) =>
+                                                                handlePositionChange(
+                                                                    index,
+                                                                    'required_headcount',
+                                                                    parseInt(
+                                                                        e.target
+                                                                            .value,
+                                                                        10,
+                                                                    ) || 1,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+
+                                                    {!isEditing && (
+                                                        <div className="col-span-4 flex items-end justify-end pt-5 sm:col-span-2">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                disabled={
+                                                                    data
+                                                                        .positions
+                                                                        .length <=
+                                                                    1
+                                                                }
+                                                                onClick={() =>
+                                                                    handleRemovePositionLine(
+                                                                        index,
+                                                                    )
+                                                                }
+                                                                className="text-muted-foreground hover:text-rose-500"
+                                                                title="Remove position line"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Salary Range Section */}
+                                                    <div className="col-span-12 space-y-2 rounded-lg border border-border/50 bg-background/50 p-3">
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                                                                <span>
+                                                                    Approved
+                                                                    Salary Range
+                                                                </span>
+                                                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-foreground">
+                                                                    {options.currency_code ||
+                                                                        'AED'}
+                                                                </span>
+                                                                {isCopiedFromPosition && (
+                                                                    <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                                                        Copied
+                                                                        from
+                                                                        position
+                                                                        defaults
+                                                                    </span>
+                                                                )}
+                                                                {isEditedFromPosition && (
+                                                                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                                                        Custom
+                                                                        override
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {canResetToDefault && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        handleResetPositionSalary(
+                                                                            index,
+                                                                        )
+                                                                    }
+                                                                    className="h-6 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                                                                    title="Reset salary range to position defaults"
+                                                                >
+                                                                    <RotateCcw className="h-3 w-3" />
+                                                                    <span>
+                                                                        Reset to
+                                                                        Position
+                                                                        Default
+                                                                    </span>
+                                                                </Button>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="grid grid-cols-12 gap-3">
+                                                            <div className="col-span-12 space-y-1 sm:col-span-6">
+                                                                <Label className="text-[11px] font-medium text-muted-foreground">
+                                                                    Minimum
+                                                                    Salary (
+                                                                    {options.currency_code ||
+                                                                        'AED'}
+                                                                    )
+                                                                </Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    placeholder="e.g. 5000.00"
+                                                                    value={
+                                                                        line.salary_min ??
+                                                                        ''
+                                                                    }
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) =>
+                                                                        handlePositionChange(
+                                                                            index,
+                                                                            'salary_min',
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        )
+                                                                    }
+                                                                    className={
+                                                                        minSalaryError
+                                                                            ? 'border-destructive'
+                                                                            : ''
+                                                                    }
+                                                                />
+                                                                {minSalaryError && (
+                                                                    <p className="text-[11px] text-destructive">
+                                                                        {
+                                                                            minSalaryError
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="col-span-12 space-y-1 sm:col-span-6">
+                                                                <Label className="text-[11px] font-medium text-muted-foreground">
+                                                                    Maximum
+                                                                    Salary (
+                                                                    {options.currency_code ||
+                                                                        'AED'}
+                                                                    )
+                                                                </Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    placeholder="e.g. 8000.00"
+                                                                    value={
+                                                                        line.salary_max ??
+                                                                        ''
+                                                                    }
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) =>
+                                                                        handlePositionChange(
+                                                                            index,
+                                                                            'salary_max',
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        )
+                                                                    }
+                                                                    className={
+                                                                        maxSalaryError
+                                                                            ? 'border-destructive'
+                                                                            : ''
+                                                                    }
+                                                                />
+                                                                {maxSalaryError && (
+                                                                    <p className="text-[11px] text-destructive">
+                                                                        {
+                                                                            maxSalaryError
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="col-span-12 space-y-1.5">
+                                                        <Label className="text-[11px] font-semibold text-muted-foreground">
+                                                            Position Specific
+                                                            Notes /
+                                                            Certifications
+                                                            (optional)
+                                                        </Label>
+                                                        <Input
+                                                            placeholder="e.g. Valid BOSIET required, min 3 years offshore experience"
+                                                            disabled={isEditing}
+                                                            value={
+                                                                line.line_notes ||
+                                                                ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                handlePositionChange(
+                                                                    index,
+                                                                    'line_notes',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
-
+                                        );
+                                    })}
                                     {!isEditing && (
                                         <Button
                                             type="button"

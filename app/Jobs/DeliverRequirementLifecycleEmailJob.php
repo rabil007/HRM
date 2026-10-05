@@ -12,6 +12,7 @@ use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use App\Support\Recruitment\RequirementNotificationRecipients;
+use App\Support\Recruitment\RequirementPresenter;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -523,6 +524,15 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
             ->map(function ($line): string {
                 $title = (string) ($line->position?->title ?? 'Position');
                 $count = (int) $line->required_headcount;
+                $salary = RequirementPresenter::formatSalaryRange(
+                    $line->salary_min,
+                    $line->salary_max,
+                    $line->salary_currency_code,
+                );
+
+                if ($salary !== 'Not specified') {
+                    return "{$title} × {$count} ({$salary})";
+                }
 
                 return "{$title} × {$count}";
             })

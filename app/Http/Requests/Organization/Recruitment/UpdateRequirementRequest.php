@@ -66,6 +66,8 @@ class UpdateRequirementRequest extends FormRequest
             ? 'before_or_equal:'.$requirement->required_by_date->format('Y-m-d')
             : null;
 
+        $linesKey = $this->has('positions') ? 'positions' : 'lines';
+
         return [
             'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
             'project_id' => [
@@ -104,6 +106,12 @@ class UpdateRequirementRequest extends FormRequest
                 'mimes:'.implode(',', RequirementAttachmentStorage::ALLOWED_MIMES),
                 'max:'.RequirementAttachmentStorage::MAX_SIZE_KB,
             ],
+            $linesKey => ['nullable', 'array'],
+            "{$linesKey}.*.id" => ['nullable', 'integer'],
+            "{$linesKey}.*.position_id" => ['nullable', 'integer'],
+            "{$linesKey}.*.salary_min" => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            "{$linesKey}.*.salary_max" => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            "{$linesKey}.*.line_notes" => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -116,6 +124,10 @@ class UpdateRequirementRequest extends FormRequest
         $validated = parent::validated($key, $default);
 
         if (is_array($validated)) {
+            if (isset($validated['positions']) && ! isset($validated['lines'])) {
+                $validated['lines'] = $validated['positions'];
+            }
+
             unset($validated['client_reference_number']);
         }
 
@@ -161,6 +173,28 @@ class UpdateRequirementRequest extends FormRequest
                 foreach ($exception->errors() as $field => $messages) {
                     foreach ($messages as $message) {
                         $validator->errors()->add($field, $message);
+                    }
+                }
+            }
+
+            $linesKey = $this->has('positions') ? 'positions' : 'lines';
+            $lines = $this->input($linesKey, []);
+            if (is_array($lines) && ! empty($lines)) {
+                if (! ($requirement?->status?->isEditable() ?? false)) {
+                    $validator->errors()->add($linesKey, 'Position lines and salaries cannot be modified in the current requirement status.');
+                } else {
+                    foreach ($lines as $index => $line) {
+                        if (! is_array($line)) {
+                            continue;
+                        }
+                        $min = $line['salary_min'] ?? null;
+                        $max = $line['salary_max'] ?? null;
+
+                        if ($min !== null && $min !== '' && $max !== null && $max !== '' && is_numeric($min) && is_numeric($max)) {
+                            if ((float) $max < (float) $min) {
+                                $validator->errors()->add("{$linesKey}.{$index}.salary_max", 'Maximum salary must be greater than or equal to minimum salary.');
+                            }
+                        }
                     }
                 }
             }

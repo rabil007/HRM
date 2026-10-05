@@ -25,6 +25,9 @@ class RepeatRequirementRequest extends FormRequest
                 $lines = $requirement->lines->map(fn ($line) => [
                     'position_id' => $line->position_id,
                     'required_headcount' => $line->required_headcount,
+                    'salary_min' => $line->salary_min,
+                    'salary_max' => $line->salary_max,
+                    'salary_currency_code' => $line->salary_currency_code,
                     'line_notes' => $line->line_notes,
                 ])->all();
                 $this->merge(['lines' => $lines]);
@@ -70,6 +73,9 @@ class RepeatRequirementRequest extends FormRequest
                 Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
             ],
             'lines.*.required_headcount' => ['required', 'integer', 'min:1'],
+            'lines.*.salary_min' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.salary_max' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.salary_currency_code' => ['nullable', 'string', 'size:3'],
             'lines.*.line_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

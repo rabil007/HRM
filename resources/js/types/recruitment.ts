@@ -31,6 +31,10 @@ export type PositionSummaryItem = {
     position_title: string;
     required_headcount: number;
     status: RequirementLineStatus;
+    salary_min?: string | number | null;
+    salary_max?: string | number | null;
+    salary_currency_code?: string | null;
+    salary_range_formatted?: string | null;
 };
 
 export type RequirementIndexRow = {
@@ -102,6 +106,10 @@ export type RequirementLine = {
     status: RequirementLineStatus;
     status_label: string;
     status_badge: string;
+    salary_min: string | number | null;
+    salary_max: string | number | null;
+    salary_currency_code: string | null;
+    salary_range_formatted: string | null;
 };
 
 export type RequirementAttachment = {
@@ -186,6 +194,8 @@ export type PositionOption = {
     title: string;
     grade: string | null;
     status: string;
+    min_salary?: string | number | null;
+    max_salary?: string | number | null;
 };
 
 export type UserOption = {
@@ -239,6 +249,7 @@ export type RequirementIndexProps = {
         positions: PositionOption[];
         recruiters: UserOption[];
         notification_users?: UserOption[];
+        currency_code?: string;
     };
     can: RequirementPagePermissions;
 };
@@ -251,6 +262,7 @@ export type RequirementShowProps = {
         positions: PositionOption[];
         recruiters: UserOption[];
         notification_users?: UserOption[];
+        currency_code?: string;
     };
     can: RequirementPagePermissions;
     recent_activity?: Array<{

@@ -52,6 +52,9 @@ export function RequirementPositionLinesCard({
                                 Department
                             </TableHead>
                             <TableHead className="w-[90px]">Grade</TableHead>
+                            <TableHead className="min-w-[160px]">
+                                Salary Range
+                            </TableHead>
                             <TableHead className="w-[120px] text-center">
                                 Headcount
                             </TableHead>
@@ -83,6 +86,10 @@ export function RequirementPositionLinesCard({
                                 </TableCell>
                                 <TableCell className="font-mono text-xs text-muted-foreground">
                                     {line.grade || '—'}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs font-medium text-foreground">
+                                    {line.salary_range_formatted ||
+                                        'Not specified'}
                                 </TableCell>
                                 <TableCell className="text-center">
                                     <Badge

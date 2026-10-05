@@ -2,12 +2,14 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\SendRequirementLifecycleEmails;
+use App\Support\Settings\CompanyCurrency;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -50,6 +52,55 @@ final class SubmitRequirementForApprovalAction
                 throw ValidationException::withMessages([
                     'assigned_to' => 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.',
                 ]);
+            }
+
+            $activeLines = $locked->lines->filter(fn ($line) => $line->status !== RequirementLineStatus::Cancelled);
+
+            if ($activeLines->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'lines' => 'At least one active position line is required before submitting for approval.',
+                ]);
+            }
+
+            foreach ($activeLines as $line) {
+                if ($line->salary_min === null || $line->salary_max === null) {
+                    throw ValidationException::withMessages([
+                        'salary' => 'Both minimum and maximum salary are required for every active position line before submitting for approval.',
+                    ]);
+                }
+
+                if (! is_numeric($line->salary_min) || ! is_numeric($line->salary_max)) {
+                    throw ValidationException::withMessages([
+                        'salary' => 'Salary values must be valid numbers.',
+                    ]);
+                }
+
+                $min = (float) $line->salary_min;
+                $max = (float) $line->salary_max;
+
+                if ($min < 0 || $max < 0) {
+                    throw ValidationException::withMessages([
+                        'salary' => 'Salary values cannot be negative.',
+                    ]);
+                }
+
+                if (preg_match('/^\d+(\.\d{1,2})?$/', (string) $line->salary_min) !== 1 || preg_match('/^\d+(\.\d{1,2})?$/', (string) $line->salary_max) !== 1) {
+                    throw ValidationException::withMessages([
+                        'salary' => 'Salary values may not have more than 2 decimal places.',
+                    ]);
+                }
+
+                if ($max < $min) {
+                    throw ValidationException::withMessages([
+                        'salary' => 'Maximum salary must be greater than or equal to minimum salary for every position line.',
+                    ]);
+                }
+
+                if (empty($line->salary_currency_code)) {
+                    $line->update([
+                        'salary_currency_code' => CompanyCurrency::codeForCompany($locked->company_id),
+                    ]);
+                }
             }
 
             $fromStatus = $locked->status;

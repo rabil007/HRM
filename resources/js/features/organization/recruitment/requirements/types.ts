@@ -53,6 +53,7 @@ export type SimilarRequirementMatch = {
         required_headcount: number;
         status: string;
         status_label: string;
+        salary_range_formatted?: string | null;
     }>;
 };
 
@@ -60,6 +61,9 @@ export type FormPositionLineInput = {
     id?: number;
     position_id: number | string;
     required_headcount: number;
+    salary_min?: string | number | '';
+    salary_max?: string | number | '';
+    salary_currency_code?: string;
     line_notes?: string;
 };
 

@@ -4,15 +4,17 @@ namespace App\Actions\Recruitment;
 
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
+use App\Models\Position;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
+use App\Support\Settings\CompanyCurrency;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class AddHeadcountToRequirementAction
 {
     /**
-     * @param  list<array{position_id: int, additional_headcount: int, line_notes?: string|null}>  $lines
+     * @param  list<array{position_id: int, additional_headcount: int, salary_min?: mixed, salary_max?: mixed, salary_currency_code?: string|null, line_notes?: string|null}>  $lines
      */
     public function execute(
         int $requirementId,
@@ -72,11 +74,21 @@ final class AddHeadcountToRequirementAction
                         'added' => $additional,
                     ];
                 } else {
+                    $position = Position::query()->where('company_id', $companyId)->find($positionId);
+                    $salaryMin = array_key_exists('salary_min', $lineInput) ? $lineInput['salary_min'] : $position?->min_salary;
+                    $salaryMax = array_key_exists('salary_max', $lineInput) ? $lineInput['salary_max'] : $position?->max_salary;
+                    $salaryCurrency = array_key_exists('salary_currency_code', $lineInput) && ! empty($lineInput['salary_currency_code'])
+                        ? $lineInput['salary_currency_code']
+                        : CompanyCurrency::codeForCompany($companyId);
+
                     $newLine = RecruitmentRequirementLine::create([
                         'company_id' => $companyId,
                         'recruitment_requirement_id' => $requirement->id,
                         'position_id' => $positionId,
                         'required_headcount' => $additional,
+                        'salary_min' => $salaryMin,
+                        'salary_max' => $salaryMax,
+                        'salary_currency_code' => $salaryCurrency,
                         'line_notes' => $lineInput['line_notes'] ?? null,
                         'status' => $targetLineStatus,
                     ]);

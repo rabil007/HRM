@@ -38,6 +38,15 @@ class StoreRequirementRequest extends FormRequest
     {
         $companyId = (int) $this->attributes->get('current_company_id');
         $linesKey = $this->has('positions') ? 'positions' : 'lines';
+        $isSubmitting = (bool) $this->boolean('submit_for_approval');
+
+        $salaryMinRules = $isSubmitting
+            ? ['required', 'numeric', 'min:0', 'decimal:0,2']
+            : ['nullable', 'numeric', 'min:0', 'decimal:0,2'];
+
+        $salaryMaxRules = $isSubmitting
+            ? ['required', 'numeric', 'min:0', 'decimal:0,2', "gte:{$linesKey}.*.salary_min"]
+            : ['nullable', 'numeric', 'min:0', 'decimal:0,2'];
 
         return [
             'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
@@ -82,6 +91,8 @@ class StoreRequirementRequest extends FormRequest
                 Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
             ],
             "{$linesKey}.*.required_headcount" => ['required', 'integer', 'min:1'],
+            "{$linesKey}.*.salary_min" => $salaryMinRules,
+            "{$linesKey}.*.salary_max" => $salaryMaxRules,
             "{$linesKey}.*.line_notes" => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -155,6 +166,24 @@ class StoreRequirementRequest extends FormRequest
                 if ($assignedToId !== null && (int) $this->user()?->id === $assignedToId) {
                     $validator->errors()->add('assigned_to', 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
                 }
+            } else {
+                $linesKey = $this->has('positions') ? 'positions' : 'lines';
+                $lines = $this->input($linesKey, []);
+                if (is_array($lines)) {
+                    foreach ($lines as $index => $line) {
+                        if (! is_array($line)) {
+                            continue;
+                        }
+                        $min = $line['salary_min'] ?? null;
+                        $max = $line['salary_max'] ?? null;
+
+                        if ($min !== null && $min !== '' && $max !== null && $max !== '' && is_numeric($min) && is_numeric($max)) {
+                            if ((float) $max < (float) $min) {
+                                $validator->errors()->add("{$linesKey}.{$index}.salary_max", 'Maximum salary must be greater than or equal to minimum salary.');
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -171,6 +200,30 @@ class StoreRequirementRequest extends FormRequest
             'lines.*.position_id.distinct' => 'Each position can only be added once per requirement.',
             'lines.*.required_headcount.required' => 'Headcount is required.',
             'lines.*.required_headcount.min' => 'Headcount must be at least 1.',
+            'lines.*.salary_min.required' => 'Minimum salary is required for every position line before submission.',
+            'lines.*.salary_min.numeric' => 'Minimum salary must be a valid number.',
+            'lines.*.salary_min.min' => 'Minimum salary cannot be negative.',
+            'lines.*.salary_min.decimal' => 'Minimum salary may not have more than 2 decimal places.',
+            'lines.*.salary_max.required' => 'Maximum salary is required for every position line before submission.',
+            'lines.*.salary_max.numeric' => 'Maximum salary must be a valid number.',
+            'lines.*.salary_max.min' => 'Maximum salary cannot be negative.',
+            'lines.*.salary_max.decimal' => 'Maximum salary may not have more than 2 decimal places.',
+            'lines.*.salary_max.gte' => 'Maximum salary must be greater than or equal to minimum salary.',
+            'positions.required' => 'At least one position line is required.',
+            'positions.min' => 'At least one position line is required.',
+            'positions.*.position_id.required' => 'Position is required.',
+            'positions.*.position_id.distinct' => 'Each position can only be added once per requirement.',
+            'positions.*.required_headcount.required' => 'Headcount is required.',
+            'positions.*.required_headcount.min' => 'Headcount must be at least 1.',
+            'positions.*.salary_min.required' => 'Minimum salary is required for every position line before submission.',
+            'positions.*.salary_min.numeric' => 'Minimum salary must be a valid number.',
+            'positions.*.salary_min.min' => 'Minimum salary cannot be negative.',
+            'positions.*.salary_min.decimal' => 'Minimum salary may not have more than 2 decimal places.',
+            'positions.*.salary_max.required' => 'Maximum salary is required for every position line before submission.',
+            'positions.*.salary_max.numeric' => 'Maximum salary must be a valid number.',
+            'positions.*.salary_max.min' => 'Maximum salary cannot be negative.',
+            'positions.*.salary_max.decimal' => 'Maximum salary may not have more than 2 decimal places.',
+            'positions.*.salary_max.gte' => 'Maximum salary must be greater than or equal to minimum salary.',
             'required_by_date.after_or_equal' => 'Required-by date must be on or after request received date.',
         ];
     }

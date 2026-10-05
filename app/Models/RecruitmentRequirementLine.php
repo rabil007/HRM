@@ -24,6 +24,9 @@ class RecruitmentRequirementLine extends Model
         'required_headcount',
         'line_notes',
         'status',
+        'salary_min',
+        'salary_max',
+        'salary_currency_code',
     ];
 
     protected function casts(): array
@@ -34,6 +37,9 @@ class RecruitmentRequirementLine extends Model
             'position_id' => 'integer',
             'required_headcount' => 'integer',
             'status' => RequirementLineStatus::class,
+            'salary_min' => 'decimal:2',
+            'salary_max' => 'decimal:2',
+            'salary_currency_code' => 'string',
         ];
     }
 
@@ -44,6 +50,9 @@ class RecruitmentRequirementLine extends Model
                 'position_id',
                 'required_headcount',
                 'status',
+                'salary_min',
+                'salary_max',
+                'salary_currency_code',
             ])
             ->logOnlyDirty();
     }

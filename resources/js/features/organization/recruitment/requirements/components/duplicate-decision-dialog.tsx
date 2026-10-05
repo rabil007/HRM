@@ -143,14 +143,43 @@ export function DuplicateDecisionDialog({
                                             </strong>
                                         </div>
                                     </div>
-                                    <div className="text-[11px] text-muted-foreground">
-                                        Matching positions:{' '}
-                                        <span className="font-medium text-foreground">
-                                            {match.matching_positions.join(
-                                                ', ',
-                                            )}
-                                        </span>
-                                    </div>
+                                    {match.positions &&
+                                    match.positions.length > 0 ? (
+                                        <div className="space-y-1 text-[11px] text-muted-foreground">
+                                            <div className="font-semibold text-foreground/80">
+                                                Matching positions:
+                                            </div>
+                                            <div className="space-y-1 pl-1">
+                                                {match.positions.map((pos) => (
+                                                    <div
+                                                        key={pos.position_id}
+                                                        className="flex items-center justify-between rounded bg-muted/40 px-2 py-0.5"
+                                                    >
+                                                        <span className="font-medium text-foreground">
+                                                            {pos.position_title}{' '}
+                                                            ×{' '}
+                                                            {
+                                                                pos.required_headcount
+                                                            }
+                                                        </span>
+                                                        <span className="font-mono text-[10px] text-muted-foreground">
+                                                            {pos.salary_range_formatted ||
+                                                                'Not specified'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[11px] text-muted-foreground">
+                                            Matching positions:{' '}
+                                            <span className="font-medium text-foreground">
+                                                {match.matching_positions.join(
+                                                    ', ',
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}

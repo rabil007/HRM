@@ -31,6 +31,8 @@ export type RequirementFormSnapshot = {
         id?: number;
         position_id: string;
         required_headcount: number;
+        salary_min: string;
+        salary_max: string;
         line_notes: string;
     }>;
     hasAttachment: boolean;
@@ -40,12 +42,22 @@ function normalizePositions(positions: FormPositionLineInput[]): Array<{
     id?: number;
     position_id: string;
     required_headcount: number;
+    salary_min: string;
+    salary_max: string;
     line_notes: string;
 }> {
     return positions.map((line) => ({
         id: line.id,
         position_id: String(line.position_id ?? ''),
         required_headcount: Number(line.required_headcount) || 0,
+        salary_min:
+            line.salary_min !== undefined && line.salary_min !== null
+                ? String(line.salary_min)
+                : '',
+        salary_max:
+            line.salary_max !== undefined && line.salary_max !== null
+                ? String(line.salary_max)
+                : '',
         line_notes: line.line_notes ?? '',
     }));
 }
@@ -104,8 +116,8 @@ export function firstInvalidRequirementField(
         }
     }
 
-    const nestedPositionError = Object.keys(errors).find((key) =>
-        key.startsWith('positions.'),
+    const nestedPositionError = Object.keys(errors).find(
+        (key) => key.startsWith('positions.') || key.startsWith('lines.'),
     );
 
     if (nestedPositionError) {

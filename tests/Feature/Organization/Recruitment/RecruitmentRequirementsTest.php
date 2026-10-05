@@ -423,6 +423,9 @@ test('lifecycle transitions: draft -> submit -> approve -> hold -> resume -> fil
         'recruitment_requirement_id' => $req->id,
         'position_id' => $this->positionChiefEng->id,
         'required_headcount' => 2,
+        'salary_min' => 5000.00,
+        'salary_max' => 8000.00,
+        'salary_currency_code' => 'AED',
         'status' => RequirementLineStatus::Open,
     ]);
 

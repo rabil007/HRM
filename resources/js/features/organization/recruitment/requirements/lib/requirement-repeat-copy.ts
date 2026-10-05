@@ -17,7 +17,7 @@ export function resolveRequirementRepeatFieldGroups(): {
             fields: [
                 'Client and project',
                 'Location',
-                'Position lines and requested headcount',
+                'Position lines, requested headcount, and salary ranges',
                 'Notes from the source requirement',
             ],
         },

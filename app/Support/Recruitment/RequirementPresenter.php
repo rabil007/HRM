@@ -33,6 +33,14 @@ final class RequirementPresenter
             'position_title' => (string) ($line->position?->title ?? 'Unknown'),
             'required_headcount' => (int) $line->required_headcount,
             'status' => $line->status->value,
+            'salary_min' => $line->salary_min !== null ? (string) $line->salary_min : null,
+            'salary_max' => $line->salary_max !== null ? (string) $line->salary_max : null,
+            'salary_currency_code' => $line->salary_currency_code,
+            'salary_range_formatted' => self::formatSalaryRange(
+                $line->salary_min,
+                $line->salary_max,
+                $line->salary_currency_code,
+            ),
         ])->all();
 
         $canUpdate = $user ? (bool) $user->can('recruitment.requirements.update') : true;
@@ -156,6 +164,14 @@ final class RequirementPresenter
                 'status' => $line->status->value,
                 'status_label' => $line->status->label(),
                 'status_badge' => $line->status->badgeVariant(),
+                'salary_min' => $line->salary_min !== null ? (string) $line->salary_min : null,
+                'salary_max' => $line->salary_max !== null ? (string) $line->salary_max : null,
+                'salary_currency_code' => $line->salary_currency_code,
+                'salary_range_formatted' => self::formatSalaryRange(
+                    $line->salary_min,
+                    $line->salary_max,
+                    $line->salary_currency_code,
+                ),
             ];
         })->all();
 
@@ -305,5 +321,41 @@ final class RequirementPresenter
         }
 
         return $bytes.' B';
+    }
+
+    public static function formatSalaryRange(
+        int|float|string|null $min,
+        int|float|string|null $max,
+        ?string $currencyCode = null,
+    ): string {
+        $hasMin = filled($min);
+        $hasMax = filled($max);
+
+        if (! $hasMin && ! $hasMax) {
+            return 'Not specified';
+        }
+
+        $currency = filled($currencyCode) ? (string) $currencyCode : 'AED';
+
+        if ($hasMin && $hasMax) {
+            $formattedMin = number_format((float) $min, 2);
+            $formattedMax = number_format((float) $max, 2);
+
+            if ((float) $min === (float) $max) {
+                return "{$currency} {$formattedMin}";
+            }
+
+            return "{$currency} {$formattedMin} – {$formattedMax}";
+        }
+
+        if ($hasMin) {
+            $formattedMin = number_format((float) $min, 2);
+
+            return "{$currency} {$formattedMin}";
+        }
+
+        $formattedMax = number_format((float) $max, 2);
+
+        return "{$currency} {$formattedMax}";
     }
 }

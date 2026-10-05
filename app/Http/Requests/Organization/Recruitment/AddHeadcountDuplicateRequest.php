@@ -21,6 +21,9 @@ class AddHeadcountDuplicateRequest extends FormRequest
                 $normalized[] = [
                     'position_id' => $item['position_id'] ?? null,
                     'additional_headcount' => $item['additional_headcount'] ?? $item['added_headcount'] ?? null,
+                    'salary_min' => $item['salary_min'] ?? null,
+                    'salary_max' => $item['salary_max'] ?? null,
+                    'salary_currency_code' => $item['salary_currency_code'] ?? null,
                     'line_notes' => $item['line_notes'] ?? null,
                 ];
             }
@@ -44,6 +47,9 @@ class AddHeadcountDuplicateRequest extends FormRequest
                 Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
             ],
             'lines.*.additional_headcount' => ['required', 'integer', 'min:1'],
+            'lines.*.salary_min' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.salary_max' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'lines.*.salary_currency_code' => ['nullable', 'string', 'size:3'],
             'lines.*.line_notes' => ['nullable', 'string', 'max:1000'],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],
         ];

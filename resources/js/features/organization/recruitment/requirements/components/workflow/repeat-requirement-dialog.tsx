@@ -134,6 +134,39 @@ export function RepeatRequirementDialog({
                                 Positions: {requirement.positions_count} ·
                                 Headcount: {requirement.total_headcount}
                             </p>
+                            {requirement.positions_summary &&
+                                requirement.positions_summary.length > 0 && (
+                                    <div className="space-y-1.5 rounded-md border border-border/60 bg-card/60 p-2.5">
+                                        <p className="font-semibold text-foreground">
+                                            Position lines & salary ranges
+                                        </p>
+                                        <div className="space-y-1">
+                                            {requirement.positions_summary.map(
+                                                (pos) => (
+                                                    <div
+                                                        key={
+                                                            pos.id ||
+                                                            pos.position_id
+                                                        }
+                                                        className="flex items-center justify-between text-muted-foreground"
+                                                    >
+                                                        <span className="font-medium text-foreground">
+                                                            {pos.position_title}{' '}
+                                                            ×{' '}
+                                                            {
+                                                                pos.required_headcount
+                                                            }
+                                                        </span>
+                                                        <span className="font-mono text-[11px]">
+                                                            {pos.salary_range_formatted ||
+                                                                'Not specified'}
+                                                        </span>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-md border border-border/60 bg-card/60 p-2.5">
                                     <p className="font-semibold text-foreground">

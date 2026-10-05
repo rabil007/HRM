@@ -19,6 +19,7 @@ use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementBrowseQuery;
 use App\Support\Recruitment\RequirementPagePermissions;
 use App\Support\Recruitment\RequirementPresenter;
+use App\Support\Settings\CompanyCurrency;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -82,15 +83,18 @@ class RequirementController extends Controller
             ->where('company_id', $companyId)
             ->whereNull('deleted_at')
             ->orderBy('title')
-            ->get(['id', 'title', 'grade', 'status'])
+            ->get(['id', 'title', 'grade', 'status', 'min_salary', 'max_salary'])
             ->map(fn (Position $p): array => [
                 'id' => (int) $p->id,
                 'title' => (string) $p->title,
                 'grade' => $p->grade,
                 'status' => (string) $p->status,
+                'min_salary' => $p->min_salary !== null ? (string) $p->min_salary : null,
+                'max_salary' => $p->max_salary !== null ? (string) $p->max_salary : null,
             ])
             ->all();
 
+        $companyCurrency = CompanyCurrency::codeForCompany($companyId);
         $recruiters = RecruiterOptionsQuery::forCompany($companyId);
         $notificationUsers = CompanyUserOptionsQuery::forCompany($companyId);
 
@@ -100,6 +104,7 @@ class RequirementController extends Controller
             'positions' => $positions,
             'recruiters' => $recruiters,
             'notification_users' => $notificationUsers,
+            'currency_code' => $companyCurrency,
         ];
 
         return Inertia::render('organization/recruitment/requirements/index', [
@@ -126,6 +131,7 @@ class RequirementController extends Controller
             'projects' => $projects,
             'positions' => $positions,
             'users' => $recruiters,
+            'currency_code' => $companyCurrency,
         ]);
     }
 
@@ -191,15 +197,18 @@ class RequirementController extends Controller
             ->where('company_id', $companyId)
             ->whereNull('deleted_at')
             ->orderBy('title')
-            ->get(['id', 'title', 'grade', 'status'])
+            ->get(['id', 'title', 'grade', 'status', 'min_salary', 'max_salary'])
             ->map(fn (Position $p): array => [
                 'id' => (int) $p->id,
                 'title' => (string) $p->title,
                 'grade' => $p->grade,
                 'status' => (string) $p->status,
+                'min_salary' => $p->min_salary !== null ? (string) $p->min_salary : null,
+                'max_salary' => $p->max_salary !== null ? (string) $p->max_salary : null,
             ])
             ->all();
 
+        $companyCurrency = CompanyCurrency::codeForCompany($companyId);
         $recruiters = RecruiterOptionsQuery::forCompany($companyId);
         $notificationUsers = CompanyUserOptionsQuery::forCompany($companyId);
 
@@ -209,6 +218,7 @@ class RequirementController extends Controller
             'positions' => $positions,
             'recruiters' => $recruiters,
             'notification_users' => $notificationUsers,
+            'currency_code' => $companyCurrency,
         ];
 
         return Inertia::render('organization/recruitment/requirements/show', [
@@ -218,6 +228,7 @@ class RequirementController extends Controller
             'projects' => $projects,
             'positions' => $positions,
             'users' => $recruiters,
+            'currency_code' => $companyCurrency,
             'can' => RequirementPagePermissions::for($request->user()),
             'can_view_audit' => $canViewAudit,
             'recent_activity' => $recentActivity,

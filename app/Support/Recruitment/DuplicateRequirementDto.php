@@ -51,6 +51,14 @@ final class DuplicateRequirementDto
                 'required_headcount' => (int) $line->required_headcount,
                 'status' => $line->status->value,
                 'status_label' => $line->status->label(),
+                'salary_min' => $line->salary_min !== null ? (string) $line->salary_min : null,
+                'salary_max' => $line->salary_max !== null ? (string) $line->salary_max : null,
+                'salary_currency_code' => $line->salary_currency_code,
+                'salary_range_formatted' => RequirementPresenter::formatSalaryRange(
+                    $line->salary_min,
+                    $line->salary_max,
+                    $line->salary_currency_code,
+                ),
             ];
         }
 

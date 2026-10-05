@@ -13,6 +13,7 @@ use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
+use App\Support\Settings\CompanyCurrency;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -61,7 +62,12 @@ final class CreateRequirementAction
                     'updated_by' => $userId,
                 ]);
 
+                $companyCurrency = CompanyCurrency::codeForCompany($companyId);
+
                 foreach ($data['lines'] as $lineData) {
+                    $hasSalary = (isset($lineData['salary_min']) && $lineData['salary_min'] !== null && $lineData['salary_min'] !== '')
+                        || (isset($lineData['salary_max']) && $lineData['salary_max'] !== null && $lineData['salary_max'] !== '');
+
                     RecruitmentRequirementLine::create([
                         'company_id' => $companyId,
                         'recruitment_requirement_id' => $requirement->id,
@@ -69,6 +75,9 @@ final class CreateRequirementAction
                         'required_headcount' => $lineData['required_headcount'],
                         'line_notes' => $lineData['line_notes'] ?? null,
                         'status' => RequirementLineStatus::Open,
+                        'salary_min' => isset($lineData['salary_min']) && $lineData['salary_min'] !== '' ? $lineData['salary_min'] : null,
+                        'salary_max' => isset($lineData['salary_max']) && $lineData['salary_max'] !== '' ? $lineData['salary_max'] : null,
+                        'salary_currency_code' => $hasSalary ? $companyCurrency : null,
                     ]);
                 }
 
