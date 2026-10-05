@@ -21,7 +21,6 @@ describe('crew movement history presentation logic', () => {
         const resolveSignOff = (
             vesselOngoing: boolean,
             actualDisembarkation: string | null,
-            _plannedSignOff: string | null,
         ): { isOngoing: boolean; display: string } => {
             if (vesselOngoing) {
                 return { isOngoing: true, display: 'Ongoing' };
@@ -34,17 +33,17 @@ describe('crew movement history presentation logic', () => {
         };
 
         // Active P4 ongoing
-        const activeRow = resolveSignOff(true, null, '2026-11-15');
+        const activeRow = resolveSignOff(true, null);
         assert.equal(activeRow.isOngoing, true);
         assert.equal(activeRow.display, 'Ongoing');
 
         // Completed with actual disembarkation
-        const completedRow = resolveSignOff(false, '2026-08-31', '2026-08-28');
+        const completedRow = resolveSignOff(false, '2026-08-31');
         assert.equal(completedRow.isOngoing, false);
         assert.equal(completedRow.display, '2026-08-31');
 
-        // Not ongoing and no actual disembarkation recorded: should never show planned signoff!
-        const draftRow = resolveSignOff(false, null, '2026-12-01');
+        // Not ongoing and no actual disembarkation recorded: should display '—'
+        const draftRow = resolveSignOff(false, null);
         assert.equal(draftRow.isOngoing, false);
         assert.equal(draftRow.display, '—');
     });
@@ -55,7 +54,11 @@ describe('crew movement history presentation logic', () => {
             redeployed_at?: string | null;
             actual_return_home_at?: string | null;
             from?: string | null;
-        }): { type: 'redeployed' | 'home' | 'none'; label: string; date: string | null } => {
+        }): {
+            type: 'redeployed' | 'home' | 'none';
+            label: string;
+            date: string | null;
+        } => {
             if (homeRedeploy.is_redeployed_directly) {
                 return {
                     type: 'redeployed',
