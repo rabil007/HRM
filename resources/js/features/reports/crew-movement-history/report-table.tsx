@@ -46,24 +46,27 @@ import type {
     CrewMovementHistoryFilters,
     CrewMovementHistoryRow,
     LinkedAssignmentSummary,
-    PayrollDaySummary,
     PhasePeriod,
     PhaseSummary,
     PhaseTimelineEntry,
     TrainingHistoryEntry,
 } from './types';
 
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 12;
 
 const columns = {
-    assignment: 'w-[270px] min-w-[270px]',
-    vessel: 'w-[210px] min-w-[210px]',
-    status: 'w-[180px] min-w-[180px]',
-    planned: 'w-[235px] min-w-[235px]',
-    actual: 'w-[235px] min-w-[235px]',
-    duration: 'w-[270px] min-w-[270px]',
-    attention: 'w-[170px] min-w-[170px]',
-    actions: 'w-[68px] min-w-[68px]',
+    employeeNo: 'w-[105px] min-w-[105px]',
+    crewName: 'w-[230px] min-w-[230px]',
+    rank: 'w-[140px] min-w-[140px]',
+    vessel: 'w-[140px] min-w-[140px]',
+    client: 'w-[130px] min-w-[130px]',
+    arrival: 'w-[115px] min-w-[115px]',
+    joined: 'w-[115px] min-w-[115px]',
+    signOff: 'w-[130px] min-w-[130px]',
+    returnedHome: 'w-[130px] min-w-[130px]',
+    vesselDays: 'w-[105px] min-w-[105px]',
+    status: 'w-[140px] min-w-[140px]',
+    actions: 'w-[60px] min-w-[60px]',
 } as const;
 
 type PhaseRecord = {
@@ -169,83 +172,12 @@ function Cell({
     );
 }
 
-function DatePair({
-    label,
-    value,
-    ongoing = false,
-    hint,
-}: {
-    label: string;
-    value: string | null;
-    ongoing?: boolean;
-    hint?: string | null;
-}) {
-    return (
-        <div className="grid grid-cols-[72px_1fr] gap-2 text-xs leading-5">
-            <span className="text-muted-foreground">{label}</span>
-            <span className="min-w-0">
-                <span className="font-medium text-foreground tabular-nums">
-                    {ongoing ? 'Ongoing' : formatDisplayDate(value)}
-                </span>
-                {hint && value ? (
-                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                        {hint}
-                    </span>
-                ) : null}
-            </span>
-        </div>
-    );
-}
-
 function numericDaysLabel(days: number | null): string {
     if (days === null) {
         return '—';
     }
 
     return `${days} ${days === 1 ? 'day' : 'days'}`;
-}
-
-function PayrollDuration({
-    label,
-    summary,
-}: {
-    label: string;
-    summary: PayrollDaySummary;
-}) {
-    const firstPeriod = summary.periods[0];
-    const lastPeriod = summary.periods.at(-1);
-    const dateRange =
-        firstPeriod && lastPeriod
-            ? `${formatDisplayDate(firstPeriod.from)} → ${formatDisplayDate(lastPeriod.to)}`
-            : '—';
-    const periodsLabel =
-        summary.periods.length > 1
-            ? ` · ${summary.periods.length} periods`
-            : '';
-    const fullPeriods = summary.periods
-        .map(
-            (period) =>
-                `${formatDisplayDate(period.from)} → ${formatDisplayDate(period.to)} (${numericDaysLabel(period.days)})`,
-        )
-        .join('; ');
-
-    return (
-        <div className="border-t border-border/50 pt-1.5">
-            <dt className="text-muted-foreground">{label}</dt>
-            <dd className="mt-0.5 flex items-baseline justify-between gap-2">
-                <span
-                    className="font-mono text-[10px] tabular-nums"
-                    title={fullPeriods || undefined}
-                >
-                    {dateRange}
-                    {periodsLabel}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                    {numericDaysLabel(summary.total_days)}
-                </span>
-            </dd>
-        </div>
-    );
 }
 
 function DetailField({
@@ -782,148 +714,149 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                 </dl>
             </section>
 
-            <div className="grid gap-4 xl:grid-cols-2">
-                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <Route className="size-4 text-primary" />
-                        Planned movement
-                    </h3>
-                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                        {row.planned_arrival ? (
+            <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <Clock3 className="size-4 text-primary" />
+                    Actual movement
+                </h3>
+                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <DetailField
+                        label="Actual arrival"
+                        value={formatCompanyDateTime(
+                            row.actual_arrival_at ?? row.actual_arrival,
+                            timezone,
+                        )}
+                        hint={row.actual_arrival_origin_label}
+                    />
+                    <DetailField
+                        label="Joined vessel"
+                        value={formatCompanyDateTime(
+                            row.on_vessel.actual_join_at ??
+                                row.on_vessel.actual_join,
+                            timezone,
+                        )}
+                    />
+                    <DetailField
+                        label="Disembarked"
+                        value={
+                            row.on_vessel.periods.some(
+                                (period) => period.status === 'active',
+                            )
+                                ? 'Ongoing'
+                                : formatCompanyDateTime(
+                                      row.on_vessel.actual_disembarkation_at ??
+                                          row.on_vessel.actual_disembarkation,
+                                      timezone,
+                                  )
+                        }
+                    />
+                    <DetailField
+                        label="Returned home / P6 start"
+                        value={
+                            row.home_redeploy.is_redeployed_directly
+                                ? `Redeployed${row.home_redeploy.redeployed_at ? ` · ${formatCompanyDateTime(row.home_redeploy.redeployed_at, timezone)}` : ''}`
+                                : formatCompanyDateTime(
+                                      row.home_redeploy.actual_return_home_at ??
+                                          row.home_redeploy.from,
+                                      timezone,
+                                  )
+                        }
+                    />
+                    <DetailField
+                        label="On-vessel elapsed days"
+                        value={numericDaysLabel(row.on_vessel.total_days)}
+                    />
+                    <DetailField
+                        label="Total assignment elapsed days"
+                        value={numericDaysLabel(row.total_assignment_days)}
+                    />
+                </dl>
+            </section>
+
+            <section className="rounded-xl border border-border/70 bg-background/75 p-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <Route className="size-4 text-primary" />
+                    Planned / forecast dates
+                </h3>
+                <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {row.planned_arrival ? (
+                        <DetailField
+                            label="Planned arrival"
+                            value={formatDisplayDate(row.planned_arrival)}
+                            hint={row.planned_arrival_origin_label}
+                        />
+                    ) : null}
+                    <DetailField
+                        label="Expected vessel join"
+                        value={formatDisplayDate(row.planned_join)}
+                        hint={
+                            row.planned_join
+                                ? row.planned_join_origin_label
+                                : row.planned_join_origin === 'movement_actual'
+                                  ? 'Transfer/redeployment actual time is not shown as planned join'
+                                  : null
+                        }
+                    />
+                    <DetailField
+                        label="Planned sign-off"
+                        value={formatDisplayDate(row.planned_signoff)}
+                        hint={row.planned_signoff_origin_label}
+                    />
+                    <DetailField
+                        label="Planned travel home"
+                        value={formatDisplayDate(row.planned_travel_home)}
+                        hint={row.planned_travel_home_origin_label}
+                    />
+                </dl>
+
+                {tour ? (
+                    <div className="mt-4 border-t border-border/60 pt-4">
+                        <h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                            Tour of Duty & forecast
+                        </h4>
+                        <dl className="mt-3 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
                             <DetailField
-                                label="Planned arrival"
-                                value={formatDisplayDate(row.planned_arrival)}
-                                hint={row.planned_arrival_origin_label}
+                                label="Tour of Duty days"
+                                value={tour.tour_of_duty_days ?? '—'}
                             />
-                        ) : null}
-                        <DetailField
-                            label="Expected vessel join"
-                            value={formatDisplayDate(row.planned_join)}
-                            hint={
-                                row.planned_join
-                                    ? row.planned_join_origin_label
-                                    : row.planned_join_origin ===
-                                        'movement_actual'
-                                      ? 'Transfer/redeployment actual time is not shown as planned join'
-                                      : null
-                            }
-                        />
-                        <DetailField
-                            label="Planned sign-off"
-                            value={formatDisplayDate(row.planned_signoff)}
-                            hint={row.planned_signoff_origin_label}
-                        />
-                        <DetailField
-                            label="Planned travel home"
-                            value={formatDisplayDate(row.planned_travel_home)}
-                            hint={row.planned_travel_home_origin_label}
-                        />
-                    </dl>
-                </section>
-
-                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
-                    <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <Clock3 className="size-4 text-primary" />
-                        Actual movement
-                    </h3>
-                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                        <DetailField
-                            label="Actual arrival"
-                            value={formatCompanyDateTime(
-                                row.actual_arrival_at ?? row.actual_arrival,
-                                timezone,
-                            )}
-                            hint={row.actual_arrival_origin_label}
-                        />
-                        <DetailField
-                            label="Joined vessel"
-                            value={formatCompanyDateTime(
-                                row.on_vessel.actual_join_at ??
-                                    row.on_vessel.actual_join,
-                                timezone,
-                            )}
-                        />
-                        <DetailField
-                            label="Disembarked"
-                            value={
-                                row.on_vessel.periods.some(
-                                    (period) => period.status === 'active',
-                                )
-                                    ? 'Ongoing'
-                                    : formatCompanyDateTime(
-                                          row.on_vessel
-                                              .actual_disembarkation_at ??
-                                              row.on_vessel
-                                                  .actual_disembarkation,
-                                          timezone,
-                                      )
-                            }
-                        />
-                        <DetailField
-                            label="Returned home / P6 start"
-                            value={formatCompanyDateTime(
-                                row.home_redeploy.actual_return_home_at ??
-                                    row.home_redeploy.from,
-                                timezone,
-                            )}
-                        />
-                        <DetailField
-                            label="On-vessel elapsed days"
-                            value={numericDaysLabel(row.on_vessel.total_days)}
-                        />
-                        <DetailField
-                            label="Total assignment elapsed days"
-                            value={numericDaysLabel(row.total_assignment_days)}
-                        />
-                    </dl>
-                </section>
-            </div>
-
-            {tour ? (
-                <section className="rounded-xl border border-border/70 bg-background/75 p-4">
-                    <h3 className="text-sm font-semibold">
-                        Tour of Duty & sign-off
-                    </h3>
-                    <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <DetailField
-                            label="Tour of Duty days"
-                            value={tour.tour_of_duty_days ?? '—'}
-                        />
-                        <DetailField
-                            label="Planned sign-off"
-                            value={formatDisplayDate(row.planned_signoff)}
-                        />
-                        <DetailField
-                            label="Sign-off source"
-                            value={
-                                tour.planned_signoff_source_label ??
-                                row.planned_signoff_origin_label ??
-                                '—'
-                            }
-                        />
-                        <DetailField
-                            label="Override reason"
-                            value={tour.planned_signoff_override_reason ?? '—'}
-                        />
-                        <DetailField
-                            label="Days onboard"
-                            value={tour.days_onboard ?? '—'}
-                        />
-                        <DetailField
-                            label="Current duty day"
-                            value={tour.current_duty_day ?? '—'}
-                        />
-                        <DetailField
-                            label="Remaining tour days"
-                            value={tour.remaining_tour_days ?? '—'}
-                        />
-                        <DetailField
-                            label="Tour status"
-                            value={tour.tour_status_label ?? '—'}
-                        />
-                    </dl>
-                </section>
-            ) : null}
+                            <DetailField
+                                label="Planned sign-off"
+                                value={formatDisplayDate(row.planned_signoff)}
+                            />
+                            <DetailField
+                                label="Sign-off source"
+                                value={
+                                    tour.planned_signoff_source_label ??
+                                    row.planned_signoff_origin_label ??
+                                    '—'
+                                }
+                            />
+                            <DetailField
+                                label="Override reason"
+                                value={
+                                    tour.planned_signoff_override_reason ?? '—'
+                                }
+                            />
+                            <DetailField
+                                label="Days onboard"
+                                value={tour.days_onboard ?? '—'}
+                            />
+                            <DetailField
+                                label="Current duty day"
+                                value={tour.current_duty_day ?? '—'}
+                            />
+                            <DetailField
+                                label="Remaining tour days"
+                                value={tour.remaining_tour_days ?? '—'}
+                            />
+                            <DetailField
+                                label="Tour status"
+                                value={tour.tour_status_label ?? '—'}
+                            />
+                        </dl>
+                    </div>
+                ) : null}
+            </section>
 
             <section>
                 <div className="mb-3">
@@ -1025,19 +958,6 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                 ) : null}
             </section>
 
-            {trainingHistory.length > 0 ? (
-                <section className="space-y-3">
-                    <h3 className="text-sm font-semibold">Training history</h3>
-                    {trainingHistory.map((entry) => (
-                        <TrainingCard
-                            key={`${entry.sequence}-${entry.occurrence}`}
-                            entry={entry}
-                            timezone={timezone}
-                        />
-                    ))}
-                </section>
-            ) : null}
-
             <section className="space-y-3">
                 <h3 className="text-sm font-semibold">Accommodation history</h3>
                 {stays.length > 0 ? (
@@ -1050,6 +970,19 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                     </p>
                 )}
             </section>
+
+            {trainingHistory.length > 0 ? (
+                <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Training history</h3>
+                    {trainingHistory.map((entry) => (
+                        <TrainingCard
+                            key={`${entry.sequence}-${entry.occurrence}`}
+                            entry={entry}
+                            timezone={timezone}
+                        />
+                    ))}
+                </section>
+            ) : null}
 
             <section className="space-y-3">
                 <h3 className="text-sm font-semibold">
@@ -1243,7 +1176,7 @@ export function CrewMovementHistoryReportTable({
 
     return (
         <OrganizationDataTable
-            minWidth="min-w-[1618px]"
+            minWidth="min-w-[1510px]"
             compact
             tableClassName="table-fixed"
             header={
@@ -1254,14 +1187,8 @@ export function CrewMovementHistoryReportTable({
                             {total === 1 ? 'assignment' : 'assignments'} found
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            Showing {rows.length} on this page. Open a record to
-                            see every report field and phase period.
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                            Calendar-day preview uses inclusive dates and counts
-                            a shared phase handover date once. Final payroll
-                            also depends on contract and payroll-period
-                            eligibility.
+                            Operational Crew History summary. Open any record to
+                            see complete movement timeline and audit details.
                         </p>
                     </div>
                     <Button
@@ -1278,49 +1205,80 @@ export function CrewMovementHistoryReportTable({
             <TableHeader>
                 <TableRow>
                     <SortHead
-                        column="assignment_no"
-                        label="Assignment & crew"
+                        column="employee_no"
+                        label="Emp No"
                         filters={filters}
                         onSort={onSort}
-                        className={columns.assignment}
+                        className={columns.employeeNo}
+                    />
+                    <SortHead
+                        column="crew_name"
+                        label="Crew Name"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.crewName}
+                    />
+                    <SortHead
+                        column="position"
+                        label="Rank"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.rank}
                     />
                     <SortHead
                         column="vessel"
-                        label="Vessel & position"
+                        label="Vessel"
                         filters={filters}
                         onSort={onSort}
                         className={columns.vessel}
                     />
                     <SortHead
-                        label="Status & phase"
+                        column="client"
+                        label="Client"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.client}
+                    />
+                    <SortHead
+                        column="actual_arrival"
+                        label="Arrival"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.arrival}
+                    />
+                    <SortHead
+                        column="actual_join"
+                        label="Joined Vessel"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.joined}
+                    />
+                    <SortHead
+                        column="actual_disembarkation"
+                        label="Sign-Off / Disembarked"
+                        filters={filters}
+                        onSort={onSort}
+                        className={columns.signOff}
+                    />
+                    <DataTableHead
+                        className={cn(
+                            'whitespace-nowrap',
+                            columns.returnedHome,
+                        )}
+                    >
+                        Returned Home
+                    </DataTableHead>
+                    <DataTableHead
+                        className={cn('whitespace-nowrap', columns.vesselDays)}
+                    >
+                        Vessel Days
+                    </DataTableHead>
+                    <SortHead
+                        column="status"
+                        label="Status"
                         filters={filters}
                         onSort={onSort}
                         className={columns.status}
-                    />
-                    <SortHead
-                        column="planned_join"
-                        label="Planned movement"
-                        filters={filters}
-                        onSort={onSort}
-                        className={columns.planned}
-                    />
-                    <SortHead
-                        label="Actual vessel period"
-                        filters={filters}
-                        onSort={onSort}
-                        className={columns.actual}
-                    />
-                    <SortHead
-                        label="Payroll calendar-day preview"
-                        filters={filters}
-                        onSort={onSort}
-                        className={columns.duration}
-                    />
-                    <SortHead
-                        label="Attention & changes"
-                        filters={filters}
-                        onSort={onSort}
-                        className={columns.attention}
                     />
                     <DataTableHead className={columns.actions}>
                         <span className="sr-only">Actions</span>
@@ -1343,13 +1301,18 @@ export function CrewMovementHistoryReportTable({
                                 )}
                                 aria-expanded={expanded}
                             >
-                                <Cell className={columns.assignment}>
-                                    <div className="flex items-start gap-2">
+                                <Cell className={columns.employeeNo}>
+                                    <span className="font-mono text-xs font-semibold text-foreground tabular-nums">
+                                        {row.employee.employee_no ?? '—'}
+                                    </span>
+                                </Cell>
+                                <Cell className={columns.crewName}>
+                                    <div className="flex items-start gap-1.5">
                                         <Button
                                             type="button"
                                             variant="ghost"
                                             size="icon"
-                                            className="-ml-1 size-8 shrink-0"
+                                            className="-ml-1 size-7 shrink-0"
                                             onClick={() => toggleRow(row.id)}
                                             aria-expanded={expanded}
                                             aria-controls={`assignment-details-${row.id}`}
@@ -1362,166 +1325,168 @@ export function CrewMovementHistoryReportTable({
                                             )}
                                         </Button>
                                         <div className="min-w-0">
-                                            <Link
-                                                href={showAssignment.url(
-                                                    row.id,
+                                            <div className="truncate text-sm font-semibold text-foreground">
+                                                {row.employee.id ? (
+                                                    <Link
+                                                        href={showEmployee.url(
+                                                            row.employee.id,
+                                                        )}
+                                                        className="hover:text-primary hover:underline"
+                                                    >
+                                                        {row.employee.name ??
+                                                            '—'}
+                                                    </Link>
+                                                ) : (
+                                                    <span>
+                                                        {row.employee.name ??
+                                                            '—'}
+                                                    </span>
                                                 )}
-                                                className="font-mono text-xs font-semibold text-primary hover:underline"
-                                            >
-                                                {row.assignment_no}
-                                            </Link>
-                                            <p className="mt-1 truncate font-semibold text-foreground">
-                                                {row.employee.name ?? '—'}
-                                            </p>
-                                            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                                                {row.employee.employee_no ??
-                                                    'No employee number'}
+                                            </div>
+                                            <p className="mt-0.5">
+                                                <Link
+                                                    href={showAssignment.url(
+                                                        row.id,
+                                                    )}
+                                                    className="font-mono text-[11px] text-muted-foreground hover:text-primary hover:underline"
+                                                >
+                                                    {row.assignment_no}
+                                                </Link>
                                             </p>
                                         </div>
                                     </div>
                                 </Cell>
+                                <Cell className={columns.rank}>
+                                    <span className="text-xs font-medium text-foreground">
+                                        {row.position?.name ?? '—'}
+                                    </span>
+                                </Cell>
                                 <Cell className={columns.vessel}>
-                                    <p className="truncate font-semibold">
-                                        {row.vessel?.name ?? 'No vessel'}
-                                    </p>
-                                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                                        {row.position?.name ?? 'No position'}
-                                    </p>
-                                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                                        {row.client?.name ?? 'No client'}
-                                    </p>
+                                    <span className="text-xs font-medium text-foreground">
+                                        {row.vessel?.name ?? '—'}
+                                    </span>
+                                </Cell>
+                                <Cell className={columns.client}>
+                                    <span className="text-xs text-muted-foreground">
+                                        {row.client?.name ?? '—'}
+                                    </span>
+                                </Cell>
+                                <Cell className={columns.arrival}>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-foreground tabular-nums">
+                                            {row.actual_arrival
+                                                ? formatDisplayDate(
+                                                      row.actual_arrival,
+                                                  )
+                                                : '—'}
+                                        </span>
+                                        {row.actual_arrival &&
+                                        row.actual_arrival_origin_label ? (
+                                            <span
+                                                className="mt-0.5 block truncate text-[10px] text-muted-foreground"
+                                                title={
+                                                    row.actual_arrival_origin_label
+                                                }
+                                            >
+                                                {
+                                                    row.actual_arrival_origin_label
+                                                }
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </Cell>
+                                <Cell className={columns.joined}>
+                                    <span className="text-xs font-medium text-foreground tabular-nums">
+                                        {row.on_vessel.actual_join
+                                            ? formatDisplayDate(
+                                                  row.on_vessel.actual_join,
+                                              )
+                                            : '—'}
+                                    </span>
+                                </Cell>
+                                <Cell className={columns.signOff}>
+                                    {vesselOngoing ? (
+                                        <Badge
+                                            variant="outline"
+                                            className="border-cyan-500/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400"
+                                        >
+                                            Ongoing
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-xs font-medium text-foreground tabular-nums">
+                                            {row.on_vessel.actual_disembarkation
+                                                ? formatDisplayDate(
+                                                      row.on_vessel
+                                                          .actual_disembarkation,
+                                                  )
+                                                : '—'}
+                                        </span>
+                                    )}
+                                </Cell>
+                                <Cell className={columns.returnedHome}>
+                                    {row.home_redeploy
+                                        .is_redeployed_directly ? (
+                                        <div className="text-xs">
+                                            <Badge
+                                                variant="outline"
+                                                className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                            >
+                                                Redeployed
+                                            </Badge>
+                                            {row.home_redeploy.redeployed_at ? (
+                                                <span className="mt-0.5 block text-[10px] text-muted-foreground tabular-nums">
+                                                    {formatDisplayDate(
+                                                        row.home_redeploy
+                                                            .redeployed_at,
+                                                    )}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    ) : row.home_redeploy
+                                          .actual_return_home_at ||
+                                      row.home_redeploy.from ? (
+                                        <span className="text-xs font-medium text-foreground tabular-nums">
+                                            {formatDisplayDate(
+                                                row.home_redeploy
+                                                    .actual_return_home_at ??
+                                                    row.home_redeploy.from,
+                                            )}
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                            —
+                                        </span>
+                                    )}
+                                </Cell>
+                                <Cell className={columns.vesselDays}>
+                                    <span className="text-xs font-bold text-foreground tabular-nums">
+                                        {numericDaysLabel(
+                                            row.on_vessel.total_days,
+                                        )}
+                                    </span>
                                 </Cell>
                                 <Cell className={columns.status}>
-                                    <div className="flex flex-wrap gap-1.5">
+                                    <div className="flex flex-col items-start gap-1">
                                         <Badge
                                             variant={statusVariant(row.status)}
                                         >
                                             {row.status_label}
                                         </Badge>
-                                        {row.current_phase ? (
-                                            <Badge variant="outline">
-                                                {row.current_phase.code.toUpperCase()}
-                                            </Badge>
+                                        {row.status === 'active' &&
+                                        row.current_phase?.code === 'p4' ? (
+                                            <span className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
+                                                On Vessel
+                                            </span>
+                                        ) : row.current_phase ? (
+                                            <span
+                                                className="max-w-[125px] truncate text-[10px] text-muted-foreground"
+                                                title={row.current_phase.label}
+                                            >
+                                                {row.current_phase.code.toUpperCase()}{' '}
+                                                · {row.current_phase.label}
+                                            </span>
                                         ) : null}
                                     </div>
-                                    <p className="mt-2 truncate text-xs text-muted-foreground">
-                                        {row.current_phase?.label ??
-                                            'No current phase'}
-                                    </p>
-                                </Cell>
-                                <Cell className={columns.planned}>
-                                    {row.planned_arrival ? (
-                                        <DatePair
-                                            label="Arrival"
-                                            value={row.planned_arrival}
-                                            hint={
-                                                row.planned_arrival_origin_label
-                                            }
-                                        />
-                                    ) : null}
-                                    <DatePair
-                                        label="Join"
-                                        value={row.planned_join}
-                                        hint={row.planned_join_origin_label}
-                                    />
-                                    <DatePair
-                                        label="Sign-off"
-                                        value={row.planned_signoff}
-                                        hint={row.planned_signoff_origin_label}
-                                    />
-                                    <DatePair
-                                        label="Home"
-                                        value={row.planned_travel_home}
-                                        hint={
-                                            row.planned_travel_home_origin_label
-                                        }
-                                    />
-                                </Cell>
-                                <Cell className={columns.actual}>
-                                    {row.actual_arrival ? (
-                                        <DatePair
-                                            label="Arrived"
-                                            value={row.actual_arrival}
-                                            hint={
-                                                row.actual_arrival_origin_label
-                                            }
-                                        />
-                                    ) : null}
-                                    <DatePair
-                                        label="Joined"
-                                        value={row.on_vessel.actual_join}
-                                    />
-                                    <DatePair
-                                        label="Left"
-                                        value={
-                                            row.on_vessel.actual_disembarkation
-                                        }
-                                        ongoing={vesselOngoing}
-                                    />
-                                </Cell>
-                                <Cell className={columns.duration}>
-                                    <dl className="space-y-1.5 text-xs">
-                                        <div className="flex items-baseline justify-between gap-2">
-                                            <dt className="font-medium text-foreground">
-                                                Calendar-day total
-                                            </dt>
-                                            <dd className="font-bold tabular-nums">
-                                                {numericDaysLabel(
-                                                    row.payroll_days.total_days,
-                                                )}
-                                            </dd>
-                                        </div>
-                                        <PayrollDuration
-                                            label="Sign-on standby"
-                                            summary={
-                                                row.payroll_days.sign_on_standby
-                                            }
-                                        />
-                                        <PayrollDuration
-                                            label="On vessel"
-                                            summary={row.payroll_days.onsite}
-                                        />
-                                        <PayrollDuration
-                                            label="Sign-off standby"
-                                            summary={
-                                                row.payroll_days
-                                                    .sign_off_standby
-                                            }
-                                        />
-                                    </dl>
-                                </Cell>
-                                <Cell className={columns.attention}>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {row.needs_attention ? (
-                                            <Badge variant="warning">
-                                                <AlertTriangle />
-                                                {row.warnings.length}{' '}
-                                                {row.warnings.length === 1
-                                                    ? 'warning'
-                                                    : 'warnings'}
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="success">
-                                                <CheckCircle2 />
-                                                Clear
-                                            </Badge>
-                                        )}
-                                        {row.has_pending_corrections ? (
-                                            <Badge variant="warning">
-                                                Pending correction
-                                            </Badge>
-                                        ) : row.has_corrections ? (
-                                            <Badge variant="secondary">
-                                                {row.correction_count}{' '}
-                                                {row.correction_count === 1
-                                                    ? 'correction'
-                                                    : 'corrections'}
-                                            </Badge>
-                                        ) : null}
-                                    </div>
-                                    <p className="mt-2 truncate text-[11px] text-muted-foreground">
-                                        Source: {row.source_label}
-                                    </p>
                                 </Cell>
                                 <Cell className={columns.actions}>
                                     <DropdownMenu>

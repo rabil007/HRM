@@ -11,9 +11,11 @@ use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
+use Maatwebsite\Excel\Concerns\WithTitle;
 
-final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMapping, WithStrictNullComparison
+final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMapping, WithMultipleSheets, WithStrictNullComparison
 {
     /**
      * @param  Builder<CrewAssignment>  $query
@@ -21,12 +23,13 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
     public function __construct(
         private readonly Builder $query,
         private readonly bool $includesLegacyColumns = false,
+        private readonly string $format = 'xlsx',
     ) {}
 
     /**
      * @param  Builder<CrewAssignment>  $query
      */
-    public static function forQuery(Builder $query): self
+    public static function forQuery(Builder $query, string $format = 'xlsx'): self
     {
         $includesLegacyColumns = (clone $query)
             ->whereHas('phases', function (Builder $phaseQuery): void {
@@ -37,7 +40,158 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
             })
             ->exists();
 
-        return new self($query, $includesLegacyColumns);
+        return new self($query, $includesLegacyColumns, $format);
+    }
+
+    /**
+     * @return list<object>
+     */
+    public function sheets(): array
+    {
+        if ($this->format === 'csv') {
+            return [
+                new CrewHistorySummarySheet($this->query),
+            ];
+        }
+
+        return [
+            new CrewHistorySummarySheet($this->query),
+            new CrewMovementDetailsSheet($this->query, $this->includesLegacyColumns),
+        ];
+    }
+
+    public function query(): Builder
+    {
+        return $this->query;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function headings(): array
+    {
+        return (new CrewHistorySummarySheet($this->query))->headings();
+    }
+
+    /**
+     * @param  CrewAssignment  $assignment
+     * @return list<mixed>
+     */
+    public function map($assignment): array
+    {
+        return (new CrewHistorySummarySheet($this->query))->map($assignment);
+    }
+}
+
+final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapping, WithStrictNullComparison, WithTitle
+{
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     */
+    public function __construct(
+        private readonly Builder $query,
+    ) {}
+
+    public function title(): string
+    {
+        return 'CREW HISTORY';
+    }
+
+    public function query(): Builder
+    {
+        return $this->query;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function headings(): array
+    {
+        return [
+            'Employee No',
+            'Employee Name',
+            'Rank',
+            'Vessel',
+            'Client',
+            'Arrival Date',
+            'Join Vessel Date',
+            'Sign-Off / Disembarkation Date',
+            'Return Home Date',
+            'Vessel Days',
+            'Assignment Status',
+            'Assignment No',
+            'Assignment Source',
+            'Remarks',
+        ];
+    }
+
+    /**
+     * @param  CrewAssignment  $assignment
+     * @return list<mixed>
+     */
+    public function map($assignment): array
+    {
+        $row = CrewMovementHistoryPresenter::toArray($assignment);
+        $actualArrival = $row['actual_arrival_at'] ?? $row['actual_arrival'] ?? null;
+        $actualJoin = $row['on_vessel']['actual_join_at'] ?? $row['on_vessel']['actual_join'] ?? null;
+        $isOnVesselActive = collect($row['on_vessel']['periods'] ?? [])->contains('status', 'active');
+        $actualDisembarkation = $isOnVesselActive
+            ? 'Ongoing'
+            : ($row['on_vessel']['actual_disembarkation_at'] ?? $row['on_vessel']['actual_disembarkation'] ?? null);
+
+        $returnHome = '—';
+        if (! empty($row['home_redeploy']['is_redeployed_directly'])) {
+            $redeployDate = $row['home_redeploy']['redeployed_at'] ?? null;
+            $returnHome = $redeployDate ? 'Redeployed: '.$this->date($redeployDate) : 'Redeployed';
+        } elseif (! empty($row['home_redeploy']['actual_return_home_at']) || ! empty($row['home_redeploy']['from'])) {
+            $returnHome = $this->date($row['home_redeploy']['actual_return_home_at'] ?? $row['home_redeploy']['from']);
+        }
+
+        return [
+            $row['employee']['employee_no'] ?? null,
+            $row['employee']['name'] ?? null,
+            $row['position']['name'] ?? null,
+            $row['vessel']['name'] ?? null,
+            $row['client']['name'] ?? null,
+            $actualArrival ? $this->date($actualArrival) : '—',
+            $actualJoin ? $this->date($actualJoin) : '—',
+            $actualDisembarkation === 'Ongoing' ? 'Ongoing' : ($actualDisembarkation ? $this->date($actualDisembarkation) : '—'),
+            $returnHome,
+            $row['on_vessel']['total_days'] ?? 0,
+            $row['status_label'],
+            $row['assignment_no'],
+            $row['source_label'],
+            $row['remarks'],
+        ];
+    }
+
+    private function date(?string $date): string
+    {
+        if ($date === null || $date === '' || $date === '—') {
+            return '—';
+        }
+
+        try {
+            return CarbonImmutable::parse($date)->format('d M Y');
+        } catch (\Throwable) {
+            return $date;
+        }
+    }
+}
+
+final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMapping, WithStrictNullComparison, WithTitle
+{
+    /**
+     * @param  Builder<CrewAssignment>  $query
+     */
+    public function __construct(
+        private readonly Builder $query,
+        private readonly bool $includesLegacyColumns = false,
+    ) {}
+
+    public function title(): string
+    {
+        return 'MOVEMENT DETAILS';
     }
 
     public function query(): Builder

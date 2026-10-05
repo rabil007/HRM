@@ -202,6 +202,8 @@ export type CrewMovementHistoryRow = {
     demob_standby: FlattenedPhaseSummary;
     home_redeploy: FlattenedPhaseSummary & {
         actual_return_home_at?: string | null;
+        is_redeployed_directly?: boolean;
+        redeployed_at?: string | null;
     };
     assignment_started: string | null;
     assignment_started_at?: string | null;
@@ -240,6 +242,7 @@ export type CrewMovementHistoryRow = {
 };
 
 export type CrewMovementHistoryFilters = {
+    vessel_service_period: string;
     search: string;
     status: string;
     current_phase: string;

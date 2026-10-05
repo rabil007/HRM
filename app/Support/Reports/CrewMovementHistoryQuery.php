@@ -4,8 +4,10 @@ namespace App\Support\Reports;
 
 use App\Enums\CrewMovementCorrectionStatus;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewPhaseStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
+use App\Models\CrewAssignmentPhase;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\User;
@@ -21,13 +23,18 @@ use Illuminate\Database\Eloquent\Builder;
 final class CrewMovementHistoryQuery
 {
     private const SORTS = [
+        'actual_join',
         'assignment_no',
+        'employee_no',
         'employee_name',
+        'crew_name',
         'rank',
         'position',
         'vessel',
         'client',
         'status',
+        'actual_arrival',
+        'actual_disembarkation',
         'planned_join',
         'planned_signoff',
         'started_at',
@@ -112,7 +119,6 @@ final class CrewMovementHistoryQuery
                 'company:id,timezone',
                 'employee:id,company_id,employee_no,name',
                 'position:id,title',
-                'position:id,title',
                 'vessel:id,name',
                 'client:id,name',
                 'currentPhase:id,crew_assignment_id,phase_code,status,actual_start_at,actual_end_at',
@@ -177,7 +183,6 @@ final class CrewMovementHistoryQuery
                             ->orWhere('employee_no', 'like', $like))
                         ->orWhereHas('vessel', fn (Builder $vessel) => $vessel->where('name', 'like', $like))
                         ->orWhereHas('client', fn (Builder $client) => $client->where('name', 'like', $like))
-                        ->orWhereHas('position', fn (Builder $p) => $p->where('title', 'like', $like))
                         ->orWhereHas('position', fn (Builder $position) => $position->where('title', 'like', $like))
                         ->orWhereHas('previousAssignment', fn (Builder $previous) => $previous
                             ->where('company_id', $this->companyId)
@@ -232,6 +237,7 @@ final class CrewMovementHistoryQuery
             ));
 
         $this->applyMovementDateFilters($query);
+        $this->applyVesselServicePeriodFilter($query);
         $this->applyAccommodationFilters($query);
 
         if ($this->filters->tourStatus !== '') {
@@ -311,15 +317,64 @@ final class CrewMovementHistoryQuery
 
     /**
      * @param  Builder<CrewAssignment>  $query
+     */
+    private function applyVesselServicePeriodFilter(Builder $query): void
+    {
+        if ($this->filters->vesselServicePeriod === '' || $this->filters->vesselServicePeriod === 'all') {
+            return;
+        }
+
+        $now = now($this->timezone);
+        [$periodStart, $periodEnd] = match ($this->filters->vesselServicePeriod) {
+            'this_month' => [
+                $now->copy()->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+            ],
+            'last_month' => [
+                $now->copy()->subMonth()->startOfMonth()->toDateString(),
+                $now->copy()->subMonth()->endOfMonth()->toDateString(),
+            ],
+            'last_3_months' => [
+                $now->copy()->subMonths(2)->startOfMonth()->toDateString(),
+                $now->copy()->endOfMonth()->toDateString(),
+            ],
+            'this_year' => [
+                $now->copy()->startOfYear()->toDateString(),
+                $now->copy()->endOfYear()->toDateString(),
+            ],
+            default => [null, null],
+        };
+
+        if ($periodStart === null || $periodEnd === null) {
+            return;
+        }
+
+        $query->whereHas('phases', function (Builder $phase) use ($periodStart, $periodEnd): void {
+            $phase->where('phase_code', CrewPhaseCode::OnVessel)
+                ->whereDate('actual_start_at', '<=', $periodEnd)
+                ->where(function (Builder $endQuery) use ($periodStart): void {
+                    $endQuery->whereDate('actual_end_at', '>=', $periodStart)
+                        ->orWhereNull('actual_end_at')
+                        ->orWhere('status', CrewPhaseStatus::Active);
+                });
+        });
+    }
+
+    /**
+     * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
      */
     private function ordered(Builder $query): Builder
     {
-        $sort = in_array($this->filters->sort, self::SORTS, true) ? $this->filters->sort : 'started_at';
+        $sort = in_array($this->filters->sort, self::SORTS, true) ? $this->filters->sort : 'actual_join';
         $direction = $this->filters->direction;
 
         $ordered = match ($sort) {
-            'employee_name' => $query->orderBy(
+            'employee_no' => $query->orderBy(
+                Employee::query()->select('employee_no')->whereColumn('employees.id', 'crew_assignments.employee_id'),
+                $direction,
+            ),
+            'employee_name', 'crew_name' => $query->orderBy(
                 Employee::query()->select('name')->whereColumn('employees.id', 'crew_assignments.employee_id'),
                 $direction,
             ),
@@ -333,6 +388,34 @@ final class CrewMovementHistoryQuery
             ),
             'client' => $query->orderBy(
                 Client::query()->select('name')->whereColumn('clients.id', 'crew_assignments.client_id'),
+                $direction,
+            ),
+            'actual_arrival' => $query->orderBy(
+                CrewAssignmentPhase::query()
+                    ->select('actual_start_at')
+                    ->whereColumn('crew_assignment_phases.crew_assignment_id', 'crew_assignments.id')
+                    ->where('phase_code', CrewPhaseCode::JoinStandby)
+                    ->orderBy('sequence')
+                    ->limit(1),
+                $direction,
+            ),
+            'actual_join' => $query->orderBy(
+                CrewAssignmentPhase::query()
+                    ->select('actual_start_at')
+                    ->whereColumn('crew_assignment_phases.crew_assignment_id', 'crew_assignments.id')
+                    ->where('phase_code', CrewPhaseCode::OnVessel)
+                    ->orderBy('sequence')
+                    ->limit(1),
+                $direction,
+            )->orderBy('crew_assignments.started_at', 'desc'),
+            'actual_disembarkation' => $query->orderBy(
+                CrewAssignmentPhase::query()
+                    ->select('actual_end_at')
+                    ->whereColumn('crew_assignment_phases.crew_assignment_id', 'crew_assignments.id')
+                    ->where('phase_code', CrewPhaseCode::OnVessel)
+                    ->where('status', CrewPhaseStatus::Completed)
+                    ->orderByDesc('sequence')
+                    ->limit(1),
                 $direction,
             ),
             'planned_join' => $query->orderBy('crew_assignments.planned_join_at', $direction),

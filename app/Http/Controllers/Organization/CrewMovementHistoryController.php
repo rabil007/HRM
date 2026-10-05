@@ -99,11 +99,11 @@ class CrewMovementHistoryController extends Controller
     public function export(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $format = strtolower((string) $request->query('format', 'xlsx'));
         $filters = CrewMovementHistoryFilters::fromRequest($request, $companyId);
         $query = new CrewMovementHistoryQuery($companyId, $filters, $this->companyTimezone($companyId), $request->user());
-        $export = CrewMovementHistoryExport::forQuery($query->exportQuery());
+        $export = CrewMovementHistoryExport::forQuery($query->exportQuery(), $format);
         $filename = 'crew-movement-history-'.now()->toDateString();
-        $format = strtolower((string) $request->query('format', 'xlsx'));
 
         if ($format === 'csv') {
             return Excel::download($export, "{$filename}.csv", ExcelWriter::CSV, [

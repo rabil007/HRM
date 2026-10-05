@@ -21,6 +21,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { exportMethod } from '@/routes/organization/reports/crew-movement-history';
 import { CrewMovementHistoryFiltersSheet } from './filters-sheet';
 import { CrewMovementHistoryReportTable } from './report-table';
@@ -35,6 +36,7 @@ const CHIP_EXCLUDED = new Set(['search', 'sort', 'direction']);
 
 const FILTER_LABELS: Partial<Record<keyof CrewMovementHistoryFilters, string>> =
     {
+        vessel_service_period: 'Vessel service period',
         status: 'Status',
         current_phase: 'Current phase',
         vessel_id: 'Vessel',
@@ -138,6 +140,18 @@ function chipValueLabel(
         return selected.label;
     }
 
+    if (key === 'vessel_service_period') {
+        const labels: Record<string, string> = {
+            this_month: 'This Month',
+            last_month: 'Last Month',
+            last_3_months: 'Last 3 Months',
+            this_year: 'This Year',
+            all: 'All History',
+        };
+
+        return labels[value] ?? humanize(value);
+    }
+
     if (key.endsWith('_from') || key.endsWith('_to')) {
         return formatDisplayDate(value);
     }
@@ -152,6 +166,14 @@ function chipValueLabel(
 
     return humanize(value);
 }
+
+const PERIOD_SHORTCUTS = [
+    { key: '', label: 'All History' },
+    { key: 'this_month', label: 'This Month' },
+    { key: 'last_month', label: 'Last Month' },
+    { key: 'last_3_months', label: 'Last 3 Months' },
+    { key: 'this_year', label: 'This Year' },
+] as const;
 
 export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
     const {
@@ -226,7 +248,37 @@ export function CrewMovementHistoryContent(props: CrewMovementHistoryProps) {
                 onSelect={controls.apply}
             />
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-5 flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                    Vessel Service:
+                </span>
+                {PERIOD_SHORTCUTS.map((shortcut) => {
+                    const active =
+                        (filters.vessel_service_period || '') === shortcut.key;
+
+                    return (
+                        <button
+                            key={shortcut.key}
+                            type="button"
+                            onClick={() =>
+                                controls.apply({
+                                    vessel_service_period: shortcut.key,
+                                })
+                            }
+                            className={cn(
+                                'inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                                active
+                                    ? 'bg-primary text-primary-foreground shadow-xs'
+                                    : 'border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+                            )}
+                        >
+                            {shortcut.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="mt-4 space-y-3">
                 <SearchBar
                     placeholder="Search assignment, employee, vessel or remarks..."
                     value={controls.searchInput}
