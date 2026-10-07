@@ -957,12 +957,6 @@ test('generic edit cannot alter required_by_date, lines, or legacy client refere
             'request_received_date' => now()->format('Y-m-d'),
             'required_by_date' => $newDeadline,
             'priority' => 'urgent',
-            'lines' => [ // should NOT alter existing line headcount
-                [
-                    'position_id' => $this->positionChiefEng->id,
-                    'required_headcount' => 99,
-                ],
-            ],
         ])
         ->assertRedirect();
 

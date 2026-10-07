@@ -115,6 +115,10 @@ class UpdateRequirementRequest extends FormRequest
 
         $linesKey = $this->has('positions') ? 'positions' : 'lines';
 
+        $headcountRules = $isSubmitting
+            ? ['required', 'integer', 'min:1']
+            : ['nullable', 'integer', 'min:1'];
+
         $requestReceivedRules = $isSubmitting
             ? array_values(array_filter(['required', 'date', $deadlineRule]))
             : array_values(array_filter(['nullable', 'date', $deadlineRule]));
@@ -172,8 +176,10 @@ class UpdateRequirementRequest extends FormRequest
             "{$linesKey}.*.position_id" => [
                 $isSubmitting ? 'required' : 'nullable',
                 'integer',
+                'distinct',
                 Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
             ],
+            "{$linesKey}.*.required_headcount" => $headcountRules,
             "{$linesKey}.*.salary_min" => $isSubmitting
                 ? ['required', 'numeric', 'min:0', 'decimal:0,2']
                 : ['nullable', 'numeric', 'min:0', 'decimal:0,2'],

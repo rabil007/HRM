@@ -3,9 +3,13 @@
 namespace App\Support\Recruitment;
 
 use App\Enums\Recruitment\RequirementLineStatus;
+use App\Models\Client;
+use App\Models\Position;
+use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
+use App\Support\MasterData\ClientAssignmentRules;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -55,6 +59,19 @@ final class RequirementSubmissionReadiness
             'Select a client.',
         );
 
+        if ($requirement->client_id !== null) {
+            $client = Client::withTrashed()->find($requirement->client_id);
+            $clientReady = $client !== null && ! $client->trashed() && $client->is_active;
+            $items[] = self::item(
+                'client_active',
+                'Client is active',
+                $clientReady,
+                $client === null || $client->trashed()
+                    ? 'The selected client is no longer available.'
+                    : 'The selected client is inactive.',
+            );
+        }
+
         $items[] = self::item(
             'request_received_date',
             'Request received date',
@@ -89,6 +106,41 @@ final class RequirementSubmissionReadiness
             );
         }
 
+        if ($requirement->project_id !== null) {
+            $items[] = self::item(
+                'project_requires_client',
+                'Project requires client',
+                $requirement->client_id !== null,
+                'Select a client before assigning a project.',
+            );
+
+            $project = Project::withTrashed()->find($requirement->project_id);
+            $projectReady = $project !== null
+                && ! $project->trashed()
+                && $project->is_active;
+            $items[] = self::item(
+                'project_active',
+                'Project is active',
+                $projectReady,
+                $project === null || $project->trashed()
+                    ? 'The selected project is no longer available.'
+                    : 'The selected project is inactive.',
+            );
+
+            if ($projectReady && $requirement->client_id !== null) {
+                $projectClientMessage = ClientAssignmentRules::projectClientInconsistencyMessage(
+                    (int) $requirement->client_id,
+                    (int) $requirement->project_id,
+                );
+                $items[] = self::item(
+                    'project_client_link',
+                    'Project belongs to client',
+                    $projectClientMessage === null,
+                    $projectClientMessage ?? 'The selected project is not assigned to the selected client.',
+                );
+            }
+        }
+
         $assignedTo = $requirement->assigned_to !== null ? (int) $requirement->assigned_to : null;
         $hasAssignee = $assignedTo !== null;
         $items[] = self::item(
@@ -120,7 +172,7 @@ final class RequirementSubmissionReadiness
             ? $requirement->lines->filter(fn ($line) => $line->status !== RequirementLineStatus::Cancelled)
             : $requirement->lines()
                 ->where('status', '!=', RequirementLineStatus::Cancelled->value)
-                ->with('position:id,title')
+                ->with('position:id,title,company_id,status,deleted_at')
                 ->get();
 
         $items[] = self::item(
@@ -132,6 +184,35 @@ final class RequirementSubmissionReadiness
 
         foreach ($activeLines as $line) {
             $title = (string) ($line->position?->title ?? 'Position');
+            $position = $line->position;
+            if ($position === null && $line->position_id !== null) {
+                $position = Position::withTrashed()->find($line->position_id);
+            }
+
+            $positionReady = $position !== null
+                && ! $position->trashed()
+                && (int) $position->company_id === $companyId
+                && $position->status === 'active';
+
+            $items[] = self::item(
+                'position_line_'.$line->id,
+                "Position for {$title}",
+                $positionReady,
+                $position === null || $position->trashed()
+                    ? "The position for {$title} is no longer available."
+                    : ((int) $position->company_id !== $companyId
+                        ? "The position for {$title} is not valid for this company."
+                        : "The position for {$title} is inactive."),
+            );
+
+            $headcountReady = (int) $line->required_headcount >= 1;
+            $items[] = self::item(
+                'headcount_line_'.$line->id,
+                "Headcount for {$title}",
+                $headcountReady,
+                "Enter a required headcount of at least 1 for {$title}.",
+            );
+
             $key = 'salary_line_'.$line->id;
             $salaryReady = self::lineSalaryIsReady($line);
             $items[] = self::item(
@@ -152,6 +233,7 @@ final class RequirementSubmissionReadiness
 
     public static function assertReady(RecruitmentRequirement $requirement): void
     {
+        $requirement->loadMissing(['lines.position']);
         $readiness = self::for($requirement);
         if ($readiness['ready']) {
             return;
@@ -163,25 +245,7 @@ final class RequirementSubmissionReadiness
                 continue;
             }
 
-            if (str_starts_with($item['key'], 'salary_line_')) {
-                $lineId = (int) substr($item['key'], strlen('salary_line_'));
-                $lineIndex = $requirement->relationLoaded('lines')
-                    ? $requirement->lines->search(fn ($line) => (int) $line->id === $lineId)
-                    : false;
-
-                $field = $lineIndex === false
-                    ? 'positions'
-                    : "positions.{$lineIndex}.salary_min";
-            } else {
-                $field = match ($item['key']) {
-                    'client' => 'client_id',
-                    'request_received_date' => 'request_received_date',
-                    'required_by_date', 'required_by_date_order' => 'required_by_date',
-                    'assigned_recruiter', 'assigned_recruiter_eligible', 'self_approval' => 'assigned_to',
-                    'active_positions' => 'positions',
-                    default => 'status',
-                };
-            }
+            $field = self::fieldForReadinessKey($item['key'], $requirement);
 
             $messages[$field][] = $item['message'];
         }
@@ -205,6 +269,51 @@ final class RequirementSubmissionReadiness
         $flat['submission_readiness'] = 'Requirement is not ready for approval. Complete the remaining required fields.';
 
         throw ValidationException::withMessages($flat);
+    }
+
+    private static function fieldForReadinessKey(string $key, RecruitmentRequirement $requirement): string
+    {
+        if (str_starts_with($key, 'salary_line_')) {
+            $lineId = (int) substr($key, strlen('salary_line_'));
+
+            return self::positionFieldForLineId($requirement, $lineId, 'salary_min');
+        }
+
+        if (str_starts_with($key, 'headcount_line_')) {
+            $lineId = (int) substr($key, strlen('headcount_line_'));
+
+            return self::positionFieldForLineId($requirement, $lineId, 'required_headcount');
+        }
+
+        if (str_starts_with($key, 'position_line_')) {
+            $lineId = (int) substr($key, strlen('position_line_'));
+
+            return self::positionFieldForLineId($requirement, $lineId, 'position_id');
+        }
+
+        return match ($key) {
+            'client', 'client_active' => 'client_id',
+            'request_received_date' => 'request_received_date',
+            'required_by_date', 'required_by_date_order' => 'required_by_date',
+            'assigned_recruiter', 'assigned_recruiter_eligible', 'self_approval' => 'assigned_to',
+            'active_positions' => 'positions',
+            'project_requires_client', 'project_active', 'project_client_link' => 'project_id',
+            default => 'status',
+        };
+    }
+
+    private static function positionFieldForLineId(
+        RecruitmentRequirement $requirement,
+        int $lineId,
+        string $suffix,
+    ): string {
+        $lineIndex = $requirement->relationLoaded('lines')
+            ? $requirement->lines->search(fn ($line) => (int) $line->id === $lineId)
+            : false;
+
+        return $lineIndex === false
+            ? 'positions'
+            : "positions.{$lineIndex}.{$suffix}";
     }
 
     private static function lineSalaryIsReady(RecruitmentRequirementLine $line): bool

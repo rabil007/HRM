@@ -154,6 +154,20 @@ export function evaluateRequirementFormSubmissionReadiness(input: {
         const positionKey = String(line.position_id);
         const title =
             input.positionTitles?.[positionKey] ?? `Position ${index + 1}`;
+        const headcount = Number(line.required_headcount);
+        const headcountReady = Number.isInteger(headcount) && headcount >= 1;
+
+        items.push(
+            item(
+                `headcount_line_${line.id ?? positionKey}`,
+                `Headcount for ${title}`,
+                headcountReady,
+                headcountReady
+                    ? null
+                    : `Enter a required headcount of at least 1 for ${title}.`,
+            ),
+        );
+
         const ready = salaryReady(line.salary_min, line.salary_max);
 
         items.push(
@@ -218,8 +232,17 @@ export function readinessToFormFieldErrors(
 
         let field: string;
 
-        if (entry.key.startsWith('salary_line_')) {
-            const token = entry.key.slice('salary_line_'.length);
+        if (
+            entry.key.startsWith('salary_line_') ||
+            entry.key.startsWith('headcount_line_')
+        ) {
+            const prefix = entry.key.startsWith('salary_line_')
+                ? 'salary_line_'
+                : 'headcount_line_';
+            const suffix = entry.key.startsWith('salary_line_')
+                ? 'salary_min'
+                : 'required_headcount';
+            const token = entry.key.slice(prefix.length);
             const matched = activeIndexes.find(
                 ({ line, index }) =>
                     String(line.id ?? '') === token ||
@@ -227,7 +250,7 @@ export function readinessToFormFieldErrors(
                     String(index) === token,
             );
             field = matched
-                ? `positions.${matched.index}.salary_min`
+                ? `positions.${matched.index}.${suffix}`
                 : 'positions';
         } else {
             field =

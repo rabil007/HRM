@@ -1469,6 +1469,7 @@ test('creator can save and submit draft in one update operation', function () {
                 [
                     'id' => $line->id,
                     'position_id' => $this->position->id,
+                    'required_headcount' => 2,
                     'salary_min' => 5500,
                     'salary_max' => 9000,
                 ],
@@ -1875,6 +1876,7 @@ test('creator without submit permission can save draft but not submit for approv
                 [
                     'id' => $requirement->lines()->first()->id,
                     'position_id' => $this->position->id,
+                    'required_headcount' => 1,
                     'salary_min' => 4000,
                     'salary_max' => 6000,
                 ],

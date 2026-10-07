@@ -171,4 +171,29 @@ describe('requirement submission readiness', () => {
         assert.equal(canShowRequirementSubmitFormAction(true), true);
         assert.equal(canShowRequirementSubmitFormAction(false), false);
     });
+
+    it('maps missing headcount to the matching position field', () => {
+        const positions = [
+            {
+                position_id: '4',
+                required_headcount: 0,
+                salary_min: '1000',
+                salary_max: '2000',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(
+            errors['positions.0.required_headcount'],
+            'Enter a required headcount of at least 1 for Position 1.',
+        );
+    });
 });

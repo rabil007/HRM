@@ -40,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import type { Auth } from '@/types/auth';
 import type {
     ClientOption,
@@ -66,6 +67,11 @@ import {
     syncRequirementClientOptions,
     syncRequirementProjectOptions,
 } from '../lib/requirement-form-client-project';
+import {
+    hydrateNewRequirementForm,
+    hydrateRequirementFormFromDetail,
+    isRequirementPreparationStatus,
+} from '../lib/requirement-form-hydration';
 import {
     isSalaryAtPositionDefault,
     isSalaryEditedFromPosition,
@@ -180,6 +186,10 @@ export function RequirementFormSheet({
 
     const isReturnedEdit =
         isEditing && initialRequirement?.status === 'returned';
+    const isPreparationEditable =
+        Boolean(initialRequirement?.can_edit) &&
+        isRequirementPreparationStatus(initialRequirement?.status);
+    const canEditPositionStructure = !isEditing || isPreparationEditable;
     const draftSaveLabel = isReturnedEdit ? 'Save Changes' : 'Save Draft';
     const submitSaveLabel = isReturnedEdit
         ? 'Save & Resubmit'
@@ -201,6 +211,14 @@ export function RequirementFormSheet({
 
         return lookup;
     }, [options.positions]);
+
+    const invalidControlClass = (field: string) => {
+        const fieldErrors = errors as Record<string, string | undefined>;
+
+        return fieldErrors[field]
+            ? 'border-destructive ring-1 ring-destructive/40'
+            : '';
+    };
 
     const submissionReadiness = useMemo(
         () =>
@@ -339,61 +357,20 @@ export function RequirementFormSheet({
 
         const nextData = initialRequirement
             ? {
-                  client_id: String(initialRequirement.client_id),
-                  project_id: initialRequirement.project_id
-                      ? String(initialRequirement.project_id)
-                      : '',
-                  location: initialRequirement.location || '',
-                  assigned_to: initialRequirement.assigned_to
-                      ? String(initialRequirement.assigned_to)
-                      : '',
-                  notification_recipient_ids:
-                      initialRequirement.notification_recipients?.map(
-                          (recipient) => recipient.id,
-                      ) ?? [],
-                  request_received_date:
-                      initialRequirement.request_received_date || today,
-                  required_by_date: initialRequirement.required_by_date || '',
-                  priority: initialRequirement.priority || 'normal',
-                  notes: initialRequirement.notes || '',
-                  positions:
-                      initialRequirement.lines &&
-                      initialRequirement.lines.length > 0
-                          ? initialRequirement.lines.map((l) => ({
-                                id: l.id,
-                                position_id: String(l.position_id),
-                                required_headcount: l.required_headcount,
-                                salary_min:
-                                    l.salary_min !== null &&
-                                    l.salary_min !== undefined
-                                        ? String(l.salary_min)
-                                        : '',
-                                salary_max:
-                                    l.salary_max !== null &&
-                                    l.salary_max !== undefined
-                                        ? String(l.salary_max)
-                                        : '',
-                                salary_currency_code:
-                                    l.salary_currency_code ||
-                                    options.currency_code ||
-                                    'AED',
-                                line_notes: l.line_notes || '',
-                            }))
-                          : [{ ...defaultPositionLine }],
+                  ...hydrateRequirementFormFromDetail({
+                      requirement: initialRequirement,
+                      today,
+                      currencyCode: options.currency_code || 'AED',
+                      defaultPositionLine,
+                  }),
                   attachment: null as File | null,
                   force_create: false,
               }
             : {
-                  client_id: '',
-                  project_id: '',
-                  location: '',
-                  assigned_to: '',
-                  notification_recipient_ids: [],
-                  request_received_date: today,
-                  required_by_date: '',
-                  priority: 'normal' as const,
-                  notes: '',
-                  positions: [{ ...defaultPositionLine }],
+                  ...hydrateNewRequirementForm({
+                      today,
+                      defaultPositionLine,
+                  }),
                   attachment: null as File | null,
                   force_create: false,
               };
@@ -514,7 +491,11 @@ export function RequirementFormSheet({
     };
 
     const handleRemovePositionLine = (index: number) => {
-        if (data.positions.length <= 1) {
+        if (!canEditPositionStructure) {
+            return;
+        }
+
+        if (data.positions.length <= 1 && !isPreparationEditable) {
             return;
         }
 
@@ -906,12 +887,12 @@ export function RequirementFormSheet({
                                         data-requirement-field="client_id"
                                     >
                                         <Label className="text-xs font-semibold">
-                                            Client{' '}
-                                            <span className="text-rose-500">
-                                                *
-                                            </span>
+                                            Client
                                         </Label>
                                         <CreatableSelect
+                                            className={invalidControlClass(
+                                                'client_id',
+                                            )}
                                             value={
                                                 data.client_id
                                                     ? String(data.client_id)
@@ -977,6 +958,9 @@ export function RequirementFormSheet({
                                             Project / Site
                                         </Label>
                                         <CreatableSelect
+                                            className={invalidControlClass(
+                                                'project_id',
+                                            )}
                                             value={
                                                 data.project_id
                                                     ? String(data.project_id)
@@ -1076,10 +1060,7 @@ export function RequirementFormSheet({
                                             htmlFor="request_received_date"
                                             className="text-xs font-semibold"
                                         >
-                                            Request Received from Client{' '}
-                                            <span className="text-rose-500">
-                                                *
-                                            </span>
+                                            Request Received from Client
                                         </Label>
                                         <div className="relative">
                                             <Input
@@ -1098,7 +1079,15 @@ export function RequirementFormSheet({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="pr-10"
+                                                aria-invalid={Boolean(
+                                                    errors.request_received_date,
+                                                )}
+                                                className={cn(
+                                                    'pr-10',
+                                                    invalidControlClass(
+                                                        'request_received_date',
+                                                    ),
+                                                )}
                                             />
                                             <Calendar className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         </div>
@@ -1114,10 +1103,7 @@ export function RequirementFormSheet({
                                             htmlFor="required_by_date"
                                             className="text-xs font-semibold"
                                         >
-                                            Required-By Target Date{' '}
-                                            <span className="text-rose-500">
-                                                *
-                                            </span>
+                                            Required-By Target Date
                                         </Label>
                                         <div className="relative">
                                             <Input
@@ -1136,7 +1122,15 @@ export function RequirementFormSheet({
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="pr-10"
+                                                aria-invalid={Boolean(
+                                                    errors.required_by_date,
+                                                )}
+                                                className={cn(
+                                                    'pr-10',
+                                                    invalidControlClass(
+                                                        'required_by_date',
+                                                    ),
+                                                )}
                                             />
                                             <Calendar className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         </div>
@@ -1343,10 +1337,7 @@ export function RequirementFormSheet({
                                                 <div className="grid grid-cols-12 items-start gap-3">
                                                     <div className="col-span-12 space-y-1.5 sm:col-span-6">
                                                         <Label className="text-[11px] font-semibold text-muted-foreground">
-                                                            Position Title{' '}
-                                                            <span className="text-rose-500">
-                                                                *
-                                                            </span>
+                                                            Position Title
                                                         </Label>
                                                         <AppSelect
                                                             value={
@@ -1356,7 +1347,9 @@ export function RequirementFormSheet({
                                                                       )
                                                                     : 'none'
                                                             }
-                                                            disabled={isEditing}
+                                                            disabled={
+                                                                !canEditPositionStructure
+                                                            }
                                                             onValueChange={(
                                                                 val,
                                                             ) =>
@@ -1394,19 +1387,26 @@ export function RequirementFormSheet({
 
                                                     <div className="col-span-8 space-y-1.5 sm:col-span-4">
                                                         <Label className="text-[11px] font-semibold text-muted-foreground">
-                                                            Required Headcount{' '}
-                                                            <span className="text-rose-500">
-                                                                *
-                                                            </span>
+                                                            Required Headcount
                                                         </Label>
                                                         <Input
                                                             type="number"
                                                             min={1}
                                                             max={500}
-                                                            disabled={isEditing}
+                                                            disabled={
+                                                                !canEditPositionStructure
+                                                            }
                                                             value={
                                                                 line.required_headcount
                                                             }
+                                                            aria-invalid={Boolean(
+                                                                anyErrors[
+                                                                    `positions.${index}.required_headcount`
+                                                                ] ||
+                                                                anyErrors[
+                                                                    `lines.${index}.required_headcount`
+                                                                ],
+                                                            )}
                                                             onChange={(e) =>
                                                                 handlePositionChange(
                                                                     index,
@@ -1418,10 +1418,20 @@ export function RequirementFormSheet({
                                                                     ) || 1,
                                                                 )
                                                             }
+                                                            className={
+                                                                anyErrors[
+                                                                    `positions.${index}.required_headcount`
+                                                                ] ||
+                                                                anyErrors[
+                                                                    `lines.${index}.required_headcount`
+                                                                ]
+                                                                    ? 'border-destructive ring-1 ring-destructive/40'
+                                                                    : ''
+                                                            }
                                                         />
                                                     </div>
 
-                                                    {!isEditing && (
+                                                    {canEditPositionStructure && (
                                                         <div className="col-span-4 flex items-end justify-end pt-5 sm:col-span-2">
                                                             <Button
                                                                 type="button"
@@ -1594,7 +1604,9 @@ export function RequirementFormSheet({
                                                         </Label>
                                                         <Input
                                                             placeholder="e.g. Valid BOSIET required, min 3 years offshore experience"
-                                                            disabled={isEditing}
+                                                            disabled={
+                                                                !canEditPositionStructure
+                                                            }
                                                             value={
                                                                 line.line_notes ||
                                                                 ''
@@ -1613,7 +1625,7 @@ export function RequirementFormSheet({
                                             </div>
                                         );
                                     })}
-                                    {!isEditing && (
+                                    {canEditPositionStructure && (
                                         <Button
                                             type="button"
                                             variant="outline"

@@ -2,11 +2,9 @@
 
 namespace App\Actions\Recruitment;
 
-use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
-use App\Models\RecruitmentRequirementLine;
 use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
@@ -14,8 +12,8 @@ use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
 use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use App\Support\Recruitment\SendRequirementLifecycleEmails;
+use App\Support\Recruitment\SyncDraftRequirementPositionLines;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
-use App\Support\Settings\CompanyCurrency;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -96,60 +94,11 @@ final class UpdateRequirementAction
                     $locked->update($updates);
 
                     if (array_key_exists('lines', $data) && is_array($data['lines'])) {
-                        $companyCurrency = CompanyCurrency::codeForCompany($companyId);
-                        $existingLines = $locked->lines()->lockForUpdate()->get();
-
-                        foreach ($data['lines'] as $lineInput) {
-                            if (! is_array($lineInput) || ! filled($lineInput['position_id'] ?? null)) {
-                                continue;
-                            }
-
-                            /** @var RecruitmentRequirementLine|null $targetLine */
-                            $targetLine = null;
-                            if (! empty($lineInput['id'])) {
-                                $targetLine = $existingLines->firstWhere('id', (int) $lineInput['id']);
-                            }
-
-                            if ($targetLine === null) {
-                                $targetLine = $existingLines->firstWhere('position_id', (int) $lineInput['position_id']);
-                            }
-
-                            $hasSalary = (isset($lineInput['salary_min']) && $lineInput['salary_min'] !== null && $lineInput['salary_min'] !== '')
-                                || (isset($lineInput['salary_max']) && $lineInput['salary_max'] !== null && $lineInput['salary_max'] !== '');
-
-                            if ($targetLine !== null) {
-                                $updates = [];
-                                if (array_key_exists('salary_min', $lineInput)) {
-                                    $updates['salary_min'] = $lineInput['salary_min'] !== null && $lineInput['salary_min'] !== '' ? $lineInput['salary_min'] : null;
-                                }
-                                if (array_key_exists('salary_max', $lineInput)) {
-                                    $updates['salary_max'] = $lineInput['salary_max'] !== null && $lineInput['salary_max'] !== '' ? $lineInput['salary_max'] : null;
-                                }
-                                if (array_key_exists('salary_min', $updates) || array_key_exists('salary_max', $updates)) {
-                                    $updates['salary_currency_code'] = $hasSalary ? $companyCurrency : null;
-                                }
-                                if (array_key_exists('line_notes', $lineInput)) {
-                                    $updates['line_notes'] = $lineInput['line_notes'];
-                                }
-
-                                if (! empty($updates)) {
-                                    $targetLine->update($updates);
-                                }
-                            } else {
-                                $created = RecruitmentRequirementLine::create([
-                                    'company_id' => $companyId,
-                                    'recruitment_requirement_id' => $locked->id,
-                                    'position_id' => (int) $lineInput['position_id'],
-                                    'required_headcount' => (int) ($lineInput['required_headcount'] ?? 1),
-                                    'line_notes' => $lineInput['line_notes'] ?? null,
-                                    'status' => RequirementLineStatus::Open,
-                                    'salary_min' => isset($lineInput['salary_min']) && $lineInput['salary_min'] !== '' ? $lineInput['salary_min'] : null,
-                                    'salary_max' => isset($lineInput['salary_max']) && $lineInput['salary_max'] !== '' ? $lineInput['salary_max'] : null,
-                                    'salary_currency_code' => $hasSalary ? $companyCurrency : null,
-                                ]);
-                                $existingLines->push($created);
-                            }
-                        }
+                        SyncDraftRequirementPositionLines::sync(
+                            $locked,
+                            $data['lines'],
+                            $companyId,
+                        );
                     }
                 } elseif ($locked->status->allowsPendingReassignment()) {
                     if (! array_key_exists('assigned_to', $data) || $data['assigned_to'] === null || $data['assigned_to'] === '') {
