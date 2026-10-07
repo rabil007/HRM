@@ -19,6 +19,7 @@ const filters: RequirementFilters = {
     assigned_to: null,
     priority: 'urgent',
     deadline_health: 'overdue',
+    needs_action: 'deadline_extension',
     per_page: 15,
 };
 
@@ -37,7 +38,13 @@ describe('requirement workspace helpers', () => {
 
         assert.deepEqual(
             chips.map((chip) => chip.key),
-            ['search', 'client_id', 'priority', 'deadline_health'],
+            [
+                'search',
+                'client_id',
+                'priority',
+                'deadline_health',
+                'needs_action',
+            ],
         );
         assert.equal(hasRequirementActiveFilters(filters, 'rigger'), true);
         assert.deepEqual(clearAllRequirementFilters(), {
@@ -47,6 +54,7 @@ describe('requirement workspace helpers', () => {
             assigned_to: null,
             priority: null,
             deadline_health: null,
+            needs_action: null,
             search: '',
         });
     });
