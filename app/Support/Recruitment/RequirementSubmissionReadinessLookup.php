@@ -130,6 +130,8 @@ final class RequirementSubmissionReadinessLookup
             'project' => fn ($query) => $query->withTrashed()->select('id', 'title', 'is_active', 'deleted_at'),
             'project.clients:id',
             'assignedRecruiter:id,name',
+            'pendingDeadlineExtension.requestedBy:id,name',
+            'pendingDeadlineExtension.decidedBy:id,name',
             'repeatedFrom:id,requirement_number',
             'lines.position' => fn ($query) => $query->withTrashed()->select('id', 'title', 'company_id', 'status', 'deleted_at'),
         ];

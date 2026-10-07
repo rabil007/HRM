@@ -129,6 +129,17 @@ final class EmailTemplatePreview
                 placeholders: $placeholders,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'requirement_deadline_extension_requested',
+            'requirement_deadline_extension_approved',
+            'requirement_deadline_extension_rejected',
+            'requirement_deadline_extended_by_requester' => $this->renderRequirementDeadlineExtension(
+                slug: $slug,
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             'crew_movement_correction_decided' => $this->renderCrewMovementCorrectionDecided(
                 subject: $renderedSubject,
                 organizationName: $organizationName,
@@ -344,6 +355,10 @@ final class EmailTemplatePreview
             '{{target_date}}' => now()->addDays(3)->format('d M Y'),
             '{{heading}}' => 'Target Date reminder — due in 3 days',
             '{{milestone_label}}' => 'due in 3 days',
+            '{{old_deadline}}' => now()->addDays(8)->format('d M Y'),
+            '{{new_deadline}}' => now()->addDays(18)->format('d M Y'),
+            '{{reason}}' => 'Candidate availability requires additional sourcing time.',
+            '{{note}}' => 'Please source from the additional market.',
             '{{status}}' => 'Approved',
             '{{assignment_no}}' => 'CA-1001',
             '{{phase_label}}' => 'Onboard',
@@ -469,6 +484,48 @@ final class EmailTemplatePreview
                 ['label' => 'Status', 'value' => $placeholders['{{days_label}}']],
             ],
             'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementDeadlineExtension(
+        string $slug,
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        $heading = match ($slug) {
+            'requirement_deadline_extension_requested' => 'Deadline extension requires your approval',
+            'requirement_deadline_extension_approved' => 'Deadline extension approved',
+            'requirement_deadline_extension_rejected' => 'Deadline extension rejected',
+            default => 'Requirement deadline updated by requester',
+        };
+
+        $details = [
+            ...$this->sampleRequirementDetails($placeholders),
+            ['label' => 'Current deadline', 'value' => $placeholders['{{old_deadline}}']],
+            ['label' => 'Requested deadline', 'value' => $placeholders['{{new_deadline}}']],
+        ];
+
+        if ($slug === 'requirement_deadline_extension_requested') {
+            $details[] = ['label' => 'Requested by', 'value' => $placeholders['{{recruiter_name}}']];
+            $details[] = ['label' => 'Reason', 'value' => $placeholders['{{reason}}']];
+        }
+
+        return View::make('mail.requirement-deadline-extension', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'heading' => $heading,
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'details' => $details,
+            'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'ctaLabel' => $slug === 'requirement_deadline_extension_requested' ? 'Review request' : 'View requirement',
             'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }

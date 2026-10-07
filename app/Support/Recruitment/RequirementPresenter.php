@@ -6,6 +6,7 @@ use App\Enums\Recruitment\RequirementDeadlineHealth;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
+use App\Models\RecruitmentRequirementDeadlineExtension;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
 use Carbon\Carbon;
@@ -65,6 +66,28 @@ final class RequirementPresenter
 
         // Draft/Returned preparation belongs to the creator. Permissions alone do not grant control.
         $canEdit = $canUpdate && $isEditable && ($user === null || $isCreator);
+
+        $pendingExtension = $requirement->relationLoaded('pendingDeadlineExtension')
+            ? $requirement->pendingDeadlineExtension
+            : null;
+        $pendingExtensionPayload = $pendingExtension instanceof RecruitmentRequirementDeadlineExtension
+            ? RequirementDeadlineExtensionPresenter::toArray($pendingExtension)
+            : null;
+
+        $canDirectlyExtend = $user !== null
+            && RequirementWorkflowAuthorization::canDirectlyExtendDeadline($user, $requirement);
+        $canRequestExtension = $user !== null
+            && RequirementWorkflowAuthorization::canRequestDeadlineExtension($user, $requirement)
+            && $pendingExtensionPayload === null;
+        $canDecideExtension = $user !== null
+            && RequirementWorkflowAuthorization::canDecideDeadlineExtension($user, $requirement)
+            && $pendingExtensionPayload !== null;
+
+        $deadlineExtensionMode = $canDirectlyExtend
+            ? 'direct'
+            : ($canRequestExtension ? 'request' : null);
+
+        $canExtend = $deadlineExtensionMode !== null;
 
         // Draft/Returned audited adjustments stay requester-owned; Open/OnHold remain update-permission based.
         $canAdjustWhileEditable = $canUpdate && ($user === null || ! $isEditable || $isCreator);
@@ -128,7 +151,7 @@ final class RequirementPresenter
             'positions_count' => count($positionsSummary),
             'repeated_from_id' => $requirement->repeated_from_id !== null ? (int) $requirement->repeated_from_id : null,
             'repeated_from_number' => $requirement->repeatedFrom?->requirement_number,
-            'next_action' => self::computeNextAction($requirement, $deadlineHealth, $user),
+            'next_action' => self::computeNextAction($requirement, $deadlineHealth, $user, $canDecideExtension),
             'can_edit' => $canEdit,
             'can_submit' => $canSubmit,
             'can_approve' => $canApprove,
@@ -137,8 +160,11 @@ final class RequirementPresenter
             'can_open' => false,
             'can_hold' => $canUpdate && $requirement->status === RequirementStatus::Open,
             'can_resume' => $canUpdate && $requirement->status === RequirementStatus::OnHold,
-            'can_extend' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_extend_deadline' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend' => $canExtend,
+            'can_extend_deadline' => $canExtend,
+            'deadline_extension_mode' => $deadlineExtensionMode,
+            'can_decide_deadline_extension' => $canDecideExtension,
+            'pending_deadline_extension' => $pendingExtensionPayload,
             'can_change_headcount' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
@@ -217,7 +243,12 @@ final class RequirementPresenter
             ->values()
             ->all();
 
+        $deadlineExtensions = $requirement->relationLoaded('deadlineExtensions')
+            ? $requirement->deadlineExtensions
+            : collect();
+
         return array_merge($base, $duration, [
+            'deadline_extensions' => RequirementDeadlineExtensionPresenter::history($deadlineExtensions),
             'notes' => $requirement->notes,
             'cancellation_reason' => $requirement->cancellation_reason,
             'return_reason' => $requirement->return_reason,
@@ -313,7 +344,12 @@ final class RequirementPresenter
         RecruitmentRequirement $requirement,
         ?RequirementDeadlineHealth $health,
         ?User $user = null,
+        bool $canDecideDeadlineExtension = false,
     ): string {
+        if ($canDecideDeadlineExtension) {
+            return 'review_deadline_extension';
+        }
+
         return match ($requirement->status) {
             RequirementStatus::Draft => ($user === null || RequirementWorkflowAuthorization::canSubmit($user, $requirement))
                 ? 'submit'

@@ -180,7 +180,11 @@ export function RequirementActionMenu({
                             className="h-4 w-4 text-muted-foreground"
                             aria-hidden="true"
                         />
-                        <span>Extend deadline</span>
+                        <span>
+                            {row.deadline_extension_mode === 'request'
+                                ? 'Request deadline extension'
+                                : 'Extend deadline'}
+                        </span>
                     </DropdownMenuItem>
                 ) : null}
 

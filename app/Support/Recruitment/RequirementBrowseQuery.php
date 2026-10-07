@@ -43,18 +43,30 @@ final class RequirementBrowseQuery
         $priority = $priority !== null && $priority !== '' ? (string) $priority : null;
         $deadlineHealth = $request->query('deadline_health');
         $deadlineHealth = $deadlineHealth !== null && $deadlineHealth !== '' ? (string) $deadlineHealth : null;
+        $needsAction = $request->query('needs_action');
+        $needsAction = $needsAction !== null && $needsAction !== '' ? (string) $needsAction : null;
 
         // Base builder for list query
         $query = RecruitmentRequirement::query()
             ->where('company_id', $companyId)
             ->with(RequirementSubmissionReadinessLookup::eagerLoad());
 
-        // Tab scoping
-        match ($currentTab) {
-            'on_hold' => $query->where('status', RequirementStatus::OnHold),
-            'history' => $query->whereIn('status', RequirementStatus::historyListStatuses()),
-            default => $query->whereIn('status', RequirementStatus::activeListStatuses()),
-        };
+        if ($needsAction === 'deadline_extension') {
+            $actorId = $request->user()?->id;
+            if ($actorId !== null) {
+                $query->where('created_by', (int) $actorId)
+                    ->whereIn('status', [RequirementStatus::Open, RequirementStatus::OnHold])
+                    ->whereHas('pendingDeadlineExtension');
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            match ($currentTab) {
+                'on_hold' => $query->where('status', RequirementStatus::OnHold),
+                'history' => $query->whereIn('status', RequirementStatus::historyListStatuses()),
+                default => $query->whereIn('status', RequirementStatus::activeListStatuses()),
+            };
+        }
 
         // Search
         if ($search !== '') {
@@ -166,6 +178,7 @@ final class RequirementBrowseQuery
                 'assigned_to' => $assignedTo,
                 'priority' => $priority,
                 'deadline_health' => $deadlineHealth,
+                'needs_action' => $needsAction,
             ],
             'search' => $search,
         ];

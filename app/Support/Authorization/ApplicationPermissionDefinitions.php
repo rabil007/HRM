@@ -1866,7 +1866,7 @@ final class ApplicationPermissionDefinitions
             317 => [
                 'name' => 'recruitment.requirements.update',
                 'label' => 'Update Recruitment Requirements',
-                'description' => 'Allows the user to update requirement details, put requirements on hold, resume them, extend deadlines, and adjust headcounts.',
+                'description' => 'Allows the user to update requirement details, put requirements on hold, resume them, extend their own requirement deadlines, and adjust headcounts.',
                 'group' => 'Recruitment',
             ],
             318 => [
@@ -1957,6 +1957,12 @@ final class ApplicationPermissionDefinitions
                 'name' => 'recruitment.requirements.approve',
                 'label' => 'Approve Recruitment Requirements',
                 'description' => 'Allows the user to approve or return submitted recruitment requirements for the active company.',
+                'group' => 'Recruitment',
+            ],
+            333 => [
+                'name' => 'recruitment.requirements.request_deadline_extension',
+                'label' => 'Request Requirement Deadline Extensions',
+                'description' => 'Allows the assigned recruiter to request a deadline extension that the requirement requester must approve before the official deadline changes.',
                 'group' => 'Recruitment',
             ],
         ];

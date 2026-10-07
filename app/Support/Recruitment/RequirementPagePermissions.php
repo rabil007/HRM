@@ -19,6 +19,7 @@ final class RequirementPagePermissions
      *     download_attachments: bool,
      *     repeat: bool,
      *     view_audit: bool,
+     *     request_deadline_extension: bool,
      * }
      */
     public static function for(?User $user): array
@@ -38,6 +39,7 @@ final class RequirementPagePermissions
             'download_attachments' => (bool) $user?->can('recruitment.requirements.attachments.download'),
             'repeat' => $canView && $canCreate,
             'view_audit' => (bool) $user?->can('audit.view'),
+            'request_deadline_extension' => (bool) $user?->can('recruitment.requirements.request_deadline_extension'),
         ];
     }
 }

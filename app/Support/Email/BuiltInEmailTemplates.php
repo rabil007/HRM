@@ -75,6 +75,10 @@ final class BuiltInEmailTemplates
             'requirement_returned',
             'requirement_target_date_three_days_before',
             'requirement_target_date_due_today',
+            'requirement_deadline_extension_requested',
+            'requirement_deadline_extension_approved',
+            'requirement_deadline_extension_rejected',
+            'requirement_deadline_extended_by_requester',
             'crew_movement_correction_decided' => [
                 ...$defaults,
                 'to_preset' => false,
@@ -162,6 +166,10 @@ final class BuiltInEmailTemplates
             'requirement_returned' => self::requirementReturned(),
             'requirement_target_date_three_days_before' => self::requirementTargetDateThreeDaysBefore(),
             'requirement_target_date_due_today' => self::requirementTargetDateDueToday(),
+            'requirement_deadline_extension_requested' => self::requirementDeadlineExtensionRequested(),
+            'requirement_deadline_extension_approved' => self::requirementDeadlineExtensionApproved(),
+            'requirement_deadline_extension_rejected' => self::requirementDeadlineExtensionRejected(),
+            'requirement_deadline_extended_by_requester' => self::requirementDeadlineExtendedByRequester(),
             'crew_movement_correction_decided' => self::crewMovementCorrectionDecided(),
         ];
     }
@@ -187,6 +195,10 @@ final class BuiltInEmailTemplates
             '{{target_date}}',
             '{{heading}}',
             '{{milestone_label}}',
+            '{{old_deadline}}',
+            '{{new_deadline}}',
+            '{{reason}}',
+            '{{note}}',
         ];
     }
 
@@ -1213,6 +1225,90 @@ HTML,
             'subject' => $subject,
             'body_html' => $body,
             'sort_order' => 35,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementDeadlineExtensionRequested(): array
+    {
+        $subject = 'Deadline extension requires your approval — {{requirement_number}}';
+        $body = '{{recruiter_name}} requested a deadline extension for {{requirement_number}} from {{old_deadline}} to {{new_deadline}}.';
+
+        return self::base([
+            'label' => 'Requirement deadline extension requested',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 36,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementDeadlineExtensionApproved(): array
+    {
+        $subject = 'Deadline extension approved — {{requirement_number}}';
+        $body = '{{approver_name}} approved the deadline extension for {{requirement_number}}. Deadline updated: {{old_deadline}} -> {{new_deadline}}.';
+
+        return self::base([
+            'label' => 'Requirement deadline extension approved',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 37,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementDeadlineExtensionRejected(): array
+    {
+        $subject = 'Deadline extension rejected — {{requirement_number}}';
+        $body = '{{approver_name}} rejected the deadline extension for {{requirement_number}}. Deadline remains {{old_deadline}}.';
+
+        return self::base([
+            'label' => 'Requirement deadline extension rejected',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 38,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementDeadlineExtendedByRequester(): array
+    {
+        $subject = 'Requirement deadline updated by requester — {{requirement_number}}';
+        $body = '{{approver_name}} updated the deadline for {{requirement_number}} from {{old_deadline}} to {{new_deadline}}.';
+
+        return self::base([
+            'label' => 'Requirement deadline updated by requester',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 39,
             'placeholders' => self::requirementPlaceholders(),
             'legacy_defaults' => [
                 ['subject' => $subject, 'body_html' => $body],

@@ -2,6 +2,7 @@
 
 use App\Mail\FailedQueueJobMail;
 use App\Mail\LeaveRequestSubmittedMail;
+use App\Mail\RequirementDeadlineExtensionMail;
 use App\Mail\RequirementSubmittedForApprovalMail;
 use Illuminate\Support\Facades\View;
 
@@ -82,6 +83,32 @@ test('recruitment requirement mail stacks detail rows for mobile', function () {
         ->toContain('email-button')
         ->toContain('REQ-1001')
         ->toContain('Acme Shipping');
+});
+
+test('requirement deadline extension mail stacks detail rows for mobile', function () {
+    $html = (new RequirementDeadlineExtensionMail(
+        subjectLine: 'Deadline extension requires your approval',
+        organizationName: 'OMS-HRM',
+        requirementNumber: 'REQ-0041',
+        heading: 'Deadline extension requires your approval',
+        details: [
+            ['label' => 'Current deadline', 'value' => '15 Oct 2026'],
+            ['label' => 'Requested deadline', 'value' => '25 Oct 2026'],
+        ],
+        requirementUrl: 'https://example.test/requirements/1',
+        ctaLabel: 'Review request',
+        includeCompanyFooter: false,
+    ))->render();
+
+    expect($html)
+        ->toContain('@media only screen and (max-width: 620px)')
+        ->toContain('email-section')
+        ->toContain('email-detail-row')
+        ->toContain('email-detail-label')
+        ->toContain('email-detail-value')
+        ->toContain('email-btn-link')
+        ->toContain('REQ-0041')
+        ->toContain('Review request');
 });
 
 test('failed queue job mail stacks detail rows for mobile', function () {

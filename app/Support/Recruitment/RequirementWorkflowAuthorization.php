@@ -63,6 +63,91 @@ final class RequirementWorkflowAuthorization
             && $requirement->status === RequirementStatus::PendingApproval;
     }
 
+    public static function canDirectlyExtendDeadline(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.update')
+            && self::isCreator($user, $requirement)
+            && $requirement->status->allowsAuditedAdjustments();
+    }
+
+    public static function canRequestDeadlineExtension(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.request_deadline_extension')
+            && self::isAssignedRecruiter($user, $requirement)
+            && ! self::isCreator($user, $requirement)
+            && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
+            && $requirement->required_by_date !== null;
+    }
+
+    public static function canDecideDeadlineExtension(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.view')
+            && self::isCreator($user, $requirement);
+    }
+
+    public static function assertCanDirectlyExtendDeadline(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! $user->can('recruitment.requirements.update')) {
+            throw ValidationException::withMessages([
+                'status' => 'You do not have permission to extend this deadline.',
+            ]);
+        }
+
+        if (! $requirement->status->allowsAuditedAdjustments()) {
+            throw ValidationException::withMessages([
+                'status' => "Deadline cannot be extended for {$requirement->status->label()} requirement.",
+            ]);
+        }
+
+        if (! self::isCreator($user, $requirement)) {
+            throw ValidationException::withMessages([
+                'status' => 'Only the requirement requester can extend this deadline directly.',
+            ]);
+        }
+    }
+
+    public static function assertCanRequestDeadlineExtension(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! $user->can('recruitment.requirements.request_deadline_extension')) {
+            throw ValidationException::withMessages([
+                'status' => 'You do not have permission to request a deadline extension.',
+            ]);
+        }
+
+        if (! in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)) {
+            throw ValidationException::withMessages([
+                'status' => "A deadline extension cannot be requested for {$requirement->status->label()} requirement.",
+            ]);
+        }
+
+        if (! self::isAssignedRecruiter($user, $requirement) || self::isCreator($user, $requirement)) {
+            throw ValidationException::withMessages([
+                'status' => 'Only the assigned recruiter can request a deadline extension.',
+            ]);
+        }
+
+        if ($requirement->required_by_date === null) {
+            throw ValidationException::withMessages([
+                'new_date' => 'This requirement does not have a deadline to extend.',
+            ]);
+        }
+    }
+
+    public static function assertCanDecideDeadlineExtension(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! $user->can('recruitment.requirements.view')) {
+            throw ValidationException::withMessages([
+                'status' => 'You do not have permission to review this deadline extension.',
+            ]);
+        }
+
+        if (! self::isCreator($user, $requirement)) {
+            throw ValidationException::withMessages([
+                'status' => 'Only the requirement requester can approve or reject this deadline extension.',
+            ]);
+        }
+    }
+
     public static function assertCanPrepare(User $user, RecruitmentRequirement $requirement): void
     {
         if (! $user->can('recruitment.requirements.update')) {

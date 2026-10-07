@@ -9,6 +9,7 @@ export type RequirementIndexQuickActionHandlers = {
     onResume: (row: RequirementIndexRow) => void;
     onFill: (row: RequirementIndexRow) => void;
     onExtend: (row: RequirementIndexRow) => void;
+    onReviewDeadlineExtension: (row: RequirementIndexRow) => void;
     onRepeat: (row: RequirementIndexRow) => void;
 };
 
@@ -77,6 +78,24 @@ export function RequirementIndexQuickAction({
             >
                 <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
                 Resume
+            </Button>
+        );
+    }
+
+    if (
+        row.next_action === 'review_deadline_extension' &&
+        row.can_decide_deadline_extension
+    ) {
+        return (
+            <Button
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => handlers.onReviewDeadlineExtension(row)}
+                className="h-8 gap-1 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+            >
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                Review
             </Button>
         );
     }

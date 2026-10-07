@@ -9,6 +9,46 @@ use Illuminate\Support\Facades\Artisan;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
+
+/**
+ * @return array{company: Company, role: Role}
+ */
+function makeRecruitmentPermissionRole(string $name, string $slug, string $code): array
+{
+    $country = Country::query()->create([
+        'code' => $code,
+        'name' => "{$name} Land",
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+    $currency = Currency::query()->firstOrCreate(
+        ['code' => 'AED'],
+        [
+            'name' => 'Dirham',
+            'symbol' => 'د.إ',
+            'is_active' => true,
+        ],
+    );
+    $company = Company::query()->create([
+        'name' => $name,
+        'slug' => $slug,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Recruiter Role',
+        'guard_name' => 'web',
+    ]);
+
+    return ['company' => $company, 'role' => $role];
+}
 
 test('permissions seeder creates expected permissions and is idempotent', function () {
     expect(Permission::query()->count())->toBeGreaterThanOrEqual(0);
@@ -37,6 +77,7 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'crew_operations.settings.update')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.submit')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.approve')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.requirements.request_deadline_extension')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -63,6 +104,7 @@ test('permission metadata follows current module categories without changing nam
         'crew_operations.vessels.view' => 'Crew Operations',
         'recruitment.requirements.submit' => 'Recruitment',
         'recruitment.requirements.approve' => 'Recruitment',
+        'recruitment.requirements.request_deadline_extension' => 'Recruitment',
     ];
 
     foreach ($groups as $name => $group) {
@@ -206,7 +248,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 9
+                return $recruitmentOptions->count() === 10
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -219,7 +261,85 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->get('recruitment.requirements.submit')['group'] === 'Recruitment'
                     && $options->has('recruitment.requirements.approve')
                     && $options->get('recruitment.requirements.approve')['label'] === 'Approve Recruitment Requirements'
-                    && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment';
+                    && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment'
+                    && $options->has('recruitment.requirements.request_deadline_extension')
+                    && $options->get('recruitment.requirements.request_deadline_extension')['label'] === 'Request Requirement Deadline Extensions'
+                    && $options->get('recruitment.requirements.request_deadline_extension')['group'] === 'Recruitment';
             }),
         );
+});
+
+test('permissions seeder does not grant request_deadline_extension to roles that only have approve', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Approve Only Co',
+        'approve-only-permissions',
+        'AOR',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions(['recruitment.requirements.approve']);
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->not->toContain('recruitment.requirements.request_deadline_extension');
+});
+
+test('permissions seeder does not restore request_deadline_extension after an administrator removes it', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Revoked Deadline Co',
+        'revoked-deadline-permissions',
+        'RDC',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions([
+        'recruitment.requirements.approve',
+        'recruitment.requirements.request_deadline_extension',
+    ]);
+    $role->revokePermissionTo('recruitment.requirements.request_deadline_extension');
+
+    $namesBeforeSeed = $role->fresh()->permissions()->pluck('name');
+
+    expect($namesBeforeSeed)->toContain('recruitment.requirements.approve')
+        ->and($namesBeforeSeed)->not->toContain('recruitment.requirements.request_deadline_extension');
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->not->toContain('recruitment.requirements.request_deadline_extension');
+});
+
+test('permissions seeder preserves an explicitly configured pair of approve and request_deadline_extension', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Both Deadline Co',
+        'both-deadline-permissions',
+        'BDC',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions([
+        'recruitment.requirements.approve',
+        'recruitment.requirements.request_deadline_extension',
+    ]);
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->toContain('recruitment.requirements.request_deadline_extension');
 });

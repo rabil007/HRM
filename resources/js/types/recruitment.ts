@@ -19,6 +19,36 @@ export type RecruitmentClockState =
 
 export type RecruitmentStartSource = 'approved_at' | 'opened_at';
 
+export type DeadlineExtensionStatus =
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'cancelled';
+
+export type DeadlineExtensionInitiator = 'requester' | 'recruiter';
+
+export type DeadlineExtensionMode = 'direct' | 'request';
+
+export type RequirementDeadlineExtension = {
+    id: number;
+    initiator: DeadlineExtensionInitiator;
+    initiator_label: string;
+    status: DeadlineExtensionStatus;
+    status_label: string;
+    old_deadline: string | null;
+    old_deadline_formatted: string;
+    requested_deadline: string | null;
+    requested_deadline_formatted: string;
+    reason: string | null;
+    decision_note: string | null;
+    requested_by: number | null;
+    requested_by_name: string | null;
+    decided_by: number | null;
+    decided_by_name: string | null;
+    requested_at_formatted: string;
+    decided_at_formatted: string | null;
+};
+
 export type RequirementNotificationRecipient = {
     id: number;
     name: string;
@@ -89,6 +119,7 @@ export type RequirementIndexRow = {
         | 'open'
         | 'fill'
         | 'extend'
+        | 'review_deadline_extension'
         | 'resume'
         | 'repeat'
         | 'view';
@@ -101,6 +132,10 @@ export type RequirementIndexRow = {
     can_hold: boolean;
     can_resume: boolean;
     can_extend: boolean;
+    can_extend_deadline?: boolean;
+    deadline_extension_mode?: DeadlineExtensionMode | null;
+    can_decide_deadline_extension?: boolean;
+    pending_deadline_extension?: RequirementDeadlineExtension | null;
     can_change_headcount: boolean;
     can_fill: boolean;
     can_cancel: boolean;
@@ -175,6 +210,7 @@ export type RequirementDetail = RequirementIndexRow & {
         percentage: number;
         is_target_reached: boolean;
     };
+    deadline_extensions?: RequirementDeadlineExtension[];
 };
 
 export type RequirementPagePermissions = {
@@ -189,6 +225,7 @@ export type RequirementPagePermissions = {
     download_attachments: boolean;
     repeat: boolean;
     view_audit: boolean;
+    request_deadline_extension?: boolean;
 };
 
 export type ClientOption = {
@@ -237,6 +274,7 @@ export type RequirementFilters = {
     assigned_to?: string | number | null;
     priority?: string | null;
     deadline_health?: string | null;
+    needs_action?: string | null;
     per_page?: number | null;
 };
 

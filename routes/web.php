@@ -192,6 +192,8 @@ use App\Http\Controllers\Organization\Recruitment\RequirementCancelController;
 use App\Http\Controllers\Organization\Recruitment\RequirementChangeHeadcountController;
 use App\Http\Controllers\Organization\Recruitment\RequirementCheckSimilarController;
 use App\Http\Controllers\Organization\Recruitment\RequirementController;
+use App\Http\Controllers\Organization\Recruitment\RequirementDeadlineExtensionApproveController;
+use App\Http\Controllers\Organization\Recruitment\RequirementDeadlineExtensionRejectController;
 use App\Http\Controllers\Organization\Recruitment\RequirementExtendDeadlineController;
 use App\Http\Controllers\Organization\Recruitment\RequirementFillController;
 use App\Http\Controllers\Organization\Recruitment\RequirementHoldController;
@@ -549,8 +551,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.resume');
     Route::post('organization/recruitment/requirements/{requirement}/extend-deadline', RequirementExtendDeadlineController::class)
-        ->middleware('can:recruitment.requirements.update')
+        ->middleware('can:recruitment.requirements.view')
         ->name('organization.recruitment.requirements.extend-deadline');
+    Route::post('organization/recruitment/requirements/{requirement}/deadline-extensions/{deadline_extension}/approve', RequirementDeadlineExtensionApproveController::class)
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.deadline-extensions.approve');
+    Route::post('organization/recruitment/requirements/{requirement}/deadline-extensions/{deadline_extension}/reject', RequirementDeadlineExtensionRejectController::class)
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.deadline-extensions.reject');
     Route::post('organization/recruitment/requirements/{requirement}/change-headcount', RequirementChangeHeadcountController::class)
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.change-headcount');

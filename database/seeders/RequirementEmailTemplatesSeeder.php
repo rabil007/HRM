@@ -17,6 +17,10 @@ class RequirementEmailTemplatesSeeder extends Seeder
         'requirement_returned',
         'requirement_target_date_three_days_before',
         'requirement_target_date_due_today',
+        'requirement_deadline_extension_requested',
+        'requirement_deadline_extension_approved',
+        'requirement_deadline_extension_rejected',
+        'requirement_deadline_extended_by_requester',
     ];
 
     public function run(): void
