@@ -4,7 +4,7 @@
 
 @section('content')
     <tr>
-        <td class="email-border" style="padding:28px 32px 16px;border-bottom:1px solid #e4e4e7;">
+        <td class="email-border email-section" style="padding:28px 32px 16px;border-bottom:1px solid #e4e4e7;">
             <p class="email-kicker" style="margin:0 0 8px;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#71717a;">
                 {{ $organizationName }}
             </p>
@@ -14,7 +14,7 @@
         </td>
     </tr>
     <tr>
-        <td style="padding:24px 32px;">
+        <td class="email-section" style="padding:24px 32px;">
             <div class="email-text" style="margin:0;font-size:15px;line-height:1.7;color:#3f3f46;">
                 {!! \App\Support\Email\EmailTemplateBodyRenderer::toHtml($bodyMessage) !!}
             </div>

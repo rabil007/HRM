@@ -9,7 +9,7 @@
 
 @section('content')
     <tr>
-        <td class="email-border" style="padding:28px 32px 20px;border-bottom:1px solid #e4e4e7;text-align:center;">
+        <td class="email-border email-section" style="padding:28px 32px 20px;border-bottom:1px solid #e4e4e7;text-align:center;">
             @if (filled($mailBranding['logo_src'] ?? null))
                 <img
                     src="{{ $mailBranding['logo_src'] }}"
@@ -28,7 +28,7 @@
         </td>
     </tr>
     <tr>
-        <td style="padding:28px 32px 8px;">
+        <td class="email-section" style="padding:28px 32px 8px;">
             @if (isset($body) && filled($body))
                 <div class="email-text" style="margin:0;font-size:15px;line-height:1.7;color:#3f3f46;">
                     {!! $body !!}
@@ -41,7 +41,7 @@
                     We received a request to reset the password for your account. Use the button below to choose a new password.
                 </p>
 
-                <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" align="center" width="100%" style="margin:0 auto 24px;">
                     <tr>
                         <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
                             <a
@@ -66,7 +66,7 @@
     </tr>
     @if (!isset($body) || empty($body))
     <tr>
-        <td class="email-border" style="padding:20px 32px 28px;border-top:1px solid #e4e4e7;">
+        <td class="email-border email-section" style="padding:20px 32px 28px;border-top:1px solid #e4e4e7;">
             <p class="email-muted" style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#71717a;">
                 If the button does not work, copy and paste this link into your browser:
             </p>

@@ -74,11 +74,51 @@ The Email Templates UI hides unused controls for these slugs. The unused `email_
 
 The Email Templates dashboard shows **Daily Compliance Schedule** as the shared scheduler time for both Employee and Company Document expiry checks. It is not an enabled/disabled indicator for either domain. Employee Document delivery depends on `document_expiry_alert.enabled` **and** at least one enabled company Notification Routing rule with a valid TO recipient. Company Document delivery depends on each company's own notification setting.
 
-Shared `mail.layout` supplies logo, company name, footer, and contact information. Template bodies should not duplicate that footer.
+Shared `mail.layout` supplies logo, company name, footer, contact information, and **mobile responsive CSS** (`@media` ≤620px). Template bodies should not duplicate that footer and must not invent a second HTML shell.
 
 ### Recipients table migration
 
 `company_document_expiry_notification_recipients` is created or repaired in place. Existing valid recipient rows are not dropped. The repair adds missing timestamp columns, normalizes duplicate `(setting_id, user_id, type)` rows before restoring the unique index, and restores required indexes/foreign keys. Orphaned references or other integrity problems fail the migration visibly instead of allowing an incomplete production schema to pass silently. A later additive migration (`ensure_company_document_expiry_notification_recipients_schema`) is a no-op when the table is already correct.
+
+## New module emails (required pattern)
+
+When a new domain adds email, **reuse the shared shell** — do not design a one-off layout. Agents and humans should follow this checklist so every outbound HTML email looks consistent on desktop and mobile.
+
+### Choose the delivery style
+
+| Style | When to use | Canonical examples |
+| ----- | ----------- | ------------------ |
+| **Editable Email Template** | Business / HR wording admins may customize (subject, body, placeholders) | Leave request emails, payslip delivery, document recipient action, user invitation |
+| **Hard-coded Mailable + Blade** | Structured workflow UI (detail rows, system tables) where admins should not edit HTML | Recruitment requirement lifecycle, document expiry summaries, failed queue job |
+| **Keep hard-coded forever** | Ops / diagnostics only | SMTP test, failed queue job |
+
+Prefer **Editable Email Template** for new business workflows (same path as leave). Prefer hard-coded Blade only when the body is a fixed structured UI (expiry tables, requirement detail cards).
+
+### Checklist (every new HTML email)
+
+1. **Shell** — `@extends('mail.layout', ['includeCompanyFooter' => …])`. Never send bare HTML without this layout (except rare `htmlString` bodies that are themselves full documents built through an existing composer that already wraps branding).
+2. **Branding** — Do not hardcode logo, company address, or copyright in the content Blade; `mail.layout` + `mail.partials.branding-footer` own that.
+3. **Mobile classes** (required on content blades):
+   - `email-section` on padded content cells
+   - `email-detail-row` / `email-detail-label` / `email-detail-value` for key/value detail tables
+   - `email-btn-cell` / `email-btn-link` (or `email-button`) for CTAs
+   - `email-table-scroll` around wide multi-column data tables (expiry-style grids)
+   - `email-heading` / `email-text` for title and body copy
+4. **No second CSS framework** — rely on layout media queries; do not paste a new `<style>` block per template unless the layout truly cannot express the need.
+5. **Editable templates** — add a slug to `App\Support\Email\BuiltInEmailTemplates`, seed via `EmailTemplatesSeeder` / `SeedBuiltInEmailTemplate`, wire preview in `EmailTemplatePreview` when the Blade is structured (leave/expiry pattern).
+6. **SMTP** — send through `MailSettingsService` runtime config (application SMTP), not ad-hoc `.env`-only mailers in feature code.
+7. **Tests** — assert rendered HTML contains `mail.layout` mobile hooks when adding a new structured Blade (`email-detail-row` or `email-section`, and layout `@media`). See `tests/Feature/Email/MailLayoutMobileResponsivenessTest.php`.
+
+### Golden files to copy
+
+| Need | Copy from |
+| ---- | --------- |
+| Shared shell + mobile CSS | `resources/views/mail/layout.blade.php` |
+| Key/value detail card + CTA | `resources/views/mail/leave-request-submitted.blade.php` |
+| Wide data table + scroll wrapper | `resources/views/mail/document-expiry-alert.blade.php` |
+| Editable template + structured Blade | Leave: `BuiltInEmailTemplates` + `LeaveRequestSubmittedMail` + `ComposeLeaveRequestSubmittedMail` |
+| Hard-coded workflow Blade | Recruitment: `RequirementSubmittedForApprovalMail` + `mail/requirement-submitted-for-approval.blade.php` |
+| Plain body inside layout | `resources/views/mail/bulk-document.blade.php` / `email-template-plain-preview.blade.php` |
 
 ## Document recipient action requests (Phase 7A)
 

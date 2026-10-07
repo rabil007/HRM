@@ -266,6 +266,29 @@ Illustrates `app/Services/` usage: orchestrates an integration (mail), validates
 
 ---
 
+## HTML email (shared layout)
+
+**Files:**
+
+- `resources/views/mail/layout.blade.php` — shared shell, branding footer hook, mobile `@media` CSS
+- `resources/views/mail/leave-request-submitted.blade.php` — key/value detail card + CTA
+- `resources/views/mail/document-expiry-alert.blade.php` — wide table + `email-table-scroll`
+- `app/Support/Email/BuiltInEmailTemplates.php` — editable template catalog
+
+**Why they are good examples**
+
+All product HTML mail shares one layout. New modules should extend `mail.layout` and reuse the mobile classes (`email-section`, `email-detail-*`, `email-btn-*`) instead of inventing a second shell.
+
+**Important patterns to follow**
+
+- Prefer editable Email Templates for business wording (leave pattern); hard-coded Blade for fixed structured UI (recruitment / expiry).
+- Never duplicate logo/footer in content blades.
+- Cover new structured blades in `tests/Feature/Email/MailLayoutMobileResponsivenessTest.php` (or equivalent assertions).
+
+**Also see:** [Email configuration — New module emails](../email-configuration.md#new-module-emails-required-pattern).
+
+---
+
 ## Query hook
 
 **File:** `resources/js/features/organization/documents/use-documents-index-filters.ts`

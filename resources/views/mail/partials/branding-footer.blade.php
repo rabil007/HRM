@@ -3,12 +3,13 @@
     <td style="padding:0;background-color:#ffffff;border-top:1px solid #e4e4e7;">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
             <tr>
-                <td style="padding:24px 20px 24px 28px;vertical-align:top;width:220px;">
+                <td class="email-footer-col" style="padding:24px 20px 24px 28px;vertical-align:top;width:220px;">
                     @if (filled($b['logo_src'] ?? null))
                         <table role="presentation" cellspacing="0" cellpadding="0" style="background-color:#ffffff;border-radius:6px;">
                             <tr>
                                 <td style="padding:12px 14px;">
                                     <img
+                                        class="email-footer-logo"
                                         src="{{ $b['logo_src'] }}"
                                         alt="{{ $b['brand_name'] ?? config('app.name') }}"
                                         width="192"
@@ -28,7 +29,7 @@
                         @endif
                     @endif
                 </td>
-                <td style="padding:24px 28px 24px 0;vertical-align:top;">
+                <td class="email-footer-col" style="padding:24px 28px 24px 0;vertical-align:top;">
                     <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#2563eb;line-height:1.3;">
                         {{ filled($b['company_name'] ?? null) ? $b['company_name'] : ($b['brand_name'] ?? config('app.name')) }}
                     </p>
