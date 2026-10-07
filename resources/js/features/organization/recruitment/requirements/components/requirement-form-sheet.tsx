@@ -62,7 +62,8 @@ import type { RequirementFormSnapshot } from '../lib/requirement-form';
 import {
     appendRequirementClientOption,
     appendRequirementProjectOption,
-    filterRequirementProjectsForClient,
+    selectableRequirementClients,
+    selectableRequirementProjectsForClient,
     formatRequirementProjectCreateLabel,
     resolveRequirementProjectAfterClientChange,
     syncRequirementClientOptions,
@@ -307,25 +308,28 @@ export function RequirementFormSheet({
 
     const clientSelectOptions = useMemo(
         () =>
-            clientItems.map((client) => ({
-                id: client.id,
-                label: client.name,
-                value: String(client.id),
-            })),
-        [clientItems],
+            selectableRequirementClients(clientItems, data.client_id).map(
+                (client) => ({
+                    id: client.id,
+                    label: client.name,
+                    value: String(client.id),
+                }),
+            ),
+        [clientItems, data.client_id],
     );
 
     const projectSelectOptions = useMemo(
         () =>
-            filterRequirementProjectsForClient(
+            selectableRequirementProjectsForClient(
                 projectItems,
                 data.client_id,
+                data.project_id,
             ).map((project) => ({
                 id: project.id,
                 label: project.title,
                 value: String(project.id),
             })),
-        [data.client_id, projectItems],
+        [data.client_id, data.project_id, projectItems],
     );
 
     const currentSnapshot = useMemo(

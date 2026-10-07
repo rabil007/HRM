@@ -4,6 +4,8 @@ import {
     appendRequirementClientOption,
     appendRequirementProjectOption,
     filterRequirementProjectsForClient,
+    selectableRequirementClients,
+    selectableRequirementProjectsForClient,
     formatRequirementProjectCreateLabel,
     resolveRequirementProjectAfterClientChange,
     syncRequirementClientOptions,
@@ -91,6 +93,44 @@ describe('requirement form client/project helpers', () => {
         assert.equal(
             resolveRequirementProjectAfterClientChange('12', '2', projects),
             '12',
+        );
+    });
+
+    it('keeps inactive selected client visible while excluding other inactive options', () => {
+        const clients = [
+            { id: 1, name: 'Active', is_active: true },
+            { id: 2, name: 'Inactive', is_active: false },
+        ];
+
+        assert.deepEqual(
+            selectableRequirementClients(clients, 2).map((client) => client.id),
+            [1, 2],
+        );
+        assert.deepEqual(
+            selectableRequirementClients(clients, null).map(
+                (client) => client.id,
+            ),
+            [1],
+        );
+    });
+
+    it('keeps stale inactive project visible for drafts without listing other inactive projects', () => {
+        const projects = [
+            { id: 10, title: 'Active', client_ids: [1], is_active: true },
+            { id: 11, title: 'Inactive', client_ids: [1], is_active: false },
+        ];
+
+        assert.deepEqual(
+            selectableRequirementProjectsForClient(projects, 1, 11).map(
+                (project) => project.id,
+            ),
+            [10, 11],
+        );
+        assert.deepEqual(
+            selectableRequirementProjectsForClient(projects, 1, null).map(
+                (project) => project.id,
+            ),
+            [10],
         );
     });
 

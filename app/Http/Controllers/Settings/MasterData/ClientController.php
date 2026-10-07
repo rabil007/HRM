@@ -10,6 +10,7 @@ use App\Http\Requests\Settings\MasterData\StoreClientRequest;
 use App\Http\Requests\Settings\MasterData\UpdateClientRequest;
 use App\Models\Client;
 use App\Support\Clients\ClientShowQuery;
+use App\Support\MasterData\MasterDataQuickCreate;
 use App\Support\MasterData\MasterDataUsage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -105,11 +106,11 @@ class ClientController extends Controller
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        return $this->createOrReturnExistingQuickCreate(
+        return MasterDataQuickCreate::storeClient(
             $request,
-            Client::class,
             $data,
-            redirect()->route('settings.master-data.clients.index'),
+            fn (Client $client) => $this->quickCreateJsonResponse($client),
+            fn () => redirect()->route('settings.master-data.clients.index'),
         );
     }
 

@@ -198,9 +198,17 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             : 'OMS-HRM';
 
         $compose = app(ComposeRequirementLifecycleMail::class);
-        $template = $compose->findEnabled($compose->slugForTargetDateMilestone($milestone));
+        $templateSlug = $compose->slugForTargetDateMilestone($milestone);
+        $template = $compose->findBySlug($templateSlug);
+
         if ($template === null) {
-            $this->markSkipped($reminderId, 'template_disabled_or_missing');
+            $this->markRecoverableFailure($reminderId, 'template_missing');
+
+            return;
+        }
+
+        if (! $template->enabled) {
+            $this->markSkipped($reminderId, 'template_disabled');
 
             return;
         }
@@ -424,6 +432,24 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             ->whereKey($reminderId)
             ->update([
                 'status' => RequirementTargetDateReminderStatus::Skipped->value,
+                'skip_reason' => $reason,
+                'updated_at' => now(),
+            ]);
+
+        $this->skip($reason);
+    }
+
+    private function markRecoverableFailure(int $reminderId, string $reason): void
+    {
+        RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->whereIn('status', [
+                RequirementTargetDateReminderStatus::Processing->value,
+                RequirementTargetDateReminderStatus::Pending->value,
+                RequirementTargetDateReminderStatus::Failed->value,
+            ])
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
                 'skip_reason' => $reason,
                 'updated_at' => now(),
             ]);

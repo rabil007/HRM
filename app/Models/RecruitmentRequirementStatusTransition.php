@@ -15,6 +15,7 @@ class RecruitmentRequirementStatusTransition extends Model
         'to_status',
         'performed_by',
         'reason',
+        'context',
         'created_at',
         'updated_at',
     ];
@@ -25,6 +26,7 @@ class RecruitmentRequirementStatusTransition extends Model
             'company_id' => 'integer',
             'recruitment_requirement_id' => 'integer',
             'performed_by' => 'integer',
+            'context' => 'array',
         ];
     }
 

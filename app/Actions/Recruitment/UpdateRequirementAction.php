@@ -129,6 +129,10 @@ final class UpdateRequirementAction
                             RequirementStatus::PendingApproval,
                             $userId,
                             'Recruiter reassigned',
+                            [
+                                'previous_recruiter_user_id' => $previousAssignedTo,
+                                'new_recruiter_user_id' => $newAssignedTo,
+                            ],
                         );
                         $shouldNotifyReassignment = true;
                     }

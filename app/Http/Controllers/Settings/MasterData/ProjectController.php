@@ -10,12 +10,15 @@ use App\Http\Requests\Settings\MasterData\StoreProjectRequest;
 use App\Http\Requests\Settings\MasterData\UpdateProjectRequest;
 use App\Models\Client;
 use App\Models\Project;
+use App\Support\MasterData\MasterDataQuickCreate;
 use App\Support\MasterData\MasterDataUsage;
 use App\Support\MasterData\SyncProjectClients;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ProjectController extends Controller
@@ -98,44 +101,40 @@ class ProjectController extends Controller
         $attributes = Arr::only($data, ['title', 'is_active']);
         $attributes['is_active'] = $attributes['is_active'] ?? true;
 
-        $existing = $this->findExistingQuickCreate(
-            Project::class,
-            'title',
-            (string) $attributes['title'],
-        );
+        $title = (string) $attributes['title'];
+        $canAttachClients = (bool) $request->user()?->can('settings.master-data.projects.update');
+        $existing = MasterDataQuickCreate::findProjectByNormalizedTitle($title);
 
         if ($existing instanceof Project) {
-            $normalizedClientIds = $syncProjectClients->normalizeClientIds($clientIds);
-            $existingClientIds = $syncProjectClients->currentClientIds($existing);
-
-            $missingClientIds = array_values(array_diff($normalizedClientIds, $existingClientIds));
-
-            if ($missingClientIds === []) {
-                return $this->storeRedirectOrQuickCreateJson(
-                    $request,
-                    $existing,
-                    redirect()->route('settings.master-data.projects.index'),
-                    'title',
-                );
-            }
-
-            abort_unless(
-                $request->user()?->can('settings.master-data.projects.update'),
-                403,
-                'A project with this title already exists. Permission to update projects is required to attach it to another client.',
-            );
-
-            $syncProjectClients->attach($existing, $clientIds);
-
             return $this->storeRedirectOrQuickCreateJson(
                 $request,
-                $existing,
+                $this->resolveExistingProjectQuickCreate(
+                    $existing,
+                    $clientIds,
+                    $canAttachClients,
+                    $syncProjectClients,
+                ),
                 redirect()->route('settings.master-data.projects.index'),
                 'title',
             );
         }
 
-        $project = $syncProjectClients->create($attributes, $clientIds);
+        try {
+            $project = $syncProjectClients->create($attributes, $clientIds);
+        } catch (UniqueConstraintViolationException $exception) {
+            $existing = MasterDataQuickCreate::findProjectByNormalizedTitle($title);
+
+            if (! $existing instanceof Project) {
+                throw $exception;
+            }
+
+            $project = $this->resolveExistingProjectQuickCreate(
+                $existing,
+                $clientIds,
+                $canAttachClients,
+                $syncProjectClients,
+            );
+        }
 
         return $this->storeRedirectOrQuickCreateJson(
             $request,
@@ -143,6 +142,36 @@ class ProjectController extends Controller
             redirect()->route('settings.master-data.projects.index'),
             'title',
         );
+    }
+
+    /**
+     * @param  list<int>  $clientIds
+     */
+    private function resolveExistingProjectQuickCreate(
+        Project $existing,
+        array $clientIds,
+        bool $canAttachClients,
+        SyncProjectClients $syncProjectClients,
+    ): Project {
+        MasterDataQuickCreate::failProjectMatch($existing);
+
+        $normalizedClientIds = $syncProjectClients->normalizeClientIds($clientIds);
+        $existingClientIds = $syncProjectClients->currentClientIds($existing);
+        $missingClientIds = array_values(array_diff($normalizedClientIds, $existingClientIds));
+
+        if ($missingClientIds === []) {
+            return $existing;
+        }
+
+        if (! $canAttachClients) {
+            throw ValidationException::withMessages([
+                'title' => MasterDataQuickCreate::PROJECT_NOT_LINKED_MESSAGE,
+            ]);
+        }
+
+        $syncProjectClients->attach($existing, $clientIds);
+
+        return $existing->fresh() ?? $existing;
     }
 
     public function update(UpdateProjectRequest $request, Project $project, SyncProjectClients $syncProjectClients)

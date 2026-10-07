@@ -21,6 +21,8 @@ final class DispatchRequirementTargetDateReminders
 {
     public const LOCAL_DISPATCH_HOUR = 9;
 
+    public const STALE_PROCESSING_TIMEOUT_MINUTES = 15;
+
     /**
      * @return array{
      *     companies_checked: int,
@@ -77,7 +79,7 @@ final class DispatchRequirementTargetDateReminders
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $nowLocal = CarbonImmutable::now($timezone);
 
-        if (! $force && $nowLocal->hour !== self::LOCAL_DISPATCH_HOUR) {
+        if (! $force && $nowLocal->hour < self::LOCAL_DISPATCH_HOUR) {
             return [
                 'queued' => 0,
                 'skipped' => 0,
@@ -183,12 +185,24 @@ final class DispatchRequirementTargetDateReminders
             }
         }
 
-        if (in_array($reminder->status, [
-            RequirementTargetDateReminderStatus::Sent,
-            RequirementTargetDateReminderStatus::Processing,
-            RequirementTargetDateReminderStatus::Skipped,
-        ], true)) {
+        if ($reminder->status === RequirementTargetDateReminderStatus::Sent) {
             return 'skipped';
+        }
+
+        if ($reminder->status === RequirementTargetDateReminderStatus::Skipped) {
+            return 'skipped';
+        }
+
+        if ($reminder->status === RequirementTargetDateReminderStatus::Processing) {
+            if (! $this->reclaimStaleProcessing((int) $reminder->id)) {
+                return 'skipped';
+            }
+
+            $reminder = $reminder->fresh();
+
+            if ($reminder === null) {
+                return 'skipped';
+            }
         }
 
         $claimed = RecruitmentRequirementTargetDateReminder::query()
@@ -223,6 +237,26 @@ final class DispatchRequirementTargetDateReminders
         ]);
 
         return 'queued';
+    }
+
+    private function reclaimStaleProcessing(int $reminderId): bool
+    {
+        $threshold = now()->subMinutes(self::STALE_PROCESSING_TIMEOUT_MINUTES);
+
+        $reclaimed = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
+            ->where(function ($query) use ($threshold): void {
+                $query->whereNull('claimed_at')
+                    ->orWhere('claimed_at', '<', $threshold);
+            })
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
+                'skip_reason' => 'processing_stale',
+                'updated_at' => now(),
+            ]);
+
+        return $reclaimed > 0;
     }
 
     /**

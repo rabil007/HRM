@@ -119,6 +119,53 @@ function createTimelineRequirement(object $context, array $overrides = []): Recr
     return $req->fresh(['creator', 'assignedRecruiter']);
 }
 
+test('timeline presents recruiter reassignment as a dedicated event', function () {
+    $req = createTimelineRequirement($this);
+    $previousRecruiter = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Previous Recruiter',
+        'status' => 'active',
+    ]);
+    $newRecruiter = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'New Recruiter',
+        'status' => 'active',
+    ]);
+
+    RecordRequirementStatusTransition::handle(
+        $req,
+        RequirementStatus::Draft,
+        RequirementStatus::PendingApproval,
+        $this->user->id,
+    );
+
+    RecordRequirementStatusTransition::handle(
+        $req,
+        RequirementStatus::PendingApproval,
+        RequirementStatus::PendingApproval,
+        $this->user->id,
+        'Recruiter reassigned',
+        [
+            'previous_recruiter_user_id' => $previousRecruiter->id,
+            'new_recruiter_user_id' => $newRecruiter->id,
+        ],
+    );
+
+    $timeline = RequirementWorkflowTimelinePresenter::for($req->fresh(['creator']), $this->user);
+    $labels = collect($timeline['events'])->pluck('label')->all();
+    $reassignment = collect($timeline['events'])->firstWhere('key', 'recruiter_reassigned');
+
+    expect($labels)->toBe([
+        'Submitted for approval',
+        'Recruiter reassigned',
+    ])
+        ->and($reassignment['reason'])->toBe('Recruiter reassigned')
+        ->and($reassignment['actor_name'])->toBe($this->user->name)
+        ->and($reassignment['previous_recruiter_name'])->toBe('Previous Recruiter')
+        ->and($reassignment['new_recruiter_name'])->toBe('New Recruiter')
+        ->and($labels)->not->toContain('Resubmitted');
+});
+
 test('timeline presents chronological transition events with actors and reasons', function () {
     $req = createTimelineRequirement($this);
 

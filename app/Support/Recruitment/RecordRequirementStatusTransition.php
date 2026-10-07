@@ -14,6 +14,7 @@ final class RecordRequirementStatusTransition
         RequirementStatus $toStatus,
         int $performedBy,
         ?string $reason = null,
+        ?array $context = null,
     ): RecruitmentRequirementStatusTransition {
         return RecruitmentRequirementStatusTransition::query()->create([
             'company_id' => (int) $requirement->company_id,
@@ -22,6 +23,7 @@ final class RecordRequirementStatusTransition
             'to_status' => $toStatus->value,
             'performed_by' => $performedBy,
             'reason' => $reason,
+            'context' => $context,
         ]);
     }
 
