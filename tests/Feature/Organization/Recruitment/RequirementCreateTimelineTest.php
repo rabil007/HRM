@@ -168,7 +168,12 @@ test('save draft then later submit keeps both events in order', function () {
     ]);
 });
 
-test('failed initial direct submission leaves a valid Draft event', function () {
+test('self-assignment on create-and-submit rejects without creating a requirement', function () {
+    $beforeRequirementCount = RecruitmentRequirement::query()
+        ->where('company_id', $this->company->id)
+        ->count();
+    $beforeTransitionCount = RecruitmentRequirementStatusTransition::query()->count();
+
     expect(fn () => app(CreateRequirementAction::class)->execute(
         $this->company->id,
         $this->requester->id,
@@ -178,22 +183,13 @@ test('failed initial direct submission leaves a valid Draft event', function () 
         ]),
     ))->toThrow(ValidationException::class);
 
-    $requirement = RecruitmentRequirement::query()
-        ->where('company_id', $this->company->id)
-        ->latest('id')
-        ->first();
-
-    expect($requirement)->not->toBeNull()
-        ->and($requirement->status)->toBe(RequirementStatus::Draft);
-
-    $timeline = RequirementWorkflowTimelinePresenter::for(
-        $requirement->fresh(['creator']),
-        $this->requester,
-    );
-
-    expect(collect($timeline['events'])->pluck('label')->all())->toBe([
-        'Draft created',
-    ]);
+    expect(
+        RecruitmentRequirement::query()
+            ->where('company_id', $this->company->id)
+            ->count()
+    )->toBe($beforeRequirementCount)
+        ->and(RecruitmentRequirementStatusTransition::query()->count())
+        ->toBe($beforeTransitionCount);
 });
 
 test('retries do not create duplicate Draft transitions', function () {
