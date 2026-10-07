@@ -135,6 +135,21 @@ test('email templates seeder preserves customized user invitation template', fun
         ->and($template->body_html)->toBe('Custom invite body');
 });
 
+test('email templates seeder creates crew movement correction decided template', function () {
+    EmailTemplate::query()->where('slug', 'crew_movement_correction_decided')->forceDelete();
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template = EmailTemplate::query()->where('slug', 'crew_movement_correction_decided')->first();
+
+    expect($template)->not->toBeNull()
+        ->and($template->category)->toBe(EmailTemplateCategory::Notification)
+        ->and($template->enabled)->toBeTrue()
+        ->and($template->subject)->toContain('{{status}}')
+        ->and($template->body_html)->toContain('{{assignment_no}}')
+        ->and($template->body_html)->toContain('{{employee_name}}');
+});
+
 test('email templates seeder creates recruitment requirement templates', function () {
     $slugs = [
         'requirement_submitted_for_approval',

@@ -129,6 +129,13 @@ final class EmailTemplatePreview
                 placeholders: $placeholders,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'crew_movement_correction_decided' => $this->renderCrewMovementCorrectionDecided(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
         };
 
@@ -337,7 +344,37 @@ final class EmailTemplatePreview
             '{{target_date}}' => now()->addDays(3)->format('d M Y'),
             '{{heading}}' => 'Target Date reminder — due in 3 days',
             '{{milestone_label}}' => 'due in 3 days',
+            '{{status}}' => 'Approved',
+            '{{assignment_no}}' => 'CA-1001',
+            '{{phase_label}}' => 'Onboard',
+            '{{decision_notes}}' => 'Updated to match passport stamp.',
+            '{{correction_url}}' => url('/organization/crew-movement-corrections/1'),
         ];
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderCrewMovementCorrectionDecided(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.crew-movement-correction-decided', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'assignmentNo' => $placeholders['{{assignment_no}}'],
+            'employeeName' => $placeholders['{{employee_name}}'],
+            'phaseLabel' => $placeholders['{{phase_label}}'],
+            'status' => $placeholders['{{status}}'],
+            'reason' => 'Incorrect join date recorded.',
+            'decisionNotes' => $placeholders['{{decision_notes}}'],
+            'correctionUrl' => $placeholders['{{correction_url}}'],
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
     }
 
     /**

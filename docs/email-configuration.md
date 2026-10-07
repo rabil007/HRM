@@ -133,6 +133,17 @@ Prefer **Editable Email Template + structured Blade** for new business workflows
 
 Recipients remain workflow-resolved (recruiter / requester / notification CC users). Template TO/CC presets are hidden. Disable a template to stop that email. Seed with `php artisan db:seed --class=EmailTemplatesSeeder`.
 
+### Crew movement correction decided
+
+| Item | Value |
+| ---- | ----- |
+| Slug | `crew_movement_correction_decided` |
+| Category | Notifications |
+| Recipient | Correction requester (skipped when requester = decider) |
+| Structured Blade | `mail/crew-movement-correction-decided` |
+
+Subject/body are editable; detail rows (request reason / decision notes) stay in Blade. TO/CC presets are hidden.
+
 ## Document recipient action requests (Phase 7A)
 
 Recipient signing/acknowledgement requests use the same application SMTP (`MailSettingsService`), the queue worker, and Email Templates.

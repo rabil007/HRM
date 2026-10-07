@@ -23,6 +23,8 @@ class CrewMovementCorrectionDecidedMail extends Mailable implements ShouldQueue
         public string $reason,
         public ?string $decisionNotes,
         public string $correctionUrl,
+        public ?string $introMessage = null,
+        public bool $includeCompanyFooter = true,
     ) {}
 
     public function envelope(): Envelope

@@ -74,7 +74,8 @@ final class BuiltInEmailTemplates
             'requirement_approved',
             'requirement_returned',
             'requirement_target_date_three_days_before',
-            'requirement_target_date_due_today' => [
+            'requirement_target_date_due_today',
+            'crew_movement_correction_decided' => [
                 ...$defaults,
                 'to_preset' => false,
                 'cc_preset' => false,
@@ -161,6 +162,7 @@ final class BuiltInEmailTemplates
             'requirement_returned' => self::requirementReturned(),
             'requirement_target_date_three_days_before' => self::requirementTargetDateThreeDaysBefore(),
             'requirement_target_date_due_today' => self::requirementTargetDateDueToday(),
+            'crew_movement_correction_decided' => self::crewMovementCorrectionDecided(),
         ];
     }
 
@@ -1212,6 +1214,36 @@ HTML,
             'body_html' => $body,
             'sort_order' => 35,
             'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function crewMovementCorrectionDecided(): array
+    {
+        $subject = 'Crew movement correction {{status}}';
+        $body = 'Your crew movement correction for assignment {{assignment_no}} ({{employee_name}}) — {{phase_label}} — was {{status}}.';
+
+        return self::base([
+            'label' => 'Crew movement correction decided',
+            'category' => EmailTemplateCategory::Notification,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 6,
+            'placeholders' => [
+                '{{status}}',
+                '{{assignment_no}}',
+                '{{employee_name}}',
+                '{{phase_label}}',
+                '{{company_name}}',
+                '{{reason}}',
+                '{{decision_notes}}',
+                '{{correction_url}}',
+            ],
             'legacy_defaults' => [
                 ['subject' => $subject, 'body_html' => $body],
             ],
