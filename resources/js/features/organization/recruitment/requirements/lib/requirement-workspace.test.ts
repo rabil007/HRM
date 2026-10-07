@@ -129,7 +129,7 @@ describe('requirement workspace helpers', () => {
         });
 
         assert.equal(actions.canEdit, true);
-        assert.equal(actions.canHold, true);
+        assert.equal(actions.canHold, false);
         assert.equal(actions.canCancel, false);
         assert.equal(actions.canFill, true);
     });

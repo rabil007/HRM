@@ -1,4 +1,8 @@
 import type { RequirementIndexRow } from '@/types/recruitment';
+import {
+    isRequirementHoldActionVisible,
+    isRequirementResumeActionVisible,
+} from './requirement-hold-feature.ts';
 
 export type VisibleRequirementActions = {
     canView: true;
@@ -33,6 +37,7 @@ type RequirementPrimaryActionCapabilities = Pick<
 export function visibleRequirementActions(
     row: Pick<
         RequirementIndexRow,
+        | 'status'
         | 'can_edit'
         | 'can_submit'
         | 'can_approve'
@@ -57,8 +62,11 @@ export function visibleRequirementActions(
         canResubmit: row.can_resubmit,
         canChangeHeadcount: row.can_change_headcount,
         canExtend: row.can_extend,
-        canHold: row.can_hold,
-        canResume: row.can_resume,
+        canHold: isRequirementHoldActionVisible(row.can_hold),
+        canResume: isRequirementResumeActionVisible({
+            canResume: row.can_resume,
+            status: row.status,
+        }),
         canFill: row.can_fill,
         canReopen: row.can_reopen,
         canRepeat: row.can_repeat,

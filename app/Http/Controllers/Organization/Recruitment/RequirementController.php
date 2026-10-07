@@ -19,6 +19,7 @@ use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementBrowseQuery;
 use App\Support\Recruitment\RequirementPagePermissions;
 use App\Support\Recruitment\RequirementPresenter;
+use App\Support\Recruitment\RequirementWorkflowTimelinePresenter;
 use App\Support\Settings\CompanyCurrency;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -223,6 +224,10 @@ class RequirementController extends Controller
 
         return Inertia::render('organization/recruitment/requirements/show', [
             'requirement' => RequirementPresenter::toShow($requirement, null, $request->user()),
+            'workflow_timeline' => RequirementWorkflowTimelinePresenter::for(
+                $requirement,
+                $request->user(),
+            ),
             'options' => $options,
             'clients' => $clients,
             'projects' => $projects,

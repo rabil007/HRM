@@ -23,25 +23,30 @@ describe('formatRecruitmentDurationInDays', () => {
         );
     });
 
-    it('uses singular and plural day labels', () => {
+    it('returns 1 day at exactly 24 hours', () => {
         assert.equal(formatRecruitmentDurationInDays(86400), '1 day');
+    });
+
+    it('rounds partial days upward after the first day', () => {
+        assert.equal(
+            formatRecruitmentDurationInDays(39 * 3600 + 51 * 60),
+            '2 days',
+        );
+        assert.equal(formatRecruitmentDurationInDays(86400 + 3600), '2 days');
         assert.equal(formatRecruitmentDurationInDays(2 * 86400), '2 days');
+        assert.equal(
+            formatRecruitmentDurationInDays(2 * 86400 + 3600),
+            '3 days',
+        );
         assert.equal(formatRecruitmentDurationInDays(26 * 86400), '26 days');
     });
 
-    it('floors partial days without showing hours or minutes', () => {
-        assert.equal(formatRecruitmentDurationInDays(86400 + 3600), '1 day');
-        assert.equal(
-            formatRecruitmentDurationInDays(8 * 86400 + 100),
-            '8 days',
-        );
-        assert.match(
-            formatRecruitmentDurationInDays(90000),
-            /^(Less than 1 day|\d+ days?)$/,
-        );
-        assert.ok(!formatRecruitmentDurationInDays(90000).includes('hour'));
-        assert.ok(!formatRecruitmentDurationInDays(90000).includes('minute'));
-        assert.ok(!formatRecruitmentDurationInDays(90000).includes('second'));
+    it('never shows hours, minutes, or seconds', () => {
+        const label = formatRecruitmentDurationInDays(90000);
+        assert.match(label, /^(Less than 1 day|\d+ days?)$/);
+        assert.ok(!label.includes('hour'));
+        assert.ok(!label.includes('minute'));
+        assert.ok(!label.includes('second'));
     });
 });
 
@@ -60,11 +65,11 @@ describe('active recruitment duration display', () => {
         );
     });
 
-    it('shows running durations in days', () => {
+    it('shows running durations in ceil days', () => {
         assert.equal(
             resolveActiveRecruitmentDurationDisplay({
                 clockState: 'running',
-                activeSeconds: 2 * 86400,
+                activeSeconds: 39 * 3600,
             }).label,
             '2 days',
         );
@@ -77,20 +82,27 @@ describe('active recruitment duration display', () => {
         );
     });
 
-    it('prefixes paused and completed durations', () => {
+    it('prefixes paused, completed, and cancelled durations', () => {
         assert.equal(
             resolveActiveRecruitmentDurationDisplay({
                 clockState: 'paused',
-                activeSeconds: 8 * 86400,
+                activeSeconds: 4 * 86400,
             }).label,
-            'Paused at 8 days',
+            'Paused at 4 days',
         );
         assert.equal(
             resolveActiveRecruitmentDurationDisplay({
                 clockState: 'completed',
-                activeSeconds: 14 * 86400,
+                activeSeconds: 8 * 86400,
             }).label,
-            'Completed in 14 days',
+            'Completed in 8 days',
+        );
+        assert.equal(
+            resolveActiveRecruitmentDurationDisplay({
+                clockState: 'cancelled',
+                activeSeconds: 6 * 86400,
+            }).label,
+            'Cancelled after 6 days',
         );
     });
 

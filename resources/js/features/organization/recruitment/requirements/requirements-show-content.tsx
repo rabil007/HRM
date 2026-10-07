@@ -26,15 +26,18 @@ import { RequirementAttachmentsCard } from './components/show/requirement-attach
 import { RequirementDetailsCard } from './components/show/requirement-details-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
 import { RequirementPositionLinesCard } from './components/show/requirement-position-lines-card';
+import { RequirementWorkflowTimelineCard } from './components/show/requirement-workflow-timeline-card';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
+import { isRequirementHoldActionVisible } from './lib/requirement-hold-feature';
 
 export function RequirementsShowContent({
     requirement,
+    workflow_timeline,
     options,
     can,
     recent_activity,
@@ -96,6 +99,10 @@ export function RequirementsShowContent({
     };
 
     const handleHold = () => {
+        if (!isRequirementHoldActionVisible(requirement.can_hold)) {
+            return;
+        }
+
         runWorkflow(
             RequirementHoldController.url(requirement.id),
             'Requirement put on hold.',
@@ -175,7 +182,10 @@ export function RequirementsShowContent({
             />
 
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <div className="order-1 space-y-6 lg:order-2 lg:col-span-1">
+                <div
+                    data-requirement-sidebar
+                    className="order-1 min-w-0 space-y-6 overflow-x-visible [scrollbar-width:thin] lg:sticky lg:top-4 lg:order-2 lg:col-span-1 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-x-visible lg:overflow-y-auto lg:pr-1"
+                >
                     <RequirementOverviewCard
                         requirement={requirement}
                         processing={isWorkflowProcessing}
@@ -197,17 +207,15 @@ export function RequirementsShowContent({
                         onRepeat={() => setIsRepeatOpen(true)}
                     />
 
-                    {recent_activity && recent_activity.length > 0 && (
-                        <RecentActivityCard
-                            items={
-                                recent_activity as unknown as RecentActivityItem[]
-                            }
-                            description="Audit log of requisition modifications and status changes."
-                        />
-                    )}
+                    <RequirementWorkflowTimelineCard
+                        timeline={workflow_timeline}
+                    />
                 </div>
 
-                <div className="order-2 space-y-6 lg:order-1 lg:col-span-2">
+                <div
+                    data-requirement-main-column
+                    className="order-2 space-y-6 lg:order-1 lg:col-span-2"
+                >
                     <RequirementPositionLinesCard
                         requirement={requirement}
                         onChangeLineHeadcount={(line) => {
@@ -222,10 +230,18 @@ export function RequirementsShowContent({
                         requirement={requirement}
                         canDownload={can.download_attachments}
                     />
+
+                    {recent_activity && recent_activity.length > 0 && (
+                        <RecentActivityCard
+                            items={
+                                recent_activity as unknown as RecentActivityItem[]
+                            }
+                            description="Audit log of requisition modifications and non-status changes."
+                        />
+                    )}
                 </div>
             </div>
 
-            {/* Edit Form Sheet */}
             <RequirementFormSheet
                 open={isEditOpen}
                 onOpenChange={setIsEditOpen}
@@ -233,7 +249,6 @@ export function RequirementsShowContent({
                 options={options}
             />
 
-            {/* Workflow Dialogs */}
             <ExtendDeadlineDialog
                 open={isExtendOpen}
                 onOpenChange={setIsExtendOpen}

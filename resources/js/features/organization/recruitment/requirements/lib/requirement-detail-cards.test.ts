@@ -136,6 +136,7 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('Target Date'));
                 assert.ok(!html.includes('Required-By Date'));
                 assert.ok(!html.includes('Required by'));
+                assert.ok(!html.includes('Recruitment clock'));
             },
         );
     });
@@ -180,6 +181,27 @@ describe('Requirement detail cards', () => {
                 );
                 assert.ok(shortHtml.includes('Less than 1 day'));
                 assert.ok(!shortHtml.includes('hour'));
+
+                const partialHtml = renderToString(
+                    React.createElement(RequirementDetailsCard, {
+                        requirement: makeRequirement({
+                            active_recruitment_seconds: 39 * 3600 + 51 * 60,
+                        }),
+                    }),
+                );
+                assert.ok(partialHtml.includes('2 days'));
+
+                const cancelledHtml = renderToString(
+                    React.createElement(RequirementDetailsCard, {
+                        requirement: makeRequirement({
+                            status: 'cancelled',
+                            recruitment_clock_state: 'cancelled',
+                            active_recruitment_seconds: 6 * 86400,
+                            can_fill: false,
+                        }),
+                    }),
+                );
+                assert.ok(cancelledHtml.includes('Cancelled after 6 days'));
             },
         );
     });
@@ -236,6 +258,68 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('data-primary-workflow-action="fill"'));
                 assert.ok(!html.includes('What’s next?'));
                 assert.ok(!html.includes("What's next?"));
+                assert.ok(!html.includes('Put on hold'));
+            },
+        );
+    });
+
+    it('keeps Resume for existing On Hold requirements only', async () => {
+        await withViteModule<{
+            RequirementOverviewCard: React.ComponentType<{
+                requirement: RequirementDetail;
+                onEdit: () => void;
+                onSubmit: () => void;
+                onApprove: () => void;
+                onReturn: () => void;
+                onResubmit: () => void;
+                onHold: () => void;
+                onResume: () => void;
+                onExtend: () => void;
+                onChangeHeadcount: () => void;
+                onFill: () => void;
+                onCancel: () => void;
+                onReopen: () => void;
+                onRepeat: () => void;
+            }>;
+        }>(
+            './resources/js/features/organization/recruitment/requirements/components/show/requirement-overview-card.tsx',
+            ({ RequirementOverviewCard }) => {
+                const onHoldHtml = renderToString(
+                    React.createElement(RequirementOverviewCard, {
+                        requirement: makeRequirement({
+                            status: 'on_hold',
+                            status_label: 'On Hold',
+                            can_hold: false,
+                            can_resume: true,
+                            can_fill: true,
+                            recruitment_clock_state: 'paused',
+                            active_recruitment_seconds: 4 * 86400,
+                            next_action: 'resume',
+                        }),
+                        onEdit: noop,
+                        onSubmit: noop,
+                        onApprove: noop,
+                        onReturn: noop,
+                        onResubmit: noop,
+                        onHold: noop,
+                        onResume: noop,
+                        onExtend: noop,
+                        onChangeHeadcount: noop,
+                        onFill: noop,
+                        onCancel: noop,
+                        onReopen: noop,
+                        onRepeat: noop,
+                    }),
+                );
+
+                assert.ok(onHoldHtml.includes('Resume requirement'));
+                assert.ok(!onHoldHtml.includes('Put on hold'));
+                assert.ok(
+                    onHoldHtml.includes(
+                        'data-primary-workflow-action="resume"',
+                    ),
+                );
+                assert.ok(onHoldHtml.includes('Paused at 4 days'));
             },
         );
     });

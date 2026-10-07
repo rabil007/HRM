@@ -27,6 +27,10 @@ import {
     requirementPrimaryWorkflowActionLabel,
     resolveRequirementPrimaryWorkflowAction,
 } from '../../lib/requirement-actions';
+import {
+    isRequirementHoldActionVisible,
+    isRequirementResumeActionVisible,
+} from '../../lib/requirement-hold-feature';
 import { resolveActiveRecruitmentDurationDisplay } from '../../lib/requirement-recruitment-clock';
 import {
     RequirementDeadlineBadge,
@@ -69,8 +73,18 @@ export function RequirementOverviewCard({
     onReopen,
     onRepeat,
 }: Props) {
-    const primaryActionKey =
-        resolveRequirementPrimaryWorkflowAction(requirement);
+    const showHold = isRequirementHoldActionVisible(requirement.can_hold);
+    const showResume = isRequirementResumeActionVisible({
+        canResume: requirement.can_resume,
+        status: requirement.status,
+    });
+    const primaryActionKey = resolveRequirementPrimaryWorkflowAction({
+        can_approve: requirement.can_approve,
+        can_submit: requirement.can_submit,
+        can_resubmit: requirement.can_resubmit,
+        can_resume: showResume,
+        can_fill: requirement.can_fill,
+    });
     const durationDisplay = resolveActiveRecruitmentDurationDisplay({
         clockState: requirement.recruitment_clock_state,
         activeSeconds: requirement.active_recruitment_seconds,
@@ -128,7 +142,7 @@ export function RequirementOverviewCard({
         requirement.can_return ||
         requirement.can_extend ||
         requirement.can_change_headcount ||
-        requirement.can_hold ||
+        showHold ||
         requirement.can_reopen ||
         requirement.can_repeat ||
         requirement.can_cancel;
@@ -276,7 +290,7 @@ export function RequirementOverviewCard({
                                         </DropdownMenuItem>
                                     )}
 
-                                    {requirement.can_hold && (
+                                    {showHold ? (
                                         <DropdownMenuItem
                                             onClick={onHold}
                                             className="cursor-pointer gap-2"
@@ -287,7 +301,7 @@ export function RequirementOverviewCard({
                                             />
                                             <span>Put on hold</span>
                                         </DropdownMenuItem>
-                                    )}
+                                    ) : null}
 
                                     {requirement.can_reopen && (
                                         <DropdownMenuItem

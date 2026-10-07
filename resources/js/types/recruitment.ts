@@ -254,8 +254,29 @@ export type RequirementIndexProps = {
     can: RequirementPagePermissions;
 };
 
+export type RequirementWorkflowTimelineEvent = {
+    id: string;
+    key: string;
+    label: string;
+    occurred_at: string;
+    occurred_at_formatted: string;
+    actor_name: string | null;
+    reason: string | null;
+    is_current: boolean;
+    state: 'completed' | 'current';
+};
+
+export type RequirementWorkflowTimeline = {
+    current_stage: string;
+    current_stage_label: string;
+    next_expected_action: string | null;
+    next_expected_action_label: string | null;
+    events: RequirementWorkflowTimelineEvent[];
+};
+
 export type RequirementShowProps = {
     requirement: RequirementDetail;
+    workflow_timeline: RequirementWorkflowTimeline;
     options: {
         clients: ClientOption[];
         projects: ProjectOption[];

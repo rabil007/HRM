@@ -9,6 +9,7 @@ import {
 describe('visibleRequirementActions', () => {
     it('exposes approval workflow actions from row capabilities', () => {
         const actions = visibleRequirementActions({
+            status: 'draft',
             can_edit: false,
             can_submit: true,
             can_approve: false,
@@ -31,6 +32,7 @@ describe('visibleRequirementActions', () => {
 
     it('shows approve and return for assigned approver', () => {
         const actions = visibleRequirementActions({
+            status: 'pending_approval',
             can_edit: false,
             can_submit: false,
             can_approve: true,
