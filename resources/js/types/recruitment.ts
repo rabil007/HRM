@@ -77,7 +77,8 @@ export type RequirementIndexRow = {
         | 'fill'
         | 'extend'
         | 'resume'
-        | 'repeat';
+        | 'repeat'
+        | 'view';
     can_edit: boolean;
     can_submit: boolean;
     can_approve: boolean;
@@ -122,7 +123,21 @@ export type RequirementAttachment = {
     created_at_formatted: string;
 };
 
+export type RequirementSubmissionReadinessItem = {
+    key: string;
+    label: string;
+    ready: boolean;
+    message: string | null;
+};
+
+export type RequirementSubmissionReadiness = {
+    ready: boolean;
+    remaining_count: number;
+    items: RequirementSubmissionReadinessItem[];
+};
+
 export type RequirementDetail = RequirementIndexRow & {
+    submission_readiness?: RequirementSubmissionReadiness | null;
     notes: string | null;
     cancellation_reason: string | null;
     return_reason: string | null;

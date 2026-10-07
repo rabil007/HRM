@@ -109,6 +109,24 @@ Canonical enforcement: `App\Support\Employees\EmployeeVisibilityScope` (`apply`,
 | Recruitment                                              | `recruitment.requirements.view|create|update|submit|approve|close|cancel|reopen|attachments.download`                                                                                                                                                                                                                                                                                                                                      |
 | Audit                                                    | `audit.view`                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
+### Recruitment requirement ownership (not role titles)
+
+Workflow actions on a requirement are gated by **permissions + record relationship + status**. Permissions alone must not bypass ownership.
+
+| Relationship | Field | Owns |
+| --- | --- | --- |
+| Requester / creator | `created_by` | Draft and Returned preparation (`update`, `submit` / resubmit, Save & Submit / Save & Resubmit) |
+| Assigned approving recruiter | `assigned_to` | Pending Approval decision (`approve` / return) |
+
+Rules:
+
+- Drafts may be incomplete (for example missing recruiter or salary). Submission cannot — readiness is validated authoritatively on the backend before Submit, Create & Submit, Save & Submit, Resubmit, and Save & Resubmit.
+- Only the creator may prepare or submit/resubmit their Draft/Returned requirement, even when another user holds `recruitment.requirements.update` or `submit`.
+- Only the assigned recruiter may Approve or Return a Pending Approval requirement. Approve/Return do **not** require `recruitment.requirements.update`.
+- Recommended normal recruiter setup is `view` + `approve` (without `update` / `submit`). Do not hardcode role names such as “Recruiter” into workflow logic.
+- `created_by` and `assigned_to` must be different users (self-approval is rejected on create, update, submit, and approve).
+- Presenter flags (`can_edit`, `can_submit`, `can_resubmit`, `can_approve`, `can_return`) mirror these backend rules for index, detail, quick actions, and timeline UX only.
+
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 
 `crew_operations.assignments.void` (Void Erroneous Assignment) and `crew_operations.corrections.override` (Direct Movement Correction Override) are high-trust only: auto-granted to roles that already hold `roles.update` (Owner/admin). Override allows authorized operators to correct recorded phases immediately or self-approve normal correction requests; both capabilities require confirmed two-factor authentication (`privileged.2fa`). Permission alone is not sufficient — `CrewAssignmentVoidGuard` blocks voids that would affect protected payroll, sea service, or linked assignment chains, while `ValidateCrewMovementCorrection` enforces timeline, accommodation, and tour rules atomically.

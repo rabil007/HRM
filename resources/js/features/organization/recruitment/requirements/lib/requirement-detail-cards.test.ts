@@ -144,6 +144,7 @@ async function withViteModule<T>(
 ): Promise<void> {
     const vite = await createServer({
         configFile: false,
+        envDir: false,
         plugins: [(await import('@vitejs/plugin-react')).default()],
         resolve: {
             alias: {
@@ -181,12 +182,20 @@ describe('Requirement detail cards', () => {
                     html.includes('Requirement Details &amp; Workflow') ||
                         html.includes('Requirement Details & Workflow'),
                 );
+                assert.ok(html.includes('Client request'));
+                assert.ok(
+                    html.includes('Schedule &amp; ownership') ||
+                        html.includes('Schedule & ownership'),
+                );
+                assert.ok(html.includes('Record info'));
                 assert.ok(html.includes('Request Received from Client'));
                 assert.ok(!html.includes('Request Received Date'));
                 assert.ok(html.includes('Target Date'));
                 assert.ok(html.includes('Notification recipients (CC)'));
                 assert.ok(html.includes('Notes / Scope of Work'));
                 assert.ok(html.includes('Workflow timeline'));
+                assert.ok(html.includes('Current stage'));
+                assert.ok(html.includes('Next expected action'));
                 assert.ok(html.includes('Submitted for approval'));
                 assert.ok(html.includes('Approved / recruitment started'));
                 assert.ok(html.includes('data-requirement-details-section'));

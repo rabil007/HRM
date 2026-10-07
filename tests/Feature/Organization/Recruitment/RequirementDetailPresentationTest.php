@@ -209,7 +209,7 @@ test('lifecycle emails use Target Date and omit Submitted by while keeping Reque
 });
 
 test('removing submitted-by display does not change recipients or submitter audit fields', function () {
-    $submitter = User::factory()->create([
+    $otherUser = User::factory()->create([
         'company_id' => $this->company->id,
         'email' => 'alt.detail.submitter@example.com',
         'name' => 'Alt Detail Submitter',
@@ -217,7 +217,7 @@ test('removing submitted-by display does not change recipients or submitter audi
     ]);
 
     DB::table('company_user')->updateOrInsert(
-        ['company_id' => $this->company->id, 'user_id' => $submitter->id],
+        ['company_id' => $this->company->id, 'user_id' => $otherUser->id],
         ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
     );
 
@@ -231,18 +231,23 @@ test('removing submitted-by display does not change recipients or submitter audi
             'name' => $permName,
             'guard_name' => 'web',
         ]);
-        $submitter->givePermissionTo($permission);
+        $otherUser->givePermissionTo($permission);
     }
 
     $req = createPresentationRequirement($this);
 
-    $this->actingAs($submitter)
+    $this->actingAs($otherUser)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertStatus(422);
+
+    $this->actingAs($this->requester)
         ->withSession(['current_company_id' => $this->company->id])
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertRedirect();
 
     $fresh = $req->fresh();
-    expect($fresh->submitted_by)->toBe($submitter->id)
+    expect($fresh->submitted_by)->toBe($this->requester->id)
         ->and($fresh->status)->toBe(RequirementStatus::PendingApproval);
 
     Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
@@ -250,8 +255,7 @@ test('removing submitted-by display does not change recipients or submitter audi
 
         return $mail->hasTo('detail.recruiter@example.com')
             && $mail->hasCc('detail.requester@example.com')
-            && $mail->hasCc('alt.detail.submitter@example.com')
-            && $mail->submitterName === 'Alt Detail Submitter'
+            && $mail->submitterName === 'Detail Requester'
             && collect($mail->details)->firstWhere('label', 'Submitted by') === null
             && collect($mail->details)->firstWhere('label', 'Requester')['value'] === 'Detail Requester';
     });

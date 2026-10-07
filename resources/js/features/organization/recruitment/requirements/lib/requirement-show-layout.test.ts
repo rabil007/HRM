@@ -84,7 +84,9 @@ describe('requirement show layout structure', () => {
         assert.match(unifiedSource, /lg:grid-cols-2/);
         assert.match(unifiedSource, /Requirement Details & Workflow/);
         assert.match(unifiedSource, /Request Received from Client/);
-        assert.ok(!unifiedSource.includes('Submitted for approval'));
+        assert.match(unifiedSource, /Client request/);
+        assert.match(unifiedSource, /Schedule & ownership/);
+        assert.match(unifiedSource, /Record info/);
         assert.ok(!unifiedSource.includes('Opened Date'));
         assert.ok(!unifiedSource.includes('Active recruitment'));
         assert.ok(!unifiedSource.includes('Requirement Specifications'));
