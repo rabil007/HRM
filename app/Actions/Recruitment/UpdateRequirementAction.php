@@ -119,9 +119,6 @@ final class UpdateRequirementAction
 
                             if ($targetLine !== null) {
                                 $updates = [];
-                                if (array_key_exists('required_headcount', $lineInput) && filled($lineInput['required_headcount'])) {
-                                    $updates['required_headcount'] = (int) $lineInput['required_headcount'];
-                                }
                                 if (array_key_exists('salary_min', $lineInput)) {
                                     $updates['salary_min'] = $lineInput['salary_min'] !== null && $lineInput['salary_min'] !== '' ? $lineInput['salary_min'] : null;
                                 }

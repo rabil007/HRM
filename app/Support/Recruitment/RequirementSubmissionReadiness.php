@@ -191,6 +191,17 @@ final class RequirementSubmissionReadiness
             $flat[$field] = $fieldMessages[0];
         }
 
+        foreach ($readiness['items'] as $item) {
+            if ($item['ready'] || $item['message'] === null) {
+                continue;
+            }
+
+            if (str_starts_with($item['key'], 'salary_line_')) {
+                $flat['salary'] = $item['message'];
+                break;
+            }
+        }
+
         $flat['submission_readiness'] = 'Requirement is not ready for approval. Complete the remaining required fields.';
 
         throw ValidationException::withMessages($flat);
