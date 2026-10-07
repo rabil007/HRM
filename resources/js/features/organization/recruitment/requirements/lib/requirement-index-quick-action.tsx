@@ -1,4 +1,11 @@
-import { CheckCircle2, Clock, Copy, PlayCircle, Send } from 'lucide-react';
+import {
+    CheckCircle2,
+    Clock,
+    Copy,
+    PlayCircle,
+    Send,
+    Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { RequirementIndexRow } from '@/types/recruitment';
 
@@ -10,6 +17,7 @@ export type RequirementIndexQuickActionHandlers = {
     onFill: (row: RequirementIndexRow) => void;
     onExtend: (row: RequirementIndexRow) => void;
     onReviewDeadlineExtension: (row: RequirementIndexRow) => void;
+    onReviewHeadcountRevision: (row: RequirementIndexRow) => void;
     onRepeat: (row: RequirementIndexRow) => void;
 };
 
@@ -95,6 +103,24 @@ export function RequirementIndexQuickAction({
                 className="h-8 gap-1 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
             >
                 <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                Review
+            </Button>
+        );
+    }
+
+    if (
+        row.next_action === 'review_headcount_revision' &&
+        row.can_decide_headcount_revision
+    ) {
+        return (
+            <Button
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={() => handlers.onReviewHeadcountRevision(row)}
+                className="h-8 gap-1 border-amber-500/40 text-xs text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+            >
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
                 Review
             </Button>
         );

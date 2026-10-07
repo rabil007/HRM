@@ -196,6 +196,8 @@ use App\Http\Controllers\Organization\Recruitment\RequirementDeadlineExtensionAp
 use App\Http\Controllers\Organization\Recruitment\RequirementDeadlineExtensionRejectController;
 use App\Http\Controllers\Organization\Recruitment\RequirementExtendDeadlineController;
 use App\Http\Controllers\Organization\Recruitment\RequirementFillController;
+use App\Http\Controllers\Organization\Recruitment\RequirementHeadcountRevisionApproveController;
+use App\Http\Controllers\Organization\Recruitment\RequirementHeadcountRevisionRejectController;
 use App\Http\Controllers\Organization\Recruitment\RequirementHoldController;
 use App\Http\Controllers\Organization\Recruitment\RequirementReopenController;
 use App\Http\Controllers\Organization\Recruitment\RequirementRepeatController;
@@ -560,8 +562,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:recruitment.requirements.view')
         ->name('organization.recruitment.requirements.deadline-extensions.reject');
     Route::post('organization/recruitment/requirements/{requirement}/change-headcount', RequirementChangeHeadcountController::class)
-        ->middleware('can:recruitment.requirements.update')
+        ->middleware('can:recruitment.requirements.view')
         ->name('organization.recruitment.requirements.change-headcount');
+    Route::post('organization/recruitment/requirements/{requirement}/headcount-revisions/{headcount_revision}/approve', RequirementHeadcountRevisionApproveController::class)
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.headcount-revisions.approve');
+    Route::post('organization/recruitment/requirements/{requirement}/headcount-revisions/{headcount_revision}/reject', RequirementHeadcountRevisionRejectController::class)
+        ->middleware('can:recruitment.requirements.view')
+        ->name('organization.recruitment.requirements.headcount-revisions.reject');
     Route::post('organization/recruitment/requirements/{requirement}/fill', RequirementFillController::class)
         ->middleware('can:recruitment.requirements.close')
         ->name('organization.recruitment.requirements.fill');

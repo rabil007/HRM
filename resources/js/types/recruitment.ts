@@ -29,6 +29,43 @@ export type DeadlineExtensionInitiator = 'requester' | 'recruiter';
 
 export type DeadlineExtensionMode = 'direct' | 'request';
 
+export type HeadcountRevisionStatus =
+    | 'pending'
+    | 'approved'
+    | 'rejected'
+    | 'cancelled';
+
+export type HeadcountRevisionInitiator = 'requester' | 'recruiter';
+
+export type HeadcountRevisionMode = 'direct' | 'requester' | 'recruiter';
+
+export type RequirementHeadcountRevisionLine = {
+    id: number;
+    recruitment_requirement_line_id: number | null;
+    position_id: number | null;
+    position_title: string;
+    old_headcount: number;
+    requested_headcount: number;
+};
+
+export type RequirementHeadcountRevision = {
+    id: number;
+    initiator: HeadcountRevisionInitiator;
+    initiator_label: string;
+    status: HeadcountRevisionStatus;
+    status_label: string;
+    note_label: string;
+    reason: string | null;
+    decision_note: string | null;
+    requested_by: number | null;
+    requested_by_name: string | null;
+    decided_by: number | null;
+    decided_by_name: string | null;
+    requested_at_formatted: string;
+    decided_at_formatted: string | null;
+    lines: RequirementHeadcountRevisionLine[];
+};
+
 export type RequirementDeadlineExtension = {
     id: number;
     initiator: DeadlineExtensionInitiator;
@@ -120,6 +157,7 @@ export type RequirementIndexRow = {
         | 'fill'
         | 'extend'
         | 'review_deadline_extension'
+        | 'review_headcount_revision'
         | 'resume'
         | 'repeat'
         | 'view';
@@ -137,6 +175,9 @@ export type RequirementIndexRow = {
     can_decide_deadline_extension?: boolean;
     pending_deadline_extension?: RequirementDeadlineExtension | null;
     can_change_headcount: boolean;
+    headcount_revision_mode?: HeadcountRevisionMode | null;
+    can_decide_headcount_revision?: boolean;
+    pending_headcount_revision?: RequirementHeadcountRevision | null;
     can_fill: boolean;
     can_cancel: boolean;
     can_reopen: boolean;
@@ -211,6 +252,7 @@ export type RequirementDetail = RequirementIndexRow & {
         is_target_reached: boolean;
     };
     deadline_extensions?: RequirementDeadlineExtension[];
+    headcount_revisions?: RequirementHeadcountRevision[];
 };
 
 export type RequirementPagePermissions = {
@@ -226,6 +268,7 @@ export type RequirementPagePermissions = {
     repeat: boolean;
     view_audit: boolean;
     request_deadline_extension?: boolean;
+    request_headcount_revision?: boolean;
 };
 
 export type ClientOption = {

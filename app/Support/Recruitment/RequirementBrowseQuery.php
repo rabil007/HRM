@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment;
 
+use App\Enums\Recruitment\RequirementHeadcountRevisionInitiator;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
@@ -51,15 +52,8 @@ final class RequirementBrowseQuery
             ->where('company_id', $companyId)
             ->with(RequirementSubmissionReadinessLookup::eagerLoad());
 
-        if ($needsAction === 'deadline_extension') {
-            $actorId = $request->user()?->id;
-            if ($actorId !== null) {
-                $query->where('created_by', (int) $actorId)
-                    ->whereIn('status', [RequirementStatus::Open, RequirementStatus::OnHold])
-                    ->whereHas('pendingDeadlineExtension');
-            } else {
-                $query->whereRaw('1 = 0');
-            }
+        if (in_array($needsAction, ['deadline_extension', 'headcount_revision'], true)) {
+            self::applyNeedsActionScope($query, $request);
         } else {
             match ($currentTab) {
                 'on_hold' => $query->where('status', RequirementStatus::OnHold),
@@ -182,5 +176,42 @@ final class RequirementBrowseQuery
             ],
             'search' => $search,
         ];
+    }
+
+    /**
+     * Actionable approvals across Open and On Hold.
+     * Normal Active / On Hold / History tabs stay unchanged.
+     */
+    private static function applyNeedsActionScope(Builder $query, Request $request): void
+    {
+        $actorId = $request->user()?->id;
+
+        if ($actorId === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $actorId = (int) $actorId;
+
+        $query->whereIn('status', [RequirementStatus::Open, RequirementStatus::OnHold])
+            ->where(function (Builder $actionable) use ($actorId): void {
+                $actionable->where(function (Builder $deadline) use ($actorId): void {
+                    $deadline->where('created_by', $actorId)
+                        ->whereHas('pendingDeadlineExtension');
+                })->orWhere(function (Builder $asRequester) use ($actorId): void {
+                    $asRequester->where('created_by', $actorId)
+                        ->whereHas('pendingHeadcountRevision', function (Builder $revision): void {
+                            $revision->where('initiator', RequirementHeadcountRevisionInitiator::Recruiter);
+                        });
+                })->orWhere(function (Builder $asRecruiter) use ($actorId): void {
+                    $asRecruiter->where('assigned_to', $actorId)
+                        ->whereColumn('assigned_to', '!=', 'created_by')
+                        ->whereHas('pendingHeadcountRevision', function (Builder $revision) use ($actorId): void {
+                            $revision->where('initiator', RequirementHeadcountRevisionInitiator::Requester)
+                                ->where('requested_by', '!=', $actorId);
+                        });
+                });
+            });
     }
 }

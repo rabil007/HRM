@@ -2,7 +2,6 @@ import { useForm } from '@inertiajs/react';
 import { Loader2, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import RequirementChangeHeadcountController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementChangeHeadcountController';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -17,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/lib/toast';
 import type {
+    HeadcountRevisionMode,
     RequirementDetail,
     RequirementIndexRow,
 } from '@/types/recruitment';
@@ -35,11 +35,22 @@ type Props = {
     onSuccess?: () => void;
 };
 
+type HeadcountForm = {
+    lines: Array<{ id: number; required_headcount: string }>;
+    reason: string;
+};
+
+function revisionMode(
+    requirement: RequirementIndexRow | RequirementDetail,
+): HeadcountRevisionMode {
+    return requirement.headcount_revision_mode ?? 'direct';
+}
+
 export function ChangeHeadcountDialog({
     open,
     onOpenChange,
     requirement,
-    lines = [],
+    lines,
     onSuccess,
 }: Props) {
     const availableLines: LineItem[] = useMemo(() => {
@@ -52,61 +63,90 @@ export function ChangeHeadcountDialog({
         }
 
         if ('lines' in requirement && requirement.lines) {
-            return requirement.lines.map((l) => ({
-                id: l.id,
-                position_title: l.position_title,
-                required_headcount: l.required_headcount,
+            return requirement.lines.map((line) => ({
+                id: line.id,
+                position_title: line.position_title,
+                required_headcount: line.required_headcount,
             }));
         }
 
         if (requirement.positions_summary) {
-            return requirement.positions_summary.map((p) => ({
-                id: p.id,
-                position_title: p.position_title,
-                required_headcount: p.required_headcount,
+            return requirement.positions_summary.map((position) => ({
+                id: position.id,
+                position_title: position.position_title,
+                required_headcount: position.required_headcount,
             }));
         }
 
         return [];
     }, [lines, requirement]);
 
-    const { data, setData, post, processing, errors, reset, clearErrors } =
-        useForm({
-            requirement_line_id: availableLines[0]?.id
-                ? String(availableLines[0].id)
-                : '',
-            new_headcount: availableLines[0]?.required_headcount
-                ? String(availableLines[0].required_headcount)
-                : '1',
-            reason: '',
-        });
+    const mode = requirement ? revisionMode(requirement) : 'direct';
+    const noteOptional = mode === 'requester';
+
+    const {
+        data,
+        setData,
+        post,
+        processing,
+        errors,
+        reset,
+        clearErrors,
+        transform,
+    } = useForm<HeadcountForm>({
+        lines: [],
+        reason: '',
+    });
+    const formErrors = errors as Record<string, string | undefined>;
 
     useEffect(() => {
-        if (open && availableLines.length > 0) {
-            clearErrors();
-            const first = availableLines[0];
-            setData({
-                requirement_line_id: String(first.id),
-                new_headcount: String(first.required_headcount),
-                reason: '',
-            });
+        if (!open) {
+            return;
         }
+
+        clearErrors();
+        setData({
+            lines: availableLines.map((line) => ({
+                id: line.id,
+                required_headcount: String(line.required_headcount),
+            })),
+            reason: '',
+        });
     }, [open, availableLines, clearErrors, setData]);
 
     if (!requirement) {
         return null;
     }
 
-    const selectedLine = availableLines.find(
-        (l) => String(l.id) === String(data.requirement_line_id),
-    );
+    const title =
+        mode === 'recruiter'
+            ? 'Request Headcount Revision'
+            : 'Revise Headcount';
+    const submitLabel =
+        mode === 'recruiter'
+            ? 'Request Revision'
+            : mode === 'requester'
+              ? 'Submit Revision'
+              : 'Update Headcount';
+    const noteLabel = noteOptional ? 'Note' : 'Reason';
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        transform((payload) => ({
+            lines: payload.lines.map((line) => ({
+                id: line.id,
+                required_headcount: Number(line.required_headcount),
+            })),
+            reason: payload.reason,
+        }));
         post(RequirementChangeHeadcountController.url(requirement.id), {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Headcount revised successfully.');
+                toast.success(
+                    mode === 'direct'
+                        ? 'Headcount updated successfully.'
+                        : 'Headcount revision submitted for approval.',
+                );
                 onOpenChange(false);
                 reset();
                 onSuccess?.();
@@ -121,7 +161,7 @@ export function ChangeHeadcountDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md p-6">
+            <DialogContent className="max-w-lg p-6">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader className="space-y-2">
                         <div className="flex items-center gap-3">
@@ -130,7 +170,7 @@ export function ChangeHeadcountDialog({
                             </div>
                             <div>
                                 <DialogTitle className="text-lg font-bold">
-                                    Revise Headcount
+                                    {title}
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground">
                                     {requirement.requirement_number} —{' '}
@@ -141,107 +181,112 @@ export function ChangeHeadcountDialog({
                     </DialogHeader>
 
                     <div className="my-5 space-y-4">
-                        {availableLines.length > 1 && (
-                            <div className="space-y-2">
-                                <Label className="text-xs font-semibold">
-                                    Select Position
-                                </Label>
-                                <AppSelect
-                                    value={data.requirement_line_id}
-                                    onValueChange={(val) => {
-                                        const target = availableLines.find(
-                                            (l) => String(l.id) === val,
-                                        );
-                                        setData((prev) => ({
-                                            ...prev,
-                                            requirement_line_id: val,
-                                            new_headcount: target
-                                                ? String(
-                                                      target.required_headcount,
-                                                  )
-                                                : prev.new_headcount,
-                                        }));
-                                    }}
+                        {mode === 'requester' ? (
+                            <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300">
+                                The official headcount will remain unchanged
+                                until the assigned recruiter approves this
+                                revision.
+                            </p>
+                        ) : null}
+
+                        <div className="space-y-3">
+                            {availableLines.map((line, index) => (
+                                <div
+                                    key={line.id}
+                                    className="rounded-lg border border-border/70 bg-muted/30 p-3"
                                 >
-                                    {availableLines.map((line) => (
-                                        <AppSelectItem
-                                            key={line.id}
-                                            value={String(line.id)}
+                                    <p className="text-sm font-semibold">
+                                        {line.position_title}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Current: {line.required_headcount}
+                                    </p>
+                                    <div className="mt-2 space-y-1">
+                                        <Label
+                                            htmlFor={`proposed-headcount-${line.id}`}
+                                            className="text-xs font-semibold"
                                         >
-                                            {line.position_title} (Current:{' '}
-                                            {line.required_headcount})
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                            </div>
-                        )}
-
-                        {selectedLine && (
-                            <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3 text-xs">
-                                <span className="text-muted-foreground">
-                                    Position:{' '}
-                                    <strong className="text-foreground">
-                                        {selectedLine.position_title}
-                                    </strong>
-                                </span>
-                                <span>
-                                    Current target:{' '}
-                                    <strong className="font-semibold text-primary">
-                                        {selectedLine.required_headcount}
-                                    </strong>
-                                </span>
-                            </div>
-                        )}
-
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="new_headcount"
-                                className="text-xs font-semibold"
-                            >
-                                New Headcount Target{' '}
-                                <span className="text-rose-500">*</span>
-                            </Label>
-                            <Input
-                                id="new_headcount"
-                                type="number"
-                                min={1}
-                                max={500}
-                                value={data.new_headcount}
-                                onChange={(e) =>
-                                    setData('new_headcount', e.target.value)
-                                }
-                                required
-                            />
-                            {errors.new_headcount && (
-                                <p className="text-xs text-rose-500">
-                                    {errors.new_headcount}
-                                </p>
-                            )}
+                                            Proposed
+                                        </Label>
+                                        <Input
+                                            id={`proposed-headcount-${line.id}`}
+                                            type="number"
+                                            min={1}
+                                            value={
+                                                data.lines[index]
+                                                    ?.required_headcount ??
+                                                String(line.required_headcount)
+                                            }
+                                            onChange={(event) => {
+                                                const next = [...data.lines];
+                                                next[index] = {
+                                                    id: line.id,
+                                                    required_headcount:
+                                                        event.target.value,
+                                                };
+                                                setData('lines', next);
+                                            }}
+                                            required
+                                        />
+                                        {formErrors[
+                                            `lines.${index}.required_headcount`
+                                        ] ? (
+                                            <p className="text-xs text-rose-500">
+                                                {
+                                                    formErrors[
+                                                        `lines.${index}.required_headcount`
+                                                    ]
+                                                }
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+                        {formErrors.lines ? (
+                            <p className="text-xs text-rose-500">
+                                {formErrors.lines}
+                            </p>
+                        ) : null}
+                        {formErrors.status ? (
+                            <p className="text-xs text-rose-500">
+                                {formErrors.status}
+                            </p>
+                        ) : null}
 
                         <div className="space-y-2">
                             <Label
-                                htmlFor="reason"
+                                htmlFor="headcount-revision-note"
                                 className="text-xs font-semibold"
                             >
-                                Reason for Headcount Change{' '}
-                                <span className="text-rose-500">*</span>
+                                {noteLabel}{' '}
+                                {noteOptional ? (
+                                    <span className="font-normal text-muted-foreground">
+                                        (optional)
+                                    </span>
+                                ) : (
+                                    <span className="text-rose-500">*</span>
+                                )}
                             </Label>
                             <Textarea
-                                id="reason"
+                                id="headcount-revision-note"
                                 rows={3}
-                                placeholder="Explain why the headcount target was revised..."
-                                value={data.reason}
-                                onChange={(e) =>
-                                    setData('reason', e.target.value)
+                                placeholder={
+                                    noteOptional
+                                        ? 'Add a note for the assigned recruiter...'
+                                        : 'Explain why the headcount should change...'
                                 }
-                                required
+                                value={data.reason}
+                                onChange={(event) =>
+                                    setData('reason', event.target.value)
+                                }
+                                required={!noteOptional}
                             />
-                            {errors.reason && (
+                            {formErrors.reason ? (
                                 <p className="text-xs text-rose-500">
-                                    {errors.reason}
+                                    {formErrors.reason}
                                 </p>
-                            )}
+                            ) : null}
                         </div>
                     </div>
 
@@ -262,7 +307,7 @@ export function ChangeHeadcountDialog({
                             {processing && (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             )}
-                            Update Headcount
+                            {submitLabel}
                         </Button>
                     </DialogFooter>
                 </form>

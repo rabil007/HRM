@@ -20,6 +20,7 @@ final class RequirementPagePermissions
      *     repeat: bool,
      *     view_audit: bool,
      *     request_deadline_extension: bool,
+     *     request_headcount_revision: bool,
      * }
      */
     public static function for(?User $user): array
@@ -40,6 +41,7 @@ final class RequirementPagePermissions
             'repeat' => $canView && $canCreate,
             'view_audit' => (bool) $user?->can('audit.view'),
             'request_deadline_extension' => (bool) $user?->can('recruitment.requirements.request_deadline_extension'),
+            'request_headcount_revision' => (bool) $user?->can('recruitment.requirements.request_headcount_revision'),
         ];
     }
 }

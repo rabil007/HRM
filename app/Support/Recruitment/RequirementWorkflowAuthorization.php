@@ -2,8 +2,10 @@
 
 namespace App\Support\Recruitment;
 
+use App\Enums\Recruitment\RequirementHeadcountRevisionInitiator;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
@@ -129,6 +131,90 @@ final class RequirementWorkflowAuthorization
         if ($requirement->required_by_date === null) {
             throw ValidationException::withMessages([
                 'new_date' => 'This requirement does not have a deadline to extend.',
+            ]);
+        }
+    }
+
+    public static function canDirectlyReviseHeadcount(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.update')
+            && self::isCreator($user, $requirement)
+            && $requirement->status->isEditable();
+    }
+
+    public static function canProposeHeadcountRevisionAsRequester(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.update')
+            && self::isCreator($user, $requirement)
+            && ! self::isAssignedRecruiter($user, $requirement)
+            && ! self::blocksSelfApproval($requirement)
+            && $requirement->assigned_to !== null
+            && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true);
+    }
+
+    public static function canProposeHeadcountRevisionAsRecruiter(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.request_headcount_revision')
+            && self::isAssignedRecruiter($user, $requirement)
+            && ! self::isCreator($user, $requirement)
+            && ! self::blocksSelfApproval($requirement)
+            && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true);
+    }
+
+    public static function canDecideHeadcountRevision(
+        User $user,
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementHeadcountRevision $revision,
+    ): bool {
+        if ((int) $revision->company_id !== (int) $requirement->company_id) {
+            return false;
+        }
+
+        if ((int) $revision->recruitment_requirement_id !== (int) $requirement->id) {
+            return false;
+        }
+
+        if ((int) $revision->requested_by === (int) $user->id) {
+            return false;
+        }
+
+        if ($revision->initiator === RequirementHeadcountRevisionInitiator::Recruiter) {
+            return $user->can('recruitment.requirements.view')
+                && self::isCreator($user, $requirement);
+        }
+
+        if ($revision->initiator === RequirementHeadcountRevisionInitiator::Requester) {
+            return self::isAssignedRecruiter($user, $requirement)
+                && (
+                    $user->can('recruitment.requirements.approve')
+                    || $user->can('recruitment.requirements.request_headcount_revision')
+                );
+        }
+
+        return false;
+    }
+
+    public static function assertCanDirectlyReviseHeadcount(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! self::canDirectlyReviseHeadcount($user, $requirement)) {
+            self::assertCanPrepare($user, $requirement);
+        }
+    }
+
+    public static function assertCanDecideHeadcountRevision(
+        User $user,
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementHeadcountRevision $revision,
+    ): void {
+        if ((int) $revision->requested_by === (int) $user->id || self::blocksSelfApproval($requirement)) {
+            throw ValidationException::withMessages([
+                'status' => 'You cannot approve or reject a headcount revision you initiated.',
+            ]);
+        }
+
+        if (! self::canDecideHeadcountRevision($user, $requirement, $revision)) {
+            throw ValidationException::withMessages([
+                'status' => 'You are not allowed to review this headcount revision.',
             ]);
         }
     }

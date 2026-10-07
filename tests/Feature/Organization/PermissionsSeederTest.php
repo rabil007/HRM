@@ -78,6 +78,7 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'recruitment.requirements.submit')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.approve')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.request_deadline_extension')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.requirements.request_headcount_revision')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -105,6 +106,7 @@ test('permission metadata follows current module categories without changing nam
         'recruitment.requirements.submit' => 'Recruitment',
         'recruitment.requirements.approve' => 'Recruitment',
         'recruitment.requirements.request_deadline_extension' => 'Recruitment',
+        'recruitment.requirements.request_headcount_revision' => 'Recruitment',
     ];
 
     foreach ($groups as $name => $group) {
@@ -248,7 +250,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 10
+                return $recruitmentOptions->count() === 11
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -264,7 +266,10 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment'
                     && $options->has('recruitment.requirements.request_deadline_extension')
                     && $options->get('recruitment.requirements.request_deadline_extension')['label'] === 'Request Requirement Deadline Extensions'
-                    && $options->get('recruitment.requirements.request_deadline_extension')['group'] === 'Recruitment';
+                    && $options->get('recruitment.requirements.request_deadline_extension')['group'] === 'Recruitment'
+                    && $options->has('recruitment.requirements.request_headcount_revision')
+                    && $options->get('recruitment.requirements.request_headcount_revision')['label'] === 'Request Requirement Headcount Revisions'
+                    && $options->get('recruitment.requirements.request_headcount_revision')['group'] === 'Recruitment';
             }),
         );
 });
@@ -342,4 +347,79 @@ test('permissions seeder preserves an explicitly configured pair of approve and 
 
     expect($names)->toContain('recruitment.requirements.approve')
         ->and($names)->toContain('recruitment.requirements.request_deadline_extension');
+});
+
+test('permissions seeder does not grant request_headcount_revision to roles that only have approve', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Approve Only Headcount Co',
+        'approve-only-headcount-permissions',
+        'AHC',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions(['recruitment.requirements.approve']);
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->not->toContain('recruitment.requirements.request_headcount_revision');
+});
+
+test('permissions seeder does not restore request_headcount_revision after an administrator removes it', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Revoked Headcount Co',
+        'revoked-headcount-permissions',
+        'RHC',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions([
+        'recruitment.requirements.approve',
+        'recruitment.requirements.request_headcount_revision',
+    ]);
+    $role->revokePermissionTo('recruitment.requirements.request_headcount_revision');
+
+    $namesBeforeSeed = $role->fresh()->permissions()->pluck('name');
+
+    expect($namesBeforeSeed)->toContain('recruitment.requirements.approve')
+        ->and($namesBeforeSeed)->not->toContain('recruitment.requirements.request_headcount_revision');
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->not->toContain('recruitment.requirements.request_headcount_revision');
+});
+
+test('permissions seeder preserves an explicitly configured pair of approve and request_headcount_revision', function () {
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+
+    ['company' => $company, 'role' => $role] = makeRecruitmentPermissionRole(
+        'Both Headcount Co',
+        'both-headcount-permissions',
+        'BHC',
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $role->syncPermissions([
+        'recruitment.requirements.approve',
+        'recruitment.requirements.request_headcount_revision',
+    ]);
+
+    Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\PermissionsSeeder']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $names = $role->fresh()->permissions()->pluck('name');
+
+    expect($names)->toContain('recruitment.requirements.approve')
+        ->and($names)->toContain('recruitment.requirements.request_headcount_revision');
 });

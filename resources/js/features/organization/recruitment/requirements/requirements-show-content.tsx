@@ -12,10 +12,7 @@ import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { toast } from '@/lib/toast';
-import type {
-    RequirementLine,
-    RequirementShowProps,
-} from '@/types/recruitment';
+import type { RequirementShowProps } from '@/types/recruitment';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { RequirementFormSheet } from './components/requirement-form-sheet';
 import {
@@ -23,6 +20,7 @@ import {
     RequirementStatusBadge,
 } from './components/requirement-status-badge';
 import { DeadlineExtensionHistoryCard } from './components/show/deadline-extension-history-card';
+import { HeadcountRevisionHistoryCard } from './components/show/headcount-revision-history-card';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
 import { RequirementDetailsWorkflowCard } from './components/show/requirement-details-workflow-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
@@ -32,6 +30,7 @@ import { CancelRequirementDialog } from './components/workflow/cancel-requiremen
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { DeadlineExtensionRequestCard } from './components/workflow/deadline-extension-request-card';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
+import { HeadcountRevisionRequestCard } from './components/workflow/headcount-revision-request-card';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
@@ -67,8 +66,6 @@ export function RequirementsShowContent({
     const [isRepeatOpen, setIsRepeatOpen] = useState(false);
     const [isReturnOpen, setIsReturnOpen] = useState(false);
     const [readinessBlockedOpen, setReadinessBlockedOpen] = useState(false);
-    const [targetLineForHeadcount, setTargetLineForHeadcount] =
-        useState<RequirementLine | null>(null);
 
     const [isWorkflowProcessing, setIsWorkflowProcessing] = useState(false);
 
@@ -214,6 +211,7 @@ export function RequirementsShowContent({
                     className="order-1 min-w-0 space-y-6 overflow-x-visible [scrollbar-width:thin] lg:sticky lg:top-4 lg:order-2 lg:col-span-1 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-x-visible lg:overflow-y-auto lg:pr-1"
                 >
                     <DeadlineExtensionRequestCard requirement={requirement} />
+                    <HeadcountRevisionRequestCard requirement={requirement} />
 
                     <RequirementOverviewCard
                         requirement={requirement}
@@ -227,7 +225,6 @@ export function RequirementsShowContent({
                         onResume={handleResume}
                         onExtend={() => setIsExtendOpen(true)}
                         onChangeHeadcount={() => {
-                            setTargetLineForHeadcount(null);
                             setIsChangeHeadcountOpen(true);
                         }}
                         onFill={handleFill}
@@ -239,6 +236,9 @@ export function RequirementsShowContent({
                     <DeadlineExtensionHistoryCard
                         extensions={requirement.deadline_extensions ?? []}
                     />
+                    <HeadcountRevisionHistoryCard
+                        revisions={requirement.headcount_revisions ?? []}
+                    />
                 </div>
 
                 <div
@@ -247,8 +247,7 @@ export function RequirementsShowContent({
                 >
                     <RequirementPositionLinesCard
                         requirement={requirement}
-                        onChangeLineHeadcount={(line) => {
-                            setTargetLineForHeadcount(line);
+                        onChangeLineHeadcount={() => {
                             setIsChangeHeadcountOpen(true);
                         }}
                     />
@@ -303,19 +302,6 @@ export function RequirementsShowContent({
                 open={isChangeHeadcountOpen}
                 onOpenChange={setIsChangeHeadcountOpen}
                 requirement={requirement}
-                lines={
-                    targetLineForHeadcount
-                        ? [
-                              {
-                                  id: targetLineForHeadcount.id,
-                                  position_title:
-                                      targetLineForHeadcount.position_title,
-                                  required_headcount:
-                                      targetLineForHeadcount.required_headcount,
-                              },
-                          ]
-                        : undefined
-                }
             />
 
             <CancelRequirementDialog

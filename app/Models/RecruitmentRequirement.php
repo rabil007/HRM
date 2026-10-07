@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Recruitment\RequirementDeadlineExtensionStatus;
+use App\Enums\Recruitment\RequirementHeadcountRevisionStatus;
 use App\Enums\Recruitment\RequirementPriority;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -159,6 +160,19 @@ class RecruitmentRequirement extends Model
         return $this->hasOne(RecruitmentRequirementDeadlineExtension::class, 'recruitment_requirement_id')
             ->ofMany(['id' => 'max'], function ($query): void {
                 $query->where('status', RequirementDeadlineExtensionStatus::Pending);
+            });
+    }
+
+    public function headcountRevisions(): HasMany
+    {
+        return $this->hasMany(RecruitmentRequirementHeadcountRevision::class, 'recruitment_requirement_id');
+    }
+
+    public function pendingHeadcountRevision(): HasOne
+    {
+        return $this->hasOne(RecruitmentRequirementHeadcountRevision::class, 'recruitment_requirement_id')
+            ->ofMany(['id' => 'max'], function ($query): void {
+                $query->where('status', RequirementHeadcountRevisionStatus::Pending);
             });
     }
 

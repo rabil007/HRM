@@ -82,10 +82,13 @@ export function RequirementToolbar({
         {
             label: 'Needs my action',
             icon: Inbox,
-            active: filters.needs_action === 'deadline_extension',
+            active:
+                filters.needs_action === 'deadline_extension' ||
+                filters.needs_action === 'headcount_revision',
             change: {
                 needs_action:
-                    filters.needs_action === 'deadline_extension'
+                    filters.needs_action === 'deadline_extension' ||
+                    filters.needs_action === 'headcount_revision'
                         ? null
                         : 'deadline_extension',
             },

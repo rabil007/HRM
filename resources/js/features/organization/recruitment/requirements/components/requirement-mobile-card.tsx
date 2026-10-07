@@ -169,6 +169,11 @@ export function RequirementMobileCard({
                                     `${RequirementController.show.url(row.id)}#deadline-extension-request`,
                                 );
                             },
+                            onReviewHeadcountRevision: () => {
+                                router.visit(
+                                    `${RequirementController.show.url(row.id)}#headcount-revision-request`,
+                                );
+                            },
                             onRepeat,
                         }}
                     />

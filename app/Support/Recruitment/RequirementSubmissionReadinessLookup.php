@@ -132,6 +132,9 @@ final class RequirementSubmissionReadinessLookup
             'assignedRecruiter:id,name',
             'pendingDeadlineExtension.requestedBy:id,name',
             'pendingDeadlineExtension.decidedBy:id,name',
+            'pendingHeadcountRevision.lines',
+            'pendingHeadcountRevision.requestedBy:id,name',
+            'pendingHeadcountRevision.decidedBy:id,name',
             'repeatedFrom:id,requirement_number',
             'lines.position' => fn ($query) => $query->withTrashed()->select('id', 'title', 'company_id', 'status', 'deleted_at'),
         ];

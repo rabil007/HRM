@@ -7,6 +7,7 @@ use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
 use App\Models\RecruitmentRequirementDeadlineExtension;
+use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
 use Carbon\Carbon;
@@ -89,8 +90,29 @@ final class RequirementPresenter
 
         $canExtend = $deadlineExtensionMode !== null;
 
-        // Draft/Returned audited adjustments stay requester-owned; Open/OnHold remain update-permission based.
-        $canAdjustWhileEditable = $canUpdate && ($user === null || ! $isEditable || $isCreator);
+        $pendingHeadcount = $requirement->relationLoaded('pendingHeadcountRevision')
+            ? $requirement->pendingHeadcountRevision
+            : null;
+        $pendingHeadcountPayload = $pendingHeadcount instanceof RecruitmentRequirementHeadcountRevision
+            ? RequirementHeadcountRevisionPresenter::toArray($pendingHeadcount)
+            : null;
+
+        $canDirectHeadcount = $user !== null
+            && RequirementWorkflowAuthorization::canDirectlyReviseHeadcount($user, $requirement);
+        $canRequestHeadcountAsRequester = $user !== null
+            && RequirementWorkflowAuthorization::canProposeHeadcountRevisionAsRequester($user, $requirement)
+            && $pendingHeadcountPayload === null;
+        $canRequestHeadcountAsRecruiter = $user !== null
+            && RequirementWorkflowAuthorization::canProposeHeadcountRevisionAsRecruiter($user, $requirement)
+            && $pendingHeadcountPayload === null;
+        $headcountRevisionMode = $canDirectHeadcount
+            ? 'direct'
+            : ($canRequestHeadcountAsRequester
+                ? 'requester'
+                : ($canRequestHeadcountAsRecruiter ? 'recruiter' : null));
+        $canDecideHeadcount = $user !== null
+            && $pendingHeadcount instanceof RecruitmentRequirementHeadcountRevision
+            && RequirementWorkflowAuthorization::canDecideHeadcountRevision($user, $requirement, $pendingHeadcount);
 
         $canSubmit = $canSubmitPerm
             && $requirement->status === RequirementStatus::Draft
@@ -151,7 +173,7 @@ final class RequirementPresenter
             'positions_count' => count($positionsSummary),
             'repeated_from_id' => $requirement->repeated_from_id !== null ? (int) $requirement->repeated_from_id : null,
             'repeated_from_number' => $requirement->repeatedFrom?->requirement_number,
-            'next_action' => self::computeNextAction($requirement, $deadlineHealth, $user, $canDecideExtension),
+            'next_action' => self::computeNextAction($requirement, $deadlineHealth, $user, $canDecideExtension, $canDecideHeadcount),
             'can_edit' => $canEdit,
             'can_submit' => $canSubmit,
             'can_approve' => $canApprove,
@@ -165,7 +187,10 @@ final class RequirementPresenter
             'deadline_extension_mode' => $deadlineExtensionMode,
             'can_decide_deadline_extension' => $canDecideExtension,
             'pending_deadline_extension' => $pendingExtensionPayload,
-            'can_change_headcount' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_change_headcount' => $headcountRevisionMode !== null,
+            'headcount_revision_mode' => $headcountRevisionMode,
+            'can_decide_headcount_revision' => $canDecideHeadcount,
+            'pending_headcount_revision' => $pendingHeadcountPayload,
             'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
             'can_reopen' => $canReopenPerm && $isHistory,
@@ -246,9 +271,13 @@ final class RequirementPresenter
         $deadlineExtensions = $requirement->relationLoaded('deadlineExtensions')
             ? $requirement->deadlineExtensions
             : collect();
+        $headcountRevisions = $requirement->relationLoaded('headcountRevisions')
+            ? $requirement->headcountRevisions
+            : collect();
 
         return array_merge($base, $duration, [
             'deadline_extensions' => RequirementDeadlineExtensionPresenter::history($deadlineExtensions),
+            'headcount_revisions' => RequirementHeadcountRevisionPresenter::history($headcountRevisions),
             'notes' => $requirement->notes,
             'cancellation_reason' => $requirement->cancellation_reason,
             'return_reason' => $requirement->return_reason,
@@ -345,9 +374,14 @@ final class RequirementPresenter
         ?RequirementDeadlineHealth $health,
         ?User $user = null,
         bool $canDecideDeadlineExtension = false,
+        bool $canDecideHeadcountRevision = false,
     ): string {
         if ($canDecideDeadlineExtension) {
             return 'review_deadline_extension';
+        }
+
+        if ($canDecideHeadcountRevision) {
+            return 'review_headcount_revision';
         }
 
         return match ($requirement->status) {

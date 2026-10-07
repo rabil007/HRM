@@ -31,6 +31,12 @@ final class ComposeRequirementLifecycleMail
 
     public const SLUG_DEADLINE_EXTENDED_BY_REQUESTER = 'requirement_deadline_extended_by_requester';
 
+    public const SLUG_HEADCOUNT_REVISION_REQUESTED = 'requirement_headcount_revision_requested';
+
+    public const SLUG_HEADCOUNT_REVISION_APPROVED = 'requirement_headcount_revision_approved';
+
+    public const SLUG_HEADCOUNT_REVISION_REJECTED = 'requirement_headcount_revision_rejected';
+
     public function findBySlug(string $slug): ?EmailTemplate
     {
         return EmailTemplate::query()
@@ -64,6 +70,16 @@ final class ComposeRequirementLifecycleMail
             RequirementDeadlineExtensionEmailPayload::EVENT_APPROVED => self::SLUG_DEADLINE_EXTENSION_APPROVED,
             RequirementDeadlineExtensionEmailPayload::EVENT_REJECTED => self::SLUG_DEADLINE_EXTENSION_REJECTED,
             RequirementDeadlineExtensionEmailPayload::EVENT_DIRECT => self::SLUG_DEADLINE_EXTENDED_BY_REQUESTER,
+            default => null,
+        };
+    }
+
+    public function slugForHeadcountRevisionEvent(string $event): ?string
+    {
+        return match ($event) {
+            RequirementHeadcountRevisionEmailPayload::EVENT_REQUESTED => self::SLUG_HEADCOUNT_REVISION_REQUESTED,
+            RequirementHeadcountRevisionEmailPayload::EVENT_APPROVED => self::SLUG_HEADCOUNT_REVISION_APPROVED,
+            RequirementHeadcountRevisionEmailPayload::EVENT_REJECTED => self::SLUG_HEADCOUNT_REVISION_REJECTED,
             default => null,
         };
     }
@@ -170,6 +186,37 @@ final class ComposeRequirementLifecycleMail
             '{{recruiter_name}}' => $recruiterName,
             '{{old_deadline}}' => $oldDeadline !== '' ? $oldDeadline : '—',
             '{{new_deadline}}' => $newDeadline !== '' ? $newDeadline : '—',
+            '{{reason}}' => $reason !== '' ? $reason : '—',
+            '{{note}}' => $note !== '' ? $note : '',
+            '{{requirement_url}}' => $requirementUrl,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function headcountRevisionPlaceholders(
+        RecruitmentRequirement $requirement,
+        string $requirementUrl,
+        string $actorName = '',
+        string $requesterName = '',
+        string $headcountChanges = '',
+        string $reason = '',
+        string $note = '',
+    ): array {
+        $companyName = filled($requirement->company?->name)
+            ? (string) $requirement->company->name
+            : (string) config('app.name');
+
+        return [
+            '{{requirement_number}}' => (string) $requirement->requirement_number,
+            '{{company_name}}' => $companyName,
+            '{{client_name}}' => (string) ($requirement->client?->name ?? '—'),
+            '{{project_name}}' => (string) ($requirement->project?->title ?? '—'),
+            '{{approver_name}}' => $actorName,
+            '{{recruiter_name}}' => $requesterName,
+            '{{submitter_name}}' => $requesterName,
+            '{{headcount_changes}}' => $headcountChanges !== '' ? $headcountChanges : '—',
             '{{reason}}' => $reason !== '' ? $reason : '—',
             '{{note}}' => $note !== '' ? $note : '',
             '{{requirement_url}}' => $requirementUrl,
