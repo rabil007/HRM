@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -153,6 +154,45 @@ function travelToCompanyLocalHour(Company $company, string $date, int $hour = 9)
     Carbon::setTestNow($now);
 
     return $now;
+}
+
+/**
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function reminderDeliveryPayload(
+    RecruitmentRequirementTargetDateReminder $reminder,
+    RecruitmentRequirement $requirement,
+    array $overrides = [],
+): array {
+    return array_merge([
+        'reminder_id' => $reminder->id,
+        'company_id' => $reminder->company_id,
+        'requirement_id' => $requirement->id,
+        'target_date' => $reminder->target_date->format('Y-m-d'),
+        'milestone' => $reminder->milestone->value,
+        'delivery_key' => $reminder->delivery_key,
+        'evaluation_date' => $reminder->target_date->format('Y-m-d'),
+        'primary_recipient_user_id' => $reminder->primary_recipient_user_id,
+        'cc_user_ids' => $reminder->cc_user_ids ?? [],
+        'claim_token' => (string) $reminder->claim_token,
+    ], $overrides);
+}
+
+function queueReminderForDelivery(
+    RecruitmentRequirementTargetDateReminder $reminder,
+    ?string $claimToken = null,
+): RecruitmentRequirementTargetDateReminder {
+    $token = $claimToken ?? (string) Str::uuid();
+
+    $reminder->update([
+        'status' => RequirementTargetDateReminderStatus::Queued,
+        'claim_token' => $token,
+        'claimed_at' => null,
+        'skip_reason' => null,
+    ]);
+
+    return $reminder->fresh();
 }
 
 afterEach(function () {
@@ -349,8 +389,10 @@ test('concurrent claim protection prevents duplicate scheduler queues and sends'
         ->where('recruitment_requirement_id', $req->id)
         ->firstOrFail();
 
-    expect($reminder->status)->toBe(RequirementTargetDateReminderStatus::Processing)
-        ->and($reminder->delivery_key)->toBe($deliveryKey);
+    expect($reminder->status)->toBe(RequirementTargetDateReminderStatus::Queued)
+        ->and($reminder->delivery_key)->toBe($deliveryKey)
+        ->and($reminder->claim_token)->not->toBeNull()
+        ->and($reminder->claimed_at)->toBeNull();
 
     $job = null;
     Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $pushed) use (&$job) {
@@ -415,18 +457,12 @@ test('filled requirement suppresses queued stale reminder', function () {
         'completed_at' => now(),
     ]);
 
+    queueReminderForDelivery($reminder);
+
     Mail::fake();
-    (new DeliverRequirementTargetDateReminderJob([
-        'reminder_id' => $reminder->id,
-        'company_id' => $this->company->id,
-        'requirement_id' => $req->id,
-        'target_date' => '2026-10-07',
-        'milestone' => RequirementTargetDateReminderMilestone::TargetDay->value,
-        'delivery_key' => $deliveryKey,
-        'evaluation_date' => '2026-10-07',
-        'primary_recipient_user_id' => $this->recruiter->id,
-        'cc_user_ids' => [],
-    ]))->handle();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($reminder, $req),
+    ))->handle();
 
     Mail::assertNothingSent();
     expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Skipped)
@@ -519,8 +555,10 @@ test('recent processing rows are not reclaimed while still in progress', functio
         ->where('recruitment_requirement_id', $req->id)
         ->firstOrFail();
 
-    expect($reminder->status)->toBe(RequirementTargetDateReminderStatus::Processing)
-        ->and($reminder->claimed_at)->not->toBeNull();
+    $reminder->update([
+        'status' => RequirementTargetDateReminderStatus::Processing,
+        'claimed_at' => now(),
+    ]);
 
     expect(app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id)['queued'])->toBe(0);
 });
@@ -539,6 +577,7 @@ test('stale processing rows are reclaimed and retried safely', function () {
         'milestone' => RequirementTargetDateReminderMilestone::TargetDay,
         'delivery_key' => $deliveryKey,
         'status' => RequirementTargetDateReminderStatus::Processing,
+        'claim_token' => (string) Str::uuid(),
         'claimed_at' => now()->subMinutes(DispatchRequirementTargetDateReminders::STALE_PROCESSING_TIMEOUT_MINUTES + 5),
         'primary_recipient_user_id' => $this->recruiter->id,
         'cc_user_ids' => [],
@@ -546,7 +585,9 @@ test('stale processing rows are reclaimed and retried safely', function () {
 
     expect(app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id)['queued'])->toBe(1);
 
-    expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Processing);
+    expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Queued)
+        ->and($reminder->fresh()->claimed_at)->toBeNull()
+        ->and($reminder->fresh()->claim_token)->not->toBeNull();
 });
 
 test('missing template stays retryable and succeeds after installation', function () {
@@ -558,7 +599,8 @@ test('missing template stays retryable and succeeds after installation', functio
         'target_date' => '2026-10-07',
         'milestone' => RequirementTargetDateReminderMilestone::TargetDay,
         'delivery_key' => $deliveryKey,
-        'status' => RequirementTargetDateReminderStatus::Processing,
+        'status' => RequirementTargetDateReminderStatus::Queued,
+        'claim_token' => (string) Str::uuid(),
         'primary_recipient_user_id' => $this->recruiter->id,
         'cc_user_ids' => [],
     ]);
@@ -568,17 +610,9 @@ test('missing template stays retryable and succeeds after installation', functio
         ->delete();
 
     Mail::fake();
-    (new DeliverRequirementTargetDateReminderJob([
-        'reminder_id' => $reminder->id,
-        'company_id' => $this->company->id,
-        'requirement_id' => $req->id,
-        'target_date' => '2026-10-07',
-        'milestone' => RequirementTargetDateReminderMilestone::TargetDay->value,
-        'delivery_key' => $deliveryKey,
-        'evaluation_date' => '2026-10-07',
-        'primary_recipient_user_id' => $this->recruiter->id,
-        'cc_user_ids' => [],
-    ]))->handle();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($reminder, $req),
+    ))->handle();
 
     Mail::assertNothingSent();
     expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Failed)
@@ -586,18 +620,13 @@ test('missing template stays retryable and succeeds after installation', functio
 
     (new EmailTemplatesSeeder)->run();
 
+    $failedReminder = $reminder->fresh();
+    queueReminderForDelivery($failedReminder, (string) $failedReminder->claim_token);
+
     Mail::fake();
-    (new DeliverRequirementTargetDateReminderJob([
-        'reminder_id' => $reminder->id,
-        'company_id' => $this->company->id,
-        'requirement_id' => $req->id,
-        'target_date' => '2026-10-07',
-        'milestone' => RequirementTargetDateReminderMilestone::TargetDay->value,
-        'delivery_key' => $deliveryKey,
-        'evaluation_date' => '2026-10-07',
-        'primary_recipient_user_id' => $this->recruiter->id,
-        'cc_user_ids' => [],
-    ]))->handle();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($failedReminder->fresh(), $req),
+    ))->handle();
 
     Mail::assertSent(RequirementTargetDateReminderMail::class, 1);
     expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Sent);
@@ -612,7 +641,8 @@ test('intentionally disabled target-date template remains skipped', function () 
         'target_date' => '2026-10-07',
         'milestone' => RequirementTargetDateReminderMilestone::TargetDay,
         'delivery_key' => $deliveryKey,
-        'status' => RequirementTargetDateReminderStatus::Processing,
+        'status' => RequirementTargetDateReminderStatus::Queued,
+        'claim_token' => (string) Str::uuid(),
         'primary_recipient_user_id' => $this->recruiter->id,
         'cc_user_ids' => [],
     ]);
@@ -622,17 +652,9 @@ test('intentionally disabled target-date template remains skipped', function () 
         ->update(['enabled' => false]);
 
     Mail::fake();
-    (new DeliverRequirementTargetDateReminderJob([
-        'reminder_id' => $reminder->id,
-        'company_id' => $this->company->id,
-        'requirement_id' => $req->id,
-        'target_date' => '2026-10-07',
-        'milestone' => RequirementTargetDateReminderMilestone::TargetDay->value,
-        'delivery_key' => $deliveryKey,
-        'evaluation_date' => '2026-10-07',
-        'primary_recipient_user_id' => $this->recruiter->id,
-        'cc_user_ids' => [],
-    ]))->handle();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($reminder, $req),
+    ))->handle();
 
     Mail::assertNothingSent();
     expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Skipped)
@@ -649,25 +671,107 @@ test('failed reminder rows remain retryable without creating duplicates', functi
         'milestone' => RequirementTargetDateReminderMilestone::TargetDay,
         'delivery_key' => $deliveryKey,
         'status' => RequirementTargetDateReminderStatus::Failed,
+        'claim_token' => (string) Str::uuid(),
         'skip_reason' => 'send_failed',
         'primary_recipient_user_id' => $this->recruiter->id,
         'cc_user_ids' => [],
     ]);
 
     Mail::fake();
-    (new DeliverRequirementTargetDateReminderJob([
-        'reminder_id' => $reminder->id,
-        'company_id' => $this->company->id,
-        'requirement_id' => $req->id,
-        'target_date' => '2026-10-07',
-        'milestone' => RequirementTargetDateReminderMilestone::TargetDay->value,
-        'delivery_key' => $deliveryKey,
-        'evaluation_date' => '2026-10-07',
-        'primary_recipient_user_id' => $this->recruiter->id,
-        'cc_user_ids' => [],
-    ]))->handle();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($reminder, $req),
+    ))->handle();
 
     Mail::assertSent(RequirementTargetDateReminderMail::class, 1);
     expect($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Sent)
         ->and(RecruitmentRequirementTargetDateReminder::query()->where('recruitment_requirement_id', $req->id)->count())->toBe(1);
+});
+
+test('queued backlog does not cause duplicate dispatcher deliveries', function () {
+    Queue::fake();
+    createReminderRequirement($this, ['required_by_date' => '2026-10-07']);
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+
+    $dispatcher = app(DispatchRequirementTargetDateReminders::class);
+    expect($dispatcher->forCompany($this->company->id)['queued'])->toBe(1);
+
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+    CarbonImmutable::setTestNow(CarbonImmutable::now()->addMinutes(10));
+    Carbon::setTestNow(CarbonImmutable::now());
+
+    expect($dispatcher->forCompany($this->company->id)['queued'])->toBe(0);
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, 1);
+});
+
+test('stale original queued job cannot send after recovery creates a new attempt', function () {
+    Queue::fake();
+    $req = createReminderRequirement($this, ['required_by_date' => '2026-10-07']);
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+
+    expect(app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id)['queued'])->toBe(1);
+
+    $staleJob = null;
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $pushed) use (&$staleJob) {
+        $staleJob = $pushed;
+
+        return true;
+    });
+
+    $reminder = RecruitmentRequirementTargetDateReminder::query()
+        ->where('recruitment_requirement_id', $req->id)
+        ->firstOrFail();
+
+    $staleToken = (string) $staleJob->payload['claim_token'];
+
+    $reminder->update([
+        'status' => RequirementTargetDateReminderStatus::Processing,
+        'claim_token' => $staleToken,
+        'claimed_at' => now()->subMinutes(DispatchRequirementTargetDateReminders::STALE_PROCESSING_TIMEOUT_MINUTES + 5),
+    ]);
+
+    travelToCompanyLocalHour($this->company, '2026-10-07', 10);
+    expect(app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id)['queued'])->toBe(1);
+
+    $freshJob = null;
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $pushed) use (&$freshJob, $staleJob) {
+        if ($pushed === $staleJob) {
+            return false;
+        }
+
+        $freshJob = $pushed;
+
+        return true;
+    });
+
+    Mail::fake();
+    (new DeliverRequirementTargetDateReminderJob($staleJob->payload))->handle();
+    Mail::assertNothingSent();
+
+    $freshJob->handle();
+    Mail::assertSent(RequirementTargetDateReminderMail::class, 1);
+});
+
+test('sent reminder retry cannot send again', function () {
+    $req = createReminderRequirement($this, ['required_by_date' => '2026-10-07']);
+    $deliveryKey = RequirementTargetDateReminderDeliveryKey::forUser($this->recruiter->id);
+    $token = (string) Str::uuid();
+    $reminder = RecruitmentRequirementTargetDateReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'target_date' => '2026-10-07',
+        'milestone' => RequirementTargetDateReminderMilestone::TargetDay,
+        'delivery_key' => $deliveryKey,
+        'status' => RequirementTargetDateReminderStatus::Sent,
+        'claim_token' => $token,
+        'sent_at' => now(),
+        'primary_recipient_user_id' => $this->recruiter->id,
+        'cc_user_ids' => [],
+    ]);
+
+    Mail::fake();
+    (new DeliverRequirementTargetDateReminderJob(
+        reminderDeliveryPayload($reminder, $req),
+    ))->handle();
+
+    Mail::assertNothingSent();
 });

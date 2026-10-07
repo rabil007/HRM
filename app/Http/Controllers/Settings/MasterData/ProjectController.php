@@ -13,12 +13,12 @@ use App\Models\Project;
 use App\Support\MasterData\MasterDataQuickCreate;
 use App\Support\MasterData\MasterDataUsage;
 use App\Support\MasterData\SyncProjectClients;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Arr;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ProjectController extends Controller
@@ -164,9 +164,7 @@ class ProjectController extends Controller
         }
 
         if (! $canAttachClients) {
-            throw ValidationException::withMessages([
-                'title' => MasterDataQuickCreate::PROJECT_NOT_LINKED_MESSAGE,
-            ]);
+            throw new AuthorizationException('This action is unauthorized.');
         }
 
         $syncProjectClients->attach($existing, $clientIds);

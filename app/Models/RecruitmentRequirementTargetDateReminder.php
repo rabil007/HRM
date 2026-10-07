@@ -16,6 +16,7 @@ class RecruitmentRequirementTargetDateReminder extends Model
         'milestone',
         'delivery_key',
         'status',
+        'claim_token',
         'claimed_at',
         'sent_at',
         'skip_reason',

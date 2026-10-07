@@ -519,9 +519,7 @@ test('project quick-create rejects existing title not linked to selected client 
         'title' => 'Shared Dock',
         'client_ids' => [$clientB->id],
         'is_active' => true,
-    ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['title']);
+    ])->assertForbidden();
 });
 
 test('master data quick-create validation messages match conventions', function () {

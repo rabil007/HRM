@@ -15,6 +15,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 final class DispatchRequirementTargetDateReminders
@@ -193,6 +194,10 @@ final class DispatchRequirementTargetDateReminders
             return 'skipped';
         }
 
+        if ($reminder->status === RequirementTargetDateReminderStatus::Queued) {
+            return 'skipped';
+        }
+
         if ($reminder->status === RequirementTargetDateReminderStatus::Processing) {
             if (! $this->reclaimStaleProcessing((int) $reminder->id)) {
                 return 'skipped';
@@ -205,6 +210,8 @@ final class DispatchRequirementTargetDateReminders
             }
         }
 
+        $claimToken = (string) Str::uuid();
+
         $claimed = RecruitmentRequirementTargetDateReminder::query()
             ->whereKey($reminder->id)
             ->whereIn('status', [
@@ -212,8 +219,9 @@ final class DispatchRequirementTargetDateReminders
                 RequirementTargetDateReminderStatus::Failed->value,
             ])
             ->update([
-                'status' => RequirementTargetDateReminderStatus::Processing->value,
-                'claimed_at' => now(),
+                'status' => RequirementTargetDateReminderStatus::Queued->value,
+                'claim_token' => $claimToken,
+                'claimed_at' => null,
                 'primary_recipient_user_id' => $recipients['to_user_id'],
                 'cc_user_ids' => $recipients['cc_user_ids'],
                 'skip_reason' => null,
@@ -234,6 +242,7 @@ final class DispatchRequirementTargetDateReminders
             'evaluation_date' => $evaluationDate,
             'primary_recipient_user_id' => $recipients['to_user_id'],
             'cc_user_ids' => $recipients['cc_user_ids'],
+            'claim_token' => $claimToken,
         ]);
 
         return 'queued';
