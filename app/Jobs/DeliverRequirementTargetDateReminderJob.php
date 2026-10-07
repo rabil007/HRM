@@ -11,7 +11,6 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementTargetDateReminder;
 use App\Models\User;
 use App\Support\Recruitment\ComposeRequirementLifecycleMail;
-use App\Support\Recruitment\DispatchRequirementTargetDateReminders;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use App\Support\Recruitment\RequirementPresenter;
 use App\Support\Recruitment\RequirementTargetDateReminderDeliveryKey;
@@ -27,6 +26,15 @@ use Throwable;
 class DeliverRequirementTargetDateReminderJob implements ShouldQueue
 {
     use Queueable;
+
+    /** Matches typical queue worker `--timeout=600`. */
+    public const QUEUE_WORKER_TIMEOUT_SECONDS = 600;
+
+    /** Overlap lock must outlive worker timeout so two jobs cannot run concurrently. */
+    public const OVERLAP_LOCK_EXPIRE_SECONDS = self::QUEUE_WORKER_TIMEOUT_SECONDS + 60;
+
+    /** Delay before an overlapping job retries (avoids burning `$tries` while active job runs). */
+    public const OVERLAP_RELEASE_AFTER_SECONDS = 30;
 
     public int $tries = 3;
 
@@ -55,7 +63,8 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
 
         return [
             (new WithoutOverlapping(self::overlapKey($reminderId)))
-                ->expireAfter((DispatchRequirementTargetDateReminders::STALE_PROCESSING_TIMEOUT_MINUTES * 60) + 60),
+                ->releaseAfter(self::OVERLAP_RELEASE_AFTER_SECONDS)
+                ->expireAfter(self::OVERLAP_LOCK_EXPIRE_SECONDS),
         ];
     }
 
@@ -141,32 +150,32 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             ->first();
 
         if ($requirement === null) {
-            $this->markSkipped($reminderId, 'requirement_not_found');
+            $this->markSkipped($reminderId, $claimToken, 'requirement_not_found');
 
             return;
         }
 
         if (! $requirement->company instanceof Company || $requirement->company->status !== 'active') {
-            $this->markSkipped($reminderId, 'company_inactive');
+            $this->markSkipped($reminderId, $claimToken, 'company_inactive');
 
             return;
         }
 
         if ($requirement->required_by_date === null) {
-            $this->markSkipped($reminderId, 'missing_target_date');
+            $this->markSkipped($reminderId, $claimToken, 'missing_target_date');
 
             return;
         }
 
         $currentTargetDate = $requirement->required_by_date->format('Y-m-d');
         if ($currentTargetDate !== $targetDate) {
-            $this->markSkipped($reminderId, 'stale_target_date');
+            $this->markSkipped($reminderId, $claimToken, 'stale_target_date');
 
             return;
         }
 
         if (! in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)) {
-            $this->markSkipped($reminderId, 'status_not_eligible');
+            $this->markSkipped($reminderId, $claimToken, 'status_not_eligible');
 
             return;
         }
@@ -175,21 +184,21 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             (int) ($this->payload['primary_recipient_user_id'] ?? 0),
         );
         if ($expectedDeliveryKey !== $deliveryKey) {
-            $this->markSkipped($reminderId, 'delivery_key_mismatch');
+            $this->markSkipped($reminderId, $claimToken, 'delivery_key_mismatch');
 
             return;
         }
 
         $recipients = $this->resolveRecipients($requirement);
         if ($recipients['to_user_id'] === null) {
-            $this->markSkipped($reminderId, 'primary_missing_usable_email');
+            $this->markSkipped($reminderId, $claimToken, 'primary_missing_usable_email');
 
             return;
         }
 
         $liveDeliveryKey = RequirementTargetDateReminderDeliveryKey::forUser($recipients['to_user_id']);
         if ($liveDeliveryKey !== $deliveryKey) {
-            $this->markSkipped($reminderId, 'primary_recipient_changed');
+            $this->markSkipped($reminderId, $claimToken, 'primary_recipient_changed');
 
             return;
         }
@@ -197,7 +206,7 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
         $toUser = User::query()->find($recipients['to_user_id']);
         $toEmail = RequirementNotificationRecipients::usableEmail($toUser);
         if ($toEmail === null) {
-            $this->markSkipped($reminderId, 'primary_missing_usable_email');
+            $this->markSkipped($reminderId, $claimToken, 'primary_missing_usable_email');
 
             return;
         }
@@ -224,13 +233,13 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
         $template = $compose->findBySlug($templateSlug);
 
         if ($template === null) {
-            $this->markRecoverableFailure($reminderId, 'template_missing');
+            $this->markRecoverableFailure($reminderId, $claimToken, 'template_missing');
 
             return;
         }
 
         if (! $template->enabled) {
-            $this->markSkipped($reminderId, 'template_disabled');
+            $this->markSkipped($reminderId, $claimToken, 'template_disabled');
 
             return;
         }
@@ -267,6 +276,12 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             includeCompanyFooter: (bool) $template->include_company_footer,
         );
 
+        if (! $this->stillOwnsProcessingAttempt($reminderId, $claimToken)) {
+            $this->skip('stale_before_send');
+
+            return;
+        }
+
         try {
             $pending = Mail::to($toEmail);
             if ($ccEmails !== []) {
@@ -274,28 +289,14 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             }
             $pending->send($mailable);
         } catch (Throwable $exception) {
-            RecruitmentRequirementTargetDateReminder::query()
-                ->whereKey($reminderId)
-                ->where('status', RequirementTargetDateReminderStatus::Processing->value)
-                ->update([
-                    'status' => RequirementTargetDateReminderStatus::Failed->value,
-                    'skip_reason' => 'send_failed',
-                    'updated_at' => now(),
-                ]);
+            $this->markSendFailure($reminderId, $claimToken);
 
             throw $exception;
         }
 
-        RecruitmentRequirementTargetDateReminder::query()
-            ->whereKey($reminderId)
-            ->update([
-                'status' => RequirementTargetDateReminderStatus::Sent->value,
-                'sent_at' => now(),
-                'primary_recipient_user_id' => $recipients['to_user_id'],
-                'cc_user_ids' => $recipients['cc_user_ids'],
-                'skip_reason' => null,
-                'updated_at' => now(),
-            ]);
+        if (! $this->markSent($reminderId, $claimToken, $recipients)) {
+            return;
+        }
 
         Log::info('Sent recruitment requirement Target Date reminder.', [
             'reminder_id' => $reminderId,
@@ -310,21 +311,42 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         $reminderId = (int) ($this->payload['reminder_id'] ?? 0);
+        $claimToken = (string) ($this->payload['claim_token'] ?? '');
 
-        if ($reminderId > 0) {
-            RecruitmentRequirementTargetDateReminder::query()
-                ->whereKey($reminderId)
-                ->whereIn('status', [
-                    RequirementTargetDateReminderStatus::Processing->value,
-                    RequirementTargetDateReminderStatus::Queued->value,
-                    RequirementTargetDateReminderStatus::Pending->value,
-                    RequirementTargetDateReminderStatus::Failed->value,
-                ])
-                ->update([
-                    'status' => RequirementTargetDateReminderStatus::Failed->value,
-                    'skip_reason' => 'job_failed',
-                    'updated_at' => now(),
-                ]);
+        if ($reminderId <= 0 || $claimToken === '') {
+            Log::error('Requirement Target Date reminder job failed after retries (missing claim context).', [
+                'reminder_id' => $reminderId,
+                'requirement_id' => (int) ($this->payload['requirement_id'] ?? 0),
+                'company_id' => (int) ($this->payload['company_id'] ?? 0),
+                'milestone' => (string) ($this->payload['milestone'] ?? ''),
+                'exception_class' => $exception::class,
+                'exception_message' => $this->sanitizeExceptionMessage($exception->getMessage()),
+            ]);
+
+            return;
+        }
+
+        $updated = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->whereIn('status', [
+                RequirementTargetDateReminderStatus::Processing->value,
+                RequirementTargetDateReminderStatus::Queued->value,
+            ])
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
+                'skip_reason' => 'job_failed',
+                'updated_at' => now(),
+            ]);
+
+        if ($updated === 0) {
+            Log::warning('Requirement Target Date reminder failed() ignored stale claim.', [
+                'reminder_id' => $reminderId,
+                'claim_token' => $claimToken,
+                'exception_class' => $exception::class,
+            ]);
+
+            return;
         }
 
         Log::error('Requirement Target Date reminder job failed after retries.', [
@@ -354,6 +376,65 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             ]);
 
         return $claimed > 0;
+    }
+
+    private function stillOwnsProcessingAttempt(int $reminderId, string $claimToken): bool
+    {
+        return RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
+            ->exists();
+    }
+
+    /**
+     * @param  array{to_user_id: int|null, cc_user_ids: list<int>}  $recipients
+     */
+    private function markSent(int $reminderId, string $claimToken, array $recipients): bool
+    {
+        $updated = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Sent->value,
+                'sent_at' => now(),
+                'primary_recipient_user_id' => $recipients['to_user_id'],
+                'cc_user_ids' => $recipients['cc_user_ids'],
+                'skip_reason' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($updated === 0) {
+            Log::warning('Requirement Target Date reminder sent update ignored (stale claim).', [
+                'reminder_id' => $reminderId,
+                'claim_token' => $claimToken,
+            ]);
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function markSendFailure(int $reminderId, string $claimToken): void
+    {
+        $updated = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
+                'skip_reason' => 'send_failed',
+                'updated_at' => now(),
+            ]);
+
+        if ($updated === 0) {
+            Log::warning('Requirement Target Date reminder send failure ignored (stale claim).', [
+                'reminder_id' => $reminderId,
+                'claim_token' => $claimToken,
+            ]);
+        }
     }
 
     /**
@@ -468,34 +549,52 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
         return $details;
     }
 
-    private function markSkipped(int $reminderId, string $reason): void
+    private function markSkipped(int $reminderId, string $claimToken, string $reason): void
     {
-        RecruitmentRequirementTargetDateReminder::query()
+        $updated = RecruitmentRequirementTargetDateReminder::query()
             ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
             ->update([
                 'status' => RequirementTargetDateReminderStatus::Skipped->value,
                 'skip_reason' => $reason,
                 'updated_at' => now(),
             ]);
 
+        if ($updated === 0) {
+            Log::warning('Requirement Target Date reminder skip ignored (stale claim).', [
+                'reminder_id' => $reminderId,
+                'claim_token' => $claimToken,
+                'reason' => $reason,
+            ]);
+
+            return;
+        }
+
         $this->skip($reason);
     }
 
-    private function markRecoverableFailure(int $reminderId, string $reason): void
+    private function markRecoverableFailure(int $reminderId, string $claimToken, string $reason): void
     {
-        RecruitmentRequirementTargetDateReminder::query()
+        $updated = RecruitmentRequirementTargetDateReminder::query()
             ->whereKey($reminderId)
-            ->whereIn('status', [
-                RequirementTargetDateReminderStatus::Processing->value,
-                RequirementTargetDateReminderStatus::Queued->value,
-                RequirementTargetDateReminderStatus::Pending->value,
-                RequirementTargetDateReminderStatus::Failed->value,
-            ])
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Processing->value)
             ->update([
                 'status' => RequirementTargetDateReminderStatus::Failed->value,
                 'skip_reason' => $reason,
                 'updated_at' => now(),
             ]);
+
+        if ($updated === 0) {
+            Log::warning('Requirement Target Date reminder recoverable failure ignored (stale claim).', [
+                'reminder_id' => $reminderId,
+                'claim_token' => $claimToken,
+                'reason' => $reason,
+            ]);
+
+            return;
+        }
 
         $this->skip($reason);
     }

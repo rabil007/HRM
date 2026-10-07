@@ -24,6 +24,8 @@ final class DispatchRequirementTargetDateReminders
 
     public const STALE_PROCESSING_TIMEOUT_MINUTES = 15;
 
+    public const STALE_QUEUED_TIMEOUT_MINUTES = 15;
+
     /**
      * @return array{
      *     companies_checked: int,
@@ -195,7 +197,15 @@ final class DispatchRequirementTargetDateReminders
         }
 
         if ($reminder->status === RequirementTargetDateReminderStatus::Queued) {
-            return 'skipped';
+            if (! $this->reclaimStaleQueued((int) $reminder->id)) {
+                return 'skipped';
+            }
+
+            $reminder = $reminder->fresh();
+
+            if ($reminder === null) {
+                return 'skipped';
+            }
         }
 
         if ($reminder->status === RequirementTargetDateReminderStatus::Processing) {
@@ -232,7 +242,7 @@ final class DispatchRequirementTargetDateReminders
             return 'skipped';
         }
 
-        DeliverRequirementTargetDateReminderJob::dispatch([
+        $payload = [
             'reminder_id' => (int) $reminder->id,
             'company_id' => (int) $requirement->company_id,
             'requirement_id' => (int) $requirement->id,
@@ -243,9 +253,40 @@ final class DispatchRequirementTargetDateReminders
             'primary_recipient_user_id' => $recipients['to_user_id'],
             'cc_user_ids' => $recipients['cc_user_ids'],
             'claim_token' => $claimToken,
-        ]);
+        ];
+
+        try {
+            $this->dispatchDeliveryJob($payload);
+        } catch (Throwable $exception) {
+            $this->recoverQueuedDispatchFailure((int) $reminder->id, $claimToken);
+
+            throw $exception;
+        }
 
         return 'queued';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function dispatchDeliveryJob(array $payload): void
+    {
+        DeliverRequirementTargetDateReminderJob::dispatch($payload);
+    }
+
+    public function recoverQueuedDispatchFailure(int $reminderId, string $claimToken): bool
+    {
+        $updated = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('claim_token', $claimToken)
+            ->where('status', RequirementTargetDateReminderStatus::Queued->value)
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
+                'skip_reason' => 'queue_dispatch_failed',
+                'updated_at' => now(),
+            ]);
+
+        return $updated > 0;
     }
 
     private function reclaimStaleProcessing(int $reminderId): bool
@@ -262,6 +303,23 @@ final class DispatchRequirementTargetDateReminders
             ->update([
                 'status' => RequirementTargetDateReminderStatus::Failed->value,
                 'skip_reason' => 'processing_stale',
+                'updated_at' => now(),
+            ]);
+
+        return $reclaimed > 0;
+    }
+
+    private function reclaimStaleQueued(int $reminderId): bool
+    {
+        $threshold = now()->subMinutes(self::STALE_QUEUED_TIMEOUT_MINUTES);
+
+        $reclaimed = RecruitmentRequirementTargetDateReminder::query()
+            ->whereKey($reminderId)
+            ->where('status', RequirementTargetDateReminderStatus::Queued->value)
+            ->where('updated_at', '<', $threshold)
+            ->update([
+                'status' => RequirementTargetDateReminderStatus::Failed->value,
+                'skip_reason' => 'queued_stale',
                 'updated_at' => now(),
             ]);
 
