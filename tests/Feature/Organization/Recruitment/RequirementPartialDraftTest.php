@@ -545,6 +545,100 @@ test('draft can edit headcount and remove a position line', function () {
         ->and((int) $req->fresh()->lines->first()->required_headcount)->toBe(4);
 });
 
+test('draft can remove the final position line and still save', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'priority' => 'normal',
+            'submit_for_approval' => false,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    expect($req->lines)->toHaveCount(1);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/requirements/{$req->id}", [
+            'priority' => 'normal',
+            'submit_for_approval' => false,
+            'positions' => [],
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->lines)->toHaveCount(0)
+        ->and($req->fresh()->status)->toBe(RequirementStatus::Draft);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['positions']);
+});
+
+test('requirement index readiness query count stays bounded for multiple draft and returned rows', function () {
+    $nextNumber = 91000;
+    $createRows = function (int $count) use (&$nextNumber): void {
+        for ($i = 0; $i < $count; $i++) {
+            $req = RecruitmentRequirement::query()->create([
+                'company_id' => $this->companyA->id,
+                'requirement_number' => 'REQ-'.now()->year.'-'.$nextNumber++,
+                'client_id' => $this->client->id,
+                'project_id' => $this->project->id,
+                'request_received_date' => now()->subDay(),
+                'required_by_date' => now()->addDays(7),
+                'priority' => 'normal',
+                'status' => $i % 2 === 0 ? RequirementStatus::Draft : RequirementStatus::Returned,
+                'assigned_to' => $this->recruiter->id,
+                'created_by' => $this->requester->id,
+                'updated_by' => $this->requester->id,
+            ]);
+
+            RecruitmentRequirementLine::query()->create([
+                'company_id' => $this->companyA->id,
+                'recruitment_requirement_id' => $req->id,
+                'position_id' => $this->position->id,
+                'required_headcount' => 1,
+                'salary_min' => 4000,
+                'salary_max' => 6000,
+                'salary_currency_code' => 'AED',
+                'status' => RequirementLineStatus::Open,
+            ]);
+        }
+    };
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $createRows(4);
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $this->get('/organization/recruitment/requirements')->assertOk();
+    $queryCountFour = count(DB::getQueryLog());
+
+    $createRows(4);
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $this->get('/organization/recruitment/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/index')
+            ->has('requirements.data', 8)
+            ->where('requirements.data.0.submission_readiness.ready', true)
+        );
+    $queryCountEight = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($queryCountEight)->toBeLessThanOrEqual($queryCountFour + 4)
+        ->and($queryCountEight)->toBeLessThanOrEqual(55);
+});
+
 test('draft provided headcount zero fails validation', function () {
     $this->actingAs($this->requester)
         ->withSession(['current_company_id' => $this->companyA->id])

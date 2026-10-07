@@ -70,9 +70,11 @@ import {
     syncRequirementProjectOptions,
 } from '../lib/requirement-form-client-project';
 import {
+    canRemoveRequirementPositionLine,
     hydrateNewRequirementForm,
     hydrateRequirementFormFromDetail,
     isRequirementPreparationStatus,
+    shouldShowRequirementPositionStructureLockWarning,
 } from '../lib/requirement-form-hydration';
 import {
     isSalaryAtPositionDefault,
@@ -503,11 +505,13 @@ export function RequirementFormSheet({
     };
 
     const handleRemovePositionLine = (index: number) => {
-        if (!canEditPositionStructure) {
-            return;
-        }
-
-        if (data.positions.length <= 1 && !isPreparationEditable) {
+        if (
+            !canRemoveRequirementPositionLine({
+                canEditPositionStructure,
+                isPreparationEditable,
+                positionCount: data.positions.length,
+            })
+        ) {
             return;
         }
 
@@ -1276,7 +1280,9 @@ export function RequirementFormSheet({
                                     </div>
                                 </div>
 
-                                {isEditing && (
+                                {shouldShowRequirementPositionStructureLockWarning(
+                                    canEditPositionStructure,
+                                ) && (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
                                         Position titles and headcounts are
                                         locked in generic edit. Salary ranges
@@ -1294,6 +1300,13 @@ export function RequirementFormSheet({
                                 )}
 
                                 <div className="space-y-3">
+                                    {data.positions.length === 0 &&
+                                        isPreparationEditable && (
+                                            <p className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-3 text-xs text-muted-foreground">
+                                                No positions yet. Add a position
+                                                before submitting for approval.
+                                            </p>
+                                        )}
                                     {data.positions.map((line, index) => {
                                         const selectedPos =
                                             options.positions.find(
@@ -1489,10 +1502,16 @@ export function RequirementFormSheet({
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 disabled={
-                                                                    data
-                                                                        .positions
-                                                                        .length <=
-                                                                    1
+                                                                    !canRemoveRequirementPositionLine(
+                                                                        {
+                                                                            canEditPositionStructure,
+                                                                            isPreparationEditable,
+                                                                            positionCount:
+                                                                                data
+                                                                                    .positions
+                                                                                    .length,
+                                                                        },
+                                                                    )
                                                                 }
                                                                 onClick={() =>
                                                                     handleRemovePositionLine(

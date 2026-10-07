@@ -19,6 +19,7 @@ use App\Support\Recruitment\RequirementBrowseQuery;
 use App\Support\Recruitment\RequirementFormMasterDataOptions;
 use App\Support\Recruitment\RequirementPagePermissions;
 use App\Support\Recruitment\RequirementPresenter;
+use App\Support\Recruitment\RequirementSubmissionReadinessLookup;
 use App\Support\Recruitment\RequirementWorkflowTimelinePresenter;
 use App\Support\Settings\CompanyCurrency;
 use Carbon\Carbon;
@@ -37,8 +38,10 @@ class RequirementController extends Controller
         $today = Carbon::today();
         $user = $request->user();
 
-        $items = collect($browse['paginator']->items())->map(function (RecruitmentRequirement $requirement) use ($today, $user): array {
-            return RequirementPresenter::toIndexRow($requirement, $today, $user);
+        $pageRequirements = collect($browse['paginator']->items());
+        $readinessLookup = RequirementSubmissionReadinessLookup::forRequirements($pageRequirements, $companyId);
+        $items = $pageRequirements->map(function (RecruitmentRequirement $requirement) use ($today, $user, $readinessLookup): array {
+            return RequirementPresenter::toIndexRow($requirement, $today, $user, $readinessLookup);
         })->all();
 
         $pagination = [

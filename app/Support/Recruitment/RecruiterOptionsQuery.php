@@ -75,6 +75,28 @@ final class RecruiterOptionsQuery
     }
 
     /**
+     * @param  list<int>  $userIds
+     * @return list<int>
+     */
+    public static function eligibleApproverIdsAmong(int $companyId, array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(
+            $userIds,
+            fn (int $id): bool => $id > 0,
+        )));
+
+        if ($userIds === []) {
+            return [];
+        }
+
+        return self::eligibleApproverQuery($companyId)
+            ->whereIn('users.id', $userIds)
+            ->pluck('users.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+    }
+
+    /**
      * @deprecated Use isEligibleApprover for assigned recruiters. Kept for nullable draft assigned_to checks.
      */
     public static function isValidForCompany(?int $userId, int $companyId): bool

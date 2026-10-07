@@ -23,6 +23,28 @@ export function isRequirementPreparationStatus(
     return status === 'draft' || status === 'returned';
 }
 
+export function canRemoveRequirementPositionLine(input: {
+    canEditPositionStructure: boolean;
+    isPreparationEditable: boolean;
+    positionCount: number;
+}): boolean {
+    if (!input.canEditPositionStructure || input.positionCount < 1) {
+        return false;
+    }
+
+    if (input.positionCount === 1 && !input.isPreparationEditable) {
+        return false;
+    }
+
+    return true;
+}
+
+export function shouldShowRequirementPositionStructureLockWarning(
+    canEditPositionStructure: boolean,
+): boolean {
+    return !canEditPositionStructure;
+}
+
 export function mapRequirementLinesToFormPositions(
     lines: RequirementDetail['lines'] | undefined,
     currencyCode: string,

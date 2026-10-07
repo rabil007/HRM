@@ -47,13 +47,7 @@ final class RequirementBrowseQuery
         // Base builder for list query
         $query = RecruitmentRequirement::query()
             ->where('company_id', $companyId)
-            ->with([
-                'client:id,name',
-                'project:id,title',
-                'assignedRecruiter:id,name',
-                'repeatedFrom:id,requirement_number',
-                'lines.position:id,title',
-            ]);
+            ->with(RequirementSubmissionReadinessLookup::eagerLoad());
 
         // Tab scoping
         match ($currentTab) {
