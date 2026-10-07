@@ -239,7 +239,7 @@ test('singular client_id payload is not accepted for project create or update', 
     expect($project->fresh()->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
 });
 
-test('create-only user is rejected with 403 when quick creating existing project with new client', function () {
+test('create-only user is rejected with 422 when quick creating existing project with new client', function () {
     ['user' => $user, 'company' => $company] = makeCrewAssignmentFixtures();
     $this->actingAs($user);
 
@@ -259,7 +259,9 @@ test('create-only user is rejected with 403 when quick creating existing project
         'title' => 'Quick Auth Project',
         'client_ids' => [$clientB->id],
         'is_active' => true,
-    ])->assertForbidden();
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['title']);
 
     expect($project->fresh()->clients()->pluck('clients.id')->all())
         ->toBe([$clientA->id]);

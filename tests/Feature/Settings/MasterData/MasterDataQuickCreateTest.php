@@ -10,10 +10,10 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Project;
 use App\Models\User;
-use App\Support\MasterData\MasterDataQuickCreate;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Models\VisaType;
+use App\Support\MasterData\MasterDataQuickCreate;
 
 /**
  * @return array{user: User, company: Company}
