@@ -224,7 +224,9 @@ class StoreRequirementRequest extends FormRequest
             'positions.*.salary_max.min' => 'Maximum salary cannot be negative.',
             'positions.*.salary_max.decimal' => 'Maximum salary may not have more than 2 decimal places.',
             'positions.*.salary_max.gte' => 'Maximum salary must be greater than or equal to minimum salary.',
-            'required_by_date.after_or_equal' => 'Required-by date must be on or after request received date.',
+            'required_by_date.after_or_equal' => 'Required-by date must be on or after the Request Received from Client date.',
+            'request_received_date.required' => 'Request Received from Client is required.',
+            'request_received_date.date' => 'Request Received from Client must be a valid date.',
         ];
     }
 }

@@ -25,6 +25,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -36,10 +37,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import {
-    filterProjectsByClient,
-    resolveProjectOnClientChange,
-} from '@/features/organization/employees/lib/employee-client-project-filter';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { toast } from '@/lib/toast';
 import type {
     ClientOption,
@@ -57,6 +55,15 @@ import {
     resolveDuplicateDialogSubmitIntent,
 } from '../lib/requirement-form';
 import type { RequirementFormSnapshot } from '../lib/requirement-form';
+import {
+    appendRequirementClientOption,
+    appendRequirementProjectOption,
+    filterRequirementProjectsForClient,
+    formatRequirementProjectCreateLabel,
+    resolveRequirementProjectAfterClientChange,
+    syncRequirementClientOptions,
+    syncRequirementProjectOptions,
+} from '../lib/requirement-form-client-project';
 import {
     isSalaryAtPositionDefault,
     isSalaryEditedFromPosition,
@@ -148,6 +155,12 @@ export function RequirementFormSheet({
         null,
     );
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+    const [clientItems, setClientItems] = useState<ClientOption[]>(() =>
+        syncRequirementClientOptions(options.clients),
+    );
+    const [projectItems, setProjectItems] = useState<ProjectOption[]>(() =>
+        syncRequirementProjectOptions(options.projects),
+    );
     const pendingCloseRef = useRef(false);
     const pendingSubmitForApprovalRef = useRef(false);
     const formBodyRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +168,84 @@ export function RequirementFormSheet({
     const notificationUserOptions = useMemo(
         () => options.notification_users ?? options.recruiters,
         [options.notification_users, options.recruiters],
+    );
+
+    const { canCreate: canCreateClient, createConfig: clientCreateConfigBase } =
+        useCreatableMasterData('client');
+    const {
+        canCreate: canCreateProject,
+        createConfig: projectCreateConfigBase,
+    } = useCreatableMasterData('project', {
+        clientId: data.client_id || null,
+    });
+
+    const selectedClientName = useMemo(() => {
+        if (!data.client_id) {
+            return null;
+        }
+
+        return (
+            clientItems.find(
+                (client) => String(client.id) === String(data.client_id),
+            )?.name ?? null
+        );
+    }, [clientItems, data.client_id]);
+
+    const clientCreateConfig = useMemo(
+        () => ({
+            submit: async (query: string) => {
+                const created = await clientCreateConfigBase.submit(query);
+
+                setClientItems((previous) =>
+                    appendRequirementClientOption(previous, created),
+                );
+
+                return created;
+            },
+        }),
+        [clientCreateConfigBase],
+    );
+
+    const projectCreateConfig = useMemo(
+        () => ({
+            submit: async (query: string) => {
+                const created = await projectCreateConfigBase.submit(query);
+
+                setProjectItems((previous) =>
+                    appendRequirementProjectOption(
+                        previous,
+                        created,
+                        data.client_id,
+                    ),
+                );
+
+                return created;
+            },
+        }),
+        [data.client_id, projectCreateConfigBase],
+    );
+
+    const clientSelectOptions = useMemo(
+        () =>
+            clientItems.map((client) => ({
+                id: client.id,
+                label: client.name,
+                value: String(client.id),
+            })),
+        [clientItems],
+    );
+
+    const projectSelectOptions = useMemo(
+        () =>
+            filterRequirementProjectsForClient(
+                projectItems,
+                data.client_id,
+            ).map((project) => ({
+                id: project.id,
+                label: project.title,
+                value: String(project.id),
+            })),
+        [data.client_id, projectItems],
     );
 
     const currentSnapshot = useMemo(
@@ -188,6 +279,9 @@ export function RequirementFormSheet({
 
             return;
         }
+
+        setClientItems(syncRequirementClientOptions(options.clients));
+        setProjectItems(syncRequirementProjectOptions(options.projects));
 
         const nextData = initialRequirement
             ? {
@@ -264,6 +358,26 @@ export function RequirementFormSheet({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, initialRequirement]);
 
+    const clientOptionsKey = (options.clients ?? [])
+        .map((client) => `${client.id}:${client.name}`)
+        .join('|');
+    const projectOptionsKey = (options.projects ?? [])
+        .map(
+            (project) =>
+                `${project.id}:${project.title}:${(project.client_ids ?? []).join(',')}`,
+        )
+        .join('|');
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        setClientItems(syncRequirementClientOptions(options.clients));
+        setProjectItems(syncRequirementProjectOptions(options.projects));
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when option ids/labels change, not array reference
+    }, [open, clientOptionsKey, projectOptionsKey]);
+
     useEffect(() => {
         if (!open || !isDirty) {
             return;
@@ -320,10 +434,6 @@ export function RequirementFormSheet({
         pendingCloseRef.current = false;
         onOpenChange(false);
     };
-
-    const filteredProjects = useMemo(() => {
-        return filterProjectsByClient(options.projects, data.client_id);
-    }, [data.client_id, options.projects]);
 
     const totalHeadcount = useMemo(() => {
         return data.positions.reduce((sum, line) => {
@@ -700,40 +810,52 @@ export function RequirementFormSheet({
                                                 *
                                             </span>
                                         </Label>
-                                        <AppSelect
+                                        <CreatableSelect
                                             value={
                                                 data.client_id
                                                     ? String(data.client_id)
-                                                    : 'none'
+                                                    : ''
                                             }
                                             onValueChange={(val) => {
-                                                const clientId =
-                                                    val === 'none' ? '' : val;
+                                                const clientId = val;
 
                                                 setData((prev) => ({
                                                     ...prev,
                                                     client_id: clientId,
                                                     project_id:
-                                                        resolveProjectOnClientChange(
+                                                        resolveRequirementProjectAfterClientChange(
                                                             prev.project_id,
                                                             clientId,
-                                                            options.projects,
+                                                            projectItems,
                                                         ),
                                                 }));
                                             }}
-                                        >
-                                            <AppSelectItem value="none">
-                                                Select client...
-                                            </AppSelectItem>
-                                            {options.clients.map((c) => (
-                                                <AppSelectItem
-                                                    key={c.id}
-                                                    value={String(c.id)}
-                                                >
-                                                    {c.name}
-                                                </AppSelectItem>
-                                            ))}
-                                        </AppSelect>
+                                            options={clientSelectOptions}
+                                            onOptionsChange={(nextOptions) => {
+                                                setClientItems((previous) => {
+                                                    let next = [...previous];
+
+                                                    for (const option of nextOptions) {
+                                                        next =
+                                                            appendRequirementClientOption(
+                                                                next,
+                                                                {
+                                                                    id: option.id,
+                                                                    label: option.label,
+                                                                },
+                                                            );
+                                                    }
+
+                                                    return next;
+                                                });
+                                            }}
+                                            placeholder="Select client..."
+                                            searchPlaceholder="Search clients..."
+                                            creatable
+                                            canCreate={canCreateClient}
+                                            createConfig={clientCreateConfig}
+                                            emptyMessage="No matching clients."
+                                        />
                                         <p className="text-[11px] text-muted-foreground">
                                             Choose the client requesting these
                                             roles. Projects are filtered to this
@@ -753,31 +875,60 @@ export function RequirementFormSheet({
                                         <Label className="text-xs font-semibold">
                                             Project / Site
                                         </Label>
-                                        <AppSelect
+                                        <CreatableSelect
                                             value={
                                                 data.project_id
                                                     ? String(data.project_id)
-                                                    : 'none'
+                                                    : ''
                                             }
                                             onValueChange={(val) =>
-                                                setData(
-                                                    'project_id',
-                                                    val === 'none' ? '' : val,
+                                                setData('project_id', val)
+                                            }
+                                            options={projectSelectOptions}
+                                            onOptionsChange={(nextOptions) => {
+                                                setProjectItems((previous) => {
+                                                    let next = [...previous];
+
+                                                    for (const option of nextOptions) {
+                                                        next =
+                                                            appendRequirementProjectOption(
+                                                                next,
+                                                                {
+                                                                    id: option.id,
+                                                                    label: option.label,
+                                                                },
+                                                                data.client_id,
+                                                            );
+                                                    }
+
+                                                    return next;
+                                                });
+                                            }}
+                                            placeholder={
+                                                data.client_id
+                                                    ? 'None / General'
+                                                    : 'Select a client first'
+                                            }
+                                            searchPlaceholder="Search projects..."
+                                            disabled={!data.client_id}
+                                            creatable={Boolean(data.client_id)}
+                                            canCreate={
+                                                Boolean(data.client_id) &&
+                                                canCreateProject
+                                            }
+                                            createConfig={
+                                                data.client_id
+                                                    ? projectCreateConfig
+                                                    : undefined
+                                            }
+                                            createLabel={(query) =>
+                                                formatRequirementProjectCreateLabel(
+                                                    query,
+                                                    selectedClientName,
                                                 )
                                             }
-                                        >
-                                            <AppSelectItem value="none">
-                                                None / General
-                                            </AppSelectItem>
-                                            {filteredProjects.map((p) => (
-                                                <AppSelectItem
-                                                    key={p.id}
-                                                    value={String(p.id)}
-                                                >
-                                                    {p.title}
-                                                </AppSelectItem>
-                                            ))}
-                                        </AppSelect>
+                                            emptyMessage="No matching projects for this client."
+                                        />
                                         {errors.project_id && (
                                             <p className="text-xs text-rose-500">
                                                 {errors.project_id}
@@ -824,7 +975,7 @@ export function RequirementFormSheet({
                                             htmlFor="request_received_date"
                                             className="text-xs font-semibold"
                                         >
-                                            Request Received Date{' '}
+                                            Request Received from Client{' '}
                                             <span className="text-rose-500">
                                                 *
                                             </span>

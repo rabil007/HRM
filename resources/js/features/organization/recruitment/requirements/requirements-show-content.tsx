@@ -23,10 +23,9 @@ import {
     RequirementStatusBadge,
 } from './components/requirement-status-badge';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
-import { RequirementDetailsCard } from './components/show/requirement-details-card';
+import { RequirementDetailsWorkflowCard } from './components/show/requirement-details-workflow-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
 import { RequirementPositionLinesCard } from './components/show/requirement-position-lines-card';
-import { RequirementWorkflowTimelineCard } from './components/show/requirement-workflow-timeline-card';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
@@ -206,10 +205,6 @@ export function RequirementsShowContent({
                         onReopen={() => setIsReopenOpen(true)}
                         onRepeat={() => setIsRepeatOpen(true)}
                     />
-
-                    <RequirementWorkflowTimelineCard
-                        timeline={workflow_timeline}
-                    />
                 </div>
 
                 <div
@@ -224,7 +219,10 @@ export function RequirementsShowContent({
                         }}
                     />
 
-                    <RequirementDetailsCard requirement={requirement} />
+                    <RequirementDetailsWorkflowCard
+                        requirement={requirement}
+                        timeline={workflow_timeline}
+                    />
 
                     <RequirementAttachmentsCard
                         requirement={requirement}

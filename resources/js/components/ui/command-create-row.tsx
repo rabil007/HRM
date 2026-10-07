@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 type CommandCreateRowProps = {
     query: string;
+    label?: string;
     isCreating?: boolean;
     onCreate: () => void | Promise<void>;
     className?: string;
@@ -15,6 +16,7 @@ type CommandCreateRowProps = {
  */
 export function CommandCreateRow({
     query,
+    label,
     isCreating = false,
     onCreate,
     className,
@@ -41,7 +43,7 @@ export function CommandCreateRow({
                     <PlusIcon className="size-4 shrink-0" />
                 )}
                 <span className="flex-1 truncate text-left">
-                    Create &quot;{trimmed}&quot;
+                    {label ?? `Create "${trimmed}"`}
                 </span>
             </button>
         </div>

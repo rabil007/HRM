@@ -74,7 +74,13 @@ final class RequirementWorkflowTimelinePresenter
             ];
         }
 
-        if ($events === [] && $requirement->created_at !== null) {
+        // Synthetic Draft fallback only for Requirements that remain Draft with no transitions.
+        // Do not invent Draft events for submitted/approved records that skipped a Draft transition.
+        if (
+            $events === []
+            && $requirement->status === RequirementStatus::Draft
+            && $requirement->created_at !== null
+        ) {
             $createdAt = Carbon::parse($requirement->created_at)->timezone($timezone);
             $events[] = [
                 'id' => 'created_'.$requirement->id,

@@ -37,7 +37,7 @@ class ReopenRequirementRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'new_required_by_date.after_or_equal' => 'The new deadline must be on or after the original request received date.',
+            'new_required_by_date.after_or_equal' => 'The new deadline must be on or after the original Request Received from Client date.',
         ];
     }
 }

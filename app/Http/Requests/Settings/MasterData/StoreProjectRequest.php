@@ -14,6 +14,15 @@ class StoreProjectRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('title')) {
+            $this->merge([
+                'title' => trim((string) $this->input('title')),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */

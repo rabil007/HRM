@@ -3,7 +3,10 @@ import { describe, it } from 'node:test';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { createServer } from 'vite';
-import type { RequirementDetail } from '@/types/recruitment';
+import type {
+    RequirementDetail,
+    RequirementWorkflowTimeline,
+} from '@/types/recruitment';
 
 function makeRequirement(
     overrides: Partial<RequirementDetail> = {},
@@ -52,7 +55,7 @@ function makeRequirement(
         can_cancel: true,
         can_reopen: false,
         can_repeat: false,
-        notes: null,
+        notes: 'Mobilise ASAP',
         cancellation_reason: null,
         return_reason: null,
         opened_at_formatted: '05-01-2026 09:00',
@@ -65,7 +68,13 @@ function makeRequirement(
         updater_name: 'Requester User',
         submitter_name: 'Requester User',
         returner_name: null,
-        notification_recipients: [],
+        notification_recipients: [
+            {
+                id: 4,
+                name: 'Ops Lead',
+                email: 'ops@example.com',
+            },
+        ],
         recruitment_started_at: '2026-01-05T09:00:00+04:00',
         recruitment_started_at_formatted: '05-01-2026 09:00',
         recruitment_start_source: 'approved_at',
@@ -87,6 +96,42 @@ function makeRequirement(
             percentage: 0,
             is_target_reached: false,
         },
+        ...overrides,
+    };
+}
+
+function makeTimeline(
+    overrides: Partial<RequirementWorkflowTimeline> = {},
+): RequirementWorkflowTimeline {
+    return {
+        current_stage: 'open',
+        current_stage_label: 'Open',
+        next_expected_action: 'fill',
+        next_expected_action_label: 'Mark as filled',
+        events: [
+            {
+                id: 'transition_1',
+                key: 'submitted',
+                label: 'Submitted for approval',
+                occurred_at: '2026-01-04T09:00:00+04:00',
+                occurred_at_formatted: '04-01-2026 09:00',
+                actor_name: 'Requester User',
+                reason: null,
+                is_current: false,
+                state: 'completed',
+            },
+            {
+                id: 'transition_2',
+                key: 'approved',
+                label: 'Approved / recruitment started',
+                occurred_at: '2026-01-05T09:00:00+04:00',
+                occurred_at_formatted: '05-01-2026 09:00',
+                actor_name: 'Recruiter User',
+                reason: null,
+                is_current: true,
+                state: 'current',
+            },
+        ],
         ...overrides,
     };
 }
@@ -116,97 +161,45 @@ async function withViteModule<T>(
 }
 
 describe('Requirement detail cards', () => {
-    it('removes Recruitment clock and shows Active recruitment in days with Target Date', async () => {
+    it('renders unified Details & Workflow without duplicated lifecycle rows', async () => {
         await withViteModule<{
-            RequirementDetailsCard: React.ComponentType<{
+            RequirementDetailsWorkflowCard: React.ComponentType<{
                 requirement: RequirementDetail;
+                timeline: RequirementWorkflowTimeline;
             }>;
         }>(
-            './resources/js/features/organization/recruitment/requirements/components/show/requirement-details-card.tsx',
-            ({ RequirementDetailsCard }) => {
+            './resources/js/features/organization/recruitment/requirements/components/show/requirement-details-workflow-card.tsx',
+            ({ RequirementDetailsWorkflowCard }) => {
                 const html = renderToString(
-                    React.createElement(RequirementDetailsCard, {
+                    React.createElement(RequirementDetailsWorkflowCard, {
                         requirement: makeRequirement(),
+                        timeline: makeTimeline(),
                     }),
                 );
 
-                assert.ok(!html.includes('Recruitment clock'));
-                assert.ok(html.includes('Active recruitment'));
-                assert.ok(html.includes('8 days'));
+                assert.ok(
+                    html.includes('Requirement Details &amp; Workflow') ||
+                        html.includes('Requirement Details & Workflow'),
+                );
+                assert.ok(html.includes('Request Received from Client'));
+                assert.ok(!html.includes('Request Received Date'));
                 assert.ok(html.includes('Target Date'));
-                assert.ok(!html.includes('Required-By Date'));
-                assert.ok(!html.includes('Required by'));
+                assert.ok(html.includes('Notification recipients (CC)'));
+                assert.ok(html.includes('Notes / Scope of Work'));
+                assert.ok(html.includes('Workflow timeline'));
+                assert.ok(html.includes('Submitted for approval'));
+                assert.ok(html.includes('Approved / recruitment started'));
+                assert.ok(html.includes('data-requirement-details-section'));
+                assert.ok(html.includes('data-requirement-workflow-section'));
+                assert.ok(!html.includes('Opened Date'));
+                assert.ok(!html.includes('Active recruitment'));
+                assert.ok(!html.includes('Requirement Specifications'));
                 assert.ok(!html.includes('Recruitment clock'));
             },
         );
     });
 
-    it('shows paused and completed day phrasing on Active recruitment', async () => {
-        await withViteModule<{
-            RequirementDetailsCard: React.ComponentType<{
-                requirement: RequirementDetail;
-            }>;
-        }>(
-            './resources/js/features/organization/recruitment/requirements/components/show/requirement-details-card.tsx',
-            ({ RequirementDetailsCard }) => {
-                const pausedHtml = renderToString(
-                    React.createElement(RequirementDetailsCard, {
-                        requirement: makeRequirement({
-                            status: 'on_hold',
-                            recruitment_clock_state: 'paused',
-                            active_recruitment_seconds: 8 * 86400,
-                        }),
-                    }),
-                );
-                assert.ok(pausedHtml.includes('Paused at 8 days'));
-
-                const completedHtml = renderToString(
-                    React.createElement(RequirementDetailsCard, {
-                        requirement: makeRequirement({
-                            status: 'completed',
-                            recruitment_clock_state: 'completed',
-                            active_recruitment_seconds: 14 * 86400,
-                            can_fill: false,
-                        }),
-                    }),
-                );
-                assert.ok(completedHtml.includes('Completed in 14 days'));
-
-                const shortHtml = renderToString(
-                    React.createElement(RequirementDetailsCard, {
-                        requirement: makeRequirement({
-                            active_recruitment_seconds: 3 * 3600,
-                        }),
-                    }),
-                );
-                assert.ok(shortHtml.includes('Less than 1 day'));
-                assert.ok(!shortHtml.includes('hour'));
-
-                const partialHtml = renderToString(
-                    React.createElement(RequirementDetailsCard, {
-                        requirement: makeRequirement({
-                            active_recruitment_seconds: 39 * 3600 + 51 * 60,
-                        }),
-                    }),
-                );
-                assert.ok(partialHtml.includes('2 days'));
-
-                const cancelledHtml = renderToString(
-                    React.createElement(RequirementDetailsCard, {
-                        requirement: makeRequirement({
-                            status: 'cancelled',
-                            recruitment_clock_state: 'cancelled',
-                            active_recruitment_seconds: 6 * 86400,
-                            can_fill: false,
-                        }),
-                    }),
-                );
-                assert.ok(cancelledHtml.includes('Cancelled after 6 days'));
-            },
-        );
-    });
-
-    it('renders one Mark as filled primary action in Status & actions', async () => {
+    it('keeps Active recruitment only in Status & actions', async () => {
         await withViteModule<{
             RequirementOverviewCard: React.ComponentType<{
                 requirement: RequirementDetail;
@@ -256,9 +249,83 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('Mark as filled'));
                 assert.equal((html.match(/Mark as filled/g) ?? []).length, 1);
                 assert.ok(html.includes('data-primary-workflow-action="fill"'));
-                assert.ok(!html.includes('What’s next?'));
-                assert.ok(!html.includes("What's next?"));
                 assert.ok(!html.includes('Put on hold'));
+            },
+        );
+    });
+
+    it('shows paused and completed day phrasing on Active recruitment in Status & actions', async () => {
+        await withViteModule<{
+            RequirementOverviewCard: React.ComponentType<{
+                requirement: RequirementDetail;
+                onEdit: () => void;
+                onSubmit: () => void;
+                onApprove: () => void;
+                onReturn: () => void;
+                onResubmit: () => void;
+                onHold: () => void;
+                onResume: () => void;
+                onExtend: () => void;
+                onChangeHeadcount: () => void;
+                onFill: () => void;
+                onCancel: () => void;
+                onReopen: () => void;
+                onRepeat: () => void;
+            }>;
+        }>(
+            './resources/js/features/organization/recruitment/requirements/components/show/requirement-overview-card.tsx',
+            ({ RequirementOverviewCard }) => {
+                const pausedHtml = renderToString(
+                    React.createElement(RequirementOverviewCard, {
+                        requirement: makeRequirement({
+                            status: 'on_hold',
+                            recruitment_clock_state: 'paused',
+                            active_recruitment_seconds: 8 * 86400,
+                            can_fill: false,
+                            can_resume: true,
+                            next_action: 'resume',
+                        }),
+                        onEdit: noop,
+                        onSubmit: noop,
+                        onApprove: noop,
+                        onReturn: noop,
+                        onResubmit: noop,
+                        onHold: noop,
+                        onResume: noop,
+                        onExtend: noop,
+                        onChangeHeadcount: noop,
+                        onFill: noop,
+                        onCancel: noop,
+                        onReopen: noop,
+                        onRepeat: noop,
+                    }),
+                );
+                assert.ok(pausedHtml.includes('Paused at 8 days'));
+
+                const completedHtml = renderToString(
+                    React.createElement(RequirementOverviewCard, {
+                        requirement: makeRequirement({
+                            status: 'completed',
+                            recruitment_clock_state: 'completed',
+                            active_recruitment_seconds: 14 * 86400,
+                            can_fill: false,
+                        }),
+                        onEdit: noop,
+                        onSubmit: noop,
+                        onApprove: noop,
+                        onReturn: noop,
+                        onResubmit: noop,
+                        onHold: noop,
+                        onResume: noop,
+                        onExtend: noop,
+                        onChangeHeadcount: noop,
+                        onFill: noop,
+                        onCancel: noop,
+                        onReopen: noop,
+                        onRepeat: noop,
+                    }),
+                );
+                assert.ok(completedHtml.includes('Completed in 14 days'));
             },
         );
     });

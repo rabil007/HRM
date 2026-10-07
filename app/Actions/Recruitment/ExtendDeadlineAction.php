@@ -40,7 +40,7 @@ final class ExtendDeadlineAction
 
             if ($receivedDate !== null && $newCarbon->lt($receivedDate)) {
                 throw ValidationException::withMessages([
-                    'new_date' => 'The new deadline must be on or after the request received date.',
+                    'new_date' => 'The new deadline must be on or after the Request Received from Client date.',
                 ]);
             }
 

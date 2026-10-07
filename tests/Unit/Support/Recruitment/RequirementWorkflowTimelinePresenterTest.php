@@ -223,6 +223,30 @@ test('timeline isolates company transitions', function () {
         ->and(collect($timeline['events'])->pluck('reason')->filter()->all())->not->toContain('Foreign noise');
 });
 
+test('synthetic draft fallback only applies while status remains Draft', function () {
+    $draft = createTimelineRequirement($this, ['status' => RequirementStatus::Draft]);
+    $draftTimeline = RequirementWorkflowTimelinePresenter::for($draft->fresh(['creator']), $this->user);
+
+    expect(collect($draftTimeline['events'])->pluck('label')->all())->toBe([
+        'Draft created',
+    ]);
+
+    $pending = createTimelineRequirement($this, ['status' => RequirementStatus::PendingApproval]);
+    RecordRequirementStatusTransition::handle(
+        $pending,
+        RequirementStatus::Draft,
+        RequirementStatus::PendingApproval,
+        $this->user->id,
+    );
+
+    $pendingTimeline = RequirementWorkflowTimelinePresenter::for($pending->fresh(['creator']), $this->user);
+
+    expect(collect($pendingTimeline['events'])->pluck('label')->all())->toBe([
+        'Submitted for approval',
+    ])
+        ->and(collect($pendingTimeline['events'])->pluck('label')->all())->not->toContain('Draft created');
+});
+
 test('filled cancelled and reopened states are represented', function () {
     $req = createTimelineRequirement($this, ['status' => RequirementStatus::Completed, 'completed_at' => now()]);
 

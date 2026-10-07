@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\DocumentType;
+use App\Models\Project;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
@@ -294,4 +295,101 @@ test('non-json bank store still redirects to index', function () {
         'name' => 'Redirect Bank',
         'is_active' => true,
     ])->assertRedirect(route('settings.master-data.banks.index'));
+});
+
+test('json quick-create requires client create permission', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.banks.create',
+    ]);
+
+    $this->postJson('/settings/master-data/clients', [
+        'name' => 'Unauthorized Client',
+        'is_active' => true,
+    ])->assertForbidden();
+});
+
+test('json quick-create creates client and reuses case-insensitive trimmed duplicates', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.create',
+    ]);
+
+    $first = $this->postJson('/settings/master-data/clients', [
+        'name' => '  Acme Marine  ',
+        'is_active' => true,
+    ])->assertSuccessful();
+
+    expect(Client::query()->where('name', 'Acme Marine')->count())->toBe(1);
+
+    $second = $this->postJson('/settings/master-data/clients', [
+        'name' => 'acme marine',
+        'is_active' => true,
+    ])->assertSuccessful();
+
+    expect($second->json('id'))->toBe($first->json('id'))
+        ->and(Client::query()->whereRaw('LOWER(name) = ?', ['acme marine'])->count())->toBe(1);
+});
+
+test('json quick-create requires project create permission', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    $client = Client::query()->create(['name' => 'Project Perm Client', 'is_active' => true]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.create',
+    ]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Unauthorized Project',
+        'client_ids' => [$client->id],
+        'is_active' => true,
+    ])->assertForbidden();
+});
+
+test('json quick-create attaches new project to selected client and reuses same title', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+        'settings.master-data.projects.update',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'QC Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'QC Client B', 'is_active' => true]);
+
+    $created = $this->postJson('/settings/master-data/projects', [
+        'title' => '  Shared Dock  ',
+        'client_ids' => [$clientA->id],
+        'is_active' => true,
+    ])->assertSuccessful();
+
+    $projectId = (int) $created->json('id');
+    $project = Project::query()->findOrFail($projectId);
+
+    expect($project->title)->toBe('Shared Dock')
+        ->and($project->clients()->pluck('clients.id')->all())->toBe([$clientA->id]);
+
+    $reuse = $this->postJson('/settings/master-data/projects', [
+        'title' => 'shared dock',
+        'client_ids' => [$clientA->id],
+        'is_active' => true,
+    ])->assertSuccessful();
+
+    expect($reuse->json('id'))->toBe($projectId);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Shared Dock',
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertSuccessful();
+
+    expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
+        ->toBe([$clientA->id, $clientB->id]);
 });

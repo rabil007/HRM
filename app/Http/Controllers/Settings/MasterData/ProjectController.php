@@ -119,7 +119,11 @@ class ProjectController extends Controller
                 );
             }
 
-            abort_unless($request->user()?->can('settings.master-data.projects.update'), 403);
+            abort_unless(
+                $request->user()?->can('settings.master-data.projects.update'),
+                403,
+                'A project with this title already exists. Permission to update projects is required to attach it to another client.',
+            );
 
             $syncProjectClients->attach($existing, $clientIds);
 

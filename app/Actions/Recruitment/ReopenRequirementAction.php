@@ -36,7 +36,7 @@ final class ReopenRequirementAction
                 $receivedDate = $locked->request_received_date?->copy()->startOfDay();
                 if ($receivedDate !== null && $newCarbon->lt($receivedDate)) {
                     throw ValidationException::withMessages([
-                        'new_required_by_date' => 'The new deadline must be on or after the original request received date.',
+                        'new_required_by_date' => 'The new deadline must be on or after the original Request Received from Client date.',
                     ]);
                 }
             }

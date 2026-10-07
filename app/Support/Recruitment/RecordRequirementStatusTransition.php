@@ -24,4 +24,34 @@ final class RecordRequirementStatusTransition
             'reason' => $reason,
         ]);
     }
+
+    /**
+     * Ensure a Draft Requirement has a visible null→Draft transition without duplicating it.
+     */
+    public static function ensureDraftCreated(
+        RecruitmentRequirement $requirement,
+        int $performedBy,
+    ): void {
+        if ($requirement->status !== RequirementStatus::Draft) {
+            return;
+        }
+
+        $exists = RecruitmentRequirementStatusTransition::query()
+            ->where('company_id', (int) $requirement->company_id)
+            ->where('recruitment_requirement_id', (int) $requirement->id)
+            ->whereNull('from_status')
+            ->where('to_status', RequirementStatus::Draft->value)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        self::handle(
+            $requirement,
+            null,
+            RequirementStatus::Draft,
+            $performedBy,
+        );
+    }
 }

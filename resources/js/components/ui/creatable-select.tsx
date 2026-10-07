@@ -40,6 +40,7 @@ export type CreatableSelectProps = {
     createConfig?: {
         submit: (query: string) => Promise<{ id: number | string; label: string }>;
     };
+    createLabel?: (query: string) => string;
     emptyMessage?: string;
 };
 
@@ -58,6 +59,7 @@ export function CreatableSelect({
     creatable = false,
     canCreate = false,
     createConfig,
+    createLabel,
     emptyMessage = 'No results found.',
 }: CreatableSelectProps): React.ReactElement {
     const [open, setOpen] = React.useState(false);
@@ -208,6 +210,11 @@ export function CreatableSelect({
                     {showCreateRow ? (
                         <CommandCreateRow
                             query={searchQuery}
+                            label={
+                                createLabel
+                                    ? createLabel(searchQuery.trim())
+                                    : undefined
+                            }
                             isCreating={isCreating}
                             onCreate={handleCreate}
                         />

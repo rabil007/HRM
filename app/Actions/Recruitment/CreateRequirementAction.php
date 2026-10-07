@@ -34,7 +34,7 @@ final class CreateRequirementAction
         $submitAfterCreate = (bool) ($data['submit_for_approval'] ?? false);
 
         try {
-            $requirement = DB::transaction(function () use ($companyId, $userId, $data, $attachment, &$storedFilePath): RecruitmentRequirement {
+            $requirement = DB::transaction(function () use ($companyId, $userId, $data, $attachment, $submitAfterCreate, &$storedFilePath): RecruitmentRequirement {
                 $assignedTo = array_key_exists('assigned_to', $data)
                     ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
                     : null;
@@ -116,12 +116,17 @@ final class CreateRequirementAction
                         ->log('Original client request attachment uploaded.');
                 }
 
-                RecordRequirementStatusTransition::handle(
-                    $requirement,
-                    null,
-                    RequirementStatus::Draft,
-                    $userId,
-                );
+                // Record Draft only for intentional "Save as Draft". Direct create-and-submit
+                // still persists as Draft internally, but the first user-visible event should be
+                // submission (or Draft if that immediate submission fails).
+                if (! $submitAfterCreate) {
+                    RecordRequirementStatusTransition::handle(
+                        $requirement,
+                        null,
+                        RequirementStatus::Draft,
+                        $userId,
+                    );
+                }
 
                 activity('recruitment')
                     ->causedBy($userId)
@@ -146,7 +151,17 @@ final class CreateRequirementAction
         if ($submitAfterCreate) {
             $actor = User::query()->findOrFail($userId);
 
-            return app(SubmitRequirementForApprovalAction::class)->execute($requirement, $actor);
+            try {
+                return app(SubmitRequirementForApprovalAction::class)->execute($requirement, $actor);
+            } catch (Throwable $exception) {
+                $requirement->refresh();
+
+                if ($requirement->status === RequirementStatus::Draft) {
+                    RecordRequirementStatusTransition::ensureDraftCreated($requirement, $userId);
+                }
+
+                throw $exception;
+            }
         }
 
         return $requirement;

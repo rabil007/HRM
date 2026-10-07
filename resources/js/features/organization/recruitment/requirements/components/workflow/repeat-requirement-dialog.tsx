@@ -210,7 +210,7 @@ export function RepeatRequirementDialog({
                                     htmlFor="repeat_request_received_date"
                                     className="text-xs font-semibold"
                                 >
-                                    Request Received Date{' '}
+                                    Request Received from Client{' '}
                                     <span className="text-rose-500">*</span>
                                 </Label>
                                 <Input

@@ -207,7 +207,9 @@ class UpdateRequirementRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'request_received_date.before_or_equal' => 'Request received date cannot be after the current required-by date. Use Extend Deadline to adjust the deadline.',
+            'request_received_date.before_or_equal' => 'Request Received from Client cannot be after the current required-by date. Use Extend Deadline to adjust the deadline.',
+            'request_received_date.required' => 'Request Received from Client is required.',
+            'request_received_date.date' => 'Request Received from Client must be a valid date.',
         ];
     }
 }
