@@ -182,3 +182,19 @@ export function incompleteSubmissionMessages(
         .filter((entry) => !entry.ready && entry.message)
         .map((entry) => entry.message as string);
 }
+
+export function isSubmissionReadinessComplete(
+    summary: SubmissionReadinessSummary | null | undefined,
+): boolean {
+    return summary?.ready === true;
+}
+
+/**
+ * Whether the form should expose Create/Save & Submit / Save & Resubmit.
+ * Backend still authorizes the submit permission.
+ */
+export function canShowRequirementSubmitFormAction(
+    canSubmitPermission: boolean,
+): boolean {
+    return canSubmitPermission;
+}

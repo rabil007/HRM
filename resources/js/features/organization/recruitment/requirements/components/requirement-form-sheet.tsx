@@ -1,4 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     Calendar,
@@ -41,6 +41,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { toast } from '@/lib/toast';
+import type { Auth } from '@/types/auth';
 import type {
     ClientOption,
     PositionOption,
@@ -72,17 +73,20 @@ import {
     resolveDefaultSalaryForPosition,
 } from '../lib/requirement-salary';
 import {
+    canShowRequirementSubmitFormAction,
     evaluateRequirementFormSubmissionReadiness,
     incompleteSubmissionMessages,
 } from '../lib/requirement-submission-readiness';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
 import { DuplicateDecisionDialog } from './duplicate-decision-dialog';
 import { RequirementNotificationRecipientsMultiSelect } from './requirement-notification-recipients-multi-select';
+import { SubmissionReadinessBlockedDialog } from './submission-readiness-blocked-dialog';
 
 type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     initialRequirement?: RequirementDetail | null;
+    canSubmit?: boolean;
     options: {
         clients: ClientOption[];
         projects: ProjectOption[];
@@ -105,9 +109,13 @@ export function RequirementFormSheet({
     open,
     onOpenChange,
     initialRequirement,
+    canSubmit = false,
     options,
     onSuccess,
 }: Props) {
+    const { auth } = usePage().props as { auth: Auth };
+    const currentUserId = auth.user?.id ?? null;
+    const showSubmitAction = canShowRequirementSubmitFormAction(canSubmit);
     const isEditing = Boolean(initialRequirement);
     const today = new Date().toISOString().split('T')[0];
 
@@ -208,9 +216,10 @@ export function RequirementFormSheet({
                 assignedTo: data.assigned_to,
                 positions: data.positions,
                 positionTitles: positionTitleLookup,
-                creatorUserId: null,
+                creatorUserId: currentUserId,
             }),
         [
+            currentUserId,
             data.assigned_to,
             data.client_id,
             data.positions,
@@ -1745,7 +1754,9 @@ export function RequirementFormSheet({
                             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                                 <Button
                                     type="submit"
-                                    variant="outline"
+                                    variant={
+                                        showSubmitAction ? 'outline' : 'default'
+                                    }
                                     disabled={busy}
                                     className="gap-2"
                                     onClick={(event) =>
@@ -1759,19 +1770,21 @@ export function RequirementFormSheet({
                                         ? draftSaveLabel
                                         : 'Save as Draft'}
                                 </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={busy}
-                                    className="gap-2"
-                                    onClick={(event) =>
-                                        queueSubmit(event, true)
-                                    }
-                                >
-                                    {busy && (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    )}
-                                    {submitSaveLabel}
-                                </Button>
+                                {showSubmitAction ? (
+                                    <Button
+                                        type="submit"
+                                        disabled={busy}
+                                        className="gap-2"
+                                        onClick={(event) =>
+                                            queueSubmit(event, true)
+                                        }
+                                    >
+                                        {busy && (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        )}
+                                        {submitSaveLabel}
+                                    </Button>
+                                ) : null}
                             </div>
                         </SheetFooter>
                     </form>
@@ -1807,37 +1820,11 @@ export function RequirementFormSheet({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AlertDialog
+            <SubmissionReadinessBlockedDialog
                 open={readinessBlockedOpen}
                 onOpenChange={setReadinessBlockedOpen}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Requirement isn&apos;t ready for approval
-                        </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-2 text-sm text-muted-foreground">
-                                <p>Please complete:</p>
-                                <ul className="list-disc space-y-1 pl-5 text-foreground">
-                                    {incompleteReadinessMessages.map(
-                                        (message) => (
-                                            <li key={message}>{message}</li>
-                                        ),
-                                    )}
-                                </ul>
-                            </div>
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction
-                            onClick={() => setReadinessBlockedOpen(false)}
-                        >
-                            Continue editing
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                messages={incompleteReadinessMessages}
+            />
 
             {/* Duplicate Decision Dialog */}
             <DuplicateDecisionDialog

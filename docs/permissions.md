@@ -120,12 +120,14 @@ Workflow actions on a requirement are gated by **permissions + record relationsh
 
 Rules:
 
-- Drafts may be incomplete (for example missing recruiter or salary). Submission cannot — readiness is validated authoritatively on the backend before Submit, Create & Submit, Save & Submit, Resubmit, and Save & Resubmit.
+- Drafts may be incomplete for **submission-stage** information (for example missing assigned recruiter or salary range). Minimum Draft persistence fields such as client, request-received date, required-by date, and at least one position line remain required by the current schema.
+- Submission requires full readiness — enforced authoritatively on the backend before Submit, Create & Submit, Save & Submit, Resubmit, and Save & Resubmit.
+- The requester owns Draft/Returned preparation and submission/resubmission. The assigned recruiter owns Pending Approval approval/return.
 - Only the creator may prepare or submit/resubmit their Draft/Returned requirement, even when another user holds `recruitment.requirements.update` or `submit`.
 - Only the assigned recruiter may Approve or Return a Pending Approval requirement. Approve/Return do **not** require `recruitment.requirements.update`.
 - Recommended normal recruiter setup is `view` + `approve` (without `update` / `submit`). Do not hardcode role names such as “Recruiter” into workflow logic.
-- `created_by` and `assigned_to` must be different users (self-approval is rejected on create, update, submit, and approve).
-- Presenter flags (`can_edit`, `can_submit`, `can_resubmit`, `can_approve`, `can_return`) mirror these backend rules for index, detail, quick actions, and timeline UX only.
+- Requester and assigned recruiter must always be different users. Self-assignment is rejected on Draft create/update as well as on submit and approve.
+- Presenter flags (`can_edit`, `can_submit`, `can_resubmit`, `can_approve`, `can_return`) and `submission_readiness` mirror these backend rules for index, detail, quick actions, and timeline UX only.
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 

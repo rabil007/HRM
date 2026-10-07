@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    canShowRequirementSubmitFormAction,
     evaluateRequirementFormSubmissionReadiness,
     incompleteSubmissionMessages,
+    isSubmissionReadinessComplete,
 } from './requirement-submission-readiness.ts';
 
 describe('requirement submission readiness', () => {
@@ -83,6 +85,28 @@ describe('requirement submission readiness', () => {
             incompleteSubmissionMessages(summary).some((message) =>
                 message.includes('Self-approval'),
             ),
+        );
+        assert.equal(
+            summary.items.find((item) => item.key === 'self_approval')?.ready,
+            false,
+        );
+    });
+
+    it('gates submit form actions on submit permission only', () => {
+        assert.equal(canShowRequirementSubmitFormAction(true), true);
+        assert.equal(canShowRequirementSubmitFormAction(false), false);
+    });
+
+    it('treats missing readiness as incomplete for index/detail submit guards', () => {
+        assert.equal(isSubmissionReadinessComplete(null), false);
+        assert.equal(isSubmissionReadinessComplete(undefined), false);
+        assert.equal(
+            isSubmissionReadinessComplete({
+                ready: true,
+                remaining_count: 0,
+                items: [],
+            }),
+            true,
         );
     });
 });

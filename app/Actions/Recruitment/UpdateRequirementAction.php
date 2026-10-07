@@ -25,12 +25,16 @@ final class UpdateRequirementAction
 {
     /**
      * @param  array<string, mixed>  $data
+     * @param  string|null  $newStoredFilePath  Populated with a newly stored attachment path so callers
+     *                                          that nest this action in a larger transaction can clean up
+     *                                          orphan files if the outer operation fails after success here.
      */
     public function execute(
         RecruitmentRequirement $requirement,
         int $userId,
         array $data,
         ?UploadedFile $attachment = null,
+        ?string &$newStoredFilePath = null,
     ): RecruitmentRequirement {
         $storedFilePath = null;
         $shouldNotifyReassignment = false;
@@ -221,6 +225,8 @@ final class UpdateRequirementAction
 
             throw $exception;
         }
+
+        $newStoredFilePath = $storedFilePath;
 
         if ($shouldNotifyReassignment && $reassignmentTransition instanceof RecruitmentRequirementStatusTransition) {
             SendRequirementLifecycleEmails::pendingReassigned($result, $reassignmentTransition);

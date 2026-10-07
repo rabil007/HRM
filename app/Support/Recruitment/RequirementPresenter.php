@@ -143,6 +143,12 @@ final class RequirementPresenter
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
             'can_reopen' => $canReopenPerm && $isHistory,
             'can_repeat' => $canView && $canCreate && $isHistory,
+            'submission_readiness' => in_array($requirement->status, [
+                RequirementStatus::Draft,
+                RequirementStatus::Returned,
+            ], true)
+                ? RequirementSubmissionReadiness::for($requirement, $user)
+                : null,
         ];
     }
 
@@ -210,15 +216,7 @@ final class RequirementPresenter
             ->values()
             ->all();
 
-        $submissionReadiness = in_array($requirement->status, [
-            RequirementStatus::Draft,
-            RequirementStatus::Returned,
-        ], true)
-            ? RequirementSubmissionReadiness::for($requirement, $user)
-            : null;
-
         return array_merge($base, $duration, [
-            'submission_readiness' => $submissionReadiness,
             'notes' => $requirement->notes,
             'cancellation_reason' => $requirement->cancellation_reason,
             'return_reason' => $requirement->return_reason,

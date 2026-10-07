@@ -23,10 +23,12 @@ use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use App\Support\Recruitment\RequirementPresenter;
 use Database\Seeders\EmailTemplatesSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -1684,4 +1686,211 @@ test('cross company user cannot approve another company requirement', function (
         ->assertNotFound();
 
     expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
+});
+
+test('creator cannot save a draft assigned to themselves', function () {
+    $beforeCount = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->count();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->requester->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+
+    expect(
+        RecruitmentRequirement::query()
+            ->where('company_id', $this->companyA->id)
+            ->count()
+    )->toBe($beforeCount);
+});
+
+test('creator cannot create and submit when assigned to themselves', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->requester->id,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('failed save and submit after attachment upload cleans orphan file and leaves draft unchanged', function () {
+    Storage::fake('local');
+
+    $req = createDraftRequirement($this, [
+        'assigned_to' => null,
+        'notes' => 'Original notes',
+    ]);
+    $line = $req->lines()->first();
+    $line->update([
+        'salary_min' => null,
+        'salary_max' => null,
+        'salary_currency_code' => null,
+    ]);
+
+    $file = UploadedFile::fake()->create('client-spec.pdf', 100, 'application/pdf');
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => null,
+            'notes' => 'Should roll back',
+            'submit_for_approval' => true,
+            'attachment' => $file,
+            'positions' => [
+                [
+                    'id' => $line->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 5500,
+                    'salary_max' => 9000,
+                ],
+            ],
+        ])
+        ->assertStatus(422);
+
+    $fresh = $req->fresh(['attachments', 'lines']);
+
+    expect($fresh->status)->toBe(RequirementStatus::Draft)
+        ->and($fresh->priority->value)->toBe('normal')
+        ->and($fresh->notes)->toBe('Original notes')
+        ->and($fresh->assigned_to)->toBeNull()
+        ->and($fresh->submitted_at)->toBeNull()
+        ->and($fresh->attachments)->toHaveCount(0)
+        ->and($fresh->lines->first()->salary_min)->toBeNull();
+
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+});
+
+test('index and show expose submission readiness for creator owned drafts', function () {
+    $req = createDraftRequirement($this, ['assigned_to' => null]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/index')
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $req->id)
+            ->where('requirements.data.0.submission_readiness.ready', false)
+            ->where('requirements.data.0.can_submit', true)
+        );
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/show')
+            ->where('requirement.submission_readiness.ready', false)
+            ->where('can.submit', true)
+        );
+});
+
+test('creator without submit permission can save draft but not submit for approval', function () {
+    $draftOnlyCreator = createApprovalTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.create',
+        'recruitment.requirements.update',
+    ], [
+        'email' => 'draft.only@example.com',
+        'name' => 'Draft Only Creator',
+    ]);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $requirement = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->where('created_by', $draftOnlyCreator->id)
+        ->latest('id')
+        ->first();
+
+    expect($requirement)->not->toBeNull()
+        ->and($requirement->status)->toBe(RequirementStatus::Draft);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$requirement->id}/submit")
+        ->assertForbidden();
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$requirement->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'id' => $requirement->lines()->first()->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['submit_for_approval']);
+
+    expect($requirement->fresh()->status)->toBe(RequirementStatus::Draft);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$requirement->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.submit', false)
+            ->where('requirement.can_submit', false)
+        );
 });
