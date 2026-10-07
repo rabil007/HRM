@@ -2,6 +2,7 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
@@ -71,23 +72,35 @@ final class UpdateRequirementAction
                         ]);
                     }
 
-                    $locked->update([
-                        'client_id' => $data['client_id'],
+                    $updates = [
+                        'client_id' => array_key_exists('client_id', $data)
+                            ? (filled($data['client_id']) ? (int) $data['client_id'] : null)
+                            : $locked->client_id,
                         'project_id' => $data['project_id'] ?? null,
-                        'request_received_date' => $data['request_received_date'],
+                        'request_received_date' => array_key_exists('request_received_date', $data)
+                            ? (filled($data['request_received_date']) ? $data['request_received_date'] : null)
+                            : $locked->request_received_date,
                         'location' => $data['location'] ?? null,
-                        'priority' => $data['priority'],
+                        'priority' => $data['priority'] ?? $locked->priority,
                         'assigned_to' => $assignedTo,
                         'notes' => $data['notes'] ?? null,
                         'updated_by' => $userId,
-                    ]);
+                    ];
+
+                    if (array_key_exists('required_by_date', $data)) {
+                        $updates['required_by_date'] = filled($data['required_by_date'])
+                            ? $data['required_by_date']
+                            : null;
+                    }
+
+                    $locked->update($updates);
 
                     if (array_key_exists('lines', $data) && is_array($data['lines'])) {
                         $companyCurrency = CompanyCurrency::codeForCompany($companyId);
                         $existingLines = $locked->lines()->lockForUpdate()->get();
 
                         foreach ($data['lines'] as $lineInput) {
-                            if (! is_array($lineInput)) {
+                            if (! is_array($lineInput) || ! filled($lineInput['position_id'] ?? null)) {
                                 continue;
                             }
 
@@ -95,12 +108,20 @@ final class UpdateRequirementAction
                             $targetLine = null;
                             if (! empty($lineInput['id'])) {
                                 $targetLine = $existingLines->firstWhere('id', (int) $lineInput['id']);
-                            } elseif (! empty($lineInput['position_id'])) {
+                            }
+
+                            if ($targetLine === null) {
                                 $targetLine = $existingLines->firstWhere('position_id', (int) $lineInput['position_id']);
                             }
 
+                            $hasSalary = (isset($lineInput['salary_min']) && $lineInput['salary_min'] !== null && $lineInput['salary_min'] !== '')
+                                || (isset($lineInput['salary_max']) && $lineInput['salary_max'] !== null && $lineInput['salary_max'] !== '');
+
                             if ($targetLine !== null) {
                                 $updates = [];
+                                if (array_key_exists('required_headcount', $lineInput) && filled($lineInput['required_headcount'])) {
+                                    $updates['required_headcount'] = (int) $lineInput['required_headcount'];
+                                }
                                 if (array_key_exists('salary_min', $lineInput)) {
                                     $updates['salary_min'] = $lineInput['salary_min'] !== null && $lineInput['salary_min'] !== '' ? $lineInput['salary_min'] : null;
                                 }
@@ -108,7 +129,7 @@ final class UpdateRequirementAction
                                     $updates['salary_max'] = $lineInput['salary_max'] !== null && $lineInput['salary_max'] !== '' ? $lineInput['salary_max'] : null;
                                 }
                                 if (array_key_exists('salary_min', $updates) || array_key_exists('salary_max', $updates)) {
-                                    $updates['salary_currency_code'] = $companyCurrency;
+                                    $updates['salary_currency_code'] = $hasSalary ? $companyCurrency : null;
                                 }
                                 if (array_key_exists('line_notes', $lineInput)) {
                                     $updates['line_notes'] = $lineInput['line_notes'];
@@ -117,6 +138,19 @@ final class UpdateRequirementAction
                                 if (! empty($updates)) {
                                     $targetLine->update($updates);
                                 }
+                            } else {
+                                $created = RecruitmentRequirementLine::create([
+                                    'company_id' => $companyId,
+                                    'recruitment_requirement_id' => $locked->id,
+                                    'position_id' => (int) $lineInput['position_id'],
+                                    'required_headcount' => (int) ($lineInput['required_headcount'] ?? 1),
+                                    'line_notes' => $lineInput['line_notes'] ?? null,
+                                    'status' => RequirementLineStatus::Open,
+                                    'salary_min' => isset($lineInput['salary_min']) && $lineInput['salary_min'] !== '' ? $lineInput['salary_min'] : null,
+                                    'salary_max' => isset($lineInput['salary_max']) && $lineInput['salary_max'] !== '' ? $lineInput['salary_max'] : null,
+                                    'salary_currency_code' => $hasSalary ? $companyCurrency : null,
+                                ]);
+                                $existingLines->push($created);
                             }
                         }
                     }

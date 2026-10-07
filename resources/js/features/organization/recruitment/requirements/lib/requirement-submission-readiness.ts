@@ -198,3 +198,65 @@ export function canShowRequirementSubmitFormAction(
 ): boolean {
     return canSubmitPermission;
 }
+
+/**
+ * Map readiness failures to Inertia/form field keys for inline highlighting.
+ */
+export function readinessToFormFieldErrors(
+    summary: SubmissionReadinessSummary,
+    positions: FormPositionLineInput[] = [],
+): Record<string, string> {
+    const errors: Record<string, string> = {};
+    const activeIndexes = positions
+        .map((line, index) => ({ line, index }))
+        .filter(({ line }) => Boolean(line.position_id));
+
+    for (const entry of summary.items) {
+        if (entry.ready || !entry.message) {
+            continue;
+        }
+
+        let field: string;
+
+        if (entry.key.startsWith('salary_line_')) {
+            const token = entry.key.slice('salary_line_'.length);
+            const matched = activeIndexes.find(
+                ({ line, index }) =>
+                    String(line.id ?? '') === token ||
+                    String(line.position_id) === token ||
+                    String(index) === token,
+            );
+            field = matched
+                ? `positions.${matched.index}.salary_min`
+                : 'positions';
+        } else {
+            field =
+                {
+                    client: 'client_id',
+                    request_received_date: 'request_received_date',
+                    required_by_date: 'required_by_date',
+                    required_by_date_order: 'required_by_date',
+                    assigned_recruiter: 'assigned_to',
+                    assigned_recruiter_eligible: 'assigned_to',
+                    self_approval: 'assigned_to',
+                    active_positions: 'positions',
+                }[entry.key] ?? 'status';
+        }
+
+        if (!errors[field]) {
+            errors[field] = entry.message;
+        }
+    }
+
+    return errors;
+}
+
+export function compactSubmissionAttentionLabel(
+    remainingCount: number,
+): string {
+    if (remainingCount <= 0) {
+        return 'Ready for approval';
+    }
+
+    return `${remainingCount} item${remainingCount === 1 ? '' : 's'} need attention before this requirement can be submitted.`;
+}

@@ -53,13 +53,13 @@ final class CreateRequirementAction
                 $requirement = RecruitmentRequirement::create([
                     'company_id' => $companyId,
                     'requirement_number' => $requirementNumber,
-                    'client_id' => $data['client_id'],
+                    'client_id' => filled($data['client_id'] ?? null) ? (int) $data['client_id'] : null,
                     'project_id' => $data['project_id'] ?? null,
                     'client_reference_number' => null,
-                    'request_received_date' => $data['request_received_date'],
-                    'required_by_date' => $data['required_by_date'],
+                    'request_received_date' => filled($data['request_received_date'] ?? null) ? $data['request_received_date'] : null,
+                    'required_by_date' => filled($data['required_by_date'] ?? null) ? $data['required_by_date'] : null,
                     'location' => $data['location'] ?? null,
-                    'priority' => $data['priority'],
+                    'priority' => $data['priority'] ?? 'normal',
                     'assigned_to' => $assignedTo,
                     'notes' => $data['notes'] ?? null,
                     'status' => $status,
@@ -70,8 +70,13 @@ final class CreateRequirementAction
                 ]);
 
                 $companyCurrency = CompanyCurrency::codeForCompany($companyId);
+                $lines = is_array($data['lines'] ?? null) ? $data['lines'] : [];
 
-                foreach ($data['lines'] as $lineData) {
+                foreach ($lines as $lineData) {
+                    if (! is_array($lineData) || ! filled($lineData['position_id'] ?? null)) {
+                        continue;
+                    }
+
                     $hasSalary = (isset($lineData['salary_min']) && $lineData['salary_min'] !== null && $lineData['salary_min'] !== '')
                         || (isset($lineData['salary_max']) && $lineData['salary_max'] !== null && $lineData['salary_max'] !== '');
 
@@ -79,7 +84,7 @@ final class CreateRequirementAction
                         'company_id' => $companyId,
                         'recruitment_requirement_id' => $requirement->id,
                         'position_id' => $lineData['position_id'],
-                        'required_headcount' => $lineData['required_headcount'],
+                        'required_headcount' => (int) ($lineData['required_headcount'] ?? 1),
                         'line_notes' => $lineData['line_notes'] ?? null,
                         'status' => RequirementLineStatus::Open,
                         'salary_min' => isset($lineData['salary_min']) && $lineData['salary_min'] !== '' ? $lineData['salary_min'] : null,

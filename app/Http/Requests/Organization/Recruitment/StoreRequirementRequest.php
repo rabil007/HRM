@@ -29,6 +29,17 @@ class StoreRequirementRequest extends FormRequest
             // Legacy clients may still send as_open; map to submit-for-approval.
             $this->merge(['submit_for_approval' => (bool) $this->input('as_open')]);
         }
+
+        $linesKey = $this->has('positions') ? 'positions' : 'lines';
+        $lines = $this->input($linesKey);
+
+        if (is_array($lines)) {
+            $filtered = array_values(array_filter(
+                $lines,
+                fn ($line): bool => is_array($line) && filled($line['position_id'] ?? null),
+            ));
+            $this->merge([$linesKey => $filtered]);
+        }
     }
 
     /**
@@ -48,15 +59,44 @@ class StoreRequirementRequest extends FormRequest
             ? ['required', 'numeric', 'min:0', 'decimal:0,2', "gte:{$linesKey}.*.salary_min"]
             : ['nullable', 'numeric', 'min:0', 'decimal:0,2'];
 
+        $linesRules = $isSubmitting
+            ? ['required', 'array', 'min:1']
+            : ['nullable', 'array'];
+
+        $positionIdRules = $isSubmitting
+            ? [
+                'required',
+                'integer',
+                'distinct',
+                Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
+            ]
+            : [
+                'nullable',
+                'integer',
+                'distinct',
+                Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
+            ];
+
+        $headcountRules = $isSubmitting
+            ? ['required', 'integer', 'min:1']
+            : ['nullable', 'integer', 'min:1'];
+
+        $requiredByRules = ['nullable', 'date'];
+        if ($isSubmitting) {
+            $requiredByRules = ['required', 'date', 'after_or_equal:request_received_date'];
+        } elseif ($this->filled('request_received_date') && $this->filled('required_by_date')) {
+            $requiredByRules[] = 'after_or_equal:request_received_date';
+        }
+
         return [
-            'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
+            'client_id' => ClientAssignmentRules::activeClientIdRules(required: $isSubmitting),
             'project_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('projects', 'id')->where('is_active', true)->whereNull('deleted_at'),
             ],
-            'request_received_date' => ['required', 'date'],
-            'required_by_date' => ['required', 'date', 'after_or_equal:request_received_date'],
+            'request_received_date' => $isSubmitting ? ['required', 'date'] : ['nullable', 'date'],
+            'required_by_date' => $requiredByRules,
             'location' => ['nullable', 'string', 'max:200'],
             'priority' => ['required', Rule::enum(RequirementPriority::class)],
             'assigned_to' => [
@@ -83,14 +123,9 @@ class StoreRequirementRequest extends FormRequest
                 'mimes:'.implode(',', RequirementAttachmentStorage::ALLOWED_MIMES),
                 'max:'.RequirementAttachmentStorage::MAX_SIZE_KB,
             ],
-            $linesKey => ['required', 'array', 'min:1'],
-            "{$linesKey}.*.position_id" => [
-                'required',
-                'integer',
-                'distinct',
-                Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
-            ],
-            "{$linesKey}.*.required_headcount" => ['required', 'integer', 'min:1'],
+            $linesKey => $linesRules,
+            "{$linesKey}.*.position_id" => $positionIdRules,
+            "{$linesKey}.*.required_headcount" => $headcountRules,
             "{$linesKey}.*.salary_min" => $salaryMinRules,
             "{$linesKey}.*.salary_max" => $salaryMaxRules,
             "{$linesKey}.*.line_notes" => ['nullable', 'string', 'max:1000'],
@@ -108,6 +143,10 @@ class StoreRequirementRequest extends FormRequest
         if (is_array($validated)) {
             if (isset($validated['positions']) && ! isset($validated['lines'])) {
                 $validated['lines'] = $validated['positions'];
+            }
+
+            if (! isset($validated['lines']) || ! is_array($validated['lines'])) {
+                $validated['lines'] = [];
             }
 
             unset($validated['client_reference_number'], $validated['as_open']);
@@ -194,8 +233,8 @@ class StoreRequirementRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'lines.required' => 'At least one position line is required.',
-            'lines.min' => 'At least one position line is required.',
+            'lines.required' => 'At least one position line is required before submission.',
+            'lines.min' => 'At least one position line is required before submission.',
             'lines.*.position_id.required' => 'Position is required.',
             'lines.*.position_id.distinct' => 'Each position can only be added once per requirement.',
             'lines.*.required_headcount.required' => 'Headcount is required.',
@@ -209,8 +248,8 @@ class StoreRequirementRequest extends FormRequest
             'lines.*.salary_max.min' => 'Maximum salary cannot be negative.',
             'lines.*.salary_max.decimal' => 'Maximum salary may not have more than 2 decimal places.',
             'lines.*.salary_max.gte' => 'Maximum salary must be greater than or equal to minimum salary.',
-            'positions.required' => 'At least one position line is required.',
-            'positions.min' => 'At least one position line is required.',
+            'positions.required' => 'At least one position line is required before submission.',
+            'positions.min' => 'At least one position line is required before submission.',
             'positions.*.position_id.required' => 'Position is required.',
             'positions.*.position_id.distinct' => 'Each position can only be added once per requirement.',
             'positions.*.required_headcount.required' => 'Headcount is required.',
@@ -225,8 +264,10 @@ class StoreRequirementRequest extends FormRequest
             'positions.*.salary_max.decimal' => 'Maximum salary may not have more than 2 decimal places.',
             'positions.*.salary_max.gte' => 'Maximum salary must be greater than or equal to minimum salary.',
             'required_by_date.after_or_equal' => 'Required-by date must be on or after the Request Received from Client date.',
-            'request_received_date.required' => 'Request Received from Client is required.',
+            'request_received_date.required' => 'Request Received from Client is required before submission.',
             'request_received_date.date' => 'Request Received from Client must be a valid date.',
+            'client_id.required' => 'Client is required before submission.',
+            'required_by_date.required' => 'Required-by date is required before submission.',
         ];
     }
 }

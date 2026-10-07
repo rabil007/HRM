@@ -37,6 +37,35 @@ class UpdateRequirementRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $linesKey = $this->has('positions') ? 'positions' : 'lines';
+        $lines = $this->input($linesKey);
+
+        if (is_array($lines)) {
+            $filtered = array_values(array_filter(
+                $lines,
+                fn ($line): bool => is_array($line) && filled($line['position_id'] ?? null),
+            ));
+            $this->merge([$linesKey => $filtered]);
+        }
+
+        // Preserve an existing required-by date when the client omits it (e.g. locked
+        // deadline UI for non-draft statuses, or Save & Submit without re-sending it).
+        if (! $this->filled('required_by_date') && (bool) $this->boolean('submit_for_approval')) {
+            $requirement = $this->route('requirement');
+            if (! ($requirement instanceof RecruitmentRequirement)) {
+                $requirement = RecruitmentRequirement::query()->find($requirement);
+            }
+
+            if ($requirement?->required_by_date !== null) {
+                $this->merge([
+                    'required_by_date' => $requirement->required_by_date->format('Y-m-d'),
+                ]);
+            }
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -78,20 +107,35 @@ class UpdateRequirementRequest extends FormRequest
             ];
         }
 
-        $deadlineRule = $requirement?->required_by_date !== null
-            ? 'before_or_equal:'.$requirement->required_by_date->format('Y-m-d')
+        $isSubmitting = (bool) $this->boolean('submit_for_approval');
+        $effectiveRequiredBy = $this->input('required_by_date', $requirement?->required_by_date?->format('Y-m-d'));
+        $deadlineRule = filled($effectiveRequiredBy)
+            ? 'before_or_equal:'.(string) $effectiveRequiredBy
             : null;
 
         $linesKey = $this->has('positions') ? 'positions' : 'lines';
 
+        $requestReceivedRules = $isSubmitting
+            ? array_values(array_filter(['required', 'date', $deadlineRule]))
+            : array_values(array_filter(['nullable', 'date', $deadlineRule]));
+
+        $requiredByRules = $isSubmitting
+            ? ['required', 'date', 'after_or_equal:request_received_date']
+            : ['nullable', 'date'];
+
+        if (! $isSubmitting && $this->filled('request_received_date') && $this->filled('required_by_date')) {
+            $requiredByRules[] = 'after_or_equal:request_received_date';
+        }
+
         return [
-            'client_id' => ClientAssignmentRules::activeClientIdRules(required: true),
+            'client_id' => ClientAssignmentRules::activeClientIdRules(required: $isSubmitting),
             'project_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('projects', 'id')->where('is_active', true)->whereNull('deleted_at'),
             ],
-            'request_received_date' => array_values(array_filter(['required', 'date', $deadlineRule])),
+            'request_received_date' => $requestReceivedRules,
+            'required_by_date' => $requiredByRules,
             'location' => ['nullable', 'string', 'max:200'],
             'priority' => ['required', Rule::enum(RequirementPriority::class)],
             'assigned_to' => [
@@ -123,11 +167,19 @@ class UpdateRequirementRequest extends FormRequest
                 'mimes:'.implode(',', RequirementAttachmentStorage::ALLOWED_MIMES),
                 'max:'.RequirementAttachmentStorage::MAX_SIZE_KB,
             ],
-            $linesKey => ['nullable', 'array'],
+            $linesKey => $isSubmitting ? ['required', 'array', 'min:1'] : ['nullable', 'array'],
             "{$linesKey}.*.id" => ['nullable', 'integer'],
-            "{$linesKey}.*.position_id" => ['nullable', 'integer'],
-            "{$linesKey}.*.salary_min" => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            "{$linesKey}.*.salary_max" => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            "{$linesKey}.*.position_id" => [
+                $isSubmitting ? 'required' : 'nullable',
+                'integer',
+                Rule::exists('positions', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
+            ],
+            "{$linesKey}.*.salary_min" => $isSubmitting
+                ? ['required', 'numeric', 'min:0', 'decimal:0,2']
+                : ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            "{$linesKey}.*.salary_max" => $isSubmitting
+                ? ['required', 'numeric', 'min:0', 'decimal:0,2']
+                : ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             "{$linesKey}.*.line_notes" => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     canShowRequirementSubmitFormAction,
+    compactSubmissionAttentionLabel,
     evaluateRequirementFormSubmissionReadiness,
     incompleteSubmissionMessages,
     isSubmissionReadinessComplete,
+    readinessToFormFieldErrors,
 } from './requirement-submission-readiness.ts';
 
 describe('requirement submission readiness', () => {
@@ -108,5 +110,65 @@ describe('requirement submission readiness', () => {
             }),
             true,
         );
+    });
+
+    it('maps readiness failures to form field keys for inline highlighting', () => {
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '',
+            requestReceivedDate: '',
+            requiredByDate: '',
+            assignedTo: '',
+            positions: [],
+        });
+
+        const errors = readinessToFormFieldErrors(summary, []);
+
+        assert.equal(errors.client_id, 'Select a client.');
+        assert.equal(
+            errors.request_received_date,
+            'Enter the Request Received from Client date.',
+        );
+        assert.equal(errors.required_by_date, 'Enter the required-by date.');
+        assert.equal(errors.assigned_to, 'Assign an approving recruiter.');
+        assert.equal(
+            errors.positions,
+            'At least one active position line is required.',
+        );
+        assert.match(
+            compactSubmissionAttentionLabel(summary.remaining_count),
+            /need attention before this requirement can be submitted/,
+        );
+    });
+
+    it('maps salary readiness failures to the matching position salary field', () => {
+        const positions = [
+            {
+                id: 12,
+                position_id: '4',
+                required_headcount: 1,
+                salary_min: '',
+                salary_max: '',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+            positionTitles: { '4': 'Rigger' },
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(
+            errors['positions.0.salary_min'],
+            'Complete a valid salary range for Rigger.',
+        );
+    });
+
+    it('keeps submit actions available when permission allows and hidden otherwise', () => {
+        assert.equal(canShowRequirementSubmitFormAction(true), true);
+        assert.equal(canShowRequirementSubmitFormAction(false), false);
     });
 });

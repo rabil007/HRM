@@ -120,8 +120,8 @@ Workflow actions on a requirement are gated by **permissions + record relationsh
 
 Rules:
 
-- Drafts may be incomplete for **submission-stage** information (for example missing assigned recruiter or salary range). Minimum Draft persistence fields such as client, request-received date, required-by date, and at least one position line remain required by the current schema.
-- Submission requires full readiness — enforced authoritatively on the backend before Submit, Create & Submit, Save & Submit, Resubmit, and Save & Resubmit.
+- **Draft** may contain incomplete recruitment information. Requesters can Save as Draft / Save Draft / Save Changes with missing client, request-received date, required-by date, assigned recruiter, position lines, salary range, project, location, notes, or attachment. Provided values are still type-, format-, tenant-, and integrity-validated (invalid IDs, bad dates, max salary below min when both present, self-assignment, invalid attachments). Malformed data is never accepted.
+- **Submit / Resubmit** (Create & Submit, Save & Submit, Save & Resubmit, and dedicated submit/resubmit endpoints) must pass full submission readiness — enforced authoritatively by `RequirementSubmissionReadiness` on the backend. Frontend field highlighting is UX only.
 - The requester owns Draft/Returned preparation and submission/resubmission. The assigned recruiter owns Pending Approval approval/return.
 - Only the creator may prepare or submit/resubmit their Draft/Returned requirement, even when another user holds `recruitment.requirements.update` or `submit`.
 - Only the assigned recruiter may Approve or Return a Pending Approval requirement. Approve/Return do **not** require `recruitment.requirements.update`.

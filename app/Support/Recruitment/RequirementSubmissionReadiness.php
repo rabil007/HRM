@@ -163,14 +163,25 @@ final class RequirementSubmissionReadiness
                 continue;
             }
 
-            $field = match ($item['key']) {
-                'client' => 'client_id',
-                'request_received_date' => 'request_received_date',
-                'required_by_date', 'required_by_date_order' => 'required_by_date',
-                'assigned_recruiter', 'assigned_recruiter_eligible', 'self_approval' => 'assigned_to',
-                'active_positions' => 'lines',
-                default => str_starts_with($item['key'], 'salary_line_') ? 'salary' : 'status',
-            };
+            if (str_starts_with($item['key'], 'salary_line_')) {
+                $lineId = (int) substr($item['key'], strlen('salary_line_'));
+                $lineIndex = $requirement->relationLoaded('lines')
+                    ? $requirement->lines->search(fn ($line) => (int) $line->id === $lineId)
+                    : false;
+
+                $field = $lineIndex === false
+                    ? 'positions'
+                    : "positions.{$lineIndex}.salary_min";
+            } else {
+                $field = match ($item['key']) {
+                    'client' => 'client_id',
+                    'request_received_date' => 'request_received_date',
+                    'required_by_date', 'required_by_date_order' => 'required_by_date',
+                    'assigned_recruiter', 'assigned_recruiter_eligible', 'self_approval' => 'assigned_to',
+                    'active_positions' => 'positions',
+                    default => 'status',
+                };
+            }
 
             $messages[$field][] = $item['message'];
         }

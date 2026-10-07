@@ -9,7 +9,6 @@ import {
     RotateCcw,
     Trash2,
     Users,
-    XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import RequirementAddHeadcountController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementAddHeadcountController';
@@ -74,13 +73,13 @@ import {
 } from '../lib/requirement-salary';
 import {
     canShowRequirementSubmitFormAction,
+    compactSubmissionAttentionLabel,
     evaluateRequirementFormSubmissionReadiness,
-    incompleteSubmissionMessages,
+    readinessToFormFieldErrors,
 } from '../lib/requirement-submission-readiness';
 import type { FormPositionLineInput, SimilarRequirementMatch } from '../types';
 import { DuplicateDecisionDialog } from './duplicate-decision-dialog';
 import { RequirementNotificationRecipientsMultiSelect } from './requirement-notification-recipients-multi-select';
-import { SubmissionReadinessBlockedDialog } from './submission-readiness-blocked-dialog';
 
 type Props = {
     open: boolean;
@@ -128,7 +127,7 @@ export function RequirementFormSheet({
         line_notes: '',
     };
 
-    const { data, setData, errors, reset, clearErrors } = useForm<{
+    const { data, setData, errors, setError, reset, clearErrors } = useForm<{
         client_id: string;
         project_id: string;
         location: string;
@@ -169,7 +168,6 @@ export function RequirementFormSheet({
         null,
     );
     const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-    const [readinessBlockedOpen, setReadinessBlockedOpen] = useState(false);
     const [clientItems, setClientItems] = useState<ClientOption[]>(() =>
         syncRequirementClientOptions(options.clients),
     );
@@ -209,10 +207,7 @@ export function RequirementFormSheet({
             evaluateRequirementFormSubmissionReadiness({
                 clientId: data.client_id,
                 requestReceivedDate: data.request_received_date,
-                requiredByDate: isEditing
-                    ? (initialRequirement?.required_by_date ??
-                      data.required_by_date)
-                    : data.required_by_date,
+                requiredByDate: data.required_by_date,
                 assignedTo: data.assigned_to,
                 positions: data.positions,
                 positionTitles: positionTitleLookup,
@@ -225,15 +220,8 @@ export function RequirementFormSheet({
             data.positions,
             data.request_received_date,
             data.required_by_date,
-            initialRequirement?.required_by_date,
-            isEditing,
             positionTitleLookup,
         ],
-    );
-
-    const incompleteReadinessMessages = useMemo(
-        () => incompleteSubmissionMessages(submissionReadiness),
-        [submissionReadiness],
     );
 
     const { canCreate: canCreateClient, createConfig: clientCreateConfigBase } =
@@ -470,8 +458,20 @@ export function RequirementFormSheet({
         const selector = requirementFormFieldSelector(field);
         const target = formBodyRef.current.querySelector<HTMLElement>(selector);
 
-        target?.focus();
-        target?.scrollIntoView({
+        if (!target) {
+            return;
+        }
+
+        const focusable = target.matches(
+            'input, select, textarea, button, [tabindex]:not([tabindex="-1"]), [role="combobox"]',
+        )
+            ? target
+            : target.querySelector<HTMLElement>(
+                  'input, select, textarea, button, [tabindex]:not([tabindex="-1"]), [role="combobox"]',
+              );
+
+        focusable?.focus();
+        target.scrollIntoView({
             behavior: window.matchMedia('(prefers-reduced-motion: reduce)')
                 .matches
                 ? 'auto'
@@ -600,13 +600,14 @@ export function RequirementFormSheet({
             router.post(
                 RequirementController.update.url(initialRequirement.id),
                 {
-                    client_id: data.client_id,
+                    client_id: data.client_id || null,
                     project_id: data.project_id || null,
                     location: data.location || null,
                     assigned_to: data.assigned_to || null,
                     notification_recipient_ids:
                         normalizedNotificationRecipientIds,
-                    request_received_date: data.request_received_date,
+                    request_received_date: data.request_received_date || null,
+                    required_by_date: data.required_by_date || null,
                     priority: data.priority,
                     notes: data.notes || null,
                     positions: data.positions,
@@ -648,13 +649,13 @@ export function RequirementFormSheet({
         router.post(
             RequirementController.store.url(),
             {
-                client_id: data.client_id,
+                client_id: data.client_id || null,
                 project_id: data.project_id || null,
                 location: data.location || null,
                 assigned_to: data.assigned_to || null,
                 notification_recipient_ids: normalizedNotificationRecipientIds,
-                request_received_date: data.request_received_date,
-                required_by_date: data.required_by_date,
+                request_received_date: data.request_received_date || null,
+                required_by_date: data.required_by_date || null,
                 priority: data.priority,
                 notes: data.notes || null,
                 positions: data.positions,
@@ -780,11 +781,26 @@ export function RequirementFormSheet({
     ) => {
         if (submitForApproval && !submissionReadiness.ready) {
             event.preventDefault();
-            setReadinessBlockedOpen(true);
+            clearErrors();
+
+            const fieldErrors = readinessToFormFieldErrors(
+                submissionReadiness,
+                data.positions,
+            );
+
+            setError(fieldErrors as Record<string, string>);
+
+            toast.error(
+                compactSubmissionAttentionLabel(
+                    submissionReadiness.remaining_count,
+                ),
+            );
+            focusFirstInvalidField(fieldErrors);
 
             return;
         }
 
+        clearErrors();
         pendingSubmitForApprovalRef.current = submitForApproval;
     };
 
@@ -1083,7 +1099,6 @@ export function RequirementFormSheet({
                                                     )
                                                 }
                                                 className="pr-10"
-                                                required
                                             />
                                             <Calendar className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         </div>
@@ -1109,7 +1124,12 @@ export function RequirementFormSheet({
                                                 id="required_by_date"
                                                 type="date"
                                                 value={data.required_by_date}
-                                                disabled={isEditing}
+                                                disabled={
+                                                    isEditing &&
+                                                    !isReturnedEdit &&
+                                                    initialRequirement?.status !==
+                                                        'draft'
+                                                }
                                                 onChange={(e) =>
                                                     setData(
                                                         'required_by_date',
@@ -1117,18 +1137,23 @@ export function RequirementFormSheet({
                                                     )
                                                 }
                                                 className="pr-10"
-                                                required
                                             />
                                             <Calendar className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                         </div>
-                                        {isEditing && (
-                                            <p className="text-[11px] text-muted-foreground">
-                                                Deadline is locked. Use{' '}
-                                                <strong>Extend Deadline</strong>{' '}
-                                                from requirement actions to
-                                                update it with an audit reason.
-                                            </p>
-                                        )}
+                                        {isEditing &&
+                                            !isReturnedEdit &&
+                                            initialRequirement?.status !==
+                                                'draft' && (
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Deadline is locked. Use{' '}
+                                                    <strong>
+                                                        Extend Deadline
+                                                    </strong>{' '}
+                                                    from requirement actions to
+                                                    update it with an audit
+                                                    reason.
+                                                </p>
+                                            )}
                                         {errors.required_by_date && (
                                             <p className="text-xs text-rose-500">
                                                 {errors.required_by_date}
@@ -1689,58 +1714,6 @@ export function RequirementFormSheet({
                             </div>
                         </div>
 
-                        <div
-                            data-requirement-submission-readiness
-                            className="border-t border-border/60 px-6 py-4"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="text-sm font-semibold text-foreground">
-                                        Submission readiness
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-muted-foreground">
-                                        {submissionReadiness.ready
-                                            ? 'All required information is complete.'
-                                            : `${submissionReadiness.remaining_count} item${submissionReadiness.remaining_count === 1 ? '' : 's'} remaining`}
-                                    </p>
-                                </div>
-                                {submissionReadiness.ready ? (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
-                                        Ready for approval
-                                    </span>
-                                ) : (
-                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
-                                        <AlertCircle className="h-3.5 w-3.5" />
-                                        Incomplete
-                                    </span>
-                                )}
-                            </div>
-                            <ul className="mt-3 space-y-1.5">
-                                {submissionReadiness.items.map((entry) => (
-                                    <li
-                                        key={entry.key}
-                                        className="flex items-start gap-2 text-xs"
-                                    >
-                                        {entry.ready ? (
-                                            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                                        ) : (
-                                            <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500" />
-                                        )}
-                                        <span
-                                            className={
-                                                entry.ready
-                                                    ? 'text-muted-foreground'
-                                                    : 'font-medium text-foreground'
-                                            }
-                                        >
-                                            {entry.label}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-
                         <SheetFooter className="flex flex-col gap-3 border-t border-border/60 p-6 sm:flex-row sm:items-center sm:justify-between">
                             <Button
                                 type="button"
@@ -1751,40 +1724,70 @@ export function RequirementFormSheet({
                             >
                                 Cancel
                             </Button>
-                            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                                <Button
-                                    type="submit"
-                                    variant={
-                                        showSubmitAction ? 'outline' : 'default'
-                                    }
-                                    disabled={busy}
-                                    className="gap-2"
-                                    onClick={(event) =>
-                                        queueSubmit(event, false)
-                                    }
-                                >
-                                    {busy && (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    )}
-                                    {isEditing
-                                        ? draftSaveLabel
-                                        : 'Save as Draft'}
-                                </Button>
+                            <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
                                 {showSubmitAction ? (
+                                    <p
+                                        data-requirement-submit-compact-status
+                                        className="flex items-center justify-end gap-1 text-xs text-muted-foreground"
+                                    >
+                                        {submissionReadiness.ready ? (
+                                            <>
+                                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                                Ready for approval
+                                            </>
+                                        ) : (
+                                            <>
+                                                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                                                {
+                                                    submissionReadiness.remaining_count
+                                                }{' '}
+                                                item
+                                                {submissionReadiness.remaining_count ===
+                                                1
+                                                    ? ''
+                                                    : 's'}{' '}
+                                                missing
+                                            </>
+                                        )}
+                                    </p>
+                                ) : null}
+                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                                     <Button
                                         type="submit"
+                                        variant={
+                                            showSubmitAction
+                                                ? 'outline'
+                                                : 'default'
+                                        }
                                         disabled={busy}
                                         className="gap-2"
                                         onClick={(event) =>
-                                            queueSubmit(event, true)
+                                            queueSubmit(event, false)
                                         }
                                     >
                                         {busy && (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                         )}
-                                        {submitSaveLabel}
+                                        {isEditing
+                                            ? draftSaveLabel
+                                            : 'Save as Draft'}
                                     </Button>
-                                ) : null}
+                                    {showSubmitAction ? (
+                                        <Button
+                                            type="submit"
+                                            disabled={busy}
+                                            className="gap-2"
+                                            onClick={(event) =>
+                                                queueSubmit(event, true)
+                                            }
+                                        >
+                                            {busy && (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            )}
+                                            {submitSaveLabel}
+                                        </Button>
+                                    ) : null}
+                                </div>
                             </div>
                         </SheetFooter>
                     </form>
@@ -1819,12 +1822,6 @@ export function RequirementFormSheet({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-
-            <SubmissionReadinessBlockedDialog
-                open={readinessBlockedOpen}
-                onOpenChange={setReadinessBlockedOpen}
-                messages={incompleteReadinessMessages}
-            />
 
             {/* Duplicate Decision Dialog */}
             <DuplicateDecisionDialog
