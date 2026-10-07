@@ -5,6 +5,7 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +24,19 @@ final class FillRequirementAction
             if (! in_array($locked->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)) {
                 throw ValidationException::withMessages([
                     'status' => "Requirement cannot be marked as filled from {$locked->status->label()} status.",
+                ]);
+            }
+
+            $pendingHeadcountRevision = RecruitmentRequirementHeadcountRevision::query()
+                ->where('recruitment_requirement_id', $locked->id)
+                ->where('company_id', $locked->company_id)
+                ->pending()
+                ->lockForUpdate()
+                ->exists();
+
+            if ($pendingHeadcountRevision) {
+                throw ValidationException::withMessages([
+                    'status' => 'This requirement has a pending headcount revision. Approve or reject the revision before marking the requirement as filled.',
                 ]);
             }
 

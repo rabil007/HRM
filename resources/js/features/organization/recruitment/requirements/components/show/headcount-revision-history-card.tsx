@@ -93,6 +93,18 @@ export function HeadcountRevisionHistoryCard({ revisions }: Props) {
                                 </p>
                             </div>
                         ) : null}
+                        {revision.status === 'cancelled' ? (
+                            <div className="mt-1 space-y-1 text-xs">
+                                <p className="font-medium">
+                                    Headcount revision cancelled
+                                </p>
+                                {revision.decision_note ? (
+                                    <p className="text-muted-foreground">
+                                        {revision.decision_note}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
                     </div>
                 ))}
             </CardContent>

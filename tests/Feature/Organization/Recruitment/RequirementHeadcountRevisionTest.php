@@ -856,3 +856,314 @@ test('approved and rejected headcount history keeps old and proposed values with
 
     expect($rejectedLines['welder']->fresh()->required_headcount)->toBe(5);
 });
+
+test('assigned recruiter with approve can review requester-initiated revisions even without request permission', function () {
+    $approveOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'approve-only-recruiter@example.com',
+        'name' => 'Approve Only Recruiter',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $approveOnlyRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ], 'Additional manpower required.'))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($approveOnlyRecruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/approve")
+        ->assertRedirect();
+
+    expect($lines['welder']->fresh()->required_headcount)->toBe(8);
+});
+
+test('assigned recruiter with request permission but without approve cannot review requester-initiated revisions', function () {
+    $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.request_headcount_revision',
+    ], [
+        'email' => 'request-only-recruiter@example.com',
+        'name' => 'Request Only Recruiter',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $requestOnlyRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ], 'Additional manpower required.'))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($requestOnlyRecruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/approve")
+        ->assertForbidden();
+
+    $this->actingAs($requestOnlyRecruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/reject")
+        ->assertForbidden();
+
+    $this->actingAs($requestOnlyRecruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?needs_action=deadline_extension')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('requirements.data', 0));
+
+    expect($lines['welder']->fresh()->required_headcount)->toBe(5)
+        ->and($revision->fresh()->status)->toBe(RequirementHeadcountRevisionStatus::Pending);
+});
+
+test('assigned recruiter with request permission can still submit their own recruiter-initiated revision', function () {
+    $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.request_headcount_revision',
+    ], [
+        'email' => 'request-only-recruiter-2@example.com',
+        'name' => 'Request Only Recruiter Two',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $requestOnlyRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($requestOnlyRecruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ], 'Client requested additional welders.'))
+        ->assertRedirect();
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->first()?->initiator)
+        ->toBe(RequirementHeadcountRevisionInitiator::Recruiter);
+});
+
+test('open and on hold requirements cannot be filled while a headcount revision is pending', function (RequirementStatus $status) {
+    $closer = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, ['status' => $status]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertRedirect();
+
+    $this->actingAs($closer)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+
+    expect($req->fresh()->status)->toBe($status)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5)
+        ->and(RecruitmentRequirementHeadcountRevision::query()->first()?->status)
+        ->toBe(RequirementHeadcountRevisionStatus::Pending);
+})->with([
+    RequirementStatus::Open,
+    RequirementStatus::OnHold,
+]);
+
+test('requirement fill succeeds after a pending headcount revision is resolved', function () {
+    $closer = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/reject")
+        ->assertRedirect();
+
+    $this->actingAs($closer)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Completed);
+});
+
+test('cancelling a requirement cancels a pending headcount revision and preserves history', function () {
+    $canceller = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.cancel',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ], 'Client requested additional manpower.'))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($canceller)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'Project postponed.',
+        ])
+        ->assertRedirect();
+
+    $freshRevision = $revision->fresh();
+    expect($req->fresh()->status)->toBe(RequirementStatus::Cancelled)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5)
+        ->and($lines['welder']->fresh()->status)->toBe(RequirementLineStatus::Cancelled)
+        ->and($freshRevision->status)->toBe(RequirementHeadcountRevisionStatus::Cancelled)
+        ->and($freshRevision->decision_note)->toBe('Cancelled because the requirement was cancelled.')
+        ->and($freshRevision->decided_by)->toBe($canceller->id);
+
+    expect(Activity::query()->where('description', 'Headcount revision cancelled. Official headcount remains unchanged.')->exists())->toBeTrue();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.headcount_revisions.0.status', 'cancelled')
+            ->where('requirement.headcount_revisions.0.decision_note', 'Cancelled because the requirement was cancelled.')
+        );
+});
+
+test('cancelled headcount revisions stay terminal after requirement reopen and cannot be reviewed again', function () {
+    $canceller = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.cancel',
+    ]);
+
+    $reopenUser = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.reopen',
+        'recruitment.requirements.approve',
+        'recruitment.requirements.request_headcount_revision',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $reopenUser->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ], 'Additional manpower required.'))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($canceller)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'Cancelled for reopen test.',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Project resumed.',
+            'new_required_by_date' => now()->addDays(20)->format('Y-m-d'),
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?needs_action=deadline_extension')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('requirements.data', 0));
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->fresh()->id}/headcount-revisions/{$revision->id}/approve")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->fresh()->id}/headcount-revisions/{$revision->id}/reject")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->fresh()->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 9],
+        ], 'New staffing request after reopen.'))
+        ->assertRedirect();
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->where('status', RequirementHeadcountRevisionStatus::Pending)->count())->toBe(1)
+        ->and($revision->fresh()->status)->toBe(RequirementHeadcountRevisionStatus::Cancelled);
+});
+
+test('pending headcount revisions remain valid through hold and resume', function () {
+    $req = createHeadcountRevisionRequirement($this);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertRedirect();
+
+    $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/hold")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::OnHold)
+        ->and($revision->fresh()->status)->toBe(RequirementHeadcountRevisionStatus::Pending);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/resume")
+        ->assertRedirect();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/approve")
+        ->assertRedirect();
+
+    expect($lines['welder']->fresh()->required_headcount)->toBe(8);
+});

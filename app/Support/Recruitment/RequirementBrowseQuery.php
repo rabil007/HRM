@@ -193,9 +193,10 @@ final class RequirementBrowseQuery
         }
 
         $actorId = (int) $actorId;
+        $actorCanApproveRequirements = $request->user()?->can('recruitment.requirements.approve') ?? false;
 
         $query->whereIn('status', [RequirementStatus::Open, RequirementStatus::OnHold])
-            ->where(function (Builder $actionable) use ($actorId): void {
+            ->where(function (Builder $actionable) use ($actorId, $actorCanApproveRequirements): void {
                 $actionable->where(function (Builder $deadline) use ($actorId): void {
                     $deadline->where('created_by', $actorId)
                         ->whereHas('pendingDeadlineExtension');
@@ -204,14 +205,18 @@ final class RequirementBrowseQuery
                         ->whereHas('pendingHeadcountRevision', function (Builder $revision): void {
                             $revision->where('initiator', RequirementHeadcountRevisionInitiator::Recruiter);
                         });
-                })->orWhere(function (Builder $asRecruiter) use ($actorId): void {
-                    $asRecruiter->where('assigned_to', $actorId)
-                        ->whereColumn('assigned_to', '!=', 'created_by')
-                        ->whereHas('pendingHeadcountRevision', function (Builder $revision) use ($actorId): void {
-                            $revision->where('initiator', RequirementHeadcountRevisionInitiator::Requester)
-                                ->where('requested_by', '!=', $actorId);
-                        });
                 });
+
+                if ($actorCanApproveRequirements) {
+                    $actionable->orWhere(function (Builder $asRecruiter) use ($actorId): void {
+                        $asRecruiter->where('assigned_to', $actorId)
+                            ->whereColumn('assigned_to', '!=', 'created_by')
+                            ->whereHas('pendingHeadcountRevision', function (Builder $revision) use ($actorId): void {
+                                $revision->where('initiator', RequirementHeadcountRevisionInitiator::Requester)
+                                    ->where('requested_by', '!=', $actorId);
+                            });
+                    });
+                }
             });
     }
 }

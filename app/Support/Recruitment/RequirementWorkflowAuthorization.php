@@ -185,10 +185,7 @@ final class RequirementWorkflowAuthorization
 
         if ($revision->initiator === RequirementHeadcountRevisionInitiator::Requester) {
             return self::isAssignedRecruiter($user, $requirement)
-                && (
-                    $user->can('recruitment.requirements.approve')
-                    || $user->can('recruitment.requirements.request_headcount_revision')
-                );
+                && $user->can('recruitment.requirements.approve');
         }
 
         return false;
