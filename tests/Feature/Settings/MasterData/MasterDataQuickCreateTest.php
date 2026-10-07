@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Models\VisaType;
+use App\Support\MasterData\MasterDataQuickCreate;
 
 /**
  * @return array{user: User, company: Company}
@@ -392,4 +393,137 @@ test('json quick-create attaches new project to selected client and reuses same 
 
     expect($project->fresh()->clients()->pluck('clients.id')->sort()->values()->all())
         ->toBe([$clientA->id, $clientB->id]);
+});
+
+test('client quick-create rejects inactive duplicate with 422', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.create',
+    ]);
+
+    Client::query()->create([
+        'name' => 'Inactive Marine',
+        'is_active' => false,
+    ]);
+
+    $this->postJson('/settings/master-data/clients', [
+        'name' => 'inactive marine',
+        'is_active' => true,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('client quick-create rejects soft-deleted duplicate with 422', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.clients.create',
+    ]);
+
+    $deleted = Client::query()->create([
+        'name' => 'Deleted Marine',
+        'is_active' => true,
+    ]);
+    $deleted->delete();
+
+    $this->postJson('/settings/master-data/clients', [
+        'name' => 'Deleted Marine',
+        'is_active' => true,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('project quick-create rejects inactive duplicate with 422', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    $client = Client::query()->create(['name' => 'Project Client', 'is_active' => true]);
+    Project::query()->create([
+        'title' => 'Inactive Dock',
+        'is_active' => false,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'inactive dock',
+        'client_ids' => [$client->id],
+        'is_active' => true,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['title']);
+});
+
+test('project quick-create rejects soft-deleted duplicate with 422', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    $client = Client::query()->create(['name' => 'Deleted Project Client', 'is_active' => true]);
+    $project = Project::query()->create([
+        'title' => 'Deleted Dock',
+        'is_active' => true,
+    ]);
+    $project->delete();
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Deleted Dock',
+        'client_ids' => [$client->id],
+        'is_active' => true,
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['title']);
+});
+
+test('project quick-create rejects inactive selected client', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    $client = Client::query()->create(['name' => 'Inactive Client', 'is_active' => false]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Dock',
+        'client_ids' => [$client->id],
+        'is_active' => true,
+    ])->assertUnprocessable();
+});
+
+test('project quick-create rejects existing title not linked to selected client without update permission', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.projects.create',
+    ]);
+
+    $clientA = Client::query()->create(['name' => 'Client A', 'is_active' => true]);
+    $clientB = Client::query()->create(['name' => 'Client B', 'is_active' => true]);
+    $project = Project::query()->create(['title' => 'Shared Dock', 'is_active' => true]);
+    $project->clients()->sync([$clientA->id]);
+
+    $this->postJson('/settings/master-data/projects', [
+        'title' => 'Shared Dock',
+        'client_ids' => [$clientB->id],
+        'is_active' => true,
+    ])->assertForbidden();
+});
+
+test('master data quick-create validation messages match conventions', function () {
+    expect(MasterDataQuickCreate::CLIENT_INACTIVE_MESSAGE)->toContain('inactive')
+        ->and(MasterDataQuickCreate::CLIENT_DELETED_MESSAGE)->toContain('deleted')
+        ->and(MasterDataQuickCreate::PROJECT_NOT_LINKED_MESSAGE)->toContain('selected client');
 });

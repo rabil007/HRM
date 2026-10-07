@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { RequirementDetail } from '@/types/recruitment';
 import {
+    canRemoveRequirementPositionLine,
     hydrateNewRequirementForm,
     hydrateRequirementFormFromDetail,
     nullableDateToFormValue,
     nullableIdToFormValue,
+    shouldShowRequirementPositionStructureLockWarning,
 } from './requirement-form-hydration.ts';
 
 const defaultPositionLine = {
@@ -116,5 +118,59 @@ describe('requirement form hydration', () => {
 
         assert.equal(hydrated.request_received_date, '2026-10-07');
         assert.equal(hydrated.client_id, '');
+    });
+
+    it('allows removing the final position line only in Draft/Returned preparation', () => {
+        assert.equal(
+            canRemoveRequirementPositionLine({
+                canEditPositionStructure: true,
+                isPreparationEditable: true,
+                positionCount: 1,
+            }),
+            true,
+        );
+        assert.equal(
+            canRemoveRequirementPositionLine({
+                canEditPositionStructure: true,
+                isPreparationEditable: false,
+                positionCount: 1,
+            }),
+            false,
+        );
+        assert.equal(
+            canRemoveRequirementPositionLine({
+                canEditPositionStructure: true,
+                isPreparationEditable: false,
+                positionCount: 2,
+            }),
+            true,
+        );
+        assert.equal(
+            canRemoveRequirementPositionLine({
+                canEditPositionStructure: false,
+                isPreparationEditable: false,
+                positionCount: 2,
+            }),
+            false,
+        );
+        assert.equal(
+            canRemoveRequirementPositionLine({
+                canEditPositionStructure: true,
+                isPreparationEditable: true,
+                positionCount: 0,
+            }),
+            false,
+        );
+    });
+
+    it('shows the position lock warning only when titles and headcounts are locked', () => {
+        assert.equal(
+            shouldShowRequirementPositionStructureLockWarning(true),
+            false,
+        );
+        assert.equal(
+            shouldShowRequirementPositionStructureLockWarning(false),
+            true,
+        );
     });
 });

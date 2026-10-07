@@ -282,6 +282,7 @@ jobs:
 
             php artisan migrate --force
             php artisan leave-balances:sync
+            php artisan db:seed --class=RequirementEmailTemplatesSeeder --force
             php artisan db:seed --class=PermissionsSeeder --force
 
             php artisan config:cache

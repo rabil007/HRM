@@ -107,6 +107,58 @@ export function filterRequirementProjectsForClient(
     return filterProjectsByClient(projects, clientId);
 }
 
+export function selectableRequirementClients(
+    clients: ClientOption[],
+    selectedClientId: string | number | null | undefined,
+): ClientOption[] {
+    const activeClients = clients.filter((client) => client.is_active);
+
+    if (!selectedClientId) {
+        return activeClients;
+    }
+
+    const selected = clients.find(
+        (client) => String(client.id) === String(selectedClientId),
+    );
+
+    if (
+        selected &&
+        !activeClients.some((client) => client.id === selected.id)
+    ) {
+        return [...activeClients, selected];
+    }
+
+    return activeClients;
+}
+
+export function selectableRequirementProjectsForClient(
+    projects: ProjectOption[],
+    clientId: string | number | null | undefined,
+    selectedProjectId: string | number | null | undefined,
+): ProjectOption[] {
+    const linkedActive = filterRequirementProjectsForClient(
+        projects.filter((project) => project.is_active),
+        clientId,
+    );
+
+    if (!selectedProjectId) {
+        return linkedActive;
+    }
+
+    const selected = projects.find(
+        (project) => String(project.id) === String(selectedProjectId),
+    );
+
+    if (
+        selected &&
+        !linkedActive.some((project) => project.id === selected.id)
+    ) {
+        return [...linkedActive, selected];
+    }
+
+    return linkedActive;
+}
+
 export function formatRequirementProjectCreateLabel(
     query: string,
     clientName: string | null | undefined,

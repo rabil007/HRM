@@ -26,6 +26,8 @@ final class RequirementWorkflowTimelinePresenter
      *         occurred_at_formatted: string,
      *         actor_name: string|null,
      *         reason: string|null,
+     *         previous_recruiter_name: string|null,
+     *         new_recruiter_name: string|null,
      *         is_current: bool,
      *         state: 'completed'|'current'
      *     }>
@@ -44,13 +46,46 @@ final class RequirementWorkflowTimelinePresenter
             ->orderBy('id')
             ->get();
 
+        $recruiterNames = self::recruiterNamesForTransitions($transitions);
+
         $events = [];
 
         foreach ($transitions as $transition) {
-            $label = self::labelForTransition(
-                $transition->from_status !== null ? (string) $transition->from_status : null,
-                (string) $transition->to_status,
-            );
+            $from = $transition->from_status !== null ? (string) $transition->from_status : null;
+            $to = (string) $transition->to_status;
+
+            if (self::isRecruiterReassignmentTransition($from, $to, $transition->reason)) {
+                $occurredAt = Carbon::parse($transition->created_at)->timezone($timezone);
+                $context = is_array($transition->context) ? $transition->context : [];
+                $previousId = isset($context['previous_recruiter_user_id'])
+                    ? (int) $context['previous_recruiter_user_id']
+                    : null;
+                $newId = isset($context['new_recruiter_user_id'])
+                    ? (int) $context['new_recruiter_user_id']
+                    : null;
+
+                $events[] = [
+                    'id' => 'transition_'.$transition->id,
+                    'key' => 'recruiter_reassigned',
+                    'label' => 'Recruiter reassigned',
+                    'occurred_at' => $occurredAt->toIso8601String(),
+                    'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
+                    'actor_name' => $transition->performer?->name,
+                    'reason' => filled($transition->reason) ? (string) $transition->reason : null,
+                    'previous_recruiter_name' => $previousId !== null
+                        ? ($recruiterNames[$previousId] ?? null)
+                        : null,
+                    'new_recruiter_name' => $newId !== null
+                        ? ($recruiterNames[$newId] ?? null)
+                        : null,
+                    'is_current' => false,
+                    'state' => 'completed',
+                ];
+
+                continue;
+            }
+
+            $label = self::labelForTransition($from, $to);
 
             if ($label === null) {
                 continue;
@@ -60,15 +95,14 @@ final class RequirementWorkflowTimelinePresenter
 
             $events[] = [
                 'id' => 'transition_'.$transition->id,
-                'key' => self::eventKey(
-                    $transition->from_status !== null ? (string) $transition->from_status : null,
-                    (string) $transition->to_status,
-                ),
+                'key' => self::eventKey($from, $to),
                 'label' => $label,
                 'occurred_at' => $occurredAt->toIso8601String(),
                 'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
                 'actor_name' => $transition->performer?->name,
                 'reason' => filled($transition->reason) ? (string) $transition->reason : null,
+                'previous_recruiter_name' => null,
+                'new_recruiter_name' => null,
                 'is_current' => false,
                 'state' => 'completed',
             ];
@@ -90,6 +124,8 @@ final class RequirementWorkflowTimelinePresenter
                 'occurred_at_formatted' => $createdAt->format('d-m-Y H:i'),
                 'actor_name' => $requirement->creator?->name,
                 'reason' => null,
+                'previous_recruiter_name' => null,
+                'new_recruiter_name' => null,
                 'is_current' => false,
                 'state' => 'completed',
             ];
@@ -112,6 +148,60 @@ final class RequirementWorkflowTimelinePresenter
                 : null,
             'events' => array_values($events),
         ];
+    }
+
+    private static function isRecruiterReassignmentTransition(
+        ?string $from,
+        string $to,
+        ?string $reason,
+    ): bool {
+        if ($from !== RequirementStatus::PendingApproval->value
+            || $to !== RequirementStatus::PendingApproval->value) {
+            return false;
+        }
+
+        if (! filled($reason)) {
+            return false;
+        }
+
+        return strcasecmp(trim($reason), 'Recruiter reassigned') === 0;
+    }
+
+    /**
+     * @param  Collection<int, RecruitmentRequirementStatusTransition>  $transitions
+     * @return array<int, string>
+     */
+    private static function recruiterNamesForTransitions(Collection $transitions): array
+    {
+        $userIds = [];
+
+        foreach ($transitions as $transition) {
+            if (! is_array($transition->context)) {
+                continue;
+            }
+
+            foreach (['previous_recruiter_user_id', 'new_recruiter_user_id'] as $key) {
+                if (! isset($transition->context[$key])) {
+                    continue;
+                }
+
+                $userId = (int) $transition->context[$key];
+
+                if ($userId > 0) {
+                    $userIds[$userId] = true;
+                }
+            }
+        }
+
+        if ($userIds === []) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('id', array_keys($userIds))
+            ->pluck('name', 'id')
+            ->map(fn (mixed $name): string => (string) $name)
+            ->all();
     }
 
     private static function labelForTransition(?string $from, string $to): ?string

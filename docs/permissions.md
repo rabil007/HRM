@@ -129,6 +129,8 @@ Rules:
 - Recommended normal recruiter setup is `view` + `approve` (without `update` / `submit`). Do not hardcode role names such as “Recruiter” into workflow logic.
 - Requester and assigned recruiter must always be different users. Self-assignment is rejected on Draft create/update as well as on submit and approve.
 - Presenter flags (`can_edit`, `can_submit`, `can_resubmit`, `can_approve`, `can_return`) and `submission_readiness` mirror these backend rules for index, detail, quick actions, and timeline UX only.
+- Workflow timeline shows a dedicated **Recruiter reassigned** event (not Submitted/Resubmitted) when a Pending Approval requirement keeps the same status but records recruiter reassignment metadata on the transition.
+- Requirement Client/Project quick-create returns HTTP 422 for inactive or soft-deleted duplicates, reuses active duplicates safely (including unique-race recovery), and never returns inactive master-data rows as selectable options. Project quick-create requires a valid active selected Client and does not silently attach cross-client projects without update permission.
 
 The `*` notation above is descriptive only; permissions are seeded as explicit strings, not wildcard grants.
 

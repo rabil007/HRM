@@ -150,6 +150,28 @@ test('email templates seeder creates crew movement correction decided template',
         ->and($template->body_html)->toContain('{{employee_name}}');
 });
 
+test('email templates seeder preserves customized recruitment requirement templates', function () {
+    (new EmailTemplatesSeeder)->run();
+
+    $template = EmailTemplate::query()
+        ->where('slug', 'requirement_target_date_due_today')
+        ->firstOrFail();
+
+    $template->update([
+        'subject' => 'Custom due today {{requirement_number}}',
+        'body_html' => 'Custom due today body {{requirement_number}}',
+        'enabled' => false,
+    ]);
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template->refresh();
+
+    expect($template->subject)->toBe('Custom due today {{requirement_number}}')
+        ->and($template->body_html)->toBe('Custom due today body {{requirement_number}}')
+        ->and($template->enabled)->toBeFalse();
+});
+
 test('email templates seeder creates recruitment requirement templates', function () {
     $slugs = [
         'requirement_submitted_for_approval',

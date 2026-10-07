@@ -46,7 +46,9 @@ Document bulk email from employee browse uses `DocumentBulkEmailController` and 
 
 ## Built-in email templates
 
-Canonical definitions live in `App\Support\Email\BuiltInEmailTemplates` and are applied by `php artisan db:seed --class=EmailTemplatesSeeder`. Fresh installs and explicit seeding ship production-ready subject/body copy. Administrators should not need to rewrite every template before go-live.
+Canonical definitions live in `App\Support\Email\BuiltInEmailTemplates` and are applied by `SeedBuiltInEmailTemplate`. Fresh installs and explicit seeding ship production-ready subject/body copy. Administrators should not need to rewrite every template before go-live.
+
+Production deploy installs Requirement built-ins with `php artisan db:seed --class=RequirementEmailTemplatesSeeder --force`. Use `php artisan db:seed --class=EmailTemplatesSeeder` for a full catalog install outside that deployment step.
 
 ### Seeder safety
 
@@ -131,7 +133,11 @@ Prefer **Editable Email Template + structured Blade** for new business workflows
 | `requirement_target_date_three_days_before` | Target date reminder (3 days before) |
 | `requirement_target_date_due_today` | Target date reminder (due today) |
 
-Recipients remain workflow-resolved (recruiter / requester / notification CC users). Template TO/CC presets are hidden. Disable a template to stop that email. Seed with `php artisan db:seed --class=EmailTemplatesSeeder`.
+Recipients remain workflow-resolved (recruiter / requester / notification CC users). Template TO/CC presets are hidden. Disable a template to stop that email.
+
+**Deployment:** production deploy runs `php artisan db:seed --class=RequirementEmailTemplatesSeeder --force` after migrations. That installer seeds only the six Requirement built-in slugs from `BuiltInEmailTemplates` via `SeedBuiltInEmailTemplate`. It is idempotent: missing Requirement slugs are inserted, customized Requirement subject/body/enabled/footer values are preserved, and unrelated templates (including unrelated soft-deleted rows) are left untouched.
+
+**Target-date reminders:** dispatch catches up any time at or after company-local 09:00 (same calendar day), uses the reminder ledger for idempotency, reclaims stale `processing` rows after 15 minutes, keeps `sent` final, treats missing templates as retryable (`failed` / `template_missing`), and treats intentionally disabled templates as permanent skips (`skipped` / `template_disabled`).
 
 ### Crew movement correction decided
 

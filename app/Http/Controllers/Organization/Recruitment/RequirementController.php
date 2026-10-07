@@ -8,9 +8,7 @@ use App\Actions\Recruitment\UpdateRequirementAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Recruitment\StoreRequirementRequest;
 use App\Http\Requests\Organization\Recruitment\UpdateRequirementRequest;
-use App\Models\Client;
 use App\Models\Position;
-use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
@@ -18,8 +16,10 @@ use App\Support\Recruitment\DuplicateRequirementDetector;
 use App\Support\Recruitment\DuplicateRequirementDto;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementBrowseQuery;
+use App\Support\Recruitment\RequirementFormMasterDataOptions;
 use App\Support\Recruitment\RequirementPagePermissions;
 use App\Support\Recruitment\RequirementPresenter;
+use App\Support\Recruitment\RequirementSubmissionReadinessLookup;
 use App\Support\Recruitment\RequirementWorkflowTimelinePresenter;
 use App\Support\Settings\CompanyCurrency;
 use Carbon\Carbon;
@@ -38,8 +38,10 @@ class RequirementController extends Controller
         $today = Carbon::today();
         $user = $request->user();
 
-        $items = collect($browse['paginator']->items())->map(function (RecruitmentRequirement $requirement) use ($today, $user): array {
-            return RequirementPresenter::toIndexRow($requirement, $today, $user);
+        $pageRequirements = collect($browse['paginator']->items());
+        $readinessLookup = RequirementSubmissionReadinessLookup::forRequirements($pageRequirements, $companyId);
+        $items = $pageRequirements->map(function (RecruitmentRequirement $requirement) use ($today, $user, $readinessLookup): array {
+            return RequirementPresenter::toIndexRow($requirement, $today, $user, $readinessLookup);
         })->all();
 
         $pagination = [
@@ -51,35 +53,8 @@ class RequirementController extends Controller
             'to' => $browse['paginator']->lastItem(),
         ];
 
-        $clients = Client::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active'])
-            ->map(fn (Client $c): array => [
-                'id' => (int) $c->id,
-                'name' => (string) $c->name,
-                'is_active' => (bool) $c->is_active,
-            ])
-            ->all();
-
-        $projects = Project::query()
-            ->with('clients:id')
-            ->orderBy('title')
-            ->get(['id', 'title', 'is_active'])
-            ->map(function (Project $p): array {
-                $clientIds = $p->clients
-                    ->pluck('id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->values()
-                    ->all();
-
-                return [
-                    'id' => (int) $p->id,
-                    'client_ids' => $clientIds,
-                    'title' => (string) $p->title,
-                    'is_active' => (bool) $p->is_active,
-                ];
-            })
-            ->all();
+        $clients = RequirementFormMasterDataOptions::clients();
+        $projects = RequirementFormMasterDataOptions::projects();
 
         $positions = Position::query()
             ->where('company_id', $companyId)
@@ -165,35 +140,8 @@ class RequirementController extends Controller
             $requirement->id,
         );
 
-        $clients = Client::query()
-            ->orderBy('name')
-            ->get(['id', 'name', 'is_active'])
-            ->map(fn (Client $c): array => [
-                'id' => (int) $c->id,
-                'name' => (string) $c->name,
-                'is_active' => (bool) $c->is_active,
-            ])
-            ->all();
-
-        $projects = Project::query()
-            ->with('clients:id')
-            ->orderBy('title')
-            ->get(['id', 'title', 'is_active'])
-            ->map(function (Project $p): array {
-                $clientIds = $p->clients
-                    ->pluck('id')
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->values()
-                    ->all();
-
-                return [
-                    'id' => (int) $p->id,
-                    'client_ids' => $clientIds,
-                    'title' => (string) $p->title,
-                    'is_active' => (bool) $p->is_active,
-                ];
-            })
-            ->all();
+        $clients = RequirementFormMasterDataOptions::clients($requirement);
+        $projects = RequirementFormMasterDataOptions::projects($requirement);
 
         $positions = Position::query()
             ->where('company_id', $companyId)

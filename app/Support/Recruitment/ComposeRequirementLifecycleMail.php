@@ -23,6 +23,13 @@ final class ComposeRequirementLifecycleMail
 
     public const SLUG_TARGET_DATE_DUE_TODAY = 'requirement_target_date_due_today';
 
+    public function findBySlug(string $slug): ?EmailTemplate
+    {
+        return EmailTemplate::query()
+            ->where('slug', $slug)
+            ->first();
+    }
+
     public function findEnabled(string $slug): ?EmailTemplate
     {
         return EmailTemplate::query()

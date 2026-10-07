@@ -32,9 +32,12 @@ final class RequirementSubmissionReadiness
      *     items: list<ReadinessItem>
      * }
      */
-    public static function for(RecruitmentRequirement $requirement, ?User $viewer = null): array
-    {
-        $items = self::items($requirement, $viewer);
+    public static function for(
+        RecruitmentRequirement $requirement,
+        ?User $viewer = null,
+        ?RequirementSubmissionReadinessLookup $lookup = null,
+    ): array {
+        $items = self::items($requirement, $viewer, $lookup);
         $remaining = collect($items)->where('ready', false)->values();
 
         return [
@@ -47,8 +50,11 @@ final class RequirementSubmissionReadiness
     /**
      * @return list<ReadinessItem>
      */
-    public static function items(RecruitmentRequirement $requirement, ?User $viewer = null): array
-    {
+    public static function items(
+        RecruitmentRequirement $requirement,
+        ?User $viewer = null,
+        ?RequirementSubmissionReadinessLookup $lookup = null,
+    ): array {
         $companyId = (int) $requirement->company_id;
         $items = [];
 
@@ -60,7 +66,9 @@ final class RequirementSubmissionReadiness
         );
 
         if ($requirement->client_id !== null) {
-            $client = Client::withTrashed()->find($requirement->client_id);
+            $client = $requirement->relationLoaded('client')
+                ? $requirement->client
+                : Client::withTrashed()->find($requirement->client_id);
             $clientReady = $client !== null && ! $client->trashed() && $client->is_active;
             $items[] = self::item(
                 'client_active',
@@ -114,7 +122,9 @@ final class RequirementSubmissionReadiness
                 'Select a client before assigning a project.',
             );
 
-            $project = Project::withTrashed()->find($requirement->project_id);
+            $project = $requirement->relationLoaded('project')
+                ? $requirement->project
+                : Project::withTrashed()->find($requirement->project_id);
             $projectReady = $project !== null
                 && ! $project->trashed()
                 && $project->is_active;
@@ -128,9 +138,11 @@ final class RequirementSubmissionReadiness
             );
 
             if ($projectReady && $requirement->client_id !== null) {
-                $projectClientMessage = ClientAssignmentRules::projectClientInconsistencyMessage(
+                $projectClientMessage = self::projectClientMessage(
                     (int) $requirement->client_id,
                     (int) $requirement->project_id,
+                    $project,
+                    $lookup,
                 );
                 $items[] = self::item(
                     'project_client_link',
@@ -151,7 +163,8 @@ final class RequirementSubmissionReadiness
         );
 
         $eligibleAssignee = $hasAssignee
-            && RecruiterOptionsQuery::isEligibleApprover($assignedTo, $companyId);
+            && ($lookup?->isEligibleApprover($assignedTo, $companyId)
+                ?? RecruiterOptionsQuery::isEligibleApprover($assignedTo, $companyId));
         $items[] = self::item(
             'assigned_recruiter_eligible',
             'Assigned recruiter is eligible',
@@ -184,10 +197,9 @@ final class RequirementSubmissionReadiness
 
         foreach ($activeLines as $line) {
             $title = (string) ($line->position?->title ?? 'Position');
-            $position = $line->position;
-            if ($position === null && $line->position_id !== null) {
-                $position = Position::withTrashed()->find($line->position_id);
-            }
+            $position = $line->relationLoaded('position')
+                ? $line->position
+                : ($line->position_id !== null ? Position::withTrashed()->find($line->position_id) : null);
 
             $positionReady = $position !== null
                 && ! $position->trashed()
@@ -314,6 +326,36 @@ final class RequirementSubmissionReadiness
         return $lineIndex === false
             ? 'positions'
             : "positions.{$lineIndex}.{$suffix}";
+    }
+
+    private static function projectClientMessage(
+        int $clientId,
+        int $projectId,
+        ?Project $project,
+        ?RequirementSubmissionReadinessLookup $lookup,
+    ): ?string {
+        $clientIds = $lookup?->clientIdsForProject($projectId);
+
+        if ($clientIds === null && $project !== null && $project->relationLoaded('clients')) {
+            $clientIds = $project->clients
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+        }
+
+        if ($clientIds !== null) {
+            if ($clientIds === []) {
+                return ClientAssignmentRules::PROJECT_MISSING_CLIENT_MESSAGE;
+            }
+
+            if (! in_array($clientId, $clientIds, true)) {
+                return 'The selected project is not assigned to the selected client.';
+            }
+
+            return null;
+        }
+
+        return ClientAssignmentRules::projectClientInconsistencyMessage($clientId, $projectId);
     }
 
     private static function lineSalaryIsReady(RecruitmentRequirementLine $line): bool

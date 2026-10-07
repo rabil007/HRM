@@ -277,6 +277,8 @@ export type RequirementWorkflowTimelineEvent = {
     occurred_at_formatted: string;
     actor_name: string | null;
     reason: string | null;
+    previous_recruiter_name?: string | null;
+    new_recruiter_name?: string | null;
     is_current: boolean;
     state: 'completed' | 'current';
 };

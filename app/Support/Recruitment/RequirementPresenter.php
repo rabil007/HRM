@@ -20,6 +20,7 @@ final class RequirementPresenter
         RecruitmentRequirement $requirement,
         ?CarbonInterface $today = null,
         ?User $user = null,
+        ?RequirementSubmissionReadinessLookup $lookup = null,
     ): array {
         $today ??= Carbon::today();
         $totalHeadcount = (int) $requirement->lines->sum('required_headcount');
@@ -147,7 +148,7 @@ final class RequirementPresenter
                 RequirementStatus::Draft,
                 RequirementStatus::Returned,
             ], true)
-                ? RequirementSubmissionReadiness::for($requirement, $user)
+                ? RequirementSubmissionReadiness::for($requirement, $user, $lookup)
                 : null,
         ];
     }

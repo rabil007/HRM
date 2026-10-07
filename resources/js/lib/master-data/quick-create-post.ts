@@ -7,7 +7,7 @@ export type QuickCreateResponse = {
     title?: string;
 };
 
-function validationMessageFromResponse(responseData: string): string {
+export function validationMessageFromResponse(responseData: string): string {
     try {
         const parsed = JSON.parse(responseData) as {
             message?: string;
