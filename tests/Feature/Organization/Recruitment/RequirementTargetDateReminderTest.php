@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Support\Recruitment\DispatchRequirementTargetDateReminders;
 use App\Support\Recruitment\RequirementTargetDateReminderDeliveryKey;
 use Carbon\CarbonImmutable;
+use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     Mail::fake();
+    (new EmailTemplatesSeeder)->run();
 
     $country = Country::query()->create([
         'code' => 'RTR',

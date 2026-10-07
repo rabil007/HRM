@@ -96,6 +96,39 @@ final class EmailTemplatePreview
                 bodyHtml: $renderedBody,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'requirement_submitted_for_approval',
+            'requirement_assigned_for_approval' => $this->renderRequirementSubmitted(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                heading: $slug === 'requirement_assigned_for_approval'
+                    ? 'Requirement assigned for approval'
+                    : 'Requirement pending approval',
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
+            'requirement_approved' => $this->renderRequirementApproved(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
+            'requirement_returned' => $this->renderRequirementReturned(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
+            'requirement_target_date_three_days_before',
+            'requirement_target_date_due_today' => $this->renderRequirementTargetDateReminder(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
         };
 
@@ -291,6 +324,129 @@ final class EmailTemplatePreview
             '{{reset_url}}' => url('/reset-password/preview-token'),
             '{{expire_minutes}}' => '60',
             '{{signature_url}}' => url('/signatures/preview-token'),
+            '{{requirement_number}}' => 'REQ-1001',
+            '{{client_name}}' => 'Acme Shipping',
+            '{{project_name}}' => 'Vessel Alpha',
+            '{{submitter_name}}' => 'Sam Requester',
+            '{{recruiter_name}}' => 'Riley Recruiter',
+            '{{approved_at}}' => now()->format('d M Y H:i'),
+            '{{return_reason}}' => 'Please clarify salary range and joining date.',
+            '{{requirement_url}}' => url('/organization/recruitment/requirements/1'),
+            '{{days_label}}' => '3 days remaining',
+            '{{status_note}}' => 'approaching its Target Date (3 days remaining)',
+            '{{target_date}}' => now()->addDays(3)->format('d M Y'),
+            '{{heading}}' => 'Target Date reminder — due in 3 days',
+            '{{milestone_label}}' => 'due in 3 days',
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementSubmitted(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        string $heading,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.requirement-submitted-for-approval', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'submitterName' => $placeholders['{{submitter_name}}'],
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'heading' => $heading,
+            'details' => $this->sampleRequirementDetails($placeholders),
+            'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementApproved(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.requirement-approved', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'approverName' => $placeholders['{{approver_name}}'],
+            'approvedAtFormatted' => $placeholders['{{approved_at}}'],
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'details' => $this->sampleRequirementDetails($placeholders),
+            'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementReturned(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.requirement-returned', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'recruiterName' => $placeholders['{{recruiter_name}}'],
+            'returnReason' => $placeholders['{{return_reason}}'],
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'details' => $this->sampleRequirementDetails($placeholders),
+            'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementTargetDateReminder(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.requirement-target-date-reminder', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'heading' => $placeholders['{{heading}}'],
+            'intro' => $introMessage !== '' ? $introMessage : "This recruitment requirement is {$placeholders['{{status_note}}']}.",
+            'details' => [
+                ...$this->sampleRequirementDetails($placeholders),
+                ['label' => 'Target date', 'value' => $placeholders['{{target_date}}']],
+                ['label' => 'Status', 'value' => $placeholders['{{days_label}}']],
+            ],
+            'requirementUrl' => $placeholders['{{requirement_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     * @return list<array{label: string, value: string}>
+     */
+    private function sampleRequirementDetails(array $placeholders): array
+    {
+        return [
+            ['label' => 'Requirement', 'value' => $placeholders['{{requirement_number}}']],
+            ['label' => 'Client', 'value' => $placeholders['{{client_name}}']],
+            ['label' => 'Project', 'value' => $placeholders['{{project_name}}']],
+            ['label' => 'Positions', 'value' => 'Able Seaman × 2'],
         ];
     }
 

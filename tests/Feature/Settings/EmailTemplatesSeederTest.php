@@ -134,3 +134,28 @@ test('email templates seeder preserves customized user invitation template', fun
     expect($template->subject)->toBe('Custom invite subject')
         ->and($template->body_html)->toBe('Custom invite body');
 });
+
+test('email templates seeder creates recruitment requirement templates', function () {
+    $slugs = [
+        'requirement_submitted_for_approval',
+        'requirement_assigned_for_approval',
+        'requirement_approved',
+        'requirement_returned',
+        'requirement_target_date_three_days_before',
+        'requirement_target_date_due_today',
+    ];
+
+    EmailTemplate::query()->whereIn('slug', $slugs)->forceDelete();
+
+    (new EmailTemplatesSeeder)->run();
+
+    foreach ($slugs as $slug) {
+        $template = EmailTemplate::query()->where('slug', $slug)->first();
+
+        expect($template)->not->toBeNull()
+            ->and($template->category)->toBe(EmailTemplateCategory::Recruitment)
+            ->and($template->enabled)->toBeTrue()
+            ->and($template->subject)->toContain('{{requirement_number}}')
+            ->and($template->body_html)->not->toBe('');
+    }
+});

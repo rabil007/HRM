@@ -9,7 +9,7 @@
                 {{ $organizationName }}
             </p>
             <h1 class="email-heading" style="margin:0;font-size:20px;line-height:1.4;color:#18181b;">
-                Requirement pending approval
+                {{ $heading }}
             </h1>
             <p class="email-muted" style="margin:8px 0 0;font-size:13px;color:#71717a;">
                 {{ $requirementNumber }}
@@ -18,8 +18,8 @@
     </tr>
     <tr>
         <td class="email-section" style="padding:24px 32px;">
-            <p class="email-text" style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3f3f46;">
-                {{ $submitterName }} submitted recruitment requirement {{ $requirementNumber }} for your review.
+            <p class="email-text" style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3f3f46;white-space:pre-wrap;">
+                {{ $introMessage ?: ($submitterName.' submitted recruitment requirement '.$requirementNumber.' for your review.') }}
             </p>
 
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;border-collapse:collapse;">

@@ -69,6 +69,17 @@ final class BuiltInEmailTemplates
                 'is_default' => false,
                 'system_layout' => true,
             ],
+            'requirement_submitted_for_approval',
+            'requirement_assigned_for_approval',
+            'requirement_approved',
+            'requirement_returned',
+            'requirement_target_date_three_days_before',
+            'requirement_target_date_due_today' => [
+                ...$defaults,
+                'to_preset' => false,
+                'cc_preset' => false,
+                'is_default' => false,
+            ],
             default => $defaults,
         };
     }
@@ -144,6 +155,36 @@ final class BuiltInEmailTemplates
             'crew_operational_alert_digest' => self::crewOperationalAlertDigest(),
             'document_recipient_action_request' => self::documentRecipientActionRequest(),
             'document_recipient_action_reminder' => self::documentRecipientActionReminder(),
+            'requirement_submitted_for_approval' => self::requirementSubmittedForApproval(),
+            'requirement_assigned_for_approval' => self::requirementAssignedForApproval(),
+            'requirement_approved' => self::requirementApproved(),
+            'requirement_returned' => self::requirementReturned(),
+            'requirement_target_date_three_days_before' => self::requirementTargetDateThreeDaysBefore(),
+            'requirement_target_date_due_today' => self::requirementTargetDateDueToday(),
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function requirementPlaceholders(): array
+    {
+        return [
+            '{{requirement_number}}',
+            '{{company_name}}',
+            '{{client_name}}',
+            '{{project_name}}',
+            '{{submitter_name}}',
+            '{{approver_name}}',
+            '{{recruiter_name}}',
+            '{{approved_at}}',
+            '{{return_reason}}',
+            '{{requirement_url}}',
+            '{{days_label}}',
+            '{{status_note}}',
+            '{{target_date}}',
+            '{{heading}}',
+            '{{milestone_label}}',
         ];
     }
 
@@ -1049,5 +1090,131 @@ HTML,
             '{{step_label}}',
             '{{days_remaining}}',
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementSubmittedForApproval(): array
+    {
+        $subject = 'Requirement {{requirement_number}} awaiting approval';
+        $body = '{{submitter_name}} submitted recruitment requirement {{requirement_number}} for your review.';
+
+        return self::base([
+            'label' => 'Requirement submitted for approval',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 30,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementAssignedForApproval(): array
+    {
+        $subject = 'Requirement {{requirement_number}} assigned for approval';
+        $body = 'Requirement {{requirement_number}} has been assigned to you for approval.';
+
+        return self::base([
+            'label' => 'Requirement assigned for approval',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 31,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementApproved(): array
+    {
+        $subject = 'Requirement {{requirement_number}} approved';
+        $body = '{{approver_name}} approved requirement {{requirement_number}} on {{approved_at}}. Recruitment time has started.';
+
+        return self::base([
+            'label' => 'Requirement approved',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 32,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementReturned(): array
+    {
+        $subject = 'Requirement {{requirement_number}} returned for changes';
+        $body = '{{recruiter_name}} returned requirement {{requirement_number}} for corrections.';
+
+        return self::base([
+            'label' => 'Requirement returned',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 33,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementTargetDateThreeDaysBefore(): array
+    {
+        $subject = 'Requirement {{requirement_number}} is due in 3 days';
+        $body = 'This recruitment requirement is {{status_note}}.';
+
+        return self::base([
+            'label' => 'Requirement target date — 3 days before',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 34,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementTargetDateDueToday(): array
+    {
+        $subject = 'Requirement {{requirement_number}} is due today';
+        $body = 'This recruitment requirement is {{status_note}}.';
+
+        return self::base([
+            'label' => 'Requirement target date — due today',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 35,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
     }
 }

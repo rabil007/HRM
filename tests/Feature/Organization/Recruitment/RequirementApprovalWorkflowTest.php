@@ -21,6 +21,7 @@ use App\Support\Recruitment\CalculateActiveRecruitmentDuration;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
+use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -106,6 +107,7 @@ function allRecruitmentApprovalPermissions(): array
 
 beforeEach(function () {
     Mail::fake();
+    (new EmailTemplatesSeeder)->run();
 
     $this->companyA = createApprovalTestCompany('Approval Alpha', 'APA');
     $this->companyB = createApprovalTestCompany('Approval Beta', 'APB');

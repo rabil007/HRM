@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementTargetDateReminder;
 use App\Models\User;
+use App\Support\Recruitment\ComposeRequirementLifecycleMail;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use App\Support\Recruitment\RequirementPresenter;
 use App\Support\Recruitment\RequirementTargetDateReminderDeliveryKey;
@@ -196,18 +197,44 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             ? (string) $requirement->company->name
             : 'OMS-HRM';
 
-        $intro = $requirement->status === RequirementStatus::OnHold
-            ? "This recruitment requirement is currently On Hold. Its Target Date is {$daysLabel}."
-            : "This recruitment requirement Target Date is approaching ({$daysLabel}).";
+        $compose = app(ComposeRequirementLifecycleMail::class);
+        $template = $compose->findEnabled($compose->slugForTargetDateMilestone($milestone));
+        if ($template === null) {
+            $this->markSkipped($reminderId, 'template_disabled_or_missing');
+
+            return;
+        }
+
+        $requirementUrl = route('organization.recruitment.requirements.show', $requirement);
+        $statusNote = $requirement->status === RequirementStatus::OnHold
+            ? "currently On Hold. Its Target Date is {$daysLabel}"
+            : "approaching its Target Date ({$daysLabel})";
+        $milestoneLabel = $milestone === RequirementTargetDateReminderMilestone::ThreeDaysBefore
+            ? 'due in 3 days'
+            : 'due today';
+        $placeholders = $compose->targetDatePlaceholders(
+            requirement: $requirement,
+            requirementUrl: $requirementUrl,
+            daysLabel: $daysLabel,
+            statusNote: $statusNote,
+            targetDateFormatted: $targetLocal->format('d M Y'),
+            heading: $milestone->heading(),
+            milestoneLabel: $milestoneLabel,
+        );
+        $intro = trim($compose->render($template->body_html, $placeholders));
+        if ($intro === '') {
+            $intro = "This recruitment requirement is {$statusNote}.";
+        }
 
         $mailable = new RequirementTargetDateReminderMail(
-            subjectLine: $milestone->subjectPrefix((string) $requirement->requirement_number),
+            subjectLine: $compose->render($template->subject, $placeholders),
             organizationName: $organizationName,
             requirementNumber: (string) $requirement->requirement_number,
             heading: $milestone->heading(),
             intro: $intro,
             details: $this->details($requirement, $daysLabel),
-            requirementUrl: route('organization.recruitment.requirements.show', $requirement),
+            requirementUrl: $requirementUrl,
+            includeCompanyFooter: (bool) $template->include_company_footer,
         );
 
         try {
