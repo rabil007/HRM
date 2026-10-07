@@ -4,7 +4,7 @@ use App\Enums\EmailTemplateCategory;
 use App\Models\EmailTemplate;
 use Database\Seeders\RequirementEmailTemplatesSeeder;
 
-test('requirement email templates seeder creates all six built-in requirement templates', function () {
+test('requirement email templates seeder creates all built-in requirement templates', function () {
     EmailTemplate::query()->whereIn('slug', RequirementEmailTemplatesSeeder::SLUGS)->forceDelete();
 
     (new RequirementEmailTemplatesSeeder)->run();

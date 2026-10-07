@@ -33,11 +33,13 @@ export function ExtendDeadlineDialog({
     requirement,
     onSuccess,
 }: Props) {
+    const isRequest = requirement?.deadline_extension_mode === 'request';
     const { data, setData, post, processing, errors, reset, clearErrors } =
         useForm({
             new_required_by_date: '',
             reason: '',
         });
+    const formErrors = errors as Record<string, string | undefined>;
 
     useEffect(() => {
         if (open) {
@@ -55,14 +57,15 @@ export function ExtendDeadlineDialog({
         post(RequirementExtendDeadlineController.url(requirement.id), {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Deadline extended successfully.');
                 onOpenChange(false);
                 reset();
                 onSuccess?.();
             },
             onError: () => {
                 toast.error(
-                    'Failed to extend deadline. Please check the fields.',
+                    isRequest
+                        ? 'Failed to request a deadline extension. Please check the fields.'
+                        : 'Failed to extend deadline. Please check the fields.',
                 );
             },
         });
@@ -79,7 +82,9 @@ export function ExtendDeadlineDialog({
                             </div>
                             <div>
                                 <DialogTitle className="text-lg font-bold">
-                                    Extend Deadline
+                                    {isRequest
+                                        ? 'Request Deadline Extension'
+                                        : 'Extend Deadline'}
                                 </DialogTitle>
                                 <DialogDescription className="text-xs text-muted-foreground">
                                     {requirement.requirement_number} —{' '}
@@ -92,19 +97,28 @@ export function ExtendDeadlineDialog({
                     <div className="my-5 space-y-4">
                         <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 p-3 text-xs">
                             <span className="text-muted-foreground">
-                                Current Deadline:
+                                Current deadline
                             </span>
                             <span className="font-semibold text-foreground">
                                 {requirement.required_by_date_formatted || '—'}
                             </span>
                         </div>
 
+                        {isRequest ? (
+                            <p className="text-xs text-muted-foreground">
+                                The official deadline stays unchanged until the
+                                requester approves this request.
+                            </p>
+                        ) : null}
+
                         <div className="space-y-2">
                             <Label
                                 htmlFor="new_required_by_date"
                                 className="text-xs font-semibold"
                             >
-                                New Target Date{' '}
+                                {isRequest
+                                    ? 'Requested deadline'
+                                    : 'New deadline'}{' '}
                                 <span className="text-rose-500">*</span>
                             </Label>
                             <div className="relative">
@@ -128,6 +142,16 @@ export function ExtendDeadlineDialog({
                                     {errors.new_required_by_date}
                                 </p>
                             )}
+                            {formErrors.new_date && (
+                                <p className="text-xs text-rose-500">
+                                    {formErrors.new_date}
+                                </p>
+                            )}
+                            {formErrors.status && (
+                                <p className="text-xs text-rose-500">
+                                    {formErrors.status}
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -135,18 +159,33 @@ export function ExtendDeadlineDialog({
                                 htmlFor="reason"
                                 className="text-xs font-semibold"
                             >
-                                Reason for Extension{' '}
-                                <span className="text-rose-500">*</span>
+                                {isRequest ? (
+                                    <>
+                                        Reason{' '}
+                                        <span className="text-rose-500">*</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        Note{' '}
+                                        <span className="font-normal text-muted-foreground">
+                                            (optional)
+                                        </span>
+                                    </>
+                                )}
                             </Label>
                             <Textarea
                                 id="reason"
                                 rows={3}
-                                placeholder="Explain why the deadline is being extended (e.g. client requested delay, market shortage)..."
+                                placeholder={
+                                    isRequest
+                                        ? 'Explain why additional time is needed...'
+                                        : 'Add an optional note for the recruiter...'
+                                }
                                 value={data.reason}
                                 onChange={(e) =>
                                     setData('reason', e.target.value)
                                 }
-                                required
+                                required={isRequest}
                             />
                             {errors.reason && (
                                 <p className="text-xs text-rose-500">
@@ -173,7 +212,9 @@ export function ExtendDeadlineDialog({
                             {processing && (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             )}
-                            Extend Deadline
+                            {isRequest
+                                ? 'Request Extension'
+                                : 'Extend Deadline'}
                         </Button>
                     </DialogFooter>
                 </form>

@@ -22,6 +22,7 @@ import {
     RequirementPriorityBadge,
     RequirementStatusBadge,
 } from './components/requirement-status-badge';
+import { DeadlineExtensionHistoryCard } from './components/show/deadline-extension-history-card';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
 import { RequirementDetailsWorkflowCard } from './components/show/requirement-details-workflow-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
@@ -29,6 +30,7 @@ import { RequirementPositionLinesCard } from './components/show/requirement-posi
 import { SubmissionReadinessBlockedDialog } from './components/submission-readiness-blocked-dialog';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
+import { DeadlineExtensionRequestCard } from './components/workflow/deadline-extension-request-card';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
@@ -211,6 +213,8 @@ export function RequirementsShowContent({
                     data-requirement-sidebar
                     className="order-1 min-w-0 space-y-6 overflow-x-visible [scrollbar-width:thin] lg:sticky lg:top-4 lg:order-2 lg:col-span-1 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-x-visible lg:overflow-y-auto lg:pr-1"
                 >
+                    <DeadlineExtensionRequestCard requirement={requirement} />
+
                     <RequirementOverviewCard
                         requirement={requirement}
                         processing={isWorkflowProcessing}
@@ -230,6 +234,10 @@ export function RequirementsShowContent({
                         onCancel={() => setIsCancelOpen(true)}
                         onReopen={() => setIsReopenOpen(true)}
                         onRepeat={() => setIsRepeatOpen(true)}
+                    />
+
+                    <DeadlineExtensionHistoryCard
+                        extensions={requirement.deadline_extensions ?? []}
                     />
                 </div>
 

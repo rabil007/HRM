@@ -18,13 +18,17 @@ class RequirementExtendDeadlineController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $requirement->company_id === $companyId, 404);
 
-        $action->execute(
+        $result = $action->execute(
             $requirement,
-            (int) $request->user()->id,
+            $request->user(),
             $request->validated('new_date'),
             $request->validated('reason'),
         );
 
-        return redirect()->back()->with('success', 'Deadline extended successfully.');
+        $message = $result['mode'] === 'request'
+            ? 'Deadline extension requested. The official deadline is unchanged until the requester approves.'
+            : 'Deadline extended successfully.';
+
+        return redirect()->back()->with('success', $message);
     }
 }

@@ -43,6 +43,8 @@ final class RequirementBrowseQuery
         $priority = $priority !== null && $priority !== '' ? (string) $priority : null;
         $deadlineHealth = $request->query('deadline_health');
         $deadlineHealth = $deadlineHealth !== null && $deadlineHealth !== '' ? (string) $deadlineHealth : null;
+        $needsAction = $request->query('needs_action');
+        $needsAction = $needsAction !== null && $needsAction !== '' ? (string) $needsAction : null;
 
         // Base builder for list query
         $query = RecruitmentRequirement::query()
@@ -97,6 +99,16 @@ final class RequirementBrowseQuery
                     ->where('required_by_date', '<', $today->copy()->addDays(8)->toDateString());
             } elseif ($deadlineHealth === 'on_track') {
                 $query->where('required_by_date', '>=', $today->copy()->addDays(8)->toDateString());
+            }
+        }
+
+        if ($needsAction === 'deadline_extension') {
+            $actorId = $request->user()?->id;
+            if ($actorId !== null) {
+                $query->where('created_by', (int) $actorId)
+                    ->whereHas('pendingDeadlineExtension');
+            } else {
+                $query->whereRaw('1 = 0');
             }
         }
 
@@ -166,6 +178,7 @@ final class RequirementBrowseQuery
                 'assigned_to' => $assignedTo,
                 'priority' => $priority,
                 'deadline_health' => $deadlineHealth,
+                'needs_action' => $needsAction,
             ],
             'search' => $search,
         ];

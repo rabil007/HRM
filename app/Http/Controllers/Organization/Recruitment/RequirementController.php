@@ -130,6 +130,10 @@ class RequirementController extends Controller
             'approver:id,name',
             'returner:id,name',
             'notificationRecipients.user:id,name,email',
+            'pendingDeadlineExtension.requestedBy:id,name',
+            'pendingDeadlineExtension.decidedBy:id,name',
+            'deadlineExtensions.requestedBy:id,name',
+            'deadlineExtensions.decidedBy:id,name',
         ]);
 
         $canViewAudit = (bool) $request->user()?->can('audit.view');

@@ -23,6 +23,14 @@ final class ComposeRequirementLifecycleMail
 
     public const SLUG_TARGET_DATE_DUE_TODAY = 'requirement_target_date_due_today';
 
+    public const SLUG_DEADLINE_EXTENSION_REQUESTED = 'requirement_deadline_extension_requested';
+
+    public const SLUG_DEADLINE_EXTENSION_APPROVED = 'requirement_deadline_extension_approved';
+
+    public const SLUG_DEADLINE_EXTENSION_REJECTED = 'requirement_deadline_extension_rejected';
+
+    public const SLUG_DEADLINE_EXTENDED_BY_REQUESTER = 'requirement_deadline_extended_by_requester';
+
     public function findBySlug(string $slug): ?EmailTemplate
     {
         return EmailTemplate::query()
@@ -45,6 +53,17 @@ final class ComposeRequirementLifecycleMail
             RequirementLifecycleEmailPayload::EVENT_REASSIGNED => self::SLUG_ASSIGNED,
             RequirementLifecycleEmailPayload::EVENT_APPROVED => self::SLUG_APPROVED,
             RequirementLifecycleEmailPayload::EVENT_RETURNED => self::SLUG_RETURNED,
+            default => null,
+        };
+    }
+
+    public function slugForDeadlineExtensionEvent(string $event): ?string
+    {
+        return match ($event) {
+            RequirementDeadlineExtensionEmailPayload::EVENT_REQUESTED => self::SLUG_DEADLINE_EXTENSION_REQUESTED,
+            RequirementDeadlineExtensionEmailPayload::EVENT_APPROVED => self::SLUG_DEADLINE_EXTENSION_APPROVED,
+            RequirementDeadlineExtensionEmailPayload::EVENT_REJECTED => self::SLUG_DEADLINE_EXTENSION_REJECTED,
+            RequirementDeadlineExtensionEmailPayload::EVENT_DIRECT => self::SLUG_DEADLINE_EXTENDED_BY_REQUESTER,
             default => null,
         };
     }
@@ -121,6 +140,38 @@ final class ComposeRequirementLifecycleMail
             '{{target_date}}' => $targetDateFormatted,
             '{{heading}}' => $heading,
             '{{milestone_label}}' => $milestoneLabel,
+            '{{requirement_url}}' => $requirementUrl,
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function deadlineExtensionPlaceholders(
+        RecruitmentRequirement $requirement,
+        string $requirementUrl,
+        string $actorName = '',
+        string $recruiterName = '',
+        string $oldDeadline = '',
+        string $newDeadline = '',
+        string $reason = '',
+        string $note = '',
+    ): array {
+        $companyName = filled($requirement->company?->name)
+            ? (string) $requirement->company->name
+            : (string) config('app.name');
+
+        return [
+            '{{requirement_number}}' => (string) $requirement->requirement_number,
+            '{{company_name}}' => $companyName,
+            '{{client_name}}' => (string) ($requirement->client?->name ?? '—'),
+            '{{project_name}}' => (string) ($requirement->project?->title ?? '—'),
+            '{{approver_name}}' => $actorName,
+            '{{recruiter_name}}' => $recruiterName,
+            '{{old_deadline}}' => $oldDeadline !== '' ? $oldDeadline : '—',
+            '{{new_deadline}}' => $newDeadline !== '' ? $newDeadline : '—',
+            '{{reason}}' => $reason !== '' ? $reason : '—',
+            '{{note}}' => $note !== '' ? $note : '',
             '{{requirement_url}}' => $requirementUrl,
         ];
     }

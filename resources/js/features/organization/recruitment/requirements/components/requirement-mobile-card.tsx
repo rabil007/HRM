@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Flame } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import { cn } from '@/lib/utils';
@@ -164,6 +164,11 @@ export function RequirementMobileCard({
                             onResume,
                             onFill,
                             onExtend,
+                            onReviewDeadlineExtension: () => {
+                                router.visit(
+                                    `${RequirementController.show.url(row.id)}#deadline-extension-request`,
+                                );
+                            },
                             onRepeat,
                         }}
                     />

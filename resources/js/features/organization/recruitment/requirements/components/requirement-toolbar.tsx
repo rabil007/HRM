@@ -2,6 +2,7 @@ import {
     AlertTriangle,
     CalendarClock,
     Flame,
+    Inbox,
     Search,
     SlidersHorizontal,
     X,
@@ -76,6 +77,17 @@ export function RequirementToolbar({
             active: filters.priority === 'urgent',
             change: {
                 priority: filters.priority === 'urgent' ? null : 'urgent',
+            },
+        },
+        {
+            label: 'Needs my action',
+            icon: Inbox,
+            active: filters.needs_action === 'deadline_extension',
+            change: {
+                needs_action:
+                    filters.needs_action === 'deadline_extension'
+                        ? null
+                        : 'deadline_extension',
             },
         },
     ];

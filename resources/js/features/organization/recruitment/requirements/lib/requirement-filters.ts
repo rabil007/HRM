@@ -7,6 +7,7 @@ export const clearedRequirementFilters = {
     assigned_to: null,
     priority: null,
     deadline_health: null,
+    needs_action: null,
 } satisfies Partial<RequirementFilters>;
 
 export function buildRequirementQuery(
@@ -25,6 +26,7 @@ export function buildRequirementQuery(
         'assigned_to',
         'priority',
         'deadline_health',
+        'needs_action',
         'per_page',
     ] as const) {
         const value = merged[key];

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Recruitment\RequirementDeadlineExtensionStatus;
 use App\Enums\Recruitment\RequirementPriority;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -145,6 +147,19 @@ class RecruitmentRequirement extends Model
     public function statusTransitions(): HasMany
     {
         return $this->hasMany(RecruitmentRequirementStatusTransition::class, 'recruitment_requirement_id');
+    }
+
+    public function deadlineExtensions(): HasMany
+    {
+        return $this->hasMany(RecruitmentRequirementDeadlineExtension::class, 'recruitment_requirement_id');
+    }
+
+    public function pendingDeadlineExtension(): HasOne
+    {
+        return $this->hasOne(RecruitmentRequirementDeadlineExtension::class, 'recruitment_requirement_id')
+            ->ofMany(['id' => 'max'], function ($query): void {
+                $query->where('status', RequirementDeadlineExtensionStatus::Pending);
+            });
     }
 
     public function creator(): BelongsTo

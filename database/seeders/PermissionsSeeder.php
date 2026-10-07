@@ -18,6 +18,7 @@ class PermissionsSeeder extends Seeder
         ApplicationPermissionRegistry::sync();
 
         $this->grantCrewAssignmentVoidPermissionToExistingRoles();
+        $this->grantDeadlineExtensionRequestPermissionToExistingRecruiters();
         $this->migrateRoomTypePermissionsToHotels();
     }
 
@@ -151,6 +152,40 @@ class PermissionsSeeder extends Seeder
             }
 
             $role->permissions()->syncWithoutDetaching([$voidPermission->id]);
+        }
+    }
+
+    /**
+     * Assigned recruiters already hold recruitment.requirements.approve.
+     * Grant the deadline-extension request permission to those existing roles.
+     */
+    private function grantDeadlineExtensionRequestPermissionToExistingRecruiters(): void
+    {
+        $requestPermission = Permission::query()
+            ->where('guard_name', 'web')
+            ->where('name', 'recruitment.requirements.request_deadline_extension')
+            ->first();
+
+        if ($requestPermission === null) {
+            return;
+        }
+
+        $roles = Role::query()
+            ->where('guard_name', 'web')
+            ->get();
+
+        foreach ($roles as $role) {
+            $names = $role->permissions()->pluck('name');
+
+            if (! $names->contains('recruitment.requirements.approve')) {
+                continue;
+            }
+
+            if ($names->contains('recruitment.requirements.request_deadline_extension')) {
+                continue;
+            }
+
+            $role->permissions()->syncWithoutDetaching([$requestPermission->id]);
         }
     }
 }

@@ -37,6 +37,7 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'crew_operations.settings.update')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.submit')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.approve')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.requirements.request_deadline_extension')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -63,6 +64,7 @@ test('permission metadata follows current module categories without changing nam
         'crew_operations.vessels.view' => 'Crew Operations',
         'recruitment.requirements.submit' => 'Recruitment',
         'recruitment.requirements.approve' => 'Recruitment',
+        'recruitment.requirements.request_deadline_extension' => 'Recruitment',
     ];
 
     foreach ($groups as $name => $group) {
@@ -206,7 +208,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 9
+                return $recruitmentOptions->count() === 10
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -219,7 +221,10 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->get('recruitment.requirements.submit')['group'] === 'Recruitment'
                     && $options->has('recruitment.requirements.approve')
                     && $options->get('recruitment.requirements.approve')['label'] === 'Approve Recruitment Requirements'
-                    && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment';
+                    && $options->get('recruitment.requirements.approve')['group'] === 'Recruitment'
+                    && $options->has('recruitment.requirements.request_deadline_extension')
+                    && $options->get('recruitment.requirements.request_deadline_extension')['label'] === 'Request Requirement Deadline Extensions'
+                    && $options->get('recruitment.requirements.request_deadline_extension')['group'] === 'Recruitment';
             }),
         );
 });

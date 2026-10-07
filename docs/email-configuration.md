@@ -132,10 +132,14 @@ Prefer **Editable Email Template + structured Blade** for new business workflows
 | `requirement_returned` | Requirement returned for changes |
 | `requirement_target_date_three_days_before` | Target date reminder (3 days before) |
 | `requirement_target_date_due_today` | Target date reminder (due today) |
+| `requirement_deadline_extension_requested` | Recruiter requested a deadline extension (requester notified) |
+| `requirement_deadline_extension_approved` | Requester approved a deadline extension (recruiter notified) |
+| `requirement_deadline_extension_rejected` | Requester rejected a deadline extension (recruiter notified) |
+| `requirement_deadline_extended_by_requester` | Requester directly extended the deadline (assigned recruiter notified) |
 
 Recipients remain workflow-resolved (recruiter / requester / notification CC users). Template TO/CC presets are hidden. Disable a template to stop that email.
 
-**Deployment:** production deploy runs `php artisan db:seed --class=RequirementEmailTemplatesSeeder --force` after migrations. That installer seeds only the six Requirement built-in slugs from `BuiltInEmailTemplates` via `SeedBuiltInEmailTemplate`. It is idempotent: missing Requirement slugs are inserted, customized Requirement subject/body/enabled/footer values are preserved, and unrelated templates (including unrelated soft-deleted rows) are left untouched.
+**Deployment:** production deploy runs `php artisan db:seed --class=RequirementEmailTemplatesSeeder --force` after migrations. That installer seeds only the Requirement built-in slugs from `BuiltInEmailTemplates` via `SeedBuiltInEmailTemplate`. It is idempotent: missing Requirement slugs are inserted, customized Requirement subject/body/enabled/footer values are preserved, and unrelated templates (including unrelated soft-deleted rows) are left untouched.
 
 **Target-date reminders:** dispatch catches up any time at or after company-local 09:00 (same calendar day), uses the reminder ledger for idempotency, reclaims stale `processing` rows after 15 minutes, keeps `sent` final, treats missing templates as retryable (`failed` / `template_missing`), and treats intentionally disabled templates as permanent skips (`skipped` / `template_disabled`).
 

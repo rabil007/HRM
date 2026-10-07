@@ -88,6 +88,7 @@ beforeEach(function () {
         'recruitment.requirements.cancel',
         'recruitment.requirements.reopen',
         'recruitment.requirements.attachments.download',
+        'recruitment.requirements.request_deadline_extension',
     ];
 
     $this->adminUserA = createRecruitmentTestUser($this->companyA, $allRecruitmentPermissions);
@@ -1010,22 +1011,12 @@ test('extend-deadline rejects invalid dates and reasons and accepts strictly lat
         ->assertStatus(422)
         ->assertJsonValidationErrors(['new_date']);
 
-    // Reason too short
-    $this->actingAs($this->adminUserA)
-        ->withSession(['current_company_id' => $this->companyA->id])
-        ->postJson("/organization/recruitment/requirements/{$req->id}/extend-deadline", [
-            'new_date' => now()->addDays(20)->format('Y-m-d'),
-            'reason' => 'no',
-        ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['reason']);
-
-    // Valid extension succeeds
+    // Requester note/reason is optional, including a short value
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/extend-deadline", [
             'new_date' => now()->addDays(20)->format('Y-m-d'),
-            'reason' => 'Mobilization window delayed by port authority.',
+            'reason' => '',
         ])
         ->assertRedirect();
 

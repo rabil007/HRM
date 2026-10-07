@@ -119,6 +119,15 @@ export function buildRequirementActiveFilterChips(
         });
     }
 
+    if (filters.needs_action === 'deadline_extension') {
+        chips.push({
+            key: 'needs_action',
+            label: 'Needs my action',
+            ariaLabel: 'Clear needs action filter',
+            clear: { needs_action: null },
+        });
+    }
+
     return chips;
 }
 
@@ -135,7 +144,8 @@ export function hasRequirementActiveFilters(
         filters.position_id ||
         filters.assigned_to ||
         filters.priority ||
-        filters.deadline_health,
+        filters.deadline_health ||
+        filters.needs_action,
     );
 }
 

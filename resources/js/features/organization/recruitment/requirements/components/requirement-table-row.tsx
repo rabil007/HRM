@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Copy } from 'lucide-react';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import {
@@ -217,6 +217,11 @@ export function RequirementTableRow({
                             onResume,
                             onFill,
                             onExtend,
+                            onReviewDeadlineExtension: () => {
+                                router.visit(
+                                    `${RequirementController.show.url(row.id)}#deadline-extension-request`,
+                                );
+                            },
                             onRepeat,
                         }}
                     />

@@ -184,7 +184,7 @@ export function RequirementOverviewCard({
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">
-                            Target Date
+                            Deadline
                         </p>
                         <p className="mt-1 text-sm font-semibold">
                             {requirement.required_by_date_formatted ||
@@ -195,6 +195,21 @@ export function RequirementOverviewCard({
                                 ? `Recruiter: ${requirement.assigned_recruiter_name}`
                                 : 'Recruiter: Unassigned'}
                         </p>
+                        {requirement.can_extend ? (
+                            <Button
+                                type="button"
+                                variant="link"
+                                size="sm"
+                                disabled={processing}
+                                onClick={onExtend}
+                                className="mt-1 h-auto px-0 text-xs"
+                            >
+                                {requirement.deadline_extension_mode ===
+                                'request'
+                                    ? 'Request deadline extension'
+                                    : 'Extend deadline'}
+                            </Button>
+                        ) : null}
                     </div>
                     <div className="col-span-2 border-t border-border/50 pt-2">
                         <p className="text-xs text-muted-foreground">
@@ -273,7 +288,12 @@ export function RequirementOverviewCard({
                                                 className="h-4 w-4 text-muted-foreground"
                                                 aria-hidden="true"
                                             />
-                                            <span>Extend deadline</span>
+                                            <span>
+                                                {requirement.deadline_extension_mode ===
+                                                'request'
+                                                    ? 'Request deadline extension'
+                                                    : 'Extend deadline'}
+                                            </span>
                                         </DropdownMenuItem>
                                     )}
 

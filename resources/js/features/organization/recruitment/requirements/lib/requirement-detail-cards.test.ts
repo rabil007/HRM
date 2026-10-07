@@ -252,7 +252,7 @@ describe('Requirement detail cards', () => {
                     html.includes('Status &amp; actions') ||
                         html.includes('Status & actions'),
                 );
-                assert.ok(html.includes('Target Date'));
+                assert.ok(html.includes('Deadline'));
                 assert.ok(html.includes('Active recruitment'));
                 assert.ok(html.includes('8 days'));
                 assert.ok(html.includes('Mark as filled'));

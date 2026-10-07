@@ -15,6 +15,7 @@ const filters: RequirementFilters = {
     assigned_to: 3,
     priority: 'urgent',
     deadline_health: 'overdue',
+    needs_action: 'deadline_extension',
     per_page: 15,
 };
 
@@ -26,7 +27,11 @@ test('summary shortcuts clear restrictive filters and search while retaining pag
             tab: 'active',
             deadline_health: 'due_soon',
         }),
-        { tab: 'active', deadline_health: 'due_soon', per_page: 15 },
+        {
+            tab: 'active',
+            deadline_health: 'due_soon',
+            per_page: 15,
+        },
     );
 });
 
@@ -39,6 +44,7 @@ test('quick filters retain the search and context and can be toggled off', () =>
         position_id: 8,
         assigned_to: 3,
         deadline_health: 'overdue',
+        needs_action: 'deadline_extension',
         per_page: 15,
     });
 });
