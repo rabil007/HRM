@@ -152,6 +152,10 @@ class StoreRequirementRequest extends FormRequest
                 }
             }
 
+            if ($assignedToId !== null && (int) $this->user()?->id === $assignedToId) {
+                $validator->errors()->add('assigned_to', 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
+            }
+
             if ((bool) $this->boolean('submit_for_approval')) {
                 if ($assignedToId === null) {
                     $validator->errors()->add('assigned_to', 'An assigned recruiter is required before submitting for approval.');
@@ -161,10 +165,6 @@ class StoreRequirementRequest extends FormRequest
 
                 if (! ($this->user()?->can('recruitment.requirements.submit') ?? false)) {
                     $validator->errors()->add('submit_for_approval', 'You do not have permission to submit requirements for approval.');
-                }
-
-                if ($assignedToId !== null && (int) $this->user()?->id === $assignedToId) {
-                    $validator->errors()->add('assigned_to', 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.');
                 }
             } else {
                 $linesKey = $this->has('positions') ? 'positions' : 'lines';

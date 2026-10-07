@@ -17,6 +17,7 @@ use App\Support\Settings\CompanyCurrency;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 final class CreateRequirementAction
@@ -39,6 +40,12 @@ final class CreateRequirementAction
                     ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
                     : null;
                 RecruiterOptionsQuery::assertEligibleApprover($assignedTo, $companyId, required: false);
+
+                if ($assignedTo !== null && $assignedTo === $userId) {
+                    throw ValidationException::withMessages([
+                        'assigned_to' => 'The requester cannot also be the assigned recruiter. Self-approval is not allowed.',
+                    ]);
+                }
 
                 $requirementNumber = GenerateRequirementNumber::next($companyId);
                 $status = RequirementStatus::Draft;

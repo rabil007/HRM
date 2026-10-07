@@ -26,6 +26,7 @@ import { RequirementAttachmentsCard } from './components/show/requirement-attach
 import { RequirementDetailsWorkflowCard } from './components/show/requirement-details-workflow-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
 import { RequirementPositionLinesCard } from './components/show/requirement-position-lines-card';
+import { SubmissionReadinessBlockedDialog } from './components/submission-readiness-blocked-dialog';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
@@ -33,6 +34,10 @@ import { ReopenRequirementDialog } from './components/workflow/reopen-requiremen
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
 import { isRequirementHoldActionVisible } from './lib/requirement-hold-feature';
+import {
+    incompleteSubmissionMessages,
+    isSubmissionReadinessComplete,
+} from './lib/requirement-submission-readiness';
 
 export function RequirementsShowContent({
     requirement,
@@ -59,10 +64,19 @@ export function RequirementsShowContent({
     const [isReopenOpen, setIsReopenOpen] = useState(false);
     const [isRepeatOpen, setIsRepeatOpen] = useState(false);
     const [isReturnOpen, setIsReturnOpen] = useState(false);
+    const [readinessBlockedOpen, setReadinessBlockedOpen] = useState(false);
     const [targetLineForHeadcount, setTargetLineForHeadcount] =
         useState<RequirementLine | null>(null);
 
     const [isWorkflowProcessing, setIsWorkflowProcessing] = useState(false);
+
+    const readinessBlockedMessages = incompleteSubmissionMessages(
+        requirement.submission_readiness ?? {
+            ready: false,
+            remaining_count: 0,
+            items: [],
+        },
+    );
 
     useEffect(() => {
         if (typeof window === 'undefined') {
@@ -126,6 +140,12 @@ export function RequirementsShowContent({
     };
 
     const handleSubmit = () => {
+        if (!isSubmissionReadinessComplete(requirement.submission_readiness)) {
+            setReadinessBlockedOpen(true);
+
+            return;
+        }
+
         runWorkflow(
             RequirementSubmitController.url(requirement.id),
             'Requirement submitted for approval.',
@@ -134,6 +154,12 @@ export function RequirementsShowContent({
     };
 
     const handleResubmit = () => {
+        if (!isSubmissionReadinessComplete(requirement.submission_readiness)) {
+            setReadinessBlockedOpen(true);
+
+            return;
+        }
+
         runWorkflow(
             RequirementResubmitController.url(requirement.id),
             'Requirement resubmitted for approval.',
@@ -244,7 +270,19 @@ export function RequirementsShowContent({
                 open={isEditOpen}
                 onOpenChange={setIsEditOpen}
                 initialRequirement={requirement}
+                canSubmit={can.submit}
                 options={options}
+            />
+
+            <SubmissionReadinessBlockedDialog
+                open={readinessBlockedOpen}
+                onOpenChange={setReadinessBlockedOpen}
+                messages={readinessBlockedMessages}
+                onContinueEditing={() => {
+                    if (requirement.can_edit && can.update) {
+                        setIsEditOpen(true);
+                    }
+                }}
             />
 
             <ExtendDeadlineDialog

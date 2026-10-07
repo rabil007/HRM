@@ -54,16 +54,23 @@ final class RequirementPresenter
 
         $isEditable = $requirement->status->isEditable();
         $isHistory = in_array($requirement->status, RequirementStatus::historyListStatuses(), true);
+        $isCreator = $user !== null
+            && $requirement->created_by !== null
+            && (int) $requirement->created_by === (int) $user->id;
         $isAssignedRecruiter = $user !== null
             && $requirement->assigned_to !== null
             && (int) $requirement->assigned_to === (int) $user->id;
-        $blocksSelfApproval = $requirement->created_by !== null
-            && $requirement->assigned_to !== null
-            && (int) $requirement->created_by === (int) $requirement->assigned_to;
+        $blocksSelfApproval = RequirementWorkflowAuthorization::blocksSelfApproval($requirement);
+
+        // Draft/Returned preparation belongs to the creator. Permissions alone do not grant control.
+        $canEdit = $canUpdate && $isEditable && ($user === null || $isCreator);
+
+        // Draft/Returned audited adjustments stay requester-owned; Open/OnHold remain update-permission based.
+        $canAdjustWhileEditable = $canUpdate && ($user === null || ! $isEditable || $isCreator);
 
         $canSubmit = $canSubmitPerm
-            && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned], true)
-            && $requirement->assigned_to !== null
+            && $requirement->status === RequirementStatus::Draft
+            && ($user === null || $isCreator)
             && ! $blocksSelfApproval;
 
         $canApprove = $canApprovePerm
@@ -77,7 +84,7 @@ final class RequirementPresenter
 
         $canResubmit = $canSubmitPerm
             && $requirement->status === RequirementStatus::Returned
-            && $requirement->assigned_to !== null
+            && ($user === null || $isCreator)
             && ! $blocksSelfApproval;
 
         $cancellableStatuses = [
@@ -120,8 +127,8 @@ final class RequirementPresenter
             'positions_count' => count($positionsSummary),
             'repeated_from_id' => $requirement->repeated_from_id !== null ? (int) $requirement->repeated_from_id : null,
             'repeated_from_number' => $requirement->repeatedFrom?->requirement_number,
-            'next_action' => self::computeNextAction($requirement, $deadlineHealth),
-            'can_edit' => $canUpdate && $isEditable,
+            'next_action' => self::computeNextAction($requirement, $deadlineHealth, $user),
+            'can_edit' => $canEdit,
             'can_submit' => $canSubmit,
             'can_approve' => $canApprove,
             'can_return' => $canReturn,
@@ -129,13 +136,19 @@ final class RequirementPresenter
             'can_open' => false,
             'can_hold' => $canUpdate && $requirement->status === RequirementStatus::Open,
             'can_resume' => $canUpdate && $requirement->status === RequirementStatus::OnHold,
-            'can_extend' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_extend_deadline' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
-            'can_change_headcount' => $canUpdate && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_extend_deadline' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_change_headcount' => $canAdjustWhileEditable && in_array($requirement->status, [RequirementStatus::Draft, RequirementStatus::Returned, RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
             'can_reopen' => $canReopenPerm && $isHistory,
             'can_repeat' => $canView && $canCreate && $isHistory,
+            'submission_readiness' => in_array($requirement->status, [
+                RequirementStatus::Draft,
+                RequirementStatus::Returned,
+            ], true)
+                ? RequirementSubmissionReadiness::for($requirement, $user)
+                : null,
         ];
     }
 
@@ -298,11 +311,18 @@ final class RequirementPresenter
     public static function computeNextAction(
         RecruitmentRequirement $requirement,
         ?RequirementDeadlineHealth $health,
+        ?User $user = null,
     ): string {
         return match ($requirement->status) {
-            RequirementStatus::Draft => 'submit',
-            RequirementStatus::PendingApproval => 'approve',
-            RequirementStatus::Returned => 'resubmit',
+            RequirementStatus::Draft => ($user === null || RequirementWorkflowAuthorization::canSubmit($user, $requirement))
+                ? 'submit'
+                : 'view',
+            RequirementStatus::PendingApproval => ($user === null || RequirementWorkflowAuthorization::canApprove($user, $requirement))
+                ? 'approve'
+                : 'view',
+            RequirementStatus::Returned => ($user === null || RequirementWorkflowAuthorization::canSubmit($user, $requirement))
+                ? 'resubmit'
+                : 'view',
             RequirementStatus::Open => $health === RequirementDeadlineHealth::Overdue ? 'extend' : 'fill',
             RequirementStatus::OnHold => 'resume',
             RequirementStatus::Completed => 'repeat',

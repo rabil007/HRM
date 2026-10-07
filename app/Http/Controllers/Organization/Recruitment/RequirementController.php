@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization\Recruitment;
 
 use App\Actions\Recruitment\CreateRequirementAction;
+use App\Actions\Recruitment\SaveAndSubmitRequirementAction;
 use App\Actions\Recruitment\UpdateRequirementAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Recruitment\StoreRequirementRequest;
@@ -294,16 +295,32 @@ class RequirementController extends Controller
         UpdateRequirementRequest $request,
         RecruitmentRequirement $requirement,
         UpdateRequirementAction $action,
+        SaveAndSubmitRequirementAction $saveAndSubmitAction,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $requirement->company_id === $companyId, 404);
 
         $userId = (int) $request->user()->id;
+        $validated = $request->validated();
+        $submitAfterSave = (bool) ($validated['submit_for_approval'] ?? false);
+        unset($validated['submit_for_approval']);
+
+        if ($submitAfterSave) {
+            $updated = $saveAndSubmitAction->execute(
+                $requirement,
+                $request->user(),
+                $validated,
+                $request->file('attachment'),
+            );
+
+            return redirect()->route('organization.recruitment.requirements.show', $updated)
+                ->with('success', "Requirement {$updated->requirement_number} saved and submitted for approval.");
+        }
 
         $action->execute(
             $requirement,
             $userId,
-            $request->validated(),
+            $validated,
             $request->file('attachment'),
         );
 

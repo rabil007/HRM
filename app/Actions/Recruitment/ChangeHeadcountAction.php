@@ -4,6 +4,8 @@ namespace App\Actions\Recruitment;
 
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
+use App\Models\User;
+use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +31,13 @@ final class ChangeHeadcountAction
                 throw ValidationException::withMessages([
                     'status' => "Headcount cannot be updated for {$locked->status->label()} requirement.",
                 ]);
+            }
+
+            if ($locked->status->isEditable()) {
+                RequirementWorkflowAuthorization::assertCanPrepare(
+                    User::query()->findOrFail($userId),
+                    $locked,
+                );
             }
 
             $changes = [];

@@ -3,6 +3,8 @@
 namespace App\Actions\Recruitment;
 
 use App\Models\RecruitmentRequirement;
+use App\Models\User;
+use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +28,13 @@ final class ExtendDeadlineAction
                 throw ValidationException::withMessages([
                     'status' => "Deadline cannot be extended for {$locked->status->label()} requirement.",
                 ]);
+            }
+
+            if ($locked->status->isEditable()) {
+                RequirementWorkflowAuthorization::assertCanPrepare(
+                    User::query()->findOrFail($userId),
+                    $locked,
+                );
             }
 
             $newCarbon = Carbon::parse($newDate)->startOfDay();

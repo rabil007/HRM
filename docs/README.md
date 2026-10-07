@@ -58,6 +58,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Leave Report | [reports/leave-report.md](./reports/leave-report.md) |
 | Leave Balance Report | [reports/leave-balance-report.md](./reports/leave-balance-report.md) |
 | Users / roles / permissions / tenant authorization | [permissions.md](./permissions.md) and `.cursor/rules/permissions.mdc` |
+| Recruitment requirements / approval workflow | [permissions.md](./permissions.md#recruitment-requirement-ownership-not-role-titles), then `app/Support/Recruitment/` + Recruitment feature tests |
 | Activity logs / audit trail | [permissions.md](./permissions.md#audit) and current activity-log implementation |
 | User account status / login eligibility | [permissions.md](./permissions.md#global-user-account-status) |
 | User email identity / duplicate login emails | [permissions.md](./permissions.md#global-user-email-identity) |

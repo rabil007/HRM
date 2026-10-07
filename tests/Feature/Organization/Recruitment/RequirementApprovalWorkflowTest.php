@@ -21,11 +21,14 @@ use App\Support\Recruitment\CalculateActiveRecruitmentDuration;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
+use App\Support\Recruitment\RequirementPresenter;
 use Database\Seeders\EmailTemplatesSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -739,26 +742,36 @@ test('pending approval cannot be reassigned to null or requester', function () {
         ->assertJsonValidationErrors(['assigned_to']);
 });
 
-test('submitter is cc when different from requester and deduped when same', function () {
-    $submitter = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
+test('only the creator may submit and requester cc is deduped when creator resubmits', function () {
+    $otherSubmitter = createApprovalTestUser($this->companyA, allRecruitmentApprovalPermissions(), [
         'email' => 'alt.submitter@example.com',
         'name' => 'Alt Submitter',
     ]);
 
     $req = createDraftRequirement($this);
 
+    $this->actingAs($otherSubmitter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+
     Mail::fake();
 
-    $this->actingAs($submitter)
+    $this->actingAs($this->requester)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertRedirect();
 
     Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) {
+        $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
+
         return $mail->hasTo('recruiter@example.com')
             && $mail->hasCc('requester@example.com')
-            && $mail->hasCc('alt.submitter@example.com')
-            && $mail->submitterName === 'Alt Submitter';
+            && $mail->submitterName === 'Requester User'
+            && count(array_filter($cc, fn ($e) => $e === 'requester@example.com')) === 1;
     });
 
     Mail::fake();
@@ -1370,4 +1383,514 @@ test('assigned recruiter options include active same-company users with approval
     Mail::assertSent(RequirementSubmittedForApprovalMail::class, function (RequirementSubmittedForApprovalMail $mail) use ($activeHrUser) {
         return $mail->hasTo($activeHrUser->email);
     });
+});
+
+test('creator can save an incomplete draft without assigned recruiter or salary', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => null,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertRedirect();
+
+    $requirement = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->first();
+
+    expect($requirement)->not->toBeNull()
+        ->and($requirement->status)->toBe(RequirementStatus::Draft)
+        ->and($requirement->assigned_to)->toBeNull()
+        ->and($requirement->created_by)->toBe($this->requester->id);
+
+    $line = $requirement->lines()->first();
+    expect($line->salary_min)->toBeNull()
+        ->and($line->salary_max)->toBeNull();
+});
+
+test('assigned recruiter cannot submit another users draft even with submit permission', function () {
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});
+
+test('non-creator with update permission cannot edit another users draft', function () {
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => $this->recruiter->id,
+            'notes' => 'Hijacked draft',
+        ])
+        ->assertForbidden();
+
+    expect($req->fresh()->priority->value)->toBe('normal');
+});
+
+test('creator can save and submit draft in one update operation', function () {
+    $req = createDraftRequirement($this, ['assigned_to' => null]);
+    $line = $req->lines()->first();
+    $line->update([
+        'salary_min' => null,
+        'salary_max' => null,
+        'salary_currency_code' => null,
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => $this->recruiter->id,
+            'notes' => 'Ready for approval',
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'id' => $line->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 5500,
+                    'salary_max' => 9000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $fresh = $req->fresh(['lines']);
+
+    expect($fresh->status)->toBe(RequirementStatus::PendingApproval)
+        ->and($fresh->priority->value)->toBe('urgent')
+        ->and($fresh->assigned_to)->toBe($this->recruiter->id)
+        ->and($fresh->submitted_by)->toBe($this->requester->id)
+        ->and($fresh->submitted_at)->not->toBeNull()
+        ->and((float) $fresh->lines->first()->salary_min)->toBe(5500.0)
+        ->and((float) $fresh->lines->first()->salary_max)->toBe(9000.0);
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class);
+});
+
+test('failed save and submit does not leave requirement pending approval', function () {
+    $req = createDraftRequirement($this, ['assigned_to' => null]);
+    $line = $req->lines()->first();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => null,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'id' => $line->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 5500,
+                    'salary_max' => 9000,
+                ],
+            ],
+        ])
+        ->assertStatus(422);
+
+    $fresh = $req->fresh();
+
+    expect($fresh->status)->toBe(RequirementStatus::Draft)
+        ->and($fresh->priority->value)->toBe('normal')
+        ->and($fresh->assigned_to)->toBeNull()
+        ->and($fresh->submitted_at)->toBeNull();
+});
+
+test('view and approve recruiter can approve pending requirement without update permission', function () {
+    $approverOnly = createApprovalTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'approver.only@example.com',
+        'name' => 'Approver Only',
+    ]);
+
+    $req = createDraftRequirement($this, ['assigned_to' => $approverOnly->id]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($approverOnly)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'priority' => 'urgent',
+            'assigned_to' => $approverOnly->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($approverOnly)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/approve")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+});
+
+test('view and approve recruiter can return pending requirement without update permission', function () {
+    $approverOnly = createApprovalTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'returner.only@example.com',
+        'name' => 'Returner Only',
+    ]);
+
+    $req = createDraftRequirement($this, ['assigned_to' => $approverOnly->id]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($approverOnly)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/return", [
+            'return_reason' => 'Missing site notes',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Returned);
+});
+
+test('assigned recruiter cannot resubmit a returned requirement', function () {
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/return", [
+            'return_reason' => 'Need clearer location',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/resubmit")
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Returned);
+});
+
+test('presenter flags follow creator and assigned recruiter ownership', function () {
+    $req = createDraftRequirement($this)->load(['client', 'project', 'lines.position', 'assignedRecruiter', 'creator']);
+
+    $requesterRow = RequirementPresenter::toIndexRow($req, null, $this->requester);
+    $recruiterRow = RequirementPresenter::toIndexRow($req, null, $this->recruiter);
+
+    expect($requesterRow['can_edit'])->toBeTrue()
+        ->and($requesterRow['can_submit'])->toBeTrue()
+        ->and($requesterRow['can_approve'])->toBeFalse()
+        ->and($recruiterRow['can_edit'])->toBeFalse()
+        ->and($recruiterRow['can_submit'])->toBeFalse()
+        ->and($recruiterRow['can_approve'])->toBeFalse();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $pending = $req->fresh(['client', 'project', 'lines.position', 'assignedRecruiter', 'creator']);
+    $requesterPending = RequirementPresenter::toIndexRow($pending, null, $this->requester);
+    $recruiterPending = RequirementPresenter::toIndexRow($pending, null, $this->recruiter);
+
+    expect($requesterPending['can_approve'])->toBeFalse()
+        ->and($requesterPending['can_submit'])->toBeFalse()
+        ->and($recruiterPending['can_approve'])->toBeTrue()
+        ->and($recruiterPending['can_return'])->toBeTrue()
+        ->and($recruiterPending['can_edit'])->toBeFalse();
+});
+
+test('create and submit for approval creates pending approval directly', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $requirement = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->first();
+
+    expect($requirement->status)->toBe(RequirementStatus::PendingApproval)
+        ->and($requirement->submitted_by)->toBe($this->requester->id)
+        ->and($requirement->created_by)->toBe($this->requester->id);
+
+    Mail::assertSent(RequirementSubmittedForApprovalMail::class);
+});
+
+test('cross company user cannot approve another company requirement', function () {
+    $foreignRecruiter = createApprovalTestUser($this->companyB, allRecruitmentApprovalPermissions(), [
+        'email' => 'foreign.recruiter@example.com',
+    ]);
+
+    $req = createDraftRequirement($this);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertRedirect();
+
+    $this->actingAs($foreignRecruiter)
+        ->withSession(['current_company_id' => $this->companyB->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/approve")
+        ->assertNotFound();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::PendingApproval);
+});
+
+test('creator cannot save a draft assigned to themselves', function () {
+    $beforeCount = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->count();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->requester->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                ['position_id' => $this->position->id, 'required_headcount' => 1],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+
+    expect(
+        RecruitmentRequirement::query()
+            ->where('company_id', $this->companyA->id)
+            ->count()
+    )->toBe($beforeCount);
+});
+
+test('creator cannot create and submit when assigned to themselves', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->requester->id,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['assigned_to']);
+});
+
+test('failed save and submit after attachment upload cleans orphan file and leaves draft unchanged', function () {
+    Storage::fake('local');
+
+    $req = createDraftRequirement($this, [
+        'assigned_to' => null,
+        'notes' => 'Original notes',
+    ]);
+    $line = $req->lines()->first();
+    $line->update([
+        'salary_min' => null,
+        'salary_max' => null,
+        'salary_currency_code' => null,
+    ]);
+
+    $file = UploadedFile::fake()->create('client-spec.pdf', 100, 'application/pdf');
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$req->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => null,
+            'notes' => 'Should roll back',
+            'submit_for_approval' => true,
+            'attachment' => $file,
+            'positions' => [
+                [
+                    'id' => $line->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 5500,
+                    'salary_max' => 9000,
+                ],
+            ],
+        ])
+        ->assertStatus(422);
+
+    $fresh = $req->fresh(['attachments', 'lines']);
+
+    expect($fresh->status)->toBe(RequirementStatus::Draft)
+        ->and($fresh->priority->value)->toBe('normal')
+        ->and($fresh->notes)->toBe('Original notes')
+        ->and($fresh->assigned_to)->toBeNull()
+        ->and($fresh->submitted_at)->toBeNull()
+        ->and($fresh->attachments)->toHaveCount(0)
+        ->and($fresh->lines->first()->salary_min)->toBeNull();
+
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+});
+
+test('index and show expose submission readiness for creator owned drafts', function () {
+    $req = createDraftRequirement($this, ['assigned_to' => null]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/index')
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $req->id)
+            ->where('requirements.data.0.submission_readiness.ready', false)
+            ->where('requirements.data.0.can_submit', true)
+        );
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/show')
+            ->where('requirement.submission_readiness.ready', false)
+            ->where('can.submit', true)
+        );
+});
+
+test('creator without submit permission can save draft but not submit for approval', function () {
+    $draftOnlyCreator = createApprovalTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.create',
+        'recruitment.requirements.update',
+    ], [
+        'email' => 'draft.only@example.com',
+        'name' => 'Draft Only Creator',
+    ]);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(10)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $requirement = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->where('created_by', $draftOnlyCreator->id)
+        ->latest('id')
+        ->first();
+
+    expect($requirement)->not->toBeNull()
+        ->and($requirement->status)->toBe(RequirementStatus::Draft);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$requirement->id}/submit")
+        ->assertForbidden();
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->putJson("/organization/recruitment/requirements/{$requirement->id}", [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'priority' => 'urgent',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => true,
+            'positions' => [
+                [
+                    'id' => $requirement->lines()->first()->id,
+                    'position_id' => $this->position->id,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['submit_for_approval']);
+
+    expect($requirement->fresh()->status)->toBe(RequirementStatus::Draft);
+
+    $this->actingAs($draftOnlyCreator)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$requirement->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.submit', false)
+            ->where('requirement.can_submit', false)
+        );
 });

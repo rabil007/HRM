@@ -26,6 +26,7 @@ import { RequirementFormSheet } from './components/requirement-form-sheet';
 import { RequirementSummaryCards } from './components/requirement-summary-cards';
 import { RequirementTable } from './components/requirement-table';
 import { RequirementToolbar } from './components/requirement-toolbar';
+import { SubmissionReadinessBlockedDialog } from './components/submission-readiness-blocked-dialog';
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
@@ -36,6 +37,10 @@ import {
     buildRequirementQuery,
     clearedRequirementFilters,
 } from './lib/requirement-filters';
+import {
+    incompleteSubmissionMessages,
+    isSubmissionReadinessComplete,
+} from './lib/requirement-submission-readiness';
 
 export function RequirementsContent({
     requirements,
@@ -66,8 +71,20 @@ export function RequirementsContent({
         useState<RequirementIndexRow | null>(null);
     const [returnDialogTarget, setReturnDialogTarget] =
         useState<RequirementIndexRow | null>(null);
+    const [readinessBlockedTarget, setReadinessBlockedTarget] =
+        useState<RequirementIndexRow | null>(null);
 
     const baseUrl = RequirementController.index.url();
+
+    const readinessBlockedMessages = useMemo(
+        () =>
+            readinessBlockedTarget?.submission_readiness
+                ? incompleteSubmissionMessages(
+                      readinessBlockedTarget.submission_readiness,
+                  )
+                : [],
+        [readinessBlockedTarget],
+    );
 
     const navigate = useCallback(
         (newFilters: Partial<RequirementFilters>, page?: number) => {
@@ -226,6 +243,12 @@ export function RequirementsContent({
     };
 
     const handleSubmitRequirement = (row: RequirementIndexRow) => {
+        if (!isSubmissionReadinessComplete(row.submission_readiness)) {
+            setReadinessBlockedTarget(row);
+
+            return;
+        }
+
         postWorkflow(
             row,
             RequirementSubmitController.url(row.id),
@@ -244,6 +267,12 @@ export function RequirementsContent({
     };
 
     const handleResubmitRequirement = (row: RequirementIndexRow) => {
+        if (!isSubmissionReadinessComplete(row.submission_readiness)) {
+            setReadinessBlockedTarget(row);
+
+            return;
+        }
+
         postWorkflow(
             row,
             RequirementResubmitController.url(row.id),
@@ -378,7 +407,23 @@ export function RequirementsContent({
                 open={isFormSheetOpen}
                 onOpenChange={setIsFormSheetOpen}
                 initialRequirement={editingRequirement}
+                canSubmit={can.submit}
                 options={options}
+            />
+
+            <SubmissionReadinessBlockedDialog
+                open={Boolean(readinessBlockedTarget)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setReadinessBlockedTarget(null);
+                    }
+                }}
+                messages={readinessBlockedMessages}
+                onContinueEditing={() => {
+                    if (readinessBlockedTarget) {
+                        handleEditRequirement(readinessBlockedTarget);
+                    }
+                }}
             />
 
             {/* Workflow Action Dialogs */}

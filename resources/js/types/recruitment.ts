@@ -37,6 +37,19 @@ export type PositionSummaryItem = {
     salary_range_formatted?: string | null;
 };
 
+export type RequirementSubmissionReadinessItem = {
+    key: string;
+    label: string;
+    ready: boolean;
+    message: string | null;
+};
+
+export type RequirementSubmissionReadiness = {
+    ready: boolean;
+    remaining_count: number;
+    items: RequirementSubmissionReadinessItem[];
+};
+
 export type RequirementIndexRow = {
     id: number;
     requirement_number: string;
@@ -77,7 +90,8 @@ export type RequirementIndexRow = {
         | 'fill'
         | 'extend'
         | 'resume'
-        | 'repeat';
+        | 'repeat'
+        | 'view';
     can_edit: boolean;
     can_submit: boolean;
     can_approve: boolean;
@@ -92,6 +106,7 @@ export type RequirementIndexRow = {
     can_cancel: boolean;
     can_reopen: boolean;
     can_repeat: boolean;
+    submission_readiness?: RequirementSubmissionReadiness | null;
 };
 
 export type RequirementLine = {

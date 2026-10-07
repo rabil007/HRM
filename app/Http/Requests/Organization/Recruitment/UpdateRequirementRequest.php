@@ -8,6 +8,7 @@ use App\Models\RecruitmentRequirement;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
+use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -18,7 +19,22 @@ class UpdateRequirementRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('recruitment.requirements.update') ?? false;
+        $user = $this->user();
+        if ($user === null || ! $user->can('recruitment.requirements.update')) {
+            return false;
+        }
+
+        $requirement = $this->route('requirement');
+        if (! ($requirement instanceof RecruitmentRequirement)) {
+            return true;
+        }
+
+        // Draft/Returned preparation is creator-owned even when the user has update permission.
+        if ($requirement->status->isEditable()) {
+            return RequirementWorkflowAuthorization::isCreator($user, $requirement);
+        }
+
+        return true;
     }
 
     /**
@@ -100,6 +116,7 @@ class UpdateRequirementRequest extends FormRequest
             'notification_recipient_ids' => ['nullable', 'array'],
             'notification_recipient_ids.*' => ['integer'],
             'notes' => ['nullable', 'string'],
+            'submit_for_approval' => ['nullable', 'boolean'],
             'attachment' => [
                 'nullable',
                 'file',
@@ -196,6 +213,20 @@ class UpdateRequirementRequest extends FormRequest
                             }
                         }
                     }
+                }
+            }
+
+            if ((bool) $this->boolean('submit_for_approval')) {
+                if (! ($this->user()?->can('recruitment.requirements.submit') ?? false)) {
+                    $validator->errors()->add('submit_for_approval', 'You do not have permission to submit requirements for approval.');
+                }
+
+                if (
+                    $requirement instanceof RecruitmentRequirement
+                    && $this->user() !== null
+                    && ! RequirementWorkflowAuthorization::isCreator($this->user(), $requirement)
+                ) {
+                    $validator->errors()->add('submit_for_approval', 'Only the requirement requester can submit or resubmit this requirement.');
                 }
             }
         });

@@ -7,9 +7,11 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\RecruitmentRequirementStatusTransition;
+use App\Models\User;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementAttachmentStorage;
+use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use App\Support\Recruitment\SendRequirementLifecycleEmails;
 use App\Support\Recruitment\SyncRequirementNotificationRecipients;
 use App\Support\Settings\CompanyCurrency;
@@ -23,12 +25,16 @@ final class UpdateRequirementAction
 {
     /**
      * @param  array<string, mixed>  $data
+     * @param  string|null  $newStoredFilePath  Populated with a newly stored attachment path so callers
+     *                                          that nest this action in a larger transaction can clean up
+     *                                          orphan files if the outer operation fails after success here.
      */
     public function execute(
         RecruitmentRequirement $requirement,
         int $userId,
         array $data,
         ?UploadedFile $attachment = null,
+        ?string &$newStoredFilePath = null,
     ): RecruitmentRequirement {
         $storedFilePath = null;
         $shouldNotifyReassignment = false;
@@ -43,10 +49,12 @@ final class UpdateRequirementAction
                     ->lockForUpdate()
                     ->firstOrFail();
 
+                $actor = User::query()->findOrFail($userId);
                 $companyId = (int) $locked->company_id;
                 $previousAssignedTo = $locked->assigned_to !== null ? (int) $locked->assigned_to : null;
 
                 if ($locked->status->isEditable()) {
+                    RequirementWorkflowAuthorization::assertCanPrepare($actor, $locked);
                     $assignedTo = array_key_exists('assigned_to', $data)
                         ? ($data['assigned_to'] !== null ? (int) $data['assigned_to'] : null)
                         : $previousAssignedTo;
@@ -217,6 +225,8 @@ final class UpdateRequirementAction
 
             throw $exception;
         }
+
+        $newStoredFilePath = $storedFilePath;
 
         if ($shouldNotifyReassignment && $reassignmentTransition instanceof RecruitmentRequirementStatusTransition) {
             SendRequirementLifecycleEmails::pendingReassigned($result, $reassignmentTransition);
