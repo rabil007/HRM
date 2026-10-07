@@ -14,6 +14,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
 use App\Support\Recruitment\RequirementPresenter;
+use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -80,6 +81,8 @@ function createSalaryTestUser(Company $company, array $permissions = [], array $
 }
 
 beforeEach(function () {
+    (new EmailTemplatesSeeder)->run();
+
     $this->companyA = createSalaryTestCompany('Alpha Shipping', 'AED');
     $this->companyB = createSalaryTestCompany('Beta Logistics', 'USD');
 

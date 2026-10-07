@@ -281,11 +281,11 @@ All product HTML mail shares one layout. New modules should extend `mail.layout`
 
 **Important patterns to follow**
 
-- Prefer editable Email Templates for business wording (leave pattern); hard-coded Blade for fixed structured UI (recruitment / expiry).
+- Prefer editable Email Templates + structured Blade for business wording (leave / recruitment pattern); system-layout templates for expiry tables.
 - Never duplicate logo/footer in content blades.
 - Cover new structured blades in `tests/Feature/Email/MailLayoutMobileResponsivenessTest.php` (or equivalent assertions).
 
-**Also see:** [Email configuration — New module emails](../email-configuration.md#new-module-emails-required-pattern).
+**Also see:** [Email configuration — New module emails](../email-configuration.md#new-module-emails-required-pattern), `ComposeRequirementLifecycleMail`.
 
 ---
 

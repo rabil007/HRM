@@ -23,6 +23,7 @@ class RequirementApprovedMail extends Mailable
         public string $approvedAtFormatted,
         public array $details,
         public string $requirementUrl,
+        public ?string $introMessage = null,
         public bool $includeCompanyFooter = true,
     ) {}
 

@@ -16,6 +16,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
+use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
@@ -25,6 +26,7 @@ use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     Mail::fake();
+    (new EmailTemplatesSeeder)->run();
 
     $country = Country::query()->create([
         'code' => 'RDP',

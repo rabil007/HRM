@@ -88,11 +88,11 @@ When a new domain adds email, **reuse the shared shell** — do not design a one
 
 | Style | When to use | Canonical examples |
 | ----- | ----------- | ------------------ |
-| **Editable Email Template** | Business / HR wording admins may customize (subject, body, placeholders) | Leave request emails, payslip delivery, document recipient action, user invitation |
-| **Hard-coded Mailable + Blade** | Structured workflow UI (detail rows, system tables) where admins should not edit HTML | Recruitment requirement lifecycle, document expiry summaries, failed queue job |
+| **Editable Email Template + structured Blade** | Business wording admins may customize; detail card / table stays in Blade | Leave request emails, **recruitment requirement lifecycle & target-date reminders**, document recipient action, user invitation |
+| **System layout Email Template** | Recipients/schedule/footer only; HTML body not editable | Document expiry summaries |
 | **Keep hard-coded forever** | Ops / diagnostics only | SMTP test, failed queue job |
 
-Prefer **Editable Email Template** for new business workflows (same path as leave). Prefer hard-coded Blade only when the body is a fixed structured UI (expiry tables, requirement detail cards).
+Prefer **Editable Email Template + structured Blade** for new business workflows (leave / recruitment pattern). Use system-layout templates only for complex generated tables (expiry).
 
 ### Checklist (every new HTML email)
 
@@ -117,8 +117,32 @@ Prefer **Editable Email Template** for new business workflows (same path as leav
 | Key/value detail card + CTA | `resources/views/mail/leave-request-submitted.blade.php` |
 | Wide data table + scroll wrapper | `resources/views/mail/document-expiry-alert.blade.php` |
 | Editable template + structured Blade | Leave: `BuiltInEmailTemplates` + `LeaveRequestSubmittedMail` + `ComposeLeaveRequestSubmittedMail` |
-| Hard-coded workflow Blade | Recruitment: `RequirementSubmittedForApprovalMail` + `mail/requirement-submitted-for-approval.blade.php` |
+| Editable recruitment emails | `ComposeRequirementLifecycleMail` + `requirement_*` slugs in `BuiltInEmailTemplates` + `mail/requirement-*.blade.php` |
 | Plain body inside layout | `resources/views/mail/bulk-document.blade.php` / `email-template-plain-preview.blade.php` |
+
+### Recruitment email templates
+
+| Slug | When sent |
+| ---- | --------- |
+| `requirement_submitted_for_approval` | Requirement submitted for recruiter approval |
+| `requirement_assigned_for_approval` | Requirement reassigned to another recruiter |
+| `requirement_approved` | Requirement approved (requester notified) |
+| `requirement_returned` | Requirement returned for changes |
+| `requirement_target_date_three_days_before` | Target date reminder (3 days before) |
+| `requirement_target_date_due_today` | Target date reminder (due today) |
+
+Recipients remain workflow-resolved (recruiter / requester / notification CC users). Template TO/CC presets are hidden. Disable a template to stop that email. Seed with `php artisan db:seed --class=EmailTemplatesSeeder`.
+
+### Crew movement correction decided
+
+| Item | Value |
+| ---- | ----- |
+| Slug | `crew_movement_correction_decided` |
+| Category | Notifications |
+| Recipient | Correction requester (skipped when requester = decider) |
+| Structured Blade | `mail/crew-movement-correction-decided` |
+
+Subject/body are editable; detail rows (request reason / decision notes) stay in Blade. TO/CC presets are hidden.
 
 ## Document recipient action requests (Phase 7A)
 

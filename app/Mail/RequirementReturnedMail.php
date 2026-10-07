@@ -23,6 +23,7 @@ class RequirementReturnedMail extends Mailable
         public string $returnReason,
         public array $details,
         public string $requirementUrl,
+        public ?string $introMessage = null,
         public bool $includeCompanyFooter = true,
     ) {}
 

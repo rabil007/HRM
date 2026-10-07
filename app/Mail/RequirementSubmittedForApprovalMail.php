@@ -22,6 +22,8 @@ class RequirementSubmittedForApprovalMail extends Mailable
         public string $submitterName,
         public array $details,
         public string $requirementUrl,
+        public ?string $introMessage = null,
+        public string $heading = 'Requirement pending approval',
         public bool $includeCompanyFooter = true,
     ) {}
 

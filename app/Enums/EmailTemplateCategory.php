@@ -6,6 +6,7 @@ enum EmailTemplateCategory: string
 {
     case Document = 'document';
     case Hr = 'hr';
+    case Recruitment = 'recruitment';
     case Payroll = 'payroll';
     case Notification = 'notification';
     case General = 'general';
@@ -15,6 +16,7 @@ enum EmailTemplateCategory: string
         return match ($this) {
             self::Document => 'Documents',
             self::Hr => 'HR',
+            self::Recruitment => 'Recruitment',
             self::Payroll => 'Payroll',
             self::Notification => 'Notifications',
             self::General => 'General',

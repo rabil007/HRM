@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
+use App\Support\Recruitment\ComposeRequirementLifecycleMail;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use App\Support\Recruitment\RequirementPresenter;
@@ -257,15 +258,42 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         );
 
         $event = (string) ($this->payload['event'] ?? '');
+        $compose = app(ComposeRequirementLifecycleMail::class);
+        $slug = $compose->slugForLifecycleEvent($event);
+        if ($slug === null) {
+            $this->skip('unknown_event');
+
+            return;
+        }
+
+        $template = $compose->findEnabled($slug);
+        if ($template === null) {
+            $this->skip('template_disabled_or_missing');
+
+            return;
+        }
+
+        $requirementUrl = $this->requirementUrl($requirement);
+        $placeholders = $compose->lifecyclePlaceholders(
+            requirement: $requirement,
+            requirementUrl: $requirementUrl,
+            submitterName: $submitterName,
+        );
+        $subject = $compose->render($template->subject, $placeholders);
+        $introMessage = trim($compose->render($template->body_html, $placeholders));
+
         $mailable = new RequirementSubmittedForApprovalMail(
-            subjectLine: $event === RequirementLifecycleEmailPayload::EVENT_REASSIGNED
-                ? "Requirement {$requirement->requirement_number} assigned for approval"
-                : "Requirement {$requirement->requirement_number} awaiting approval",
+            subjectLine: $subject,
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
             submitterName: $submitterName,
             details: $this->commonDetails($requirement),
-            requirementUrl: $this->requirementUrl($requirement),
+            requirementUrl: $requirementUrl,
+            introMessage: $introMessage !== '' ? $introMessage : null,
+            heading: $event === RequirementLifecycleEmailPayload::EVENT_REASSIGNED
+                ? 'Requirement assigned for approval'
+                : 'Requirement pending approval',
+            includeCompanyFooter: (bool) $template->include_company_footer,
         );
 
         $this->sendMail($toEmail, $ccEmails, $mailable, $requirement);
@@ -309,14 +337,32 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         );
         $approvedAtFormatted = $this->formatEventOccurredAt();
 
+        $compose = app(ComposeRequirementLifecycleMail::class);
+        $template = $compose->findEnabled(ComposeRequirementLifecycleMail::SLUG_APPROVED);
+        if ($template === null) {
+            $this->skip('template_disabled_or_missing');
+
+            return;
+        }
+
+        $requirementUrl = $this->requirementUrl($requirement);
+        $placeholders = $compose->lifecyclePlaceholders(
+            requirement: $requirement,
+            requirementUrl: $requirementUrl,
+            approverName: $approverName,
+            approvedAtFormatted: $approvedAtFormatted,
+        );
+
         $mailable = new RequirementApprovedMail(
-            subjectLine: "Requirement {$requirement->requirement_number} approved",
+            subjectLine: $compose->render($template->subject, $placeholders),
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
             approverName: $approverName,
             approvedAtFormatted: $approvedAtFormatted,
             details: $this->commonDetails($requirement),
-            requirementUrl: $this->requirementUrl($requirement),
+            requirementUrl: $requirementUrl,
+            introMessage: trim($compose->render($template->body_html, $placeholders)) ?: null,
+            includeCompanyFooter: (bool) $template->include_company_footer,
         );
 
         $this->sendMail($toEmail, $ccEmails, $mailable, $requirement);
@@ -360,14 +406,32 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         );
         $returnReason = (string) ($this->payload['return_reason'] ?? '');
 
+        $compose = app(ComposeRequirementLifecycleMail::class);
+        $template = $compose->findEnabled(ComposeRequirementLifecycleMail::SLUG_RETURNED);
+        if ($template === null) {
+            $this->skip('template_disabled_or_missing');
+
+            return;
+        }
+
+        $requirementUrl = $this->requirementUrl($requirement);
+        $placeholders = $compose->lifecyclePlaceholders(
+            requirement: $requirement,
+            requirementUrl: $requirementUrl,
+            recruiterName: $recruiterName,
+            returnReason: $returnReason,
+        );
+
         $mailable = new RequirementReturnedMail(
-            subjectLine: "Requirement {$requirement->requirement_number} returned for changes",
+            subjectLine: $compose->render($template->subject, $placeholders),
             organizationName: $this->organizationName($requirement),
             requirementNumber: (string) $requirement->requirement_number,
             recruiterName: $recruiterName,
             returnReason: $returnReason,
             details: $this->commonDetails($requirement),
-            requirementUrl: $this->requirementUrl($requirement),
+            requirementUrl: $requirementUrl,
+            introMessage: trim($compose->render($template->body_html, $placeholders)) ?: null,
+            includeCompanyFooter: (bool) $template->include_company_footer,
         );
 
         $this->sendMail($toEmail, $ccEmails, $mailable, $requirement);
