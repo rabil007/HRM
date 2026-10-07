@@ -71,6 +71,12 @@ describe('requirement show layout structure', () => {
         assert.ok(!formSource.includes('Request Received Date'));
         assert.match(formSource, /data-requirement-field="client_id"/);
         assert.match(formSource, /data-requirement-field="project_id"/);
+        assert.match(formSource, /data-requirement-field="assigned_to"/);
+        assert.match(
+            formSource,
+            /data-requirement-field=\{`positions\.\$\{index\}\.position_id`\}/,
+        );
+        assert.ok(!formSource.includes('Submission readiness'));
         assert.ok(
             formSource.indexOf('<CreatableSelect') <
                 formSource.indexOf('data-requirement-field="project_id"'),

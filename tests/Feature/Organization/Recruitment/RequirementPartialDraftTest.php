@@ -631,3 +631,223 @@ test('submit fails when position belongs to another company', function () {
         ->post("/organization/recruitment/requirements/{$req->id}/submit")
         ->assertSessionHasErrors(['positions.0.position_id']);
 });
+
+test('submit fails when project becomes inactive after draft save', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->project->update(['is_active' => false]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['project_id']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft)
+        ->and($req->fresh()->submitted_at)->toBeNull();
+});
+
+test('submit fails when project is soft-deleted after draft save', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->project->delete();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['project_id']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});
+
+test('submit fails when project is no longer linked to the selected client', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->project->clients()->sync([]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['project_id']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});
+
+test('submit fails when position becomes inactive after draft save', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->position->update(['status' => 'inactive']);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['positions.0.position_id']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});
+
+test('submit fails when position is soft-deleted after draft save', function () {
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post('/organization/recruitment/requirements', [
+            'client_id' => $this->client->id,
+            'project_id' => $this->project->id,
+            'request_received_date' => now()->subDay()->format('Y-m-d'),
+            'required_by_date' => now()->addDays(7)->format('Y-m-d'),
+            'priority' => 'normal',
+            'assigned_to' => $this->recruiter->id,
+            'submit_for_approval' => false,
+            'positions' => [
+                [
+                    'position_id' => $this->position->id,
+                    'required_headcount' => 1,
+                    'salary_min' => 4000,
+                    'salary_max' => 6000,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $req = RecruitmentRequirement::query()
+        ->where('company_id', $this->companyA->id)
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->position->delete();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['positions.0.position_id']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});
+
+test('submit fails when stored line headcount is zero bypassing form validation', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-'.now()->year.'-900010',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDay(),
+        'required_by_date' => now()->addDays(7),
+        'priority' => 'normal',
+        'status' => RequirementStatus::Draft,
+        'assigned_to' => $this->recruiter->id,
+        'created_by' => $this->requester->id,
+        'updated_by' => $this->requester->id,
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->position->id,
+        'required_headcount' => 0,
+        'salary_min' => 4000,
+        'salary_max' => 6000,
+        'salary_currency_code' => 'AED',
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/submit")
+        ->assertSessionHasErrors(['positions.0.required_headcount']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Draft);
+});

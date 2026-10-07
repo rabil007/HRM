@@ -54,6 +54,7 @@ import {
     dedupeNotificationRecipientIds,
     firstInvalidRequirementField,
     isRequirementFormDirty,
+    requirementFieldError,
     requirementFormFieldSelector,
     resolveDuplicateDialogSubmitIntent,
 } from '../lib/requirement-form';
@@ -212,10 +213,17 @@ export function RequirementFormSheet({
         return lookup;
     }, [options.positions]);
 
-    const invalidControlClass = (field: string) => {
-        const fieldErrors = errors as Record<string, string | undefined>;
-
-        return fieldErrors[field]
+    const invalidControlClass = (
+        field: string,
+        index?: number,
+        attribute?: string,
+    ) => {
+        return requirementFieldError(
+            errors as Record<string, string | string[] | undefined>,
+            field,
+            index,
+            attribute,
+        )
             ? 'border-destructive ring-1 ring-destructive/40'
             : '';
     };
@@ -1179,7 +1187,10 @@ export function RequirementFormSheet({
                                         </AppSelect>
                                     </div>
 
-                                    <div className="space-y-1.5">
+                                    <div
+                                        className="space-y-1.5"
+                                        data-requirement-field="assigned_to"
+                                    >
                                         <Label className="text-xs font-semibold">
                                             Assigned Recruiter
                                         </Label>
@@ -1189,6 +1200,12 @@ export function RequirementFormSheet({
                                                     ? String(data.assigned_to)
                                                     : 'none'
                                             }
+                                            invalid={Boolean(
+                                                errors.assigned_to,
+                                            )}
+                                            className={invalidControlClass(
+                                                'assigned_to',
+                                            )}
                                             onValueChange={(val) =>
                                                 setData(
                                                     'assigned_to',
@@ -1314,20 +1331,34 @@ export function RequirementFormSheet({
                                             string,
                                             string | undefined
                                         >;
+                                        const positionIdError =
+                                            requirementFieldError(
+                                                anyErrors,
+                                                '',
+                                                index,
+                                                'position_id',
+                                            );
+                                        const headcountError =
+                                            requirementFieldError(
+                                                anyErrors,
+                                                '',
+                                                index,
+                                                'required_headcount',
+                                            );
                                         const minSalaryError =
-                                            anyErrors[
-                                                `positions.${index}.salary_min`
-                                            ] ||
-                                            anyErrors[
-                                                `lines.${index}.salary_min`
-                                            ];
+                                            requirementFieldError(
+                                                anyErrors,
+                                                '',
+                                                index,
+                                                'salary_min',
+                                            );
                                         const maxSalaryError =
-                                            anyErrors[
-                                                `positions.${index}.salary_max`
-                                            ] ||
-                                            anyErrors[
-                                                `lines.${index}.salary_max`
-                                            ];
+                                            requirementFieldError(
+                                                anyErrors,
+                                                '',
+                                                index,
+                                                'salary_max',
+                                            );
 
                                         return (
                                             <div
@@ -1335,7 +1366,10 @@ export function RequirementFormSheet({
                                                 className="group relative rounded-xl border border-border/70 bg-muted/20 p-4 transition-all hover:border-border hover:bg-muted/30"
                                             >
                                                 <div className="grid grid-cols-12 items-start gap-3">
-                                                    <div className="col-span-12 space-y-1.5 sm:col-span-6">
+                                                    <div
+                                                        className="col-span-12 space-y-1.5 sm:col-span-6"
+                                                        data-requirement-field={`positions.${index}.position_id`}
+                                                    >
                                                         <Label className="text-[11px] font-semibold text-muted-foreground">
                                                             Position Title
                                                         </Label>
@@ -1347,6 +1381,14 @@ export function RequirementFormSheet({
                                                                       )
                                                                     : 'none'
                                                             }
+                                                            invalid={Boolean(
+                                                                positionIdError,
+                                                            )}
+                                                            className={invalidControlClass(
+                                                                '',
+                                                                index,
+                                                                'position_id',
+                                                            )}
                                                             disabled={
                                                                 !canEditPositionStructure
                                                             }
@@ -1383,9 +1425,19 @@ export function RequirementFormSheet({
                                                                 ),
                                                             )}
                                                         </AppSelect>
+                                                        {positionIdError && (
+                                                            <p className="text-[11px] text-destructive">
+                                                                {
+                                                                    positionIdError
+                                                                }
+                                                            </p>
+                                                        )}
                                                     </div>
 
-                                                    <div className="col-span-8 space-y-1.5 sm:col-span-4">
+                                                    <div
+                                                        className="col-span-8 space-y-1.5 sm:col-span-4"
+                                                        data-requirement-field={`positions.${index}.required_headcount`}
+                                                    >
                                                         <Label className="text-[11px] font-semibold text-muted-foreground">
                                                             Required Headcount
                                                         </Label>
@@ -1400,12 +1452,7 @@ export function RequirementFormSheet({
                                                                 line.required_headcount
                                                             }
                                                             aria-invalid={Boolean(
-                                                                anyErrors[
-                                                                    `positions.${index}.required_headcount`
-                                                                ] ||
-                                                                anyErrors[
-                                                                    `lines.${index}.required_headcount`
-                                                                ],
+                                                                headcountError,
                                                             )}
                                                             onChange={(e) =>
                                                                 handlePositionChange(
@@ -1418,17 +1465,17 @@ export function RequirementFormSheet({
                                                                     ) || 1,
                                                                 )
                                                             }
-                                                            className={
-                                                                anyErrors[
-                                                                    `positions.${index}.required_headcount`
-                                                                ] ||
-                                                                anyErrors[
-                                                                    `lines.${index}.required_headcount`
-                                                                ]
-                                                                    ? 'border-destructive ring-1 ring-destructive/40'
-                                                                    : ''
-                                                            }
+                                                            className={invalidControlClass(
+                                                                '',
+                                                                index,
+                                                                'required_headcount',
+                                                            )}
                                                         />
+                                                        {headcountError && (
+                                                            <p className="text-[11px] text-destructive">
+                                                                {headcountError}
+                                                            </p>
+                                                        )}
                                                     </div>
 
                                                     {canEditPositionStructure && (
@@ -1507,7 +1554,10 @@ export function RequirementFormSheet({
                                                         </div>
 
                                                         <div className="grid grid-cols-12 gap-3">
-                                                            <div className="col-span-12 space-y-1 sm:col-span-6">
+                                                            <div
+                                                                className="col-span-12 space-y-1 sm:col-span-6"
+                                                                data-requirement-field={`positions.${index}.salary_min`}
+                                                            >
                                                                 <Label className="text-[11px] font-medium text-muted-foreground">
                                                                     Minimum
                                                                     Salary (
@@ -1524,6 +1574,9 @@ export function RequirementFormSheet({
                                                                         line.salary_min ??
                                                                         ''
                                                                     }
+                                                                    aria-invalid={Boolean(
+                                                                        minSalaryError,
+                                                                    )}
                                                                     onChange={(
                                                                         e,
                                                                     ) =>
@@ -1537,7 +1590,7 @@ export function RequirementFormSheet({
                                                                     }
                                                                     className={
                                                                         minSalaryError
-                                                                            ? 'border-destructive'
+                                                                            ? 'border-destructive ring-1 ring-destructive/40'
                                                                             : ''
                                                                     }
                                                                 />
@@ -1550,7 +1603,10 @@ export function RequirementFormSheet({
                                                                 )}
                                                             </div>
 
-                                                            <div className="col-span-12 space-y-1 sm:col-span-6">
+                                                            <div
+                                                                className="col-span-12 space-y-1 sm:col-span-6"
+                                                                data-requirement-field={`positions.${index}.salary_max`}
+                                                            >
                                                                 <Label className="text-[11px] font-medium text-muted-foreground">
                                                                     Maximum
                                                                     Salary (
@@ -1567,6 +1623,9 @@ export function RequirementFormSheet({
                                                                         line.salary_max ??
                                                                         ''
                                                                     }
+                                                                    aria-invalid={Boolean(
+                                                                        maxSalaryError,
+                                                                    )}
                                                                     onChange={(
                                                                         e,
                                                                     ) =>
@@ -1580,7 +1639,7 @@ export function RequirementFormSheet({
                                                                     }
                                                                     className={
                                                                         maxSalaryError
-                                                                            ? 'border-destructive'
+                                                                            ? 'border-destructive ring-1 ring-destructive/40'
                                                                             : ''
                                                                     }
                                                                 />

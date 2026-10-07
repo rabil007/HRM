@@ -17,6 +17,98 @@ export const REQUIREMENT_FORM_FIELD_ORDER = [
 export type RequirementFormFieldKey =
     (typeof REQUIREMENT_FORM_FIELD_ORDER)[number];
 
+const POSITION_LINE_ATTRIBUTE_ORDER = [
+    'position_id',
+    'required_headcount',
+    'salary_min',
+    'salary_max',
+] as const;
+
+export type RequirementPositionLineAttribute =
+    (typeof POSITION_LINE_ATTRIBUTE_ORDER)[number];
+
+export function parseRequirementPositionFieldError(
+    key: string,
+): { index: number; attribute: string; prefix: 'positions' | 'lines' } | null {
+    const match = /^(positions|lines)\.(\d+)\.([a-z_]+)$/.exec(key);
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        prefix: match[1] as 'positions' | 'lines',
+        index: Number(match[2]),
+        attribute: match[3],
+    };
+}
+
+export function requirementFieldError(
+    errors: Record<string, string | string[] | undefined>,
+    field: string,
+    index?: number,
+    attribute?: string,
+): string | undefined {
+    const direct = errors[field];
+
+    if (typeof direct === 'string') {
+        return direct;
+    }
+
+    if (index === undefined || attribute === undefined) {
+        return undefined;
+    }
+
+    const positionsKey = `positions.${index}.${attribute}`;
+    const linesKey = `lines.${index}.${attribute}`;
+    const nested = errors[positionsKey] ?? errors[linesKey] ?? undefined;
+
+    return typeof nested === 'string' ? nested : undefined;
+}
+
+function findFirstNestedPositionError(
+    errors: Record<string, string | string[] | undefined>,
+): string | null {
+    const keys = Object.keys(errors).filter((key) => {
+        if (!errors[key]) {
+            return false;
+        }
+
+        return key.startsWith('positions.') || key.startsWith('lines.');
+    });
+
+    if (keys.length === 0) {
+        return null;
+    }
+
+    keys.sort((left, right) => {
+        const parsedLeft = parseRequirementPositionFieldError(left);
+        const parsedRight = parseRequirementPositionFieldError(right);
+
+        if (!parsedLeft || !parsedRight) {
+            return left.localeCompare(right);
+        }
+
+        if (parsedLeft.index !== parsedRight.index) {
+            return parsedLeft.index - parsedRight.index;
+        }
+
+        const leftOrder = POSITION_LINE_ATTRIBUTE_ORDER.indexOf(
+            parsedLeft.attribute as RequirementPositionLineAttribute,
+        );
+        const rightOrder = POSITION_LINE_ATTRIBUTE_ORDER.indexOf(
+            parsedRight.attribute as RequirementPositionLineAttribute,
+        );
+
+        return (
+            (leftOrder === -1 ? 99 : leftOrder) -
+            (rightOrder === -1 ? 99 : rightOrder)
+        );
+    });
+
+    return keys[0] ?? null;
+}
+
 export type RequirementFormSnapshot = {
     client_id: string;
     project_id: string;
@@ -109,19 +201,25 @@ export function isRequirementFormDirty(
 
 export function firstInvalidRequirementField(
     errors: Record<string, string | string[] | undefined>,
-): RequirementFormFieldKey | null {
+): string | null {
     for (const field of REQUIREMENT_FORM_FIELD_ORDER) {
+        if (field === 'positions') {
+            if (errors.positions) {
+                return 'positions';
+            }
+
+            const nested = findFirstNestedPositionError(errors);
+
+            if (nested) {
+                return nested;
+            }
+
+            continue;
+        }
+
         if (errors[field]) {
             return field;
         }
-    }
-
-    const nestedPositionError = Object.keys(errors).find(
-        (key) => key.startsWith('positions.') || key.startsWith('lines.'),
-    );
-
-    if (nestedPositionError) {
-        return 'positions';
     }
 
     const nestedRecipientError = Object.keys(errors).find((key) =>
@@ -135,9 +233,15 @@ export function firstInvalidRequirementField(
     return null;
 }
 
-export function requirementFormFieldSelector(
-    field: RequirementFormFieldKey,
-): string {
+export function requirementFormFieldSelector(field: string): string {
+    const nested = parseRequirementPositionFieldError(field);
+
+    if (nested) {
+        const { index, attribute } = nested;
+
+        return `[data-requirement-field="positions.${index}.${attribute}"], [data-requirement-field="lines.${index}.${attribute}"]`;
+    }
+
     if (field === 'positions') {
         return '[data-requirement-field="positions"]';
     }

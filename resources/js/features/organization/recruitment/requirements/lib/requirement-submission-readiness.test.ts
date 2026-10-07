@@ -163,7 +163,135 @@ describe('requirement submission readiness', () => {
 
         assert.equal(
             errors['positions.0.salary_min'],
-            'Complete a valid salary range for Rigger.',
+            'Minimum salary is required before submitting.',
+        );
+        assert.equal(
+            errors['positions.0.salary_max'],
+            'Maximum salary is required before submitting.',
+        );
+    });
+
+    it('maps missing salary minimum to salary_min when maximum is present', () => {
+        const positions = [
+            {
+                position_id: '4',
+                required_headcount: 1,
+                salary_min: '',
+                salary_max: '8000',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(
+            errors['positions.0.salary_min'],
+            'Minimum salary is required before submitting.',
+        );
+        assert.equal(errors['positions.0.salary_max'], undefined);
+    });
+
+    it('maps missing salary maximum to salary_max when minimum is present', () => {
+        const positions = [
+            {
+                position_id: '4',
+                required_headcount: 1,
+                salary_min: '5000',
+                salary_max: '',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(errors['positions.0.salary_min'], undefined);
+        assert.equal(
+            errors['positions.0.salary_max'],
+            'Maximum salary is required before submitting.',
+        );
+    });
+
+    it('maps invalid salary order to salary_max', () => {
+        const positions = [
+            {
+                position_id: '4',
+                required_headcount: 1,
+                salary_min: '9000',
+                salary_max: '5000',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(
+            errors['positions.0.salary_max'],
+            'Maximum salary must be greater than or equal to minimum salary.',
+        );
+    });
+
+    it('maps missing assigned recruiter to assigned_to', () => {
+        const positions = [
+            {
+                position_id: '4',
+                required_headcount: 1,
+                salary_min: '1000',
+                salary_max: '2000',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(errors.assigned_to, 'Assign an approving recruiter.');
+    });
+
+    it('maps incomplete position row to position_id on the first blank line', () => {
+        const positions = [
+            {
+                position_id: '',
+                required_headcount: 1,
+                salary_min: '',
+                salary_max: '',
+            },
+        ];
+        const summary = evaluateRequirementFormSubmissionReadiness({
+            clientId: '1',
+            requestReceivedDate: '2026-10-01',
+            requiredByDate: '2026-10-15',
+            assignedTo: '9',
+            positions,
+        });
+
+        const errors = readinessToFormFieldErrors(summary, positions);
+
+        assert.equal(
+            errors['positions.0.position_id'],
+            'At least one active position line is required.',
         );
     });
 
