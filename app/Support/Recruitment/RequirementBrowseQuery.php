@@ -51,12 +51,22 @@ final class RequirementBrowseQuery
             ->where('company_id', $companyId)
             ->with(RequirementSubmissionReadinessLookup::eagerLoad());
 
-        // Tab scoping
-        match ($currentTab) {
-            'on_hold' => $query->where('status', RequirementStatus::OnHold),
-            'history' => $query->whereIn('status', RequirementStatus::historyListStatuses()),
-            default => $query->whereIn('status', RequirementStatus::activeListStatuses()),
-        };
+        if ($needsAction === 'deadline_extension') {
+            $actorId = $request->user()?->id;
+            if ($actorId !== null) {
+                $query->where('created_by', (int) $actorId)
+                    ->whereIn('status', [RequirementStatus::Open, RequirementStatus::OnHold])
+                    ->whereHas('pendingDeadlineExtension');
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } else {
+            match ($currentTab) {
+                'on_hold' => $query->where('status', RequirementStatus::OnHold),
+                'history' => $query->whereIn('status', RequirementStatus::historyListStatuses()),
+                default => $query->whereIn('status', RequirementStatus::activeListStatuses()),
+            };
+        }
 
         // Search
         if ($search !== '') {
@@ -99,16 +109,6 @@ final class RequirementBrowseQuery
                     ->where('required_by_date', '<', $today->copy()->addDays(8)->toDateString());
             } elseif ($deadlineHealth === 'on_track') {
                 $query->where('required_by_date', '>=', $today->copy()->addDays(8)->toDateString());
-            }
-        }
-
-        if ($needsAction === 'deadline_extension') {
-            $actorId = $request->user()?->id;
-            if ($actorId !== null) {
-                $query->where('created_by', (int) $actorId)
-                    ->whereHas('pendingDeadlineExtension');
-            } else {
-                $query->whereRaw('1 = 0');
             }
         }
 

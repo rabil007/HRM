@@ -97,6 +97,23 @@ function createOpenDeadlineRequirement(object $test, array $overrides = []): Rec
     ], $overrides));
 }
 
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function createDeadlineExtensionRecord(RecruitmentRequirement $requirement, User $requestedBy, array $overrides = []): RecruitmentRequirementDeadlineExtension
+{
+    return RecruitmentRequirementDeadlineExtension::query()->create(array_merge([
+        'company_id' => $requirement->company_id,
+        'recruitment_requirement_id' => $requirement->id,
+        'requested_by' => $requestedBy->id,
+        'initiator' => RequirementDeadlineExtensionInitiator::Recruiter,
+        'old_deadline' => $requirement->required_by_date,
+        'requested_deadline' => now()->addDays(20)->toDateString(),
+        'reason' => 'Need additional sourcing time.',
+        'status' => RequirementDeadlineExtensionStatus::Pending,
+    ], $overrides));
+}
+
 beforeEach(function () {
     Mail::fake();
     (new EmailTemplatesSeeder)->run();
@@ -576,6 +593,158 @@ test('requirement show presents pending extension review props for the requester
         ->assertInertia(fn (Assert $page) => $page
             ->has('requirements.data', 1)
             ->where('requirements.data.0.id', $req->id)
+        );
+});
+
+test('needs my action includes pending deadline extensions for open and on-hold requirements', function () {
+    $open = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0101']);
+    $onHold = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-0102',
+        'status' => RequirementStatus::OnHold,
+    ]);
+    createDeadlineExtensionRecord($open, $this->recruiter);
+    createDeadlineExtensionRecord($onHold, $this->recruiter);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?tab=active&needs_action=deadline_extension')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 2)
+            ->where('requirements.data', function ($rows) use ($open, $onHold) {
+                $ids = collect($rows)->pluck('id')->all();
+
+                return in_array($open->id, $ids, true)
+                    && in_array($onHold->id, $ids, true);
+            })
+        );
+});
+
+test('normal requirement tabs still split open and on-hold requirements', function () {
+    $open = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0103']);
+    $onHold = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-0104',
+        'status' => RequirementStatus::OnHold,
+    ]);
+    createDeadlineExtensionRecord($open, $this->recruiter);
+    createDeadlineExtensionRecord($onHold, $this->recruiter);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?tab=active')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $open->id)
+            ->where('tab_counts.active', 1)
+            ->where('tab_counts.on_hold', 1)
+        );
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?tab=on_hold')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $onHold->id)
+            ->where('tab_counts.active', 1)
+            ->where('tab_counts.on_hold', 1)
+        );
+});
+
+test('needs my action only shows the authenticated requester pending extensions in the current company', function () {
+    $ownOpen = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0105']);
+    $ownOnHold = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-0106',
+        'status' => RequirementStatus::OnHold,
+    ]);
+    createDeadlineExtensionRecord($ownOpen, $this->recruiter);
+    createDeadlineExtensionRecord($ownOnHold, $this->recruiter);
+
+    $otherRequester = createDeadlineExtensionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+    ], [
+        'email' => 'deadline-other-requester@example.com',
+        'name' => 'Other Requester',
+    ]);
+    $otherRequesterRequirement = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-0107',
+        'created_by' => $otherRequester->id,
+    ]);
+    createDeadlineExtensionRecord($otherRequesterRequirement, $this->recruiter);
+
+    $foreignRequirement = createOpenDeadlineRequirement($this, [
+        'company_id' => $this->companyB->id,
+        'requirement_number' => 'REQ-B101',
+        'created_by' => $this->companyBUser->id,
+        'assigned_to' => $this->companyBUser->id,
+    ]);
+    createDeadlineExtensionRecord($foreignRequirement, $this->companyBUser);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?needs_action=deadline_extension&company_id='.$this->companyB->id)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 2)
+            ->where('requirements.data', function ($rows) use ($ownOpen, $ownOnHold, $otherRequesterRequirement, $foreignRequirement) {
+                $ids = collect($rows)->pluck('id')->all();
+
+                return in_array($ownOpen->id, $ids, true)
+                    && in_array($ownOnHold->id, $ids, true)
+                    && ! in_array($otherRequesterRequirement->id, $ids, true)
+                    && ! in_array($foreignRequirement->id, $ids, true);
+            })
+        );
+
+    $this->actingAs($otherRequester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?needs_action=deadline_extension')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $otherRequesterRequirement->id)
+        );
+});
+
+test('needs my action excludes terminal extensions and requirements without a pending request', function () {
+    $approved = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0108']);
+    $rejected = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0109']);
+    $cancelled = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0110']);
+    $withoutPending = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0111']);
+    $pending = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-0112']);
+
+    createDeadlineExtensionRecord($approved, $this->recruiter, [
+        'status' => RequirementDeadlineExtensionStatus::Approved,
+        'decided_by' => $this->requester->id,
+        'decided_at' => now(),
+    ]);
+    createDeadlineExtensionRecord($rejected, $this->recruiter, [
+        'status' => RequirementDeadlineExtensionStatus::Rejected,
+        'decided_by' => $this->requester->id,
+        'decided_at' => now(),
+        'decision_note' => 'Keep the original deadline.',
+    ]);
+    createDeadlineExtensionRecord($cancelled, $this->recruiter, [
+        'status' => RequirementDeadlineExtensionStatus::Cancelled,
+    ]);
+    createDeadlineExtensionRecord($pending, $this->recruiter);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?needs_action=deadline_extension')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('requirements.data', 1)
+            ->where('requirements.data.0.id', $pending->id)
+            ->where('requirements.data', function ($rows) use ($approved, $rejected, $cancelled, $withoutPending) {
+                $ids = collect($rows)->pluck('id')->all();
+
+                return ! in_array($approved->id, $ids, true)
+                    && ! in_array($rejected->id, $ids, true)
+                    && ! in_array($cancelled->id, $ids, true)
+                    && ! in_array($withoutPending->id, $ids, true);
+            })
         );
 });
 
