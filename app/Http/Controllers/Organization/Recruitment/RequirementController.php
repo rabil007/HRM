@@ -250,12 +250,18 @@ class RequirementController extends Controller
 
         $validated = $request->validated();
         $ignoreDuplicateWarning = (bool) ($validated['ignore_duplicate_warning'] ?? false);
+        $lines = is_array($validated['lines'] ?? null) ? $validated['lines'] : [];
+        $clientId = filled($validated['client_id'] ?? null) ? (int) $validated['client_id'] : null;
+        $positionIds = array_values(array_filter(array_map(
+            static fn (array $line): ?int => filled($line['position_id'] ?? null) ? (int) $line['position_id'] : null,
+            $lines,
+        )));
 
-        if (! $ignoreDuplicateWarning) {
-            $positionIds = array_map(fn (array $line): int => (int) $line['position_id'], $validated['lines']);
+        // Only run duplicate detection when enough information exists for a meaningful comparison.
+        if (! $ignoreDuplicateWarning && $clientId !== null && $positionIds !== []) {
             $similar = DuplicateRequirementDetector::findSimilar(
                 $companyId,
-                (int) $validated['client_id'],
+                $clientId,
                 ! empty($validated['project_id']) ? (int) $validated['project_id'] : null,
                 $positionIds,
             );

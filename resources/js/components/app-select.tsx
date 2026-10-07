@@ -28,6 +28,7 @@ export type AppSelectProps = {
     disabled?: boolean;
     size?: 'default' | 'sm';
     className?: string;
+    invalid?: boolean;
     children: React.ReactNode;
 };
 
@@ -110,6 +111,7 @@ export function AppSelect({
     disabled = false,
     size = 'default',
     className,
+    invalid = false,
     children,
 }: AppSelectProps): React.ReactElement {
     const [open, setOpen] = React.useState(false);
@@ -153,6 +155,7 @@ export function AppSelect({
                     type="button"
                     role="combobox"
                     aria-expanded={open}
+                    aria-invalid={invalid || undefined}
                     disabled={disabled}
                     data-slot="app-select-trigger"
                     className={triggerClassName}

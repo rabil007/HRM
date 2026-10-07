@@ -1,4 +1,5 @@
 import type { FormPositionLineInput } from '../types';
+import { validateSalaryRange } from './requirement-salary.ts';
 
 export type SubmissionReadinessItem = {
     key: string;
@@ -154,6 +155,20 @@ export function evaluateRequirementFormSubmissionReadiness(input: {
         const positionKey = String(line.position_id);
         const title =
             input.positionTitles?.[positionKey] ?? `Position ${index + 1}`;
+        const headcount = Number(line.required_headcount);
+        const headcountReady = Number.isInteger(headcount) && headcount >= 1;
+
+        items.push(
+            item(
+                `headcount_line_${line.id ?? positionKey}`,
+                `Headcount for ${title}`,
+                headcountReady,
+                headcountReady
+                    ? null
+                    : `Enter a required headcount of at least 1 for ${title}.`,
+            ),
+        );
+
         const ready = salaryReady(line.salary_min, line.salary_max);
 
         items.push(
@@ -197,4 +212,153 @@ export function canShowRequirementSubmitFormAction(
     canSubmitPermission: boolean,
 ): boolean {
     return canSubmitPermission;
+}
+
+function resolveSalaryReadinessFieldErrors(
+    line: FormPositionLineInput,
+    index: number,
+    fallbackMessage: string,
+): Record<string, string> {
+    const validation = validateSalaryRange(
+        line.salary_min,
+        line.salary_max,
+        true,
+    );
+    const mapped: Record<string, string> = {};
+
+    if (validation.minError) {
+        mapped[`positions.${index}.salary_min`] = validation.minError;
+    }
+
+    if (validation.maxError) {
+        mapped[`positions.${index}.salary_max`] = validation.maxError;
+    }
+
+    if (Object.keys(mapped).length === 0) {
+        mapped[`positions.${index}.salary_min`] = fallbackMessage;
+    }
+
+    return mapped;
+}
+
+function resolveReadinessLineMatch(
+    entryKey: string,
+    prefix: 'salary_line_' | 'headcount_line_',
+    positions: FormPositionLineInput[],
+): { line: FormPositionLineInput; index: number } | null {
+    const token = entryKey.slice(prefix.length);
+    const activeIndexes = positions
+        .map((line, index) => ({ line, index }))
+        .filter(({ line }) => Boolean(line.position_id));
+
+    return (
+        activeIndexes.find(
+            ({ line, index }) =>
+                String(line.id ?? '') === token ||
+                String(line.position_id) === token ||
+                String(index) === token,
+        ) ?? null
+    );
+}
+
+/**
+ * Map readiness failures to Inertia/form field keys for inline highlighting.
+ */
+export function readinessToFormFieldErrors(
+    summary: SubmissionReadinessSummary,
+    positions: FormPositionLineInput[] = [],
+): Record<string, string> {
+    const errors: Record<string, string> = {};
+
+    for (const entry of summary.items) {
+        if (entry.ready || !entry.message) {
+            continue;
+        }
+
+        if (entry.key.startsWith('salary_line_')) {
+            const matched = resolveReadinessLineMatch(
+                entry.key,
+                'salary_line_',
+                positions,
+            );
+
+            if (!matched) {
+                if (!errors.positions) {
+                    errors.positions = entry.message;
+                }
+
+                continue;
+            }
+
+            const salaryErrors = resolveSalaryReadinessFieldErrors(
+                matched.line,
+                matched.index,
+                entry.message,
+            );
+
+            for (const [field, message] of Object.entries(salaryErrors)) {
+                if (!errors[field]) {
+                    errors[field] = message;
+                }
+            }
+
+            continue;
+        }
+
+        if (entry.key.startsWith('headcount_line_')) {
+            const matched = resolveReadinessLineMatch(
+                entry.key,
+                'headcount_line_',
+                positions,
+            );
+
+            const field = matched
+                ? `positions.${matched.index}.required_headcount`
+                : 'positions';
+
+            if (!errors[field]) {
+                errors[field] = entry.message;
+            }
+
+            continue;
+        }
+
+        let field: string =
+            {
+                client: 'client_id',
+                request_received_date: 'request_received_date',
+                required_by_date: 'required_by_date',
+                required_by_date_order: 'required_by_date',
+                assigned_recruiter: 'assigned_to',
+                assigned_recruiter_eligible: 'assigned_to',
+                self_approval: 'assigned_to',
+                active_positions: 'positions',
+            }[entry.key] ?? 'status';
+
+        if (entry.key === 'active_positions') {
+            const emptyRowIndex = positions.findIndex(
+                (line) => !line.position_id,
+            );
+
+            if (emptyRowIndex >= 0) {
+                field = `positions.${emptyRowIndex}.position_id`;
+            }
+        }
+
+        if (!errors[field]) {
+            errors[field] = entry.message;
+        }
+    }
+
+    return errors;
+}
+
+export function compactSubmissionAttentionLabel(
+    remainingCount: number,
+): string {
+    if (remainingCount <= 0) {
+        return 'Ready for approval';
+    }
+
+    return `${remainingCount} item${remainingCount === 1 ? '' : 's'} need attention before this requirement can be submitted.`;
 }

@@ -53,7 +53,7 @@ export type RequirementSubmissionReadiness = {
 export type RequirementIndexRow = {
     id: number;
     requirement_number: string;
-    client_id: number;
+    client_id: number | null;
     client_name: string;
     project_id: number | null;
     project_title: string | null;

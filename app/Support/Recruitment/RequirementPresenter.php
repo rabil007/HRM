@@ -98,7 +98,7 @@ final class RequirementPresenter
         return [
             'id' => (int) $requirement->id,
             'requirement_number' => (string) $requirement->requirement_number,
-            'client_id' => (int) $requirement->client_id,
+            'client_id' => $requirement->client_id !== null ? (int) $requirement->client_id : null,
             'client_name' => (string) ($requirement->client?->name ?? '—'),
             'project_id' => $requirement->project_id !== null ? (int) $requirement->project_id : null,
             'project_title' => $requirement->project?->title,

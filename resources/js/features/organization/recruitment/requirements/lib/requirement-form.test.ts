@@ -5,6 +5,8 @@ import {
     dedupeNotificationRecipientIds,
     firstInvalidRequirementField,
     isRequirementFormDirty,
+    requirementFieldError,
+    requirementFormFieldSelector,
     resolveDuplicateDialogSubmitIntent,
 } from './requirement-form.ts';
 
@@ -94,7 +96,29 @@ describe('requirement form helpers', () => {
             firstInvalidRequirementField({
                 'positions.0.required_headcount': 'Min 1',
             }),
-            'positions',
+            'positions.0.required_headcount',
+        );
+        assert.equal(
+            firstInvalidRequirementField({
+                assigned_to: 'Required',
+                'positions.0.position_id': 'Required',
+            }),
+            'assigned_to',
+        );
+        assert.equal(
+            requirementFormFieldSelector('positions.0.position_id'),
+            '[data-requirement-field="positions.0.position_id"], [data-requirement-field="lines.0.position_id"]',
+        );
+        assert.equal(
+            requirementFieldError(
+                {
+                    'lines.1.salary_max': 'Too low',
+                },
+                '',
+                1,
+                'salary_max',
+            ),
+            'Too low',
         );
         assert.equal(
             firstInvalidRequirementField({

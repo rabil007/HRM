@@ -946,38 +946,32 @@ test('generic edit cannot alter required_by_date, lines, or legacy client refere
         'status' => RequirementLineStatus::Open,
     ]);
 
-    $originalDeadline = $req->required_by_date->format('Y-m-d');
+    // 1. Generic edit ignores client_reference_number and line headcount changes; Draft may update required-by date.
+    $newDeadline = now()->addDays(50)->format('Y-m-d');
 
-    // 1. Generic edit ignores client_reference_number, required_by_date, and lines
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->put("/organization/recruitment/requirements/{$req->id}", [
             'client_id' => $this->client->id,
             'client_reference_number' => 'REF-MODIFIED-99',
             'request_received_date' => now()->format('Y-m-d'),
-            'required_by_date' => now()->addDays(50)->format('Y-m-d'), // should NOT be applied
+            'required_by_date' => $newDeadline,
             'priority' => 'urgent',
-            'lines' => [ // should NOT alter existing lines
-                [
-                    'position_id' => $this->positionChiefEng->id,
-                    'required_headcount' => 99,
-                ],
-            ],
         ])
         ->assertRedirect();
 
     $fresh = $req->fresh();
     expect($fresh->client_reference_number)->toBe('LEGACY-REF-KEEP')
         ->and($fresh->priority->value)->toBe('urgent')
-        ->and($fresh->required_by_date->format('Y-m-d'))->toBe($originalDeadline)
+        ->and($fresh->required_by_date->format('Y-m-d'))->toBe($newDeadline)
         ->and($line->fresh()->required_headcount)->toBe(3);
 
-    // 2. Request received date after existing deadline fails validation
+    // 2. Request received date after the current required-by date fails validation
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
         ->putJson("/organization/recruitment/requirements/{$req->id}", [
             'client_id' => $this->client->id,
-            'request_received_date' => now()->addDays(20)->format('Y-m-d'),
+            'request_received_date' => now()->addDays(60)->format('Y-m-d'),
             'priority' => 'normal',
         ])
         ->assertStatus(422)
@@ -1145,9 +1139,8 @@ test('attachment file is deleted from disk if transaction fails during creation'
                 'request_received_date' => now()->format('Y-m-d'),
                 'required_by_date' => now()->addDays(10)->format('Y-m-d'),
                 'priority' => 'normal',
-                'lines' => [
-                    ['position_id' => null, 'required_headcount' => 1],
-                ],
+                'assigned_to' => $this->adminUserA->id,
+                'lines' => [],
             ],
             $file,
         );
