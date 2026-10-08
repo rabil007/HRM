@@ -268,16 +268,24 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
 
         $createEmployee->handle(
             $request->validated(),
             $companyId,
-            $request->user()?->id,
+            $user?->id,
             $request->file('image'),
         );
 
+        // Create-only users cannot open the employee directory (employees.view).
+        if ($user !== null && $user->can('employees.view')) {
+            return redirect()
+                ->route('organization.employees')
+                ->with('success', 'Employee created successfully.');
+        }
+
         return redirect()
-            ->route('organization.employees')
+            ->route('organization.employees.create')
             ->with('success', 'Employee created successfully.');
     }
 

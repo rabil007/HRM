@@ -457,3 +457,297 @@ test('department-restricted creator must select a department before finalizing',
 
     expect(Employee::query()->findOrFail($employeeId)->employee_no)->toStartWith('DRAFT-');
 });
+
+test('creator can resume owned draft that remains in an authorized department', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('resume-auth-dept');
+    $this->actingAs($user);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine Auth',
+        'code' => 'MARA',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+    restrictUserToDepartments($user, $company, [$department->id]);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'In Scope Draft',
+        'idempotency_key' => 'owner-key-mmmmmmmm',
+    ])->assertOk();
+    $employeeId = (int) $ensure->json('employee.id');
+
+    Employee::query()->whereKey($employeeId)->update(['department_id' => $department->id]);
+
+    $this->get("/organization/employees/create?employee_id={$employeeId}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.id', $employeeId)
+            ->where('employee.name', 'In Scope Draft'));
+});
+
+test('creator cannot resume owned draft after department becomes unauthorized', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('resume-unauth-dept');
+    $this->actingAs($user);
+
+    $allowed = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine Keep',
+        'code' => 'MARK',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    $denied = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Deny',
+        'code' => 'OFFD',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+    restrictUserToDepartments($user, $company, [$allowed->id]);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'Moved Draft',
+        'idempotency_key' => 'owner-key-nnnnnnnn',
+    ])->assertOk();
+    $employeeId = (int) $ensure->json('employee.id');
+
+    Employee::query()->whereKey($employeeId)->update(['department_id' => $denied->id]);
+
+    $this->get("/organization/employees/create?employee_id={$employeeId}")
+        ->assertForbidden();
+});
+
+test('creator cannot modify owned draft after department becomes unauthorized', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('mut-unauth-dept');
+    $this->actingAs($user);
+
+    $allowed = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine Mut',
+        'code' => 'MARM',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    $denied = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Mut',
+        'code' => 'OFFM',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+    restrictUserToDepartments($user, $company, [$allowed->id]);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'Locked Draft',
+        'idempotency_key' => 'owner-key-oooooooo',
+    ])->assertOk();
+    $employeeId = (int) $ensure->json('employee.id');
+
+    Employee::query()->whereKey($employeeId)->update(['department_id' => $denied->id]);
+
+    $this->put("/organization/employees/{$employeeId}", [
+        'employee_no' => 'LOCKED-1',
+        'name' => 'Locked Draft',
+        'department_id' => $allowed->id,
+    ])->assertNotFound();
+
+    expect(Employee::query()->findOrFail($employeeId)->employee_no)->toStartWith('DRAFT-');
+});
+
+test('employees.update cannot modify owned draft outside department scope via ownership', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('upd-bypass');
+    $this->actingAs($user);
+
+    $allowed = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine Upd',
+        'code' => 'MARU',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    $denied = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Upd',
+        'code' => 'OFFU',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.create']);
+    restrictUserToDepartments($user, $company, [$allowed->id]);
+
+    $draft = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DRAFT-UPDBYP01',
+        'name' => 'Updater Owned',
+        'department_id' => $denied->id,
+        'provisional_created_by' => $user->id,
+    ]);
+
+    $this->put("/organization/employees/{$draft->id}", [
+        'employee_no' => 'BYPASS-1',
+        'name' => 'Updater Owned',
+        'department_id' => $allowed->id,
+    ])->assertNotFound();
+
+    expect($draft->fresh()->employee_no)->toBe('DRAFT-UPDBYP01');
+});
+
+test('unrestricted updater can modify an in-scope provisional draft', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('upd-ok');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+
+    $draft = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DRAFT-UPDOK001',
+        'name' => 'Updater Draft',
+        'provisional_created_by' => null,
+    ]);
+
+    $this->put("/organization/employees/{$draft->id}", [
+        'employee_no' => 'UPD-OK-1',
+        'name' => 'Updater Draft',
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($draft->fresh()->employee_no)->toBe('UPD-OK-1');
+});
+
+test('successful create-only finalize returns a blank create page without prior employee props', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('fresh-create');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'Will Finalize',
+        'idempotency_key' => 'owner-key-pppppppp',
+    ])->assertOk();
+    $employeeId = (int) $ensure->json('employee.id');
+
+    $this->followingRedirects()
+        ->from("/organization/employees/create?employee_id={$employeeId}")
+        ->put("/organization/employees/{$employeeId}", [
+            'employee_no' => 'FRESH-1',
+            'name' => 'Will Finalize',
+        ])
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('mode', 'create')
+            ->where('employee.id', null)
+            ->where('employee.name', '')
+            ->where('employee.employee_no', '')
+            ->where('flash.success', 'Employee created successfully.'));
+
+    expect(Employee::query()->findOrFail($employeeId)->employee_no)->toBe('FRESH-1');
+});
+
+test('failed provisional validation keeps the same draft and does not finalize', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('fail-keep');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'TAKEN-FRESH',
+        'name' => 'Taken',
+    ]);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'Keep Draft',
+        'idempotency_key' => 'owner-key-qqqqqqqq',
+    ])->assertOk();
+    $employeeId = (int) $ensure->json('employee.id');
+    $draftNo = (string) $ensure->json('employee.employee_no');
+
+    $this->from("/organization/employees/create?employee_id={$employeeId}")
+        ->put("/organization/employees/{$employeeId}", [
+            'employee_no' => 'TAKEN-FRESH',
+            'name' => 'Keep Draft Edited',
+        ])
+        ->assertSessionHasErrors('employee_no');
+
+    $fresh = Employee::query()->findOrFail($employeeId);
+
+    expect($fresh->employee_no)->toBe($draftNo)
+        ->and($fresh->name)->toBe('Keep Draft')
+        ->and($fresh->provisional_created_by)->toBe($user->id);
+
+    $this->get("/organization/employees/create?employee_id={$employeeId}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.id', $employeeId)
+            ->where('employee.employee_no', $draftNo));
+});
+
+test('create-only direct store redirects to create not the employee list', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('store-create');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $this->post('/organization/employees', [
+        'employee_no' => 'STORE-CO-1',
+        'name' => 'Direct Create Only',
+        'start_date' => '2026-02-01',
+        'status' => 'active',
+    ])
+        ->assertRedirect(route('organization.employees.create'))
+        ->assertSessionHas('success', 'Employee created successfully.');
+
+    $this->get('/organization/employees')->assertForbidden();
+
+    expect(Employee::query()->where('employee_no', 'STORE-CO-1')->exists())->toBeTrue();
+});
+
+test('create plus view direct store still redirects to the employee list', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('store-view');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.create', 'employees.view']);
+
+    $this->post('/organization/employees', [
+        'employee_no' => 'STORE-VIEW-1',
+        'name' => 'Direct Create View',
+        'start_date' => '2026-02-01',
+        'status' => 'active',
+    ])
+        ->assertRedirect(route('organization.employees'))
+        ->assertSessionHas('success', 'Employee created successfully.');
+});
+
+test('unauthorized direct store remains forbidden', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('store-deny');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->post('/organization/employees', [
+        'employee_no' => 'STORE-DENY-1',
+        'name' => 'Should Fail',
+        'start_date' => '2026-02-01',
+        'status' => 'active',
+    ])->assertForbidden();
+
+    expect(Employee::query()->where('employee_no', 'STORE-DENY-1')->exists())->toBeFalse();
+});
+
+test('failed direct store validation does not create an employee', function () {
+    ['user' => $user, 'company' => $company] = makeProvisionalOwnershipFixtures('store-fail');
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $this->from('/organization/employees/create')
+        ->post('/organization/employees', [
+            'employee_no' => '',
+            'name' => 'Missing Number',
+            'start_date' => '2026-02-01',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors('employee_no');
+
+    expect(Employee::query()->where('name', 'Missing Number')->exists())->toBeFalse();
+});

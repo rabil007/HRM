@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { toast } from '@/lib/toast';
@@ -11,6 +11,7 @@ import {
     isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
 } from '@/pages/organization/_lib/employee-profile-form-state';
+import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
@@ -45,6 +46,7 @@ export function useEmployeeProfileForm(
             | Record<string, TemplateFieldConfig>
             | undefined;
         listQuery?: Record<string, string>;
+        isCreateMode?: boolean;
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
@@ -52,6 +54,8 @@ export function useEmployeeProfileForm(
         Set<string>
     >(() => new Set());
     const ensureEmployee = options?.ensureEmployee;
+    const isCreateMode = options?.isCreateMode ?? false;
+    const previousEmployeeIdRef = useRef<number | null>(employee.id);
 
     const initialPersonal = useMemo(
         () => buildEmployeeProfileFormInitial(employee),
@@ -61,6 +65,28 @@ export function useEmployeeProfileForm(
     );
 
     const form = useForm(initialPersonal);
+
+    // After a successful create redirects to a blank create page, drop the
+    // previous provisional employee's form values. Do not reset when ensure
+    // first assigns an id (null → positive) — that must keep typed fields.
+    useEffect(() => {
+        const previousId = previousEmployeeIdRef.current;
+        previousEmployeeIdRef.current = employee.id;
+
+        const becameFreshCreate =
+            previousId !== null &&
+            previousId > 0 &&
+            (employee.id === null || employee.id <= 0);
+
+        if (!becameFreshCreate) {
+            return;
+        }
+
+        form.setData(initialPersonal);
+        form.clearErrors();
+        setActiveField(null);
+        setMissingRequiredFields(new Set());
+    }, [employee.id, form, initialPersonal]);
 
     const isDirty = useMemo(() => {
         if (form.data.image instanceof File) {
@@ -290,7 +316,9 @@ export function useEmployeeProfileForm(
 
             const visitOptions = {
                 preserveScroll: true,
-                preserveState: true,
+                preserveState: resolveEmployeeProfilePreserveState({
+                    isCreateMode,
+                }),
                 onSuccess: () => {
                     if (hasPendingImage) {
                         form.setData((current) => ({
@@ -344,6 +372,7 @@ export function useEmployeeProfileForm(
             ensureEmployee,
             focusMissingField,
             form,
+            isCreateMode,
             options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,

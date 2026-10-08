@@ -125,6 +125,9 @@ const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
 const EMPTY_DOCUMENT_TYPES: DocumentTypeOption[] = [];
 
 export default function EmployeeDetails(props: EmployeePageProps) {
+    // Key remounts the create page when a finalized draft is cleared (id → null)
+    // or when resuming a different provisional employee, so form/local state
+    // cannot leak across successful create → blank create navigations.
     const pageKey =
         props.mode === 'create'
             ? `create-${props.employee.id ?? 'new'}-${props.selected_profile_template_id ?? 'none'}`
@@ -301,6 +304,7 @@ function EmployeeDetailsPage({
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
             listQuery: employee_navigation?.list_query ?? {},
+            isCreateMode,
         },
     );
 

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     canEditEmployeeProfile,
+    isFreshEmployeeCreatePage,
     mergePersistedEmployeeAfterEnsure,
     resolveEmployeeNumberHeaderState,
+    resolveEmployeeProfilePreserveState,
 } from './employee-profile-persisted-state.ts';
 
 describe('persisted employee state after ensure', () => {
@@ -76,6 +78,41 @@ describe('persisted employee state after ensure', () => {
             canEditEmployeeProfile(['employees.create'], {
                 isCreateMode: false,
                 persistedEmployeeNo: 'EMP-1001',
+            }),
+            false,
+        );
+    });
+
+    it('disables preserveState for create-mode saves so blank create remounts cleanly', () => {
+        assert.equal(
+            resolveEmployeeProfilePreserveState({ isCreateMode: true }),
+            false,
+        );
+        assert.equal(
+            resolveEmployeeProfilePreserveState({ isCreateMode: false }),
+            true,
+        );
+    });
+
+    it('detects a fresh create page after successful finalize redirect', () => {
+        assert.equal(
+            isFreshEmployeeCreatePage({
+                isCreateMode: true,
+                employeeId: null,
+            }),
+            true,
+        );
+        assert.equal(
+            isFreshEmployeeCreatePage({
+                isCreateMode: true,
+                employeeId: 42,
+            }),
+            false,
+        );
+        assert.equal(
+            isFreshEmployeeCreatePage({
+                isCreateMode: false,
+                employeeId: null,
             }),
             false,
         );

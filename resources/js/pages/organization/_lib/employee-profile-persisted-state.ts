@@ -92,3 +92,34 @@ export function canEditEmployeeProfile(
         isDraftEmployeeNumber(options.persistedEmployeeNo)
     );
 }
+
+/**
+ * Inertia preserveState for employee profile saves.
+ *
+ * Create-mode successes often redirect to the same React component
+ * (`organization/employee` in create mode). Preserving state would keep the
+ * previous provisional employee id/form values on a blank create screen.
+ * Validation 422 responses do not remount the page, so entered values remain.
+ *
+ * Edit-mode keeps preserveState so successful saves sync without blanking.
+ */
+export function resolveEmployeeProfilePreserveState(options: {
+    isCreateMode: boolean;
+}): boolean {
+    return !options.isCreateMode;
+}
+
+/**
+ * Detect a server-delivered fresh create page after a successful finalize
+ * redirect (placeholder employee, no resume id).
+ */
+export function isFreshEmployeeCreatePage(options: {
+    isCreateMode: boolean;
+    employeeId: number | null | undefined;
+}): boolean {
+    if (!options.isCreateMode) {
+        return false;
+    }
+
+    return options.employeeId === null || options.employeeId === undefined;
+}
