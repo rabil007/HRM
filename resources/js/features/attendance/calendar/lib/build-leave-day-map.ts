@@ -1,4 +1,4 @@
-import type { CalendarLeave } from '../types';
+import type { CalendarLeave } from '../types.ts';
 
 function toIsoDate(date: Date): string {
     const year = date.getFullYear();
