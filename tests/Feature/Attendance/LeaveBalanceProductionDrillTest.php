@@ -66,6 +66,8 @@ test('production mock drill: full leave balance lifecycle with carry forward', f
         'name' => 'Drill Employee',
         'user_id' => $hrUser->id,
     ]);
+    // Full-year annual entitlement for this lifecycle drill (not joining-year pro-rata).
+    $employee->update(['hire_date' => '2026-01-01']);
 
     $approvalContext = prepareLeaveRequestApprovalContext($company, $employee);
 
