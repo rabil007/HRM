@@ -35,19 +35,19 @@ import { useEnsureEmployee } from '@/features/organization/employees/profile/use
 import type { EnsuredEmployee } from '@/features/organization/employees/profile/use-ensure-employee';
 import { actions } from '@/lib/design-system';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
-import { HireDateChangeWarningDialog } from '@/pages/organization/_components/hire-date-change-warning-dialog';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
+import { HireDateChangeWarningDialog } from '@/pages/organization/_components/hire-date-change-warning-dialog';
 import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import {
     canEditEmployeeProfile,
     mergePersistedEmployeeAfterEnsure,
 } from '@/pages/organization/_lib/employee-profile-persisted-state';
-import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type { HireDateChangePreview } from '@/pages/organization/_lib/hire-date-change-preview';
+import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
     DocumentTypeOption,
     EmployeeDetails,
@@ -322,8 +322,7 @@ function EmployeeDetailsPage({
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
             listQuery: employee_navigation?.list_query ?? {},
-            hasAnnualLeaveBalances:
-                hire_date_change.has_annual_leave_balances,
+            hasAnnualLeaveBalances: hire_date_change.has_annual_leave_balances,
             savedHireDate: employee.hire_date ?? null,
             onHireDateWarningRequired: handleHireDateWarningRequired,
         },

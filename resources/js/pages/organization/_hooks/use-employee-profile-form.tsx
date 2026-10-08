@@ -11,12 +11,12 @@ import {
     isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
 } from '@/pages/organization/_lib/employee-profile-form-state';
+import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import {
     fetchHireDateChangePreview,
     hireDateCalendarValueChanged,
-    type HireDateChangePreview,
 } from '@/pages/organization/_lib/hire-date-change-preview';
-import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
+import type { HireDateChangePreview } from '@/pages/organization/_lib/hire-date-change-preview';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
