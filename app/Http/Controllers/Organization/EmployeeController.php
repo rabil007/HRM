@@ -22,12 +22,14 @@ use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\GuardEmployeeStatusTransition;
 use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
+use App\Support\Employees\DraftEmployeeNumber;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeExportFieldRegistry;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\EmployeePagePermissions;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Employees\ProvisionalEmployeeAccess;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
@@ -37,6 +39,7 @@ use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -153,21 +156,27 @@ class EmployeeController extends Controller
                 ->where('company_id', $companyId)
                 ->where('id', $employeeId)
                 ->first();
+            // Treat employee_id as untrusted. Resume create only for the
+            // authenticated user's own provisional draft — never as a bypass
+            // for employees.view or another user's / finalized records.
             abort_unless($employee instanceof Employee, 404);
-            abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
+            abort_unless(
+                ProvisionalEmployeeAccess::canResumeCreate(request()->user(), $employee, $companyId),
+                403,
+            );
             $employee->load([
                 'branch:id,name',
                 'department:id,name',
                 'position:id,title',
-                'position:id,title',
                 'project:id,title',
                 'client:id,name',
-                'manager:id,name,employee_no',
                 'user:id,name,email,avatar',
                 'religionRef:id,name',
                 'genderRef:id,name',
                 'visaTypeRef:id,name',
                 'companyVisaTypeRef:id,name',
+                'approvalLocations:id,name',
+                'sssaOptions:id,name',
                 'nationalityRef:id,name,code',
                 'bankAccounts.bank:id,name',
                 'primaryBankAccount.bank:id,name',
@@ -186,14 +195,49 @@ class EmployeeController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
-
-        $employee = $createEmployeeFromName->handle(
-            $validated['name'],
-            $companyId,
-            isset($validated['employee_profile_template_id'])
-                ? (int) $validated['employee_profile_template_id']
-                : null,
+        $user = $request->user();
+        $userId = $user?->id;
+        $ensureKey = CreateEmployeeFromName::normalizeEnsureKey(
+            isset($validated['idempotency_key']) ? (string) $validated['idempotency_key'] : null,
         );
+
+        if ($userId !== null && $ensureKey !== null) {
+            $existing = $this->findOwnedProvisionalByEnsureKey($companyId, (int) $userId, $ensureKey);
+
+            if ($existing instanceof Employee) {
+                return response()->json([
+                    'employee' => [
+                        'id' => $existing->id,
+                        'name' => $existing->name,
+                        'employee_no' => $existing->employee_no,
+                    ],
+                ]);
+            }
+        }
+
+        try {
+            $employee = $createEmployeeFromName->handle(
+                $validated['name'],
+                $companyId,
+                isset($validated['employee_profile_template_id'])
+                    ? (int) $validated['employee_profile_template_id']
+                    : null,
+                $userId !== null ? (int) $userId : null,
+                $ensureKey,
+            );
+        } catch (UniqueConstraintViolationException $exception) {
+            if ($userId === null || $ensureKey === null) {
+                throw $exception;
+            }
+
+            $existing = $this->findOwnedProvisionalByEnsureKey($companyId, (int) $userId, $ensureKey);
+
+            if (! $existing instanceof Employee) {
+                throw $exception;
+            }
+
+            $employee = $existing;
+        }
 
         return response()->json([
             'employee' => [
@@ -224,24 +268,38 @@ class EmployeeController extends Controller
     public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
 
         $createEmployee->handle(
             $request->validated(),
             $companyId,
-            $request->user()?->id,
+            $user?->id,
             $request->file('image'),
         );
 
+        // Create-only users cannot open the employee directory (employees.view).
+        if ($user !== null && $user->can('employees.view')) {
+            return redirect()
+                ->route('organization.employees')
+                ->with('success', 'Employee created successfully.');
+        }
+
         return redirect()
-            ->route('organization.employees')
+            ->route('organization.employees.create')
             ->with('success', 'Employee created successfully.');
     }
 
     public function update(UpdateEmployeeRequest $request, Employee $employee)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
         abort_unless((int) $employee->company_id === $companyId, 404);
-        abort_unless(EmployeeVisibilityScope::canAccess(request()->user(), $employee, $companyId), 404);
+        abort_unless(
+            ProvisionalEmployeeAccess::canAccessForProfileMutation($user, $employee, $companyId),
+            404,
+        );
+
+        $wasProvisional = DraftEmployeeNumber::isDraft($employee->employee_no);
 
         $employee->loadMissing('employeeProfileTemplate');
 
@@ -255,6 +313,30 @@ class EmployeeController extends Controller
             $validated,
         );
         $data['company_id'] = $companyId;
+
+        // Defense in depth: never persist an empty/null employee number even if
+        // a template or partial payload somehow bypasses required validation.
+        if (array_key_exists('employee_no', $data)) {
+            $employeeNo = is_string($data['employee_no']) || is_numeric($data['employee_no'])
+                ? trim((string) $data['employee_no'])
+                : '';
+
+            if ($employeeNo === '') {
+                unset($data['employee_no']);
+            } else {
+                $data['employee_no'] = $employeeNo;
+            }
+        }
+
+        // Drop ensure idempotency key once the official number is assigned so
+        // the key cannot be reused to mutate another employee's record.
+        if (
+            $wasProvisional
+            && array_key_exists('employee_no', $data)
+            && ! DraftEmployeeNumber::isDraft($data['employee_no'])
+        ) {
+            $data['provisional_ensure_key'] = null;
+        }
 
         if ($request->hasFile('image')) {
             if ($employee->image) {
@@ -339,12 +421,41 @@ class EmployeeController extends Controller
 
         $listQuery = EmployeeDirectoryFilters::listQueryFromRequest($request);
 
+        $canViewProfile = $user !== null
+            && $user->can('employees.view')
+            && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
+
+        if ($canViewProfile) {
+            return redirect()
+                ->route('organization.employees.show', array_merge(
+                    ['employee' => $employee],
+                    $listQuery,
+                ))
+                ->with('success', $wasProvisional
+                    ? 'Employee created successfully.'
+                    : 'Employee updated successfully.');
+        }
+
+        // Create-only (or otherwise unable to view) users must not land on a 403
+        // profile page after a successful save. Keep confirmation minimal.
         return redirect()
-            ->route('organization.employees.show', array_merge(
-                ['employee' => $employee],
-                $listQuery,
-            ))
-            ->with('success', 'Employee updated successfully.');
+            ->route('organization.employees.create')
+            ->with('success', $wasProvisional
+                ? 'Employee created successfully.'
+                : 'Employee updated successfully.');
+    }
+
+    private function findOwnedProvisionalByEnsureKey(
+        int $companyId,
+        int $userId,
+        string $ensureKey,
+    ): ?Employee {
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->where('provisional_created_by', $userId)
+            ->where('provisional_ensure_key', $ensureKey)
+            ->where('employee_no', 'like', 'DRAFT-%')
+            ->first();
     }
 
     public function destroy(Employee $employee)

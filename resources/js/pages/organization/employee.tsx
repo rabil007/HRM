@@ -41,6 +41,10 @@ import { EmployeePersonalTab } from '@/pages/organization/_components/employee-p
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
 import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
+import {
+    canEditEmployeeProfile,
+    mergePersistedEmployeeAfterEnsure,
+} from '@/pages/organization/_lib/employee-profile-persisted-state';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
     DocumentTypeOption,
@@ -121,9 +125,14 @@ const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
 const EMPTY_DOCUMENT_TYPES: DocumentTypeOption[] = [];
 
 export default function EmployeeDetails(props: EmployeePageProps) {
+    // Create-mode key must NOT include employee.id. ensureEmployee / failed-save
+    // redirects promote null → provisional id; keying on that remounts and wipes
+    // entered form values. Successful finalize uses preserveState:'errors' (false
+    // on success) so Inertia remounts a blank create page from server props.
+    // Template changes still remount intentionally.
     const pageKey =
         props.mode === 'create'
-            ? `create-${props.employee.id ?? 'new'}-${props.selected_profile_template_id ?? 'none'}`
+            ? `create-${props.selected_profile_template_id ?? 'none'}`
             : `${props.employee.id}-${props.employee.updated_at}`;
 
     return <EmployeeDetailsPage key={pageKey} {...props} />;
@@ -178,7 +187,21 @@ function EmployeeDetailsPage({
 
     const [localEmployee, setLocalEmployee] = useState(employee);
 
-    const linkedUser = employee.user ?? localEmployee.user;
+    const persistedEmployee = useMemo((): EmployeeDetails => {
+        const serverConfirmed =
+            employee.id !== null &&
+            employee.id === localEmployee.id &&
+            employee.updated_at &&
+            employee.updated_at !== localEmployee.updated_at;
+
+        if (serverConfirmed) {
+            return employee as EmployeeDetails;
+        }
+
+        return localEmployee as EmployeeDetails;
+    }, [employee, localEmployee]);
+
+    const linkedUser = employee.user ?? persistedEmployee.user;
 
     const formDraftRef = useRef({
         name: String(employee.name ?? ''),
@@ -211,25 +234,49 @@ function EmployeeDetailsPage({
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
-    const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
-        setLocalEmployee((current) => ({
-            ...current,
-            id: ensured.id,
-            name: ensured.name,
-            employee_no: ensured.employee_no,
-        }));
-    }, []);
+    const handleEnsured = useCallback(
+        (ensured: EnsuredEmployee) => {
+            setLocalEmployee((current) =>
+                mergePersistedEmployeeAfterEnsure(current, ensured),
+            );
 
-    const canUpdate = isCreateMode
-        ? true
-        : (auth?.permissions ?? []).includes('employees.update');
+            // Persist resume URL so refresh reloads the owned provisional draft.
+            if (typeof window === 'undefined' || !isCreateMode) {
+                return;
+            }
+
+            const search = new URLSearchParams(window.location.search);
+            search.set('employee_id', String(ensured.id));
+
+            if (selectedTemplateId) {
+                search.set('profile_template_id', String(selectedTemplateId));
+            } else {
+                search.delete('profile_template_id');
+            }
+
+            const next = `${window.location.pathname}?${search.toString()}`;
+            const current = `${window.location.pathname}${window.location.search}`;
+
+            if (next !== current) {
+                window.history.replaceState(null, '', next);
+            }
+        },
+        [isCreateMode, selectedTemplateId],
+    );
+
+    const permissions = auth?.permissions ?? [];
+
+    const canUpdate = canEditEmployeeProfile(permissions, {
+        isCreateMode,
+        persistedEmployeeNo: persistedEmployee.employee_no,
+    });
 
     void branches;
     void departments;
     void positions;
 
     const ensureEmployee = useEnsureEmployee({
-        employeeId: localEmployee.id,
+        employeeId: persistedEmployee.id,
         getDraftName: () => formDraftRef.current.name,
         selectedProfileTemplateId: selectedTemplateId,
         onEnsured: handleEnsured,
@@ -251,7 +298,7 @@ function EmployeeDetailsPage({
         removePhoto,
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
-        localEmployee as EmployeeDetails,
+        persistedEmployee,
         canUpdate,
         {
             ensureEmployee: isCreateMode ? ensureEmployee : undefined,
@@ -269,8 +316,7 @@ function EmployeeDetailsPage({
         };
     }, [form.data.name, form.data.employee_no]);
 
-    const canViewLinkedUser = (auth?.permissions ?? []).includes('users.view');
-    const permissions = auth?.permissions ?? [];
+    const canViewLinkedUser = permissions.includes('users.view');
     const canViewAttendanceCalendar = permissions.includes(
         'attendance.leave-requests.view',
     );
@@ -743,7 +789,7 @@ function EmployeeDetailsPage({
                                 can?.change_profile_template ?? false
                             }
                             profileTemplates={profile_templates}
-                            employee={localEmployee}
+                            employee={persistedEmployee}
                             departments={departments ?? []}
                             positions={positions ?? []}
                             projects={projects ?? []}
@@ -772,7 +818,7 @@ function EmployeeDetailsPage({
                             {employee_tabs.personal &&
                             activeTab === 'personal' ? (
                                 <EmployeePersonalTab
-                                    employee={localEmployee}
+                                    employee={persistedEmployee}
                                     countries={countries}
                                     approvalLocations={approval_locations}
                                     sssaOptions={sssa_options}

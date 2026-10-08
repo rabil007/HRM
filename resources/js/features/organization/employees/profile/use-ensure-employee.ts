@@ -1,11 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import {
+    createDedupedEnsureEmployee,
+    createEnsureIdempotencyKey,
+    EnsureEmployeeRequestError,
+    postEnsureEmployee,
+} from '@/features/organization/employees/profile/ensure-employee-client';
+import type { EnsuredEmployee } from '@/features/organization/employees/profile/ensure-employee-client';
 import { toast } from '@/lib/toast';
 
-export type EnsuredEmployee = {
-    id: number;
-    name: string;
-    employee_no: string;
-};
+export type { EnsuredEmployee };
 
 type UseEnsureEmployeeOptions = {
     employeeId: number | null;
@@ -14,67 +17,47 @@ type UseEnsureEmployeeOptions = {
     onEnsured: (employee: EnsuredEmployee) => void;
 };
 
-function csrfToken(): string {
-    const token = document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content');
-
-    return token ?? '';
-}
-
 export function useEnsureEmployee({
     employeeId,
     getDraftName,
     selectedProfileTemplateId,
     onEnsured,
 }: UseEnsureEmployeeOptions): () => Promise<number> {
-    return useCallback(async (): Promise<number> => {
+    const idempotencyKeyRef = useRef<string>(createEnsureIdempotencyKey());
+    const deduperRef = useRef(
+        createDedupedEnsureEmployee((body) => postEnsureEmployee(body)),
+    );
+
+    useEffect(() => {
         if (employeeId !== null && employeeId > 0) {
-            return employeeId;
+            return;
         }
 
-        const name = getDraftName().trim();
+        deduperRef.current.reset();
+        idempotencyKeyRef.current = createEnsureIdempotencyKey();
+    }, [employeeId]);
 
-        if (name === '') {
-            toast.error('Employee name is required before saving.');
-
-            throw new Error('name_required');
-        }
-
-        const response = await fetch('/organization/employees/ensure', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                name,
+    return useCallback(async (): Promise<number> => {
+        try {
+            const ensured = await deduperRef.current.ensure(employeeId, {
+                name: getDraftName(),
                 employee_profile_template_id: selectedProfileTemplateId,
-            }),
-        });
+                idempotency_key: idempotencyKeyRef.current,
+            });
 
-        if (!response.ok) {
-            toast.error('Could not create employee record.');
+            onEnsured(ensured);
 
-            throw new Error('ensure_failed');
+            return ensured.id;
+        } catch (error) {
+            if (error instanceof EnsureEmployeeRequestError) {
+                if (error.reason === 'name_required') {
+                    toast.error('Employee name is required before saving.');
+                } else {
+                    toast.error('Could not create employee record.');
+                }
+            }
+
+            throw error;
         }
-
-        const payload = (await response.json()) as {
-            employee?: EnsuredEmployee;
-        };
-        const ensured = payload.employee;
-
-        if (!ensured?.id) {
-            toast.error('Could not create employee record.');
-
-            throw new Error('ensure_invalid');
-        }
-
-        onEnsured(ensured);
-
-        return ensured.id;
     }, [employeeId, getDraftName, onEnsured, selectedProfileTemplateId]);
 }

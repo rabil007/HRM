@@ -109,9 +109,13 @@ export function buildEmployeeProfileFormInitial(
     };
 }
 
+/** Identity fields templates must never hide from the profile save payload. */
+const LOCKED_EMPLOYEE_PROFILE_FIELDS = new Set(['employee_no', 'name']);
+
 /**
  * Drop employee profile keys hidden by the assigned template. The API marks
  * non-visible fields as prohibited when they are present in the request.
+ * Employee number and name are always kept — the DB requires employee_no.
  */
 export function omitHiddenTemplateEmployeeFields(
     payload: Record<string, unknown>,
@@ -124,6 +128,10 @@ export function omitHiddenTemplateEmployeeFields(
     const result = { ...payload };
 
     for (const [fieldKey, config] of Object.entries(templateEmployeeFields)) {
+        if (LOCKED_EMPLOYEE_PROFILE_FIELDS.has(fieldKey)) {
+            continue;
+        }
+
         if (!config.visible && fieldKey in result) {
             delete result[fieldKey];
         }
@@ -148,9 +156,11 @@ export function transformEmployeeProfileFormData(
               .filter((id) => !Number.isNaN(id))
         : [];
 
+    // Keep empty employee_no as '' (not null) so Laravel required validation
+    // returns a normal 422 instead of a DB integrity 500.
     return omitHiddenTemplateEmployeeFields(
         {
-            employee_no: String(data.employee_no ?? '').trim() || null,
+            employee_no: String(data.employee_no ?? '').trim(),
             name: String(data.name ?? '').trim() || null,
             branch_id: data.branch_id ? Number(data.branch_id) : null,
             department_id: data.department_id

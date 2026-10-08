@@ -71,6 +71,32 @@ test('personal tab visibility is always true when stored false', function () {
     expect($normalized['tabs']['personal']['visible'])->toBeTrue();
 });
 
+test('employee number remains visible and required even when stored as optional or hidden', function () {
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['fields']['employees']['employee_no'] = [
+        'visible' => false,
+        'required' => false,
+    ];
+    $configuration['fields']['employees']['name'] = [
+        'visible' => false,
+        'required' => false,
+    ];
+
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => $configuration,
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+    $normalized = EmployeeProfileTemplateResolver::normalizeForStorage($configuration);
+
+    expect($resolved['fields']['employees']['employee_no']['visible'])->toBeTrue()
+        ->and($resolved['fields']['employees']['employee_no']['required'])->toBeTrue()
+        ->and($resolved['fields']['employees']['name']['visible'])->toBeTrue()
+        ->and($resolved['fields']['employees']['name']['required'])->toBeTrue()
+        ->and($normalized['fields']['employees']['employee_no']['visible'])->toBeTrue()
+        ->and($normalized['fields']['employees']['employee_no']['required'])->toBeTrue();
+});
+
 test('defaults expose position_id once and do not advertise rank_id', function () {
     $defaults = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
     $labels = EmployeeProfileTemplateFieldRegistry::fieldsByTable();

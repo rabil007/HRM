@@ -23,6 +23,9 @@ class StoreEnsureEmployeeRequest extends FormRequest
                 'integer',
                 Rule::exists('employee_profile_templates', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
+            // Scoped to the authenticated user + company on the server; never
+            // grants access to another user's provisional employee.
+            'idempotency_key' => ['nullable', 'string', 'min:16', 'max:64', 'regex:/^[A-Za-z0-9_-]+$/'],
         ];
     }
 }

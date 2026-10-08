@@ -28,6 +28,16 @@ final class EmployeeProfileTemplateRequestRules
         'employee_documents' => ['document_type_id'],
     ];
 
+    /**
+     * Identity fields that templates must never hide or make optional.
+     * The database requires a non-null employee_no; drafts are provisional only.
+     *
+     * @var array<string, list<string>>
+     */
+    public const LOCKED_REQUIRED_FIELDS_BY_TABLE = [
+        'employees' => ['employee_no', 'name'],
+    ];
+
     /** @var array<string, string> */
     private const TABLE_TO_TAB = [
         'employees' => 'personal',
@@ -62,8 +72,17 @@ final class EmployeeProfileTemplateRequestRules
         return EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
     }
 
+    public static function isLockedRequiredField(string $table, string $fieldKey): bool
+    {
+        return in_array($fieldKey, self::LOCKED_REQUIRED_FIELDS_BY_TABLE[$table] ?? [], true);
+    }
+
     public static function isFieldVisible(Employee $employee, string $table, string $fieldKey): bool
     {
+        if (self::isLockedRequiredField($table, $fieldKey)) {
+            return true;
+        }
+
         $resolved = self::resolved($employee);
         $fieldConfig = $resolved['fields'][$table][$fieldKey] ?? null;
 
@@ -76,6 +95,10 @@ final class EmployeeProfileTemplateRequestRules
 
     public static function isFieldRequired(Employee $employee, string $table, string $fieldKey): bool
     {
+        if (self::isLockedRequiredField($table, $fieldKey)) {
+            return true;
+        }
+
         if (! self::isFieldVisible($employee, $table, $fieldKey)) {
             return false;
         }
@@ -302,6 +325,14 @@ final class EmployeeProfileTemplateRequestRules
         $tableFields = $resolved['fields'][$table] ?? [];
 
         foreach (array_keys($validated) as $fieldKey) {
+            if (! is_string($fieldKey)) {
+                continue;
+            }
+
+            if (self::isLockedRequiredField($table, $fieldKey)) {
+                continue;
+            }
+
             if (! array_key_exists($fieldKey, $tableFields)) {
                 continue;
             }
@@ -320,6 +351,10 @@ final class EmployeeProfileTemplateRequestRules
      */
     private static function rulesForField(Employee $employee, string $table, string $fieldKey, array $rules): array
     {
+        if (self::isLockedRequiredField($table, $fieldKey)) {
+            return self::rulesAsRequired($rules);
+        }
+
         if (! self::isFieldVisible($employee, $table, $fieldKey)) {
             return ['prohibited'];
         }

@@ -885,7 +885,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/user', [EmployeeUserController::class, 'store'])->middleware(['can:users.create', 'privileged.2fa'])->name('organization.employees.user.store');
     Route::get('organization/employees/{employee}', [EmployeeController::class, 'show'])->middleware('can:employees.view')->name('organization.employees.show');
     Route::post('organization/employees', [EmployeeController::class, 'store'])->middleware('can:employees.create')->name('organization.employees.store');
-    Route::put('organization/employees/{employee}', [EmployeeController::class, 'update'])->middleware('can:employees.update')->name('organization.employees.update');
+    Route::put('organization/employees/{employee}', [EmployeeController::class, 'update'])->middleware('employee.profile.update')->name('organization.employees.update');
     Route::put('organization/employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->middleware('can:employees.update')->name('organization.employees.status');
     Route::put('organization/employees/{employee}/profile-template', [EmployeeController::class, 'assignProfileTemplate'])->middleware('can:employees.update')->name('organization.employees.profile-template.assign');
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');

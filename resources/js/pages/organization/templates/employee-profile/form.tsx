@@ -30,6 +30,17 @@ type Configuration = {
     fields: Record<string, Record<string, FieldConfig>>;
 };
 
+const LOCKED_EMPLOYEE_IDENTITY_FIELDS = new Set(['employee_no', 'name']);
+
+function isLockedEmployeeIdentityField(
+    table: string,
+    fieldKey: string,
+): boolean {
+    return (
+        table === 'employees' && LOCKED_EMPLOYEE_IDENTITY_FIELDS.has(fieldKey)
+    );
+}
+
 type Registry = {
     tab_order: string[];
     tab_labels: Record<string, string>;
@@ -89,6 +100,10 @@ export default function EmployeeProfileTemplateForm({
         fieldKey: string,
         patch: Partial<FieldConfig>,
     ) => {
+        if (isLockedEmployeeIdentityField(table, fieldKey)) {
+            return;
+        }
+
         setConfiguration((current) => ({
             ...current,
             fields: {
@@ -213,6 +228,15 @@ export default function EmployeeProfileTemplateForm({
     };
 
     const submit = () => {
+        const fields = { ...configuration.fields };
+        const employeeFields = { ...(fields.employees ?? {}) };
+
+        for (const lockedKey of LOCKED_EMPLOYEE_IDENTITY_FIELDS) {
+            employeeFields[lockedKey] = { visible: true, required: true };
+        }
+
+        fields.employees = employeeFields;
+
         form.transform((data) => ({
             ...data,
             configuration_json: JSON.stringify({
@@ -222,6 +246,7 @@ export default function EmployeeProfileTemplateForm({
                     ...configuration.tabs,
                     personal: { visible: true },
                 },
+                fields,
             }),
         }));
 
@@ -781,10 +806,17 @@ function FieldTableBlock({
                 </div>
 
                 {fieldEntries.map(([fieldKey, label]) => {
-                    const field = configuration.fields[table]?.[fieldKey] ?? {
+                    const locked = isLockedEmployeeIdentityField(
+                        table,
+                        fieldKey,
+                    );
+                    const stored = configuration.fields[table]?.[fieldKey] ?? {
                         visible: true,
                         required: false,
                     };
+                    const field = locked
+                        ? { visible: true, required: true }
+                        : stored;
 
                     return (
                         <div
@@ -818,6 +850,11 @@ function FieldTableBlock({
                                             text={label}
                                             query={searchQuery}
                                         />
+                                        {locked ? (
+                                            <span className="ml-2 text-[10px] font-medium tracking-wide text-amber-600 uppercase dark:text-amber-400">
+                                                Always required
+                                            </span>
+                                        ) : null}
                                     </p>
                                     <p className="truncate font-mono text-[10px] text-muted-foreground/40">
                                         <HighlightMatch
@@ -832,6 +869,7 @@ function FieldTableBlock({
                             <div className="col-span-3 flex justify-center">
                                 <Switch
                                     checked={field.visible}
+                                    disabled={locked}
                                     onCheckedChange={(value) =>
                                         setFieldConfig(table, fieldKey, {
                                             visible: value,
@@ -853,7 +891,7 @@ function FieldTableBlock({
                                     )}
                                     <Switch
                                         checked={field.required}
-                                        disabled={!field.visible}
+                                        disabled={locked || !field.visible}
                                         onCheckedChange={(value) =>
                                             setFieldConfig(table, fieldKey, {
                                                 required: value,

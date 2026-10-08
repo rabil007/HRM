@@ -1,8 +1,9 @@
 import { useForm } from '@inertiajs/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { toast } from '@/lib/toast';
+import { isOfficialEmployeeNumberMissing } from '@/pages/organization/_lib/draft-employee-number';
 import {
     buildEmployeeProfileFormInitial,
     buildEmployeeProfileUpdatePayload,
@@ -10,12 +11,14 @@ import {
     isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
 } from '@/pages/organization/_lib/employee-profile-form-state';
+import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import type {
     EmployeeDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
 
 const DEFAULT_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
+const LOCKED_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 
 export type UseEmployeeProfileFormResult = {
     form: any;
@@ -50,6 +53,7 @@ export function useEmployeeProfileForm(
         Set<string>
     >(() => new Set());
     const ensureEmployee = options?.ensureEmployee;
+    const previousEmployeeIdRef = useRef<number | null>(employee.id);
 
     const initialPersonal = useMemo(
         () => buildEmployeeProfileFormInitial(employee),
@@ -59,6 +63,28 @@ export function useEmployeeProfileForm(
     );
 
     const form = useForm(initialPersonal);
+
+    // After a successful create redirects to a blank create page, drop the
+    // previous provisional employee's form values. Do not reset when ensure
+    // first assigns an id (null → positive) — that must keep typed fields.
+    useEffect(() => {
+        const previousId = previousEmployeeIdRef.current;
+        previousEmployeeIdRef.current = employee.id;
+
+        const becameFreshCreate =
+            previousId !== null &&
+            previousId > 0 &&
+            (employee.id === null || employee.id <= 0);
+
+        if (!becameFreshCreate) {
+            return;
+        }
+
+        form.setData(initialPersonal);
+        form.clearErrors();
+        setActiveField(null);
+        setMissingRequiredFields(new Set());
+    }, [employee.id, form, initialPersonal]);
 
     const isDirty = useMemo(() => {
         if (form.data.image instanceof File) {
@@ -91,7 +117,9 @@ export function useEmployeeProfileForm(
             }
         }
 
-        keys.add('name');
+        for (const locked of LOCKED_REQUIRED_FIELDS) {
+            keys.add(locked);
+        }
 
         return keys;
     }, [options?.templateRequiredFields]);
@@ -113,11 +141,17 @@ export function useEmployeeProfileForm(
         const active = new Set<string>();
 
         for (const field of missingRequiredFields) {
-            if (
-                String(
-                    form.data[field as keyof typeof form.data] ?? '',
-                ).trim() === ''
-            ) {
+            const raw = form.data[field as keyof typeof form.data] ?? '';
+
+            if (field === 'employee_no') {
+                if (isOfficialEmployeeNumberMissing(raw)) {
+                    active.add(field);
+                }
+
+                continue;
+            }
+
+            if (String(raw).trim() === '') {
                 active.add(field);
             }
         }
@@ -208,6 +242,18 @@ export function useEmployeeProfileForm(
                         continue;
                     }
 
+                    if (field === 'employee_no') {
+                        if (
+                            isOfficialEmployeeNumberMissing(
+                                form.data.employee_no,
+                            )
+                        ) {
+                            missing.push(field);
+                        }
+
+                        continue;
+                    }
+
                     if (
                         !String(
                             form.data[field as keyof typeof form.data] ?? '',
@@ -268,6 +314,7 @@ export function useEmployeeProfileForm(
 
             const visitOptions = {
                 preserveScroll: true,
+                preserveState: resolveEmployeeProfilePreserveState(),
                 onSuccess: () => {
                     if (hasPendingImage) {
                         form.setData((current) => ({
@@ -282,6 +329,18 @@ export function useEmployeeProfileForm(
                     afterSuccess?.();
                 },
                 onError: (errors: Record<string, string>) => {
+                    const errorKeys = Object.keys(errors ?? {});
+
+                    if (errorKeys.includes('employee_no')) {
+                        setMissingRequiredFields((current) => {
+                            const next = new Set(current);
+                            next.add('employee_no');
+
+                            return next;
+                        });
+                        focusMissingField('employee_no');
+                    }
+
                     const first = Object.values(errors ?? {})[0];
                     toast.error(
                         typeof first === 'string' && first.length

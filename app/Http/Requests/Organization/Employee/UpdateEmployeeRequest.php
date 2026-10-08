@@ -7,7 +7,9 @@ use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Employees\DraftEmployeeNumber;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Employees\ProvisionalEmployeeAccess;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Foundation\Http\FormRequest;
@@ -21,6 +23,11 @@ class UpdateEmployeeRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->prepareEmployeeNumberForValidation();
     }
 
     public function rules(): array
@@ -120,6 +127,8 @@ class UpdateEmployeeRequest extends FormRequest
                 $this->assertDepartmentIsAllowed($validator);
                 $this->assertPendingLeaveAllowsDepartmentMove($validator);
             }
+
+            $this->assertDepartmentRequiredForRestrictedProvisionalCompletion($validator);
         });
     }
 
@@ -162,6 +171,62 @@ class UpdateEmployeeRequest extends FormRequest
 
         if ($departmentId === null || $departmentId === '') {
             $validator->errors()->add('department_id', 'The selected department is not available.');
+
+            return;
+        }
+
+        if ($allowedIds === [] || ! in_array((int) $departmentId, $allowedIds, true)) {
+            $validator->errors()->add('department_id', 'The selected department is not available.');
+        }
+    }
+
+    /**
+     * Department-restricted creators must assign an in-scope department when
+     * finalizing their owned provisional employee. Unrestricted users keep
+     * optional department behavior.
+     */
+    private function assertDepartmentRequiredForRestrictedProvisionalCompletion(Validator $validator): void
+    {
+        $user = $this->user();
+        /** @var Employee|null $employee */
+        $employee = $this->route('employee');
+
+        if ($user === null || ! $employee instanceof Employee) {
+            return;
+        }
+
+        if ($user->can('employees.update')) {
+            return;
+        }
+
+        if (! $user->can('employees.create')) {
+            return;
+        }
+
+        if (! ProvisionalEmployeeAccess::isOwnedBy($user, $employee)) {
+            return;
+        }
+
+        if (! DraftEmployeeNumber::isDraft($employee->employee_no)) {
+            return;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $allowedIds = EmployeeVisibilityScope::allowedDepartmentIds($user, $companyId);
+
+        if ($allowedIds === null) {
+            return;
+        }
+
+        $departmentId = $this->has('department_id')
+            ? $this->input('department_id')
+            : $employee->department_id;
+
+        if ($departmentId === null || $departmentId === '') {
+            $validator->errors()->add(
+                'department_id',
+                'Select an authorized department before completing this employee.',
+            );
 
             return;
         }

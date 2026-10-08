@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\ApplyRememberedSessionLifetimeEarly;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\EnsureCanUpdateEmployeeProfile;
 use App\Http\Middleware\EnsurePlatformAccess;
 use App\Http\Middleware\EnsurePrivilegedTwoFactor;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
@@ -56,6 +57,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'platform' => EnsurePlatformAccess::class,
             'privileged.2fa' => EnsurePrivilegedTwoFactor::class,
+            'employee.profile.update' => EnsureCanUpdateEmployeeProfile::class,
         ]);
 
         $middleware->web(append: [

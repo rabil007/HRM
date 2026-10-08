@@ -46,6 +46,7 @@ import { cn } from '@/lib/utils';
 import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
 import { ChangeEmployeeProfileTemplateDialog } from '@/pages/organization/_components/change-employee-profile-template-dialog';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
+import { resolveEmployeeNumberHeaderState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
 
@@ -276,6 +277,15 @@ export function EmployeeHeaderCard({
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
+
+    const employeeNumberHeader = useMemo(
+        () =>
+            resolveEmployeeNumberHeaderState(
+                employee.employee_no,
+                form.data.employee_no,
+            ),
+        [employee.employee_no, form.data.employee_no],
+    );
 
     const imageSrc = resolveEmployeeImageUrl(employee.image);
     const displayImageSrc = pendingImage
@@ -613,13 +623,14 @@ export function EmployeeHeaderCard({
                         </div>
 
                         <div className="flex flex-col items-center gap-2 md:items-end">
-                            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
+                            <div className="flex flex-wrap items-end justify-center gap-3 md:justify-end">
                                 <EditableHeaderPillTextField
                                     field="employee_no"
+                                    label="Employee No."
+                                    required
                                     value={form.data.employee_no}
                                     displayValue={
-                                        form.data.employee_no ||
-                                        employee.employee_no
+                                        employeeNumberHeader.displayValue
                                     }
                                     activeField={activeField}
                                     setActiveField={setActiveField}
@@ -628,17 +639,29 @@ export function EmployeeHeaderCard({
                                     highlightMissing={isMissingRequired(
                                         'employee_no',
                                     )}
+                                    isProvisional={
+                                        employeeNumberHeader.isProvisional
+                                    }
+                                    hasUnsavedOfficialNumber={
+                                        employeeNumberHeader.hasUnsavedOfficialNumber
+                                    }
+                                    helperMessage={
+                                        employeeNumberHeader.helperMessage
+                                    }
+                                    error={form.errors.employee_no ?? null}
                                     onChange={(value) =>
                                         form.setData('employee_no', value)
                                     }
                                 />
 
                                 {employee.id ? (
-                                    <EmployeeStatusBadge
-                                        employeeId={employee.id}
-                                        status={employee.status}
-                                        canUpdate={canUpdate}
-                                    />
+                                    <div className="pb-0.5">
+                                        <EmployeeStatusBadge
+                                            employeeId={employee.id}
+                                            status={employee.status}
+                                            canUpdate={canUpdate}
+                                        />
+                                    </div>
                                 ) : null}
                             </div>
                             {employee.employee_profile_template?.name ? (
