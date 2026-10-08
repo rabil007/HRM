@@ -119,7 +119,10 @@ export function buildRequirementActiveFilterChips(
         });
     }
 
-    if (filters.needs_action === 'deadline_extension') {
+    if (
+        filters.needs_action === 'deadline_extension' ||
+        filters.needs_action === 'headcount_revision'
+    ) {
         chips.push({
             key: 'needs_action',
             label: 'Needs my action',

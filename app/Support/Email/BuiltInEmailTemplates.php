@@ -79,6 +79,9 @@ final class BuiltInEmailTemplates
             'requirement_deadline_extension_approved',
             'requirement_deadline_extension_rejected',
             'requirement_deadline_extended_by_requester',
+            'requirement_headcount_revision_requested',
+            'requirement_headcount_revision_approved',
+            'requirement_headcount_revision_rejected',
             'crew_movement_correction_decided' => [
                 ...$defaults,
                 'to_preset' => false,
@@ -170,6 +173,9 @@ final class BuiltInEmailTemplates
             'requirement_deadline_extension_approved' => self::requirementDeadlineExtensionApproved(),
             'requirement_deadline_extension_rejected' => self::requirementDeadlineExtensionRejected(),
             'requirement_deadline_extended_by_requester' => self::requirementDeadlineExtendedByRequester(),
+            'requirement_headcount_revision_requested' => self::requirementHeadcountRevisionRequested(),
+            'requirement_headcount_revision_approved' => self::requirementHeadcountRevisionApproved(),
+            'requirement_headcount_revision_rejected' => self::requirementHeadcountRevisionRejected(),
             'crew_movement_correction_decided' => self::crewMovementCorrectionDecided(),
         ];
     }
@@ -199,6 +205,7 @@ final class BuiltInEmailTemplates
             '{{new_deadline}}',
             '{{reason}}',
             '{{note}}',
+            '{{headcount_changes}}',
         ];
     }
 
@@ -1309,6 +1316,69 @@ HTML,
             'subject' => $subject,
             'body_html' => $body,
             'sort_order' => 39,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementHeadcountRevisionRequested(): array
+    {
+        $subject = 'Headcount revision requires your approval — {{requirement_number}}';
+        $body = '{{submitter_name}} requested a headcount revision for {{requirement_number}}. {{headcount_changes}}';
+
+        return self::base([
+            'label' => 'Requirement headcount revision requested',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 40,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementHeadcountRevisionApproved(): array
+    {
+        $subject = 'Headcount revision approved — {{requirement_number}}';
+        $body = '{{approver_name}} approved the headcount revision for {{requirement_number}}. {{headcount_changes}}';
+
+        return self::base([
+            'label' => 'Requirement headcount revision approved',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 41,
+            'placeholders' => self::requirementPlaceholders(),
+            'legacy_defaults' => [
+                ['subject' => $subject, 'body_html' => $body],
+            ],
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function requirementHeadcountRevisionRejected(): array
+    {
+        $subject = 'Headcount revision rejected — {{requirement_number}}';
+        $body = 'The headcount revision for {{requirement_number}} was rejected. Official headcount remains unchanged.';
+
+        return self::base([
+            'label' => 'Requirement headcount revision rejected',
+            'category' => EmailTemplateCategory::Recruitment,
+            'subject' => $subject,
+            'body_html' => $body,
+            'sort_order' => 42,
             'placeholders' => self::requirementPlaceholders(),
             'legacy_defaults' => [
                 ['subject' => $subject, 'body_html' => $body],

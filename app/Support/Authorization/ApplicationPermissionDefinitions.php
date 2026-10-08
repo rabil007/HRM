@@ -1965,6 +1965,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the assigned recruiter to request a deadline extension that the requirement requester must approve before the official deadline changes.',
                 'group' => 'Recruitment',
             ],
+            334 => [
+                'name' => 'recruitment.requirements.request_headcount_revision',
+                'label' => 'Request Requirement Headcount Revisions',
+                'description' => 'Allows the assigned recruiter to request a headcount revision that the requirement requester must approve before the official headcount changes.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }

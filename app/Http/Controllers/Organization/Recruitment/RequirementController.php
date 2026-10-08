@@ -134,6 +134,12 @@ class RequirementController extends Controller
             'pendingDeadlineExtension.decidedBy:id,name',
             'deadlineExtensions.requestedBy:id,name',
             'deadlineExtensions.decidedBy:id,name',
+            'pendingHeadcountRevision.lines',
+            'pendingHeadcountRevision.requestedBy:id,name',
+            'pendingHeadcountRevision.decidedBy:id,name',
+            'headcountRevisions.lines',
+            'headcountRevisions.requestedBy:id,name',
+            'headcountRevisions.decidedBy:id,name',
         ]);
 
         $canViewAudit = (bool) $request->user()?->can('audit.view');

@@ -622,7 +622,7 @@ test('extending deadline updates required_by_date and changes deadline health', 
     expect($req->fresh()->required_by_date->format('Y-m-d'))->toBe($newDate);
 });
 
-test('revising line headcount target updates line count and recalculates total requirement headcount', function () {
+test('open requirement headcount is not revised until an assigned recruiter can review it', function () {
     $req = RecruitmentRequirement::query()->create([
         'company_id' => $this->companyA->id,
         'requirement_number' => 'REQ-2026-000001',
@@ -644,14 +644,15 @@ test('revising line headcount target updates line count and recalculates total r
 
     $this->actingAs($this->adminUserA)
         ->withSession(['current_company_id' => $this->companyA->id])
-        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", [
+        ->postJson("/organization/recruitment/requirements/{$req->id}/change-headcount", [
             'requirement_line_id' => $line->id,
             'new_headcount' => 7,
             'reason' => 'Vessel expansion requires 5 more engineers.',
         ])
-        ->assertRedirect();
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
 
-    expect($line->fresh()->required_headcount)->toBe(7);
+    expect($line->fresh()->required_headcount)->toBe(2);
 });
 
 test('private attachment download requires download permission and tenant authorization', function () {

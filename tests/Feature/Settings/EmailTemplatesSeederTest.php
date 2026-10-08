@@ -184,6 +184,9 @@ test('email templates seeder creates recruitment requirement templates', functio
         'requirement_deadline_extension_approved',
         'requirement_deadline_extension_rejected',
         'requirement_deadline_extended_by_requester',
+        'requirement_headcount_revision_requested',
+        'requirement_headcount_revision_approved',
+        'requirement_headcount_revision_rejected',
     ];
 
     EmailTemplate::query()->whereIn('slug', $slugs)->forceDelete();

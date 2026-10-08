@@ -140,6 +140,16 @@ final class EmailTemplatePreview
                 placeholders: $placeholders,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'requirement_headcount_revision_requested',
+            'requirement_headcount_revision_approved',
+            'requirement_headcount_revision_rejected' => $this->renderRequirementHeadcountRevision(
+                slug: $slug,
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             'crew_movement_correction_decided' => $this->renderCrewMovementCorrectionDecided(
                 subject: $renderedSubject,
                 organizationName: $organizationName,
@@ -359,6 +369,7 @@ final class EmailTemplatePreview
             '{{new_deadline}}' => now()->addDays(18)->format('d M Y'),
             '{{reason}}' => 'Candidate availability requires additional sourcing time.',
             '{{note}}' => 'Please source from the additional market.',
+            '{{headcount_changes}}' => 'Welder: 5 → 8',
             '{{status}}' => 'Approved',
             '{{assignment_no}}' => 'CA-1001',
             '{{phase_label}}' => 'Onboard',
@@ -526,6 +537,50 @@ final class EmailTemplatePreview
             'details' => $details,
             'requirementUrl' => $placeholders['{{requirement_url}}'],
             'ctaLabel' => $slug === 'requirement_deadline_extension_requested' ? 'Review request' : 'View requirement',
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    /**
+     * @param  array<string, string>  $placeholders
+     */
+    private function renderRequirementHeadcountRevision(
+        string $slug,
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        bool $includeCompanyFooter,
+    ): string {
+        $heading = match ($slug) {
+            'requirement_headcount_revision_approved' => 'Headcount revision approved',
+            'requirement_headcount_revision_rejected' => 'Headcount revision rejected',
+            default => 'Headcount revision requires your approval',
+        };
+
+        $details = [
+            ...$this->sampleRequirementDetails($placeholders),
+            ['label' => 'Changes', 'value' => $placeholders['{{headcount_changes}}']],
+            ['label' => 'Requested by', 'value' => $placeholders['{{submitter_name}}']],
+        ];
+
+        if ($slug === 'requirement_headcount_revision_requested') {
+            $details[] = ['label' => 'Reason', 'value' => $placeholders['{{reason}}']];
+        }
+
+        if ($slug === 'requirement_headcount_revision_rejected') {
+            $details[] = ['label' => 'Official headcount', 'value' => 'Unchanged'];
+        }
+
+        return View::make('mail.requirement-deadline-extension', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'requirementNumber' => $placeholders['{{requirement_number}}'],
+            'heading' => $heading,
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'details' => $details,
+            'requirementUrl' => $placeholders['{{requirement_url}}'].'#headcount-revision-request',
+            'ctaLabel' => $slug === 'requirement_headcount_revision_requested' ? 'Review request' : 'View requirement',
             'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }

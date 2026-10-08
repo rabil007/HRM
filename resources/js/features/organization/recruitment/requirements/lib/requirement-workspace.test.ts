@@ -47,6 +47,23 @@ describe('requirement workspace helpers', () => {
             ],
         );
         assert.equal(hasRequirementActiveFilters(filters, 'rigger'), true);
+        assert.equal(
+            buildRequirementActiveFilterChips(
+                { ...filters, needs_action: 'headcount_revision' },
+                {
+                    clients: [{ id: 12, name: 'NMDC', is_active: true }],
+                    projects: [],
+                    positions: [],
+                    recruiters: [],
+                },
+                'rigger',
+            ).some(
+                (chip) =>
+                    chip.key === 'needs_action' &&
+                    chip.label === 'Needs my action',
+            ),
+            true,
+        );
         assert.deepEqual(clearAllRequirementFilters(), {
             client_id: null,
             project_id: null,
