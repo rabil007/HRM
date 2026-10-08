@@ -30,8 +30,9 @@ describe('requirement show layout structure', () => {
         assert.ok(!source.includes('fixed top-'));
     });
 
-    it('keeps Status & Actions in the sticky sidebar without a standalone timeline card', () => {
+    it('keeps Status & Actions with workflow timeline in the sticky sidebar', () => {
         assert.match(source, /RequirementOverviewCard/);
+        assert.match(source, /timeline=\{workflow_timeline\}/);
         assert.ok(!source.includes('RequirementWorkflowTimelineCard'));
         assert.ok(!source.includes('RequirementDetailsCard'));
 
@@ -43,7 +44,7 @@ describe('requirement show layout structure', () => {
         assert.ok(overviewIndex < mainIndex);
     });
 
-    it('places the unified Details & Workflow card and Recent Activity in the main column', () => {
+    it('places Requirement Details and Recent Activity in the main column', () => {
         assert.match(source, /data-requirement-main-column/);
         assert.match(source, /RequirementDetailsWorkflowCard/);
         assert.match(source, /RecentActivityCard/);
@@ -57,6 +58,11 @@ describe('requirement show layout structure', () => {
         assert.ok(mainIndex > -1 && positionsIndex > mainIndex);
         assert.ok(unifiedIndex > positionsIndex);
         assert.ok(recentIndex > unifiedIndex);
+        assert.ok(
+            !source
+                .slice(unifiedIndex, unifiedIndex + 200)
+                .includes('timeline='),
+        );
     });
 
     it('uses creatable client/project selects with permission-aware hooks', () => {
@@ -83,19 +89,23 @@ describe('requirement show layout structure', () => {
         );
     });
 
-    it('stacks details before timeline on mobile and splits on desktop', () => {
+    it('keeps Requirement Details as a single-column details card', () => {
         assert.match(unifiedSource, /data-requirement-details-section/);
-        assert.match(unifiedSource, /data-requirement-workflow-section/);
-        assert.match(unifiedSource, /grid-cols-1/);
-        assert.match(unifiedSource, /lg:grid-cols-2/);
-        assert.match(unifiedSource, /Requirement Details & Workflow/);
+        assert.ok(!unifiedSource.includes('data-requirement-workflow-section'));
+        assert.ok(!unifiedSource.includes('lg:grid-cols-2'));
+        assert.match(unifiedSource, /Requirement Details/);
+        assert.ok(!unifiedSource.includes('Requirement Details & Workflow'));
         assert.match(unifiedSource, /Request Received from Client/);
         assert.match(unifiedSource, /Client request/);
         assert.match(unifiedSource, /Schedule & ownership/);
         assert.match(unifiedSource, /Days remaining/);
         assert.match(unifiedSource, /Active recruitment/);
+        assert.match(unifiedSource, /data-requirement-schedule-metrics/);
+        assert.match(unifiedSource, /Countdown to target date/);
         assert.match(unifiedSource, /Record info/);
         assert.ok(!unifiedSource.includes('Opened Date'));
         assert.ok(!unifiedSource.includes('Requirement Specifications'));
+        assert.ok(!unifiedSource.includes('Current stage'));
+        assert.ok(!unifiedSource.includes('Next expected action'));
     });
 });

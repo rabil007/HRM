@@ -218,6 +218,7 @@ export function RequirementsShowContent({
 
                     <RequirementOverviewCard
                         requirement={requirement}
+                        timeline={workflow_timeline}
                         processing={isWorkflowProcessing}
                         onEdit={() => setIsEditOpen(true)}
                         onSubmit={handleSubmit}
@@ -258,10 +259,7 @@ export function RequirementsShowContent({
                         }}
                     />
 
-                    <RequirementDetailsWorkflowCard
-                        requirement={requirement}
-                        timeline={workflow_timeline}
-                    />
+                    <RequirementDetailsWorkflowCard requirement={requirement} />
 
                     <RequirementAttachmentsCard
                         requirement={requirement}

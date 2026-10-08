@@ -23,7 +23,10 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { RequirementDetail } from '@/types/recruitment';
+import type {
+    RequirementDetail,
+    RequirementWorkflowTimeline as RequirementWorkflowTimelineData,
+} from '@/types/recruitment';
 import {
     requirementPrimaryWorkflowActionLabel,
     resolveRequirementPrimaryWorkflowAction,
@@ -32,15 +35,16 @@ import {
     isRequirementHoldActionVisible,
     isRequirementResumeActionVisible,
 } from '../../lib/requirement-hold-feature';
-import { resolveActiveRecruitmentDurationDisplay } from '../../lib/requirement-recruitment-clock';
 import {
     RequirementDeadlineBadge,
     RequirementPriorityBadge,
     RequirementStatusBadge,
 } from '../requirement-status-badge';
+import { RequirementWorkflowTimeline } from './requirement-workflow-timeline';
 
 type Props = {
     requirement: RequirementDetail;
+    timeline: RequirementWorkflowTimelineData;
     processing?: boolean;
     onEdit: () => void;
     onSubmit: () => void;
@@ -60,6 +64,7 @@ type Props = {
 
 export function RequirementOverviewCard({
     requirement,
+    timeline,
     processing = false,
     onEdit,
     onSubmit,
@@ -87,12 +92,6 @@ export function RequirementOverviewCard({
         can_resubmit: requirement.can_resubmit,
         can_resume: showResume,
         can_fill: requirement.can_fill,
-    });
-    const durationDisplay = resolveActiveRecruitmentDurationDisplay({
-        clockState: requirement.recruitment_clock_state,
-        activeSeconds: requirement.active_recruitment_seconds,
-        isEstimated: requirement.duration_is_estimated,
-        estimateNote: requirement.duration_estimate_note,
     });
 
     const primaryAction = (() => {
@@ -171,58 +170,11 @@ export function RequirementOverviewCard({
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/30 p-3">
-                    <div>
-                        <p className="text-xs text-muted-foreground">
-                            Staffing target
-                        </p>
-                        <p className="mt-1 text-xl font-semibold tabular-nums">
-                            {requirement.total_headcount}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {requirement.positions_count}{' '}
-                            {requirement.positions_count === 1
-                                ? 'role'
-                                : 'roles'}
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground">
-                            Deadline
-                        </p>
-                        <p className="mt-1 text-sm font-semibold">
-                            {requirement.required_by_date_formatted ||
-                                'No deadline'}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                            {requirement.assigned_recruiter_name
-                                ? `Recruiter: ${requirement.assigned_recruiter_name}`
-                                : 'Recruiter: Unassigned'}
-                        </p>
-                        {requirement.can_extend ? (
-                            <Button
-                                type="button"
-                                variant="link"
-                                size="sm"
-                                disabled={processing}
-                                onClick={onExtend}
-                                className="mt-1 h-auto px-0 text-xs"
-                            >
-                                {requirement.deadline_extension_mode ===
-                                'request'
-                                    ? 'Request deadline extension'
-                                    : 'Extend deadline'}
-                            </Button>
-                        ) : null}
-                    </div>
-                    <div className="col-span-2 border-t border-border/50 pt-2">
-                        <p className="text-xs text-muted-foreground">
-                            Active recruitment
-                        </p>
-                        <p className="mt-1 text-sm font-semibold">
-                            {durationDisplay.label}
-                        </p>
-                    </div>
+                <div
+                    data-requirement-status-summary
+                    className="rounded-lg border border-border/60 bg-muted/30 p-3"
+                >
+                    <RequirementWorkflowTimeline timeline={timeline} />
                 </div>
 
                 {(primaryAction ||

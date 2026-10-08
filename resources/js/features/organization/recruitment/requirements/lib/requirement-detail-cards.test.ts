@@ -162,11 +162,10 @@ async function withViteModule<T>(
 }
 
 describe('Requirement detail cards', () => {
-    it('renders unified Details & Workflow without duplicated lifecycle rows', async () => {
+    it('renders Requirement Details without workflow timeline duplication', async () => {
         await withViteModule<{
             RequirementDetailsWorkflowCard: React.ComponentType<{
                 requirement: RequirementDetail;
-                timeline: RequirementWorkflowTimeline;
             }>;
         }>(
             './resources/js/features/organization/recruitment/requirements/components/show/requirement-details-workflow-card.tsx',
@@ -174,14 +173,12 @@ describe('Requirement detail cards', () => {
                 const html = renderToString(
                     React.createElement(RequirementDetailsWorkflowCard, {
                         requirement: makeRequirement(),
-                        timeline: makeTimeline(),
                     }),
                 );
 
-                assert.ok(
-                    html.includes('Requirement Details &amp; Workflow') ||
-                        html.includes('Requirement Details & Workflow'),
-                );
+                assert.ok(html.includes('Requirement Details'));
+                assert.ok(!html.includes('Requirement Details &amp; Workflow'));
+                assert.ok(!html.includes('Requirement Details & Workflow'));
                 assert.ok(html.includes('Client request'));
                 assert.ok(
                     html.includes('Schedule &amp; ownership') ||
@@ -193,15 +190,17 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('Target Date'));
                 assert.ok(html.includes('Days remaining'));
                 assert.ok(html.includes('Active recruitment'));
+                assert.ok(html.includes('Countdown to target date'));
+                assert.ok(html.includes('Since approval'));
+                assert.ok(html.includes('data-requirement-schedule-metrics'));
                 assert.ok(html.includes('Notification recipients (CC)'));
                 assert.ok(html.includes('Notes / Scope of Work'));
-                assert.ok(html.includes('Workflow timeline'));
-                assert.ok(html.includes('Current stage'));
-                assert.ok(html.includes('Next expected action'));
-                assert.ok(html.includes('Submitted for approval'));
-                assert.ok(html.includes('Approved / recruitment started'));
+                assert.ok(!html.includes('Workflow timeline'));
+                assert.ok(!html.includes('Current stage'));
+                assert.ok(!html.includes('Next expected action'));
+                assert.ok(!html.includes('Submitted for approval'));
                 assert.ok(html.includes('data-requirement-details-section'));
-                assert.ok(html.includes('data-requirement-workflow-section'));
+                assert.ok(!html.includes('data-requirement-workflow-section'));
                 assert.ok(!html.includes('Opened Date'));
                 assert.ok(!html.includes('Requirement Specifications'));
                 assert.ok(!html.includes('Recruitment clock'));
@@ -209,10 +208,11 @@ describe('Requirement detail cards', () => {
         );
     });
 
-    it('keeps Active recruitment in Status & actions', async () => {
+    it('keeps workflow timeline in Status & actions without stage/action statics', async () => {
         await withViteModule<{
             RequirementOverviewCard: React.ComponentType<{
                 requirement: RequirementDetail;
+                timeline: RequirementWorkflowTimeline;
                 onEdit: () => void;
                 onSubmit: () => void;
                 onApprove: () => void;
@@ -234,6 +234,7 @@ describe('Requirement detail cards', () => {
                 const html = renderToString(
                     React.createElement(RequirementOverviewCard, {
                         requirement: makeRequirement({ can_fill: true }),
+                        timeline: makeTimeline(),
                         onEdit: noop,
                         onSubmit: noop,
                         onApprove: noop,
@@ -255,41 +256,33 @@ describe('Requirement detail cards', () => {
                     html.includes('Status &amp; actions') ||
                         html.includes('Status & actions'),
                 );
-                assert.ok(html.includes('Deadline'));
-                assert.ok(html.includes('Active recruitment'));
-                assert.ok(html.includes('8 days'));
+                assert.ok(html.includes('data-requirement-status-summary'));
+                assert.ok(!html.includes('Staffing target'));
+                assert.ok(!html.includes('Active recruitment'));
                 assert.ok(html.includes('Mark as filled'));
                 assert.equal((html.match(/Mark as filled/g) ?? []).length, 1);
                 assert.ok(html.includes('data-primary-workflow-action="fill"'));
                 assert.ok(!html.includes('Put on hold'));
+                assert.ok(html.includes('Workflow timeline'));
+                assert.ok(html.includes('data-requirement-workflow-section'));
+                assert.ok(html.includes('Submitted for approval'));
+                assert.ok(html.includes('Approved / recruitment started'));
+                assert.ok(!html.includes('Current stage'));
+                assert.ok(!html.includes('Next expected action'));
             },
         );
     });
 
-    it('shows paused and completed day phrasing on Active recruitment in Status & actions', async () => {
+    it('shows paused and completed Active recruitment phrasing in Requirement Details', async () => {
         await withViteModule<{
-            RequirementOverviewCard: React.ComponentType<{
+            RequirementDetailsWorkflowCard: React.ComponentType<{
                 requirement: RequirementDetail;
-                onEdit: () => void;
-                onSubmit: () => void;
-                onApprove: () => void;
-                onReturn: () => void;
-                onResubmit: () => void;
-                onHold: () => void;
-                onResume: () => void;
-                onExtend: () => void;
-                onChangeHeadcount: () => void;
-                onFill: () => void;
-                onCancel: () => void;
-                onTransferOwnership: () => void;
-                onReopen: () => void;
-                onRepeat: () => void;
             }>;
         }>(
-            './resources/js/features/organization/recruitment/requirements/components/show/requirement-overview-card.tsx',
-            ({ RequirementOverviewCard }) => {
+            './resources/js/features/organization/recruitment/requirements/components/show/requirement-details-workflow-card.tsx',
+            ({ RequirementDetailsWorkflowCard }) => {
                 const pausedHtml = renderToString(
-                    React.createElement(RequirementOverviewCard, {
+                    React.createElement(RequirementDetailsWorkflowCard, {
                         requirement: makeRequirement({
                             status: 'on_hold',
                             recruitment_clock_state: 'paused',
@@ -298,46 +291,19 @@ describe('Requirement detail cards', () => {
                             can_resume: true,
                             next_action: 'resume',
                         }),
-                        onEdit: noop,
-                        onSubmit: noop,
-                        onApprove: noop,
-                        onReturn: noop,
-                        onResubmit: noop,
-                        onHold: noop,
-                        onResume: noop,
-                        onExtend: noop,
-                        onChangeHeadcount: noop,
-                        onFill: noop,
-                        onCancel: noop,
-                        onTransferOwnership: noop,
-                        onReopen: noop,
-                        onRepeat: noop,
                     }),
                 );
                 assert.ok(pausedHtml.includes('Paused at 8 days'));
+                assert.ok(pausedHtml.includes('Active recruitment'));
 
                 const completedHtml = renderToString(
-                    React.createElement(RequirementOverviewCard, {
+                    React.createElement(RequirementDetailsWorkflowCard, {
                         requirement: makeRequirement({
                             status: 'completed',
                             recruitment_clock_state: 'completed',
                             active_recruitment_seconds: 14 * 86400,
                             can_fill: false,
                         }),
-                        onEdit: noop,
-                        onSubmit: noop,
-                        onApprove: noop,
-                        onReturn: noop,
-                        onResubmit: noop,
-                        onHold: noop,
-                        onResume: noop,
-                        onExtend: noop,
-                        onChangeHeadcount: noop,
-                        onFill: noop,
-                        onCancel: noop,
-                        onTransferOwnership: noop,
-                        onReopen: noop,
-                        onRepeat: noop,
                     }),
                 );
                 assert.ok(completedHtml.includes('Completed in 14 days'));
@@ -349,6 +315,7 @@ describe('Requirement detail cards', () => {
         await withViteModule<{
             RequirementOverviewCard: React.ComponentType<{
                 requirement: RequirementDetail;
+                timeline: RequirementWorkflowTimeline;
                 onEdit: () => void;
                 onSubmit: () => void;
                 onApprove: () => void;
@@ -379,6 +346,12 @@ describe('Requirement detail cards', () => {
                             active_recruitment_seconds: 4 * 86400,
                             next_action: 'resume',
                         }),
+                        timeline: makeTimeline({
+                            current_stage: 'on_hold',
+                            current_stage_label: 'On Hold',
+                            next_expected_action: 'resume',
+                            next_expected_action_label: 'Resume requirement',
+                        }),
                         onEdit: noop,
                         onSubmit: noop,
                         onApprove: noop,
@@ -403,7 +376,8 @@ describe('Requirement detail cards', () => {
                         'data-primary-workflow-action="resume"',
                     ),
                 );
-                assert.ok(onHoldHtml.includes('Paused at 4 days'));
+                assert.ok(onHoldHtml.includes('Workflow timeline'));
+                assert.ok(!onHoldHtml.includes('Active recruitment'));
             },
         );
     });
@@ -412,6 +386,7 @@ describe('Requirement detail cards', () => {
         await withViteModule<{
             RequirementOverviewCard: React.ComponentType<{
                 requirement: RequirementDetail;
+                timeline: RequirementWorkflowTimeline;
                 onEdit: () => void;
                 onSubmit: () => void;
                 onApprove: () => void;
@@ -440,6 +415,12 @@ describe('Requirement detail cards', () => {
                             status_label: 'Pending approval',
                             recruitment_clock_state: 'not_started',
                             active_recruitment_seconds: null,
+                        }),
+                        timeline: makeTimeline({
+                            current_stage: 'pending_approval',
+                            current_stage_label: 'Pending approval',
+                            next_expected_action: 'approve',
+                            next_expected_action_label: 'Approve requirement',
                         }),
                         onEdit: noop,
                         onSubmit: noop,
