@@ -92,9 +92,10 @@ describe('requirement show layout structure', () => {
         assert.match(unifiedSource, /Request Received from Client/);
         assert.match(unifiedSource, /Client request/);
         assert.match(unifiedSource, /Schedule & ownership/);
+        assert.match(unifiedSource, /Days remaining/);
+        assert.match(unifiedSource, /Active recruitment/);
         assert.match(unifiedSource, /Record info/);
         assert.ok(!unifiedSource.includes('Opened Date'));
-        assert.ok(!unifiedSource.includes('Active recruitment'));
         assert.ok(!unifiedSource.includes('Requirement Specifications'));
     });
 });

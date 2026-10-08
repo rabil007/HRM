@@ -121,7 +121,7 @@ export function RequirementMobileCard({
                     </p>
                 </div>
                 <div>
-                    <p className="text-muted-foreground">Required by</p>
+                    <p className="text-muted-foreground">Target date</p>
                     <p className="mt-0.5 font-semibold">
                         {row.required_by_date_formatted || 'No deadline'}
                     </p>

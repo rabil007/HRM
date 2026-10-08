@@ -96,7 +96,7 @@ export function RequirementTable({
                                 Roles & staffing target
                             </DataTableHead>
                             <DataTableHead className="min-w-[130px]">
-                                Required by
+                                Target date
                             </DataTableHead>
                             <DataTableHead className="min-w-[120px]">
                                 Recruiter

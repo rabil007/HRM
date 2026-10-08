@@ -5,11 +5,13 @@ import {
     Calendar,
     CheckCircle2,
     CircleDot,
+    Clock,
     Copy,
     FileText,
     GitBranch,
     Mail,
     MapPin,
+    Timer,
     UserCheck,
     Users,
     XCircle,
@@ -21,6 +23,8 @@ import type {
     RequirementDetail,
     RequirementWorkflowTimeline,
 } from '@/types/recruitment';
+import { resolveActiveRecruitmentDurationDisplay } from '../../lib/requirement-recruitment-clock';
+import { RequirementDeadlineBadge } from '../requirement-status-badge';
 
 type Props = {
     requirement: RequirementDetail;
@@ -181,6 +185,17 @@ export function RequirementDetailsWorkflowCard({
     requirement,
     timeline,
 }: Props) {
+    const activeRecruitment = resolveActiveRecruitmentDurationDisplay({
+        clockState: requirement.recruitment_clock_state,
+        activeSeconds: requirement.active_recruitment_seconds,
+        isEstimated: requirement.duration_is_estimated,
+        estimateNote: requirement.duration_estimate_note,
+    });
+    const daysRemainingLabel =
+        requirement.required_by_date !== null
+            ? (requirement.days_label ?? '—')
+            : 'No deadline';
+
     return (
         <Card
             data-requirement-details-workflow-card
@@ -395,6 +410,47 @@ export function RequirementDetailsWorkflowCard({
                                                     requirement.required_by_date_formatted
                                                 }
                                             </span>
+                                        </div>
+                                    }
+                                />
+                                <DetailRow
+                                    label="Days remaining"
+                                    value={
+                                        requirement.deadline_health ? (
+                                            <RequirementDeadlineBadge
+                                                health={
+                                                    requirement.deadline_health
+                                                }
+                                                label={requirement.days_label}
+                                            />
+                                        ) : (
+                                            <div className="flex items-center gap-1.5">
+                                                <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                <span className="font-semibold text-foreground">
+                                                    {daysRemainingLabel}
+                                                </span>
+                                            </div>
+                                        )
+                                    }
+                                />
+                                <DetailRow
+                                    label="Active recruitment"
+                                    value={
+                                        <div className="space-y-0.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <Timer className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                                <span className="font-semibold text-foreground">
+                                                    {activeRecruitment.label}
+                                                </span>
+                                            </div>
+                                            {activeRecruitment.showEstimated &&
+                                            activeRecruitment.estimateNote ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {
+                                                        activeRecruitment.estimateNote
+                                                    }
+                                                </p>
+                                            ) : null}
                                         </div>
                                     }
                                 />

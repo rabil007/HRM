@@ -191,6 +191,8 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('Request Received from Client'));
                 assert.ok(!html.includes('Request Received Date'));
                 assert.ok(html.includes('Target Date'));
+                assert.ok(html.includes('Days remaining'));
+                assert.ok(html.includes('Active recruitment'));
                 assert.ok(html.includes('Notification recipients (CC)'));
                 assert.ok(html.includes('Notes / Scope of Work'));
                 assert.ok(html.includes('Workflow timeline'));
@@ -201,14 +203,13 @@ describe('Requirement detail cards', () => {
                 assert.ok(html.includes('data-requirement-details-section'));
                 assert.ok(html.includes('data-requirement-workflow-section'));
                 assert.ok(!html.includes('Opened Date'));
-                assert.ok(!html.includes('Active recruitment'));
                 assert.ok(!html.includes('Requirement Specifications'));
                 assert.ok(!html.includes('Recruitment clock'));
             },
         );
     });
 
-    it('keeps Active recruitment only in Status & actions', async () => {
+    it('keeps Active recruitment in Status & actions', async () => {
         await withViteModule<{
             RequirementOverviewCard: React.ComponentType<{
                 requirement: RequirementDetail;
