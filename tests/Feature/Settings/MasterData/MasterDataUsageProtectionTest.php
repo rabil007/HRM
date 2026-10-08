@@ -28,7 +28,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 function makeMasterDataUsageFixtures(array $permissions = []): array
 {
     $user = User::factory()->create();
-    $suffix = strtoupper(substr(str_replace('.', '', uniqid('', true)), -3));
+    $suffix = strtoupper(fake()->unique()->bothify('???##'));
 
     $country = Country::query()->create([
         'code' => 'U'.$suffix,
