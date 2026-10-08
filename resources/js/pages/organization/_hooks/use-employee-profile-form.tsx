@@ -11,6 +11,11 @@ import {
     isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
 } from '@/pages/organization/_lib/employee-profile-form-state';
+import {
+    fetchHireDateChangePreview,
+    hireDateCalendarValueChanged,
+    type HireDateChangePreview,
+} from '@/pages/organization/_lib/hire-date-change-preview';
 import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import type {
     EmployeeDetails,
@@ -31,7 +36,14 @@ export type UseEmployeeProfileFormResult = {
     isMissingRequired: (field: string) => boolean;
     missingRequiredFields: string[];
     focusMissingField: (field: string) => void;
-    saveChanges: (afterSuccess?: () => void) => void;
+    saveChanges: (
+        afterSuccess?: () => void,
+        options?: { hireDateChangeAcknowledged?: boolean },
+    ) => void;
+    requestHireDateWarning: (
+        preview: HireDateChangePreview,
+        afterSuccess?: () => void,
+    ) => void;
     stagePhoto: (file: File) => void;
     removePhoto: () => void;
     discardChanges: () => void;
@@ -46,6 +58,12 @@ export function useEmployeeProfileForm(
             | Record<string, TemplateFieldConfig>
             | undefined;
         listQuery?: Record<string, string>;
+        hasAnnualLeaveBalances?: boolean;
+        savedHireDate?: string | null;
+        onHireDateWarningRequired?: (
+            preview: HireDateChangePreview,
+            continueSave: () => void,
+        ) => void;
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
@@ -206,8 +224,111 @@ export function useEmployeeProfileForm(
         return () => window.removeEventListener('beforeunload', handler);
     }, [canUpdate, isDirty]);
 
+    const submitProfileUpdate = useCallback(
+        (
+            targetEmployeeId: number,
+            afterSuccess?: () => void,
+            hireDateChangeAcknowledged = false,
+        ) => {
+            const hasPendingImage = employeeProfileUpdateRequiresPostSpoof(
+                form.data.image,
+            );
+            const saveVisit = resolveEmployeeProfileSaveVisit(form.data.image);
+
+            const extraFields = hireDateChangeAcknowledged
+                ? { hire_date_change_acknowledged: true }
+                : undefined;
+
+            form.transform((data) =>
+                buildEmployeeProfileUpdatePayload(
+                    data,
+                    options?.templateRequiredFields,
+                    extraFields,
+                ),
+            );
+
+            const updateUrl = updateEmployee.url(
+                { employee: targetEmployeeId },
+                { query: options?.listQuery ?? {} },
+            );
+
+            const visitOptions = {
+                preserveScroll: true,
+                preserveState: resolveEmployeeProfilePreserveState(),
+                onSuccess: () => {
+                    if (hasPendingImage) {
+                        form.setData((current) => ({
+                            ...current,
+                            image: null,
+                            remove_image: false,
+                        }));
+                    }
+
+                    setActiveField(null);
+                    setMissingRequiredFields(new Set());
+                    afterSuccess?.();
+                },
+                onError: (errors: Record<string, string>) => {
+                    const errorKeys = Object.keys(errors ?? {});
+
+                    if (errorKeys.includes('employee_no')) {
+                        setMissingRequiredFields((current) => {
+                            const next = new Set(current);
+                            next.add('employee_no');
+
+                            return next;
+                        });
+                        focusMissingField('employee_no');
+                    }
+
+                    const first = Object.values(errors ?? {})[0];
+                    toast.error(
+                        typeof first === 'string' && first.length
+                            ? first
+                            : 'Failed to save changes.',
+                    );
+                },
+            };
+
+            if (saveVisit.httpMethod === 'post') {
+                form.post(updateUrl, {
+                    ...visitOptions,
+                    forceFormData: saveVisit.forceFormData,
+                });
+
+                return;
+            }
+
+            form.put(updateUrl, visitOptions);
+        },
+        [
+            focusMissingField,
+            form,
+            options?.listQuery,
+            options?.templateRequiredFields,
+        ],
+    );
+
+    const requestHireDateWarning = useCallback(
+        (preview: HireDateChangePreview, afterSuccess?: () => void) => {
+            options?.onHireDateWarningRequired?.(preview, () => {
+                const targetId = employee.id;
+
+                if (targetId === null || targetId <= 0) {
+                    return;
+                }
+
+                submitProfileUpdate(targetId, afterSuccess, true);
+            });
+        },
+        [employee.id, options, submitProfileUpdate],
+    );
+
     const saveChanges = useCallback(
-        async (afterSuccess?: () => void) => {
+        async (
+            afterSuccess?: () => void,
+            saveOptions?: { hireDateChangeAcknowledged?: boolean },
+        ) => {
             if (canUpdate) {
                 const missing: string[] = [];
 
@@ -295,82 +416,51 @@ export function useEmployeeProfileForm(
                 return;
             }
 
-            const hasPendingImage = employeeProfileUpdateRequiresPostSpoof(
-                form.data.image,
-            );
-            const saveVisit = resolveEmployeeProfileSaveVisit(form.data.image);
+            const proposedHireDate = String(form.data.hire_date ?? '').trim()
+                ? String(form.data.hire_date)
+                : null;
 
-            form.transform((data) =>
-                buildEmployeeProfileUpdatePayload(
-                    data,
-                    options?.templateRequiredFields,
-                ),
-            );
+            if (
+                !saveOptions?.hireDateChangeAcknowledged &&
+                options?.hasAnnualLeaveBalances &&
+                hireDateCalendarValueChanged(
+                    options.savedHireDate ?? employee.hire_date,
+                    proposedHireDate,
+                )
+            ) {
+                const preview = await fetchHireDateChangePreview(
+                    targetEmployeeId,
+                    proposedHireDate,
+                );
 
-            const updateUrl = updateEmployee.url(
-                { employee: targetEmployeeId },
-                { query: options?.listQuery ?? {} },
-            );
+                if (preview?.requires_acknowledgment) {
+                    requestHireDateWarning(preview, afterSuccess);
 
-            const visitOptions = {
-                preserveScroll: true,
-                preserveState: resolveEmployeeProfilePreserveState(),
-                onSuccess: () => {
-                    if (hasPendingImage) {
-                        form.setData((current) => ({
-                            ...current,
-                            image: null,
-                            remove_image: false,
-                        }));
-                    }
-
-                    setActiveField(null);
-                    setMissingRequiredFields(new Set());
-                    afterSuccess?.();
-                },
-                onError: (errors: Record<string, string>) => {
-                    const errorKeys = Object.keys(errors ?? {});
-
-                    if (errorKeys.includes('employee_no')) {
-                        setMissingRequiredFields((current) => {
-                            const next = new Set(current);
-                            next.add('employee_no');
-
-                            return next;
-                        });
-                        focusMissingField('employee_no');
-                    }
-
-                    const first = Object.values(errors ?? {})[0];
-                    toast.error(
-                        typeof first === 'string' && first.length
-                            ? first
-                            : 'Failed to save changes.',
-                    );
-                },
-            };
-
-            if (saveVisit.httpMethod === 'post') {
-                form.post(updateUrl, {
-                    ...visitOptions,
-                    forceFormData: saveVisit.forceFormData,
-                });
-
-                return;
+                    return;
+                }
             }
 
-            form.put(updateUrl, visitOptions);
+            submitProfileUpdate(
+                targetEmployeeId,
+                afterSuccess,
+                saveOptions?.hireDateChangeAcknowledged ?? false,
+            );
         },
         [
             canUpdate,
+            employee.hire_date,
             employee.id,
             employee.image,
             ensureEmployee,
             focusMissingField,
             form,
+            options?.hasAnnualLeaveBalances,
+            options?.savedHireDate,
             options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,
+            requestHireDateWarning,
+            submitProfileUpdate,
         ],
     );
 
@@ -420,6 +510,7 @@ export function useEmployeeProfileForm(
         missingRequiredFields: missingRequiredFieldsList,
         focusMissingField,
         saveChanges,
+        requestHireDateWarning,
         stagePhoto,
         removePhoto,
         discardChanges,

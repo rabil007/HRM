@@ -1,0 +1,290 @@
+<?php
+
+use App\Enums\LeaveTypeCategory;
+use App\Models\Employee;
+use App\Models\LeaveBalance;
+use App\Models\LeaveType;
+use App\Support\Attendance\EmployeeHireDateChangeGuard;
+use App\Support\Attendance\LeaveBalanceManager;
+use Carbon\Carbon;
+use Spatie\Activitylog\Models\Activity;
+
+test('hire date unchanged does not require acknowledgment', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-02-02',
+    ])->assertRedirect();
+
+    expect($employee->fresh()->hire_date?->toDateString())->toBe('2026-02-02');
+});
+
+test('hire date changed without annual balances saves normally', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+    ])->assertRedirect();
+
+    expect($employee->fresh()->hire_date?->toDateString())->toBe('2026-04-01');
+});
+
+test('hire date changed with annual balance requires acknowledgment', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+        'used_days' => 3,
+        'pending_days' => 1,
+        'carried_days' => 2,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+    ])
+        ->assertSessionHasErrors(EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT);
+
+    expect($employee->fresh()->hire_date?->toDateString())->toBe('2026-02-02');
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+        EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT => true,
+    ])->assertRedirect();
+
+    expect($employee->fresh()->hire_date?->toDateString())->toBe('2026-04-01');
+});
+
+test('hire date preview endpoint scopes annual years without exposing other companies', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    ['company' => $otherCompany] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $otherEmployee = createAttendanceLeaveEmployee($otherCompany, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $otherAnnual = LeaveType::factory()->for($otherCompany)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+    ]);
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2027,
+        'entitled_days' => 30,
+    ]);
+    LeaveBalance::factory()->forEmployee($otherEmployee)->forLeaveType($otherAnnual)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->postJson(route('organization.employees.hire-date-change-preview', $employee), [
+        'hire_date' => '2026-04-01',
+    ])
+        ->assertOk()
+        ->assertJson([
+            'requires_acknowledgment' => true,
+            'previous_hire_date' => '2026-02-02',
+            'new_hire_date' => '2026-04-01',
+            'annual_balance_years' => [2026, 2027],
+        ]);
+});
+
+test('confirmed hire date change preserves existing annual balance values', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $balance = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+        'used_days' => 4,
+        'pending_days' => 2,
+        'carried_days' => 1,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+        EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT => true,
+    ])->assertRedirect();
+
+    $after = $balance->fresh();
+    expect((float) $after->entitled_days)->toBe(28.0)
+        ->and((float) $after->used_days)->toBe(4.0)
+        ->and((float) $after->pending_days)->toBe(2.0)
+        ->and((float) $after->carried_days)->toBe(1.0);
+});
+
+test('new annual allocation after hire date change uses updated hire date', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+        EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT => true,
+    ])->assertRedirect();
+
+    app(LeaveBalanceManager::class)->provisionMissingBalanceForYear(
+        (int) $company->id,
+        (int) $employee->id,
+        $annual,
+        2027,
+    );
+
+    $future = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $annual->id)
+        ->where('year', 2027)
+        ->first();
+
+    expect($future)->not->toBeNull()
+        ->and((float) $future->entitled_days)->toBe(30.0);
+
+    LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $annual->id)
+        ->where('year', 2026)
+        ->forceDelete();
+
+    app(LeaveBalanceManager::class)->provisionMissingBalanceForYear(
+        (int) $company->id,
+        (int) $employee->id,
+        $annual,
+        2026,
+    );
+
+    $recreated = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $annual->id)
+        ->where('year', 2026)
+        ->first();
+
+    expect($recreated)->not->toBeNull()
+        ->and((float) $recreated->entitled_days)->toBe(23.0);
+
+    Carbon::setTestNow();
+});
+
+test('hire date change with acknowledgment writes a dedicated activity log entry', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, [
+        'hire_date' => '2026-02-02',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 28,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+    $this->actingAs($user);
+
+    $this->put(route('organization.employees.update', $employee), [
+        'name' => $employee->name,
+        'hire_date' => '2026-04-01',
+        EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT => true,
+    ])->assertRedirect();
+
+    $activity = Activity::query()
+        ->where('subject_type', Employee::class)
+        ->where('subject_id', $employee->id)
+        ->where('event', 'hire_date_changed')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->properties->get('previous_hire_date'))->toBe('2026-02-02')
+        ->and($activity->properties->get('new_hire_date'))->toBe('2026-04-01')
+        ->and($activity->properties->get('acknowledgment_required'))->toBeTrue()
+        ->and($activity->properties->get('acknowledgment_provided'))->toBeTrue();
+});
+
+test('users without employee update permission cannot preview hire date change', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+    $this->actingAs($user);
+
+    $this->postJson(route('organization.employees.hire-date-change-preview', $employee), [
+        'hire_date' => '2026-04-01',
+    ])->assertForbidden();
+});

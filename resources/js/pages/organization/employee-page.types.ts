@@ -313,8 +313,13 @@ export type ProfileTemplateOption = {
     description: string | null;
 };
 
+export type EmployeeHireDateChangeProps = {
+    has_annual_leave_balances: boolean;
+};
+
 export type EmployeePageProps = {
     mode?: 'edit' | 'create';
+    hire_date_change?: EmployeeHireDateChangeProps;
     employee_navigation?: EmployeeNavigation | null;
     resolved_template?: ResolvedEmployeeTemplate;
     profile_templates?: ProfileTemplateOption[];

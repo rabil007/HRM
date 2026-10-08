@@ -6,6 +6,7 @@ use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\Attendance\DepartmentAttendanceLeaveGuard;
+use App\Support\Attendance\EmployeeHireDateChangeGuard;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\DraftEmployeeNumber;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -86,6 +87,7 @@ class UpdateEmployeeRequest extends FormRequest
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
             'termination_date' => ['nullable', 'date'],
             'termination_reason' => ['nullable', 'string'],
+            EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT => ['sometimes', 'boolean'],
         ];
 
         $employee = $this->route('employee');
@@ -129,7 +131,37 @@ class UpdateEmployeeRequest extends FormRequest
             }
 
             $this->assertDepartmentRequiredForRestrictedProvisionalCompletion($validator);
+            $this->assertHireDateChangeAcknowledged($validator);
         });
+    }
+
+    private function assertHireDateChangeAcknowledged(Validator $validator): void
+    {
+        if (! $this->has('hire_date')) {
+            return;
+        }
+
+        /** @var Employee|null $employee */
+        $employee = $this->route('employee');
+
+        if (! $employee instanceof Employee) {
+            return;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $guard = app(EmployeeHireDateChangeGuard::class);
+        $proposedHireDate = $guard->normalizeHireDate($this->input('hire_date'));
+
+        if (! $guard->requiresAcknowledgment($employee, $companyId, $proposedHireDate)) {
+            return;
+        }
+
+        if (! $this->boolean(EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT)) {
+            $validator->errors()->add(
+                EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT,
+                'Please confirm the annual leave allocation warning before saving the hire date change.',
+            );
+        }
     }
 
     private function assertPendingLeaveAllowsDepartmentMove(Validator $validator): void
