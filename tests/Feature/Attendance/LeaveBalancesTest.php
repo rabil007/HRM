@@ -3,6 +3,8 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
+use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
@@ -793,6 +795,81 @@ test('leave-balances sync command reports historical anomalies and still succeed
             ->where('year', 2026)
             ->exists()
     )->toBeTrue();
+
+    Carbon\Carbon::setTestNow();
+});
+
+test('leave-balances sync skips employees outside attendance and leave departments', function () {
+    Carbon\Carbon::setTestNow(Carbon\Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $includedEmployee = createAttendanceLeaveEmployee($company);
+    $excludedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Crew only',
+        'code' => 'CRW'.fake()->unique()->numerify('##'),
+        'status' => 'active',
+        'include_in_attendance_leave' => false,
+    ]);
+    $excludedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $excludedDepartment->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($excludedEmployee)->forLeaveType($leaveType)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+        'used_days' => 1,
+        'pending_days' => 0,
+    ]);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $excludedEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $this->artisan('leave-balances:sync', ['year' => 2026])->assertSuccessful();
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $includedEmployee->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeTrue()
+        ->and((float) LeaveBalance::query()
+            ->where('employee_id', $excludedEmployee->id)
+            ->where('year', 2026)
+            ->value('used_days'))->toBe(1.0);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $excludedEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->artisan('leave-balances:sync', ['year' => 2026])->assertSuccessful();
+
+    expect((float) LeaveBalance::query()
+        ->where('employee_id', $excludedEmployee->id)
+        ->where('year', 2026)
+        ->value('used_days'))->toBe(1.0)
+        ->and((float) LeaveBalance::query()
+            ->where('employee_id', $excludedEmployee->id)
+            ->where('year', 2026)
+            ->value('pending_days'))->toBe(0.0);
 
     Carbon\Carbon::setTestNow();
 });

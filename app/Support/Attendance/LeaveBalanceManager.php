@@ -21,6 +21,11 @@ final class LeaveBalanceManager
     public function provisionEmployee(Employee $employee): void
     {
         $companyId = (int) $employee->company_id;
+
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
+            return;
+        }
+
         $this->ensureEmployeeYear($companyId, (int) $employee->id, $this->businessYearForCompany($companyId));
     }
 
@@ -811,11 +816,12 @@ final class LeaveBalanceManager
             fn (int $targetYear): bool => $targetYear >= $businessYear,
         ));
 
-        // Normal provisioning: active employees for current/future business years only.
+        // Normal provisioning: active employees in Attendance & Leave departments for current/future years only.
         if ($provisionYears !== []) {
             Employee::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')
+                ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
                 ->select('id')
                 ->chunkById(100, function (Collection $employees) use ($companyId, $provisionYears): void {
                     foreach ($employees as $employee) {
@@ -827,6 +833,10 @@ final class LeaveBalanceManager
         }
 
         foreach ($this->discoverBalanceRepairKeys($companyId, $years) as $key) {
+            if (! AttendanceLeaveDepartmentScope::canAccessEmployeeId($key['employee_id'], $companyId)) {
+                continue;
+            }
+
             $result = $this->repairBalanceKey(
                 companyId: $companyId,
                 employeeId: $key['employee_id'],
@@ -855,6 +865,10 @@ final class LeaveBalanceManager
      */
     public function syncEmployeeYear(int $companyId, int $employeeId, int $year, ?callable $onAnomaly = null): int
     {
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)) {
+            return 0;
+        }
+
         $businessYear = $this->businessYearForCompany($companyId);
         $employee = Employee::query()
             ->where('company_id', $companyId)
