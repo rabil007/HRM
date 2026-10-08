@@ -180,6 +180,7 @@ export type RequirementIndexRow = {
     pending_headcount_revision?: RequirementHeadcountRevision | null;
     can_fill: boolean;
     can_cancel: boolean;
+    can_transfer_ownership?: boolean;
     can_reopen: boolean;
     can_repeat: boolean;
     submission_readiness?: RequirementSubmissionReadiness | null;
@@ -223,6 +224,7 @@ export type RequirementDetail = RequirementIndexRow & {
     completed_at_formatted: string | null;
     cancelled_at_formatted: string | null;
     created_at_formatted: string | null;
+    created_by?: number | null;
     creator_name: string | null;
     updater_name: string | null;
     submitter_name: string | null;
@@ -269,6 +271,7 @@ export type RequirementPagePermissions = {
     view_audit: boolean;
     request_deadline_extension?: boolean;
     request_headcount_revision?: boolean;
+    transfer_ownership?: boolean;
 };
 
 export type ClientOption = {
@@ -360,6 +363,8 @@ export type RequirementWorkflowTimelineEvent = {
     reason: string | null;
     previous_recruiter_name?: string | null;
     new_recruiter_name?: string | null;
+    previous_requester_name?: string | null;
+    new_requester_name?: string | null;
     is_current: boolean;
     state: 'completed' | 'current';
 };
@@ -380,6 +385,7 @@ export type RequirementShowProps = {
         projects: ProjectOption[];
         positions: PositionOption[];
         recruiters: UserOption[];
+        requesters?: UserOption[];
         notification_users?: UserOption[];
         currency_code?: string;
     };

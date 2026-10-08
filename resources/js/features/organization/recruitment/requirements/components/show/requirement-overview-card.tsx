@@ -1,4 +1,5 @@
 import {
+    ArrowRightLeft,
     Ban,
     CheckCircle2,
     Clock,
@@ -52,6 +53,7 @@ type Props = {
     onChangeHeadcount: () => void;
     onFill: () => void;
     onCancel: () => void;
+    onTransferOwnership: () => void;
     onReopen: () => void;
     onRepeat: () => void;
 };
@@ -70,6 +72,7 @@ export function RequirementOverviewCard({
     onChangeHeadcount,
     onFill,
     onCancel,
+    onTransferOwnership,
     onReopen,
     onRepeat,
 }: Props) {
@@ -143,6 +146,7 @@ export function RequirementOverviewCard({
         requirement.can_extend ||
         requirement.can_change_headcount ||
         showHold ||
+        Boolean(requirement.can_transfer_ownership) ||
         requirement.can_reopen ||
         requirement.can_repeat ||
         requirement.can_cancel;
@@ -320,6 +324,19 @@ export function RequirementOverviewCard({
                                                 aria-hidden="true"
                                             />
                                             <span>Put on hold</span>
+                                        </DropdownMenuItem>
+                                    ) : null}
+
+                                    {requirement.can_transfer_ownership ? (
+                                        <DropdownMenuItem
+                                            onClick={onTransferOwnership}
+                                            className="cursor-pointer gap-2"
+                                        >
+                                            <ArrowRightLeft
+                                                className="h-4 w-4 text-muted-foreground"
+                                                aria-hidden="true"
+                                            />
+                                            <span>Transfer ownership</span>
                                         </DropdownMenuItem>
                                     ) : null}
 

@@ -1971,6 +1971,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the assigned recruiter to request a headcount revision that the requirement requester must approve before the official headcount changes.',
                 'group' => 'Recruitment',
             ],
+            335 => [
+                'name' => 'recruitment.requirements.transfer_ownership',
+                'label' => 'Transfer Requirement Ownership',
+                'description' => 'Allows authorized users to reassign the requester or assigned recruiter on Draft, Returned, Pending Approval, Open, or On Hold requirements when the current owner becomes inactive or unavailable.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }

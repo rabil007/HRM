@@ -34,6 +34,7 @@ import { HeadcountRevisionRequestCard } from './components/workflow/headcount-re
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
+import { TransferOwnershipDialog } from './components/workflow/transfer-ownership-dialog';
 import { isRequirementHoldActionVisible } from './lib/requirement-hold-feature';
 import {
     incompleteSubmissionMessages,
@@ -62,6 +63,8 @@ export function RequirementsShowContent({
     const [isExtendOpen, setIsExtendOpen] = useState(false);
     const [isChangeHeadcountOpen, setIsChangeHeadcountOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [isTransferOwnershipOpen, setIsTransferOwnershipOpen] =
+        useState(false);
     const [isReopenOpen, setIsReopenOpen] = useState(false);
     const [isRepeatOpen, setIsRepeatOpen] = useState(false);
     const [isReturnOpen, setIsReturnOpen] = useState(false);
@@ -229,6 +232,9 @@ export function RequirementsShowContent({
                         }}
                         onFill={handleFill}
                         onCancel={() => setIsCancelOpen(true)}
+                        onTransferOwnership={() =>
+                            setIsTransferOwnershipOpen(true)
+                        }
                         onReopen={() => setIsReopenOpen(true)}
                         onRepeat={() => setIsRepeatOpen(true)}
                     />
@@ -308,6 +314,16 @@ export function RequirementsShowContent({
                 open={isCancelOpen}
                 onOpenChange={setIsCancelOpen}
                 requirement={requirement}
+            />
+
+            <TransferOwnershipDialog
+                open={isTransferOwnershipOpen}
+                onOpenChange={setIsTransferOwnershipOpen}
+                requirement={requirement}
+                requesters={
+                    options.requesters ?? options.notification_users ?? []
+                }
+                recruiters={options.recruiters}
             />
 
             <ReopenRequirementDialog

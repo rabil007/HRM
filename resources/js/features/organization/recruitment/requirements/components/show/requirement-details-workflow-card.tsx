@@ -137,6 +137,21 @@ function WorkflowTimelineSection({
                                             Reason: {event.reason}
                                         </p>
                                     ) : null}
+                                    {event.previous_requester_name ||
+                                    event.new_requester_name ? (
+                                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                                            {event.previous_requester_name
+                                                ? `Previous requester: ${event.previous_requester_name}`
+                                                : null}
+                                            {event.previous_requester_name &&
+                                            event.new_requester_name
+                                                ? ' · '
+                                                : null}
+                                            {event.new_requester_name
+                                                ? `New requester: ${event.new_requester_name}`
+                                                : null}
+                                        </p>
+                                    ) : null}
                                     {event.previous_recruiter_name ||
                                     event.new_recruiter_name ? (
                                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">

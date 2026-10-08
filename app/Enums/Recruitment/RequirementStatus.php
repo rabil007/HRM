@@ -75,6 +75,20 @@ enum RequirementStatus: string
     }
 
     /**
+     * Controlled recovery transfer of requester / assigned recruiter.
+     */
+    public function allowsOwnershipTransfer(): bool
+    {
+        return in_array($this, [
+            self::Draft,
+            self::Returned,
+            self::PendingApproval,
+            self::Open,
+            self::OnHold,
+        ], true);
+    }
+
+    /**
      * @return list<self>
      */
     public static function activeListStatuses(): array

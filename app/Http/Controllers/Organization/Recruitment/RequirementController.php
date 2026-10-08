@@ -177,6 +177,7 @@ class RequirementController extends Controller
             'projects' => $projects,
             'positions' => $positions,
             'recruiters' => $recruiters,
+            'requesters' => $notificationUsers,
             'notification_users' => $notificationUsers,
             'currency_code' => $companyCurrency,
         ];

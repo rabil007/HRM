@@ -119,6 +119,56 @@ function createTimelineRequirement(object $context, array $overrides = []): Recr
     return $req->fresh(['creator', 'assignedRecruiter']);
 }
 
+test('timeline presents ownership transfer as a dedicated event', function () {
+    $req = createTimelineRequirement($this);
+    $previousRequester = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Previous Requester',
+        'status' => 'active',
+    ]);
+    $newRequester = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'New Requester',
+        'status' => 'active',
+    ]);
+    $previousRecruiter = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Previous Recruiter',
+        'status' => 'active',
+    ]);
+    $newRecruiter = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'New Recruiter',
+        'status' => 'active',
+    ]);
+
+    RecordRequirementStatusTransition::handle(
+        $req,
+        RequirementStatus::Open,
+        RequirementStatus::Open,
+        $this->user->id,
+        'Ownership transferred',
+        [
+            'previous_requester_user_id' => $previousRequester->id,
+            'new_requester_user_id' => $newRequester->id,
+            'previous_recruiter_user_id' => $previousRecruiter->id,
+            'new_recruiter_user_id' => $newRecruiter->id,
+            'reason' => 'Requester left the company.',
+        ],
+    );
+
+    $timeline = RequirementWorkflowTimelinePresenter::for($req->fresh(['creator']), $this->user);
+    $transfer = collect($timeline['events'])->firstWhere('key', 'ownership_transferred');
+
+    expect($transfer)->not->toBeNull()
+        ->and($transfer['label'])->toBe('Ownership transferred')
+        ->and($transfer['reason'])->toBe('Requester left the company.')
+        ->and($transfer['previous_requester_name'])->toBe('Previous Requester')
+        ->and($transfer['new_requester_name'])->toBe('New Requester')
+        ->and($transfer['previous_recruiter_name'])->toBe('Previous Recruiter')
+        ->and($transfer['new_recruiter_name'])->toBe('New Recruiter');
+});
+
 test('timeline presents recruiter reassignment as a dedicated event', function () {
     $req = createTimelineRequirement($this);
     $previousRecruiter = User::factory()->create([

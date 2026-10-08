@@ -298,6 +298,27 @@ final class RequirementWorkflowAuthorization
         }
     }
 
+    public static function canTransferOwnership(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.requirements.transfer_ownership')
+            && $requirement->status->allowsOwnershipTransfer();
+    }
+
+    public static function assertCanTransferOwnership(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! $user->can('recruitment.requirements.transfer_ownership')) {
+            throw ValidationException::withMessages([
+                'status' => 'You do not have permission to transfer requirement ownership.',
+            ]);
+        }
+
+        if (! $requirement->status->allowsOwnershipTransfer()) {
+            throw ValidationException::withMessages([
+                'status' => "Ownership cannot be transferred for a {$requirement->status->label()} requirement.",
+            ]);
+        }
+    }
+
     public static function assertCanSubmit(User $user, RecruitmentRequirement $requirement): void
     {
         if (! $user->can('recruitment.requirements.submit')) {

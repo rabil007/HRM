@@ -191,8 +191,14 @@ final class RequirementPresenter
             'headcount_revision_mode' => $headcountRevisionMode,
             'can_decide_headcount_revision' => $canDecideHeadcount,
             'pending_headcount_revision' => $pendingHeadcountPayload,
-            'can_fill' => $canClose && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true),
+            'can_fill' => $canClose
+                && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
+                && $pendingExtensionPayload === null
+                && $pendingHeadcountPayload === null,
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
+            'can_transfer_ownership' => $user !== null
+                && $user->can('recruitment.requirements.transfer_ownership')
+                && $requirement->status->allowsOwnershipTransfer(),
             'can_reopen' => $canReopenPerm && $isHistory,
             'can_repeat' => $canView && $canCreate && $isHistory,
             'submission_readiness' => in_array($requirement->status, [
@@ -287,6 +293,7 @@ final class RequirementPresenter
             'completed_at_formatted' => $requirement->completed_at?->format('d-m-Y H:i'),
             'cancelled_at_formatted' => $requirement->cancelled_at?->format('d-m-Y H:i'),
             'created_at_formatted' => $requirement->created_at?->format('d-m-Y H:i'),
+            'created_by' => $requirement->created_by !== null ? (int) $requirement->created_by : null,
             'creator_name' => $requirement->creator?->name,
             'updater_name' => $requirement->updater?->name,
             'submitter_name' => $requirement->submitter?->name,
