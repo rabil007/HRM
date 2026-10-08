@@ -5,6 +5,8 @@ alwaysApply: true
 
 # Pre-commit / pre-push verification (changed files only)
 
+Applies to **Cursor Local** and **Cursor Cloud Agents**. Same repository instructions; do not invent a parallel workflow.
+
 ## Why CI keeps failing
 
 GitHub **Frontend Static** runs ESLint, Prettier, TypeScript, and frontend unit tests on every frontend-scoped push. Commits that skip the same checks locally fail CI even when the feature logic is correct.
@@ -15,6 +17,7 @@ Typical misses:
 - Prettier drift on edited `resources/js/**` files
 - TypeScript errors from new required props or removed exports
 - Frontend unit tests for components/helpers that changed but tests were not updated
+- Stale Wayfinder types after route/controller edits
 
 ## Default agent behavior (mandatory unless overridden)
 
@@ -22,7 +25,7 @@ Typical misses:
 
 **Override:** If the user's prompt explicitly says to skip verification, skip a specific check, or use a different verification scope, follow the prompt instead of this rule.
 
-Do not run full-repo suites (`composer ci:check`, `npm run test:frontend`, `php artisan test --compact` without a path) unless the change is cross-domain, a focused check failed, or the user asked for broader validation.
+Do not run full-repo suites (`composer ci:check`, `npm run test:frontend`, `php artisan test --compact` without a path, `npm run verify:push`) unless the change is cross-domain, a focused check failed, or the user asked for broader validation.
 
 ## Collect changed paths
 
@@ -33,6 +36,32 @@ git diff --name-only --cached
 
 Union those paths. Ignore unrelated untracked junk under `storage/`.
 
+## Verification ladder (narrow → broader)
+
+Prefer the **smallest** matching rung. Escalate only when the change warrants it.
+
+| Scope | When | What to run |
+| --- | --- | --- |
+| Focused changed-file checks | Default for small, scoped edits | Pint, Pest, Prettier, and ESLint on **changed files** where possible; then project-wide `npm run types:check` (sections below) |
+| `npm run verify:quick` | Broader frontend verification, many TS/TSX files touched, or after Wayfinder regeneration when a focused path set is impractical | Regenerates Wayfinder, then `types:check`, then `lint:check` (see `package.json`) |
+| `npm run verify:push` | Cross-domain changes, pre-push when broader validation is warranted, or when focused checks are insufficient | Runs `verify:quick`, then `format:check`, then `test:frontend` |
+
+Do **not** treat `verify:quick` / `verify:push` as the default for every small change — they are broader than changed-files-first.
+
+**Scope note:** `npm run types:check` (`tsc --noEmit`) is always **project-wide**. Pint (`--dirty`), focused Pest paths, Prettier, and ESLint should stay scoped to changed files whenever practical.
+
+## Wayfinder regeneration (before TypeScript)
+
+When Laravel routes or controllers that feed Wayfinder change (`routes/**`, `app/Http/Controllers/**`, or other inputs that regenerate `@/actions` / `@/routes` / `@/wayfinder`), regenerate **before** TypeScript validation:
+
+```bash
+php artisan wayfinder:generate --with-form --no-interaction
+```
+
+Then run `npm run types:check` (or `npm run verify:quick`, which already regenerates Wayfinder first).
+
+Never manually edit generated `resources/js/routes/`, `resources/js/actions/`, or `resources/js/wayfinder/` files.
+
 ## PHP changed files (`*.php`)
 
 ```bash
@@ -42,15 +71,19 @@ php artisan test --compact <matching-test-file-or-filter>
 
 `pint --dirty` already limits to changed PHP. Run the smallest Pest file that covers the behavior.
 
+If the PHP change is a Wayfinder input (routes/controllers), also regenerate Wayfinder and run `npm run types:check` as above.
+
 ## Frontend changed files (`resources/js/**/*.{ts,tsx}`)
 
-Run in order on **each changed TS/TSX file** (or pass them as one eslint/prettier invocation):
+Run Prettier and ESLint on **each changed TS/TSX file** (or pass them as one invocation), then run project-wide TypeScript:
 
 ```bash
 npx prettier --write path/to/changed.tsx
 npx eslint path/to/changed.tsx
 npm run types:check
 ```
+
+`types:check` validates the whole frontend type graph; it cannot be limited to a single changed file.
 
 Also run **matching unit tests** when they exist:
 
@@ -62,7 +95,7 @@ Also run **matching unit tests** when they exist:
 node --experimental-strip-types --test path/to/changed.test.ts
 ```
 
-If Wayfinder inputs changed (`routes/**`, `app/Http/Controllers/**`), CI also regenerates Wayfinder and runs frontend static/build — run `npm run types:check` at minimum after such backend route edits.
+For many frontend files or when scoped eslint/prettier invocations become impractical, prefer `npm run verify:quick` instead of inventing a full-repo substitute. Use `npm run verify:push` only when Prettier check + the standard frontend unit suite are also warranted.
 
 ## Before claiming success
 
