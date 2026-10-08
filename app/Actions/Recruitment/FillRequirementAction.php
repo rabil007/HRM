@@ -5,6 +5,7 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementDeadlineExtension;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Illuminate\Support\Facades\DB;
@@ -27,12 +28,31 @@ final class FillRequirementAction
                 ]);
             }
 
+            $pendingDeadlineExtension = RecruitmentRequirementDeadlineExtension::query()
+                ->where('recruitment_requirement_id', $locked->id)
+                ->where('company_id', $locked->company_id)
+                ->pending()
+                ->lockForUpdate()
+                ->exists();
+
             $pendingHeadcountRevision = RecruitmentRequirementHeadcountRevision::query()
                 ->where('recruitment_requirement_id', $locked->id)
                 ->where('company_id', $locked->company_id)
                 ->pending()
                 ->lockForUpdate()
                 ->exists();
+
+            if ($pendingDeadlineExtension && $pendingHeadcountRevision) {
+                throw ValidationException::withMessages([
+                    'status' => 'This requirement has pending deadline-extension and headcount-revision requests. Approve or reject them before marking the requirement as filled.',
+                ]);
+            }
+
+            if ($pendingDeadlineExtension) {
+                throw ValidationException::withMessages([
+                    'status' => 'This requirement has a pending deadline extension. Approve or reject the request before marking the requirement as filled.',
+                ]);
+            }
 
             if ($pendingHeadcountRevision) {
                 throw ValidationException::withMessages([

@@ -763,3 +763,118 @@ test('presenter flags keep recruiter request mode distinct from requester direct
         ->and($outsiderData['can_extend'])->toBeFalse()
         ->and($outsiderData['deadline_extension_mode'])->toBeNull();
 });
+
+test('open and on hold requirements cannot be filled while a deadline extension is pending', function (RequirementStatus $status) {
+    $closer = createDeadlineExtensionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+    ]);
+
+    $req = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-FILL-'.$status->value,
+        'status' => $status,
+    ]);
+    createDeadlineExtensionRecord($req, $this->recruiter);
+
+    $this->actingAs($closer)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+
+    expect($req->fresh()->status)->toBe($status)
+        ->and(RecruitmentRequirementDeadlineExtension::query()->first()?->status)
+        ->toBe(RequirementDeadlineExtensionStatus::Pending);
+})->with([
+    RequirementStatus::Open,
+    RequirementStatus::OnHold,
+]);
+
+test('cancelling a requirement cancels a pending deadline extension and preserves history', function () {
+    $canceller = createDeadlineExtensionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.cancel',
+    ]);
+
+    $req = createOpenDeadlineRequirement($this, ['requirement_number' => 'REQ-CANCEL-EXT']);
+    $extension = createDeadlineExtensionRecord($req, $this->recruiter, [
+        'reason' => 'Need more time before cancellation.',
+    ]);
+    $oldDeadline = $req->required_by_date->format('Y-m-d');
+
+    $this->actingAs($canceller)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'Project postponed.',
+        ])
+        ->assertRedirect();
+
+    $freshExtension = $extension->fresh();
+    expect($req->fresh()->status)->toBe(RequirementStatus::Cancelled)
+        ->and($req->fresh()->required_by_date->format('Y-m-d'))->toBe($oldDeadline)
+        ->and($freshExtension->status)->toBe(RequirementDeadlineExtensionStatus::Cancelled)
+        ->and($freshExtension->decision_note)->toBe('Cancelled because the requirement was cancelled.')
+        ->and($freshExtension->decided_by)->toBe($canceller->id)
+        ->and($freshExtension->decided_at)->not->toBeNull();
+
+    expect(Activity::query()
+        ->where('description', 'Deadline extension cancelled because the requirement was cancelled. Official deadline remains unchanged.')
+        ->exists())->toBeTrue();
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.deadline_extensions.0.status', 'cancelled')
+            ->where('requirement.deadline_extensions.0.decision_note', 'Cancelled because the requirement was cancelled.')
+            ->where('requirement.pending_deadline_extension', null)
+        );
+});
+
+test('cancelled deadline extensions stay terminal after requirement reopen and cannot be reviewed again', function () {
+    $reopenUser = createDeadlineExtensionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.reopen',
+        'recruitment.requirements.cancel',
+    ]);
+
+    $req = createOpenDeadlineRequirement($this, [
+        'requirement_number' => 'REQ-REOPEN-EXT',
+        'assigned_to' => $reopenUser->id,
+    ]);
+    $extension = createDeadlineExtensionRecord($req, $this->recruiter);
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'Cancelled for reopen test.',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($reopenUser)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Client revived the request.',
+            'new_required_by_date' => now()->addDays(30)->format('Y-m-d'),
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open)
+        ->and($extension->fresh()->status)->toBe(RequirementDeadlineExtensionStatus::Cancelled);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/deadline-extensions/{$extension->id}/approve")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['status']);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.pending_deadline_extension', null)
+            ->where('requirement.can_decide_deadline_extension', false)
+        );
+});

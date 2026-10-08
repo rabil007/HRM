@@ -28,6 +28,8 @@ final class RequirementWorkflowTimelinePresenter
      *         reason: string|null,
      *         previous_recruiter_name: string|null,
      *         new_recruiter_name: string|null,
+     *         previous_requester_name: string|null,
+     *         new_requester_name: string|null,
      *         is_current: bool,
      *         state: 'completed'|'current'
      *     }>
@@ -46,13 +48,59 @@ final class RequirementWorkflowTimelinePresenter
             ->orderBy('id')
             ->get();
 
-        $recruiterNames = self::recruiterNamesForTransitions($transitions);
+        $userNames = self::userNamesForTransitions($transitions);
 
         $events = [];
 
         foreach ($transitions as $transition) {
             $from = $transition->from_status !== null ? (string) $transition->from_status : null;
             $to = (string) $transition->to_status;
+
+            if (self::isOwnershipTransferTransition($from, $to, $transition->reason)) {
+                $occurredAt = Carbon::parse($transition->created_at)->timezone($timezone);
+                $context = is_array($transition->context) ? $transition->context : [];
+                $previousRequesterId = isset($context['previous_requester_user_id'])
+                    ? (int) $context['previous_requester_user_id']
+                    : null;
+                $newRequesterId = isset($context['new_requester_user_id'])
+                    ? (int) $context['new_requester_user_id']
+                    : null;
+                $previousRecruiterId = isset($context['previous_recruiter_user_id'])
+                    ? (int) $context['previous_recruiter_user_id']
+                    : null;
+                $newRecruiterId = isset($context['new_recruiter_user_id'])
+                    ? (int) $context['new_recruiter_user_id']
+                    : null;
+                $transferReason = isset($context['reason']) && filled($context['reason'])
+                    ? (string) $context['reason']
+                    : (filled($transition->reason) ? (string) $transition->reason : null);
+
+                $events[] = [
+                    'id' => 'transition_'.$transition->id,
+                    'key' => 'ownership_transferred',
+                    'label' => 'Ownership transferred',
+                    'occurred_at' => $occurredAt->toIso8601String(),
+                    'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
+                    'actor_name' => $transition->performer?->name,
+                    'reason' => $transferReason,
+                    'previous_recruiter_name' => $previousRecruiterId !== null
+                        ? ($userNames[$previousRecruiterId] ?? null)
+                        : null,
+                    'new_recruiter_name' => $newRecruiterId !== null
+                        ? ($userNames[$newRecruiterId] ?? null)
+                        : null,
+                    'previous_requester_name' => $previousRequesterId !== null
+                        ? ($userNames[$previousRequesterId] ?? null)
+                        : null,
+                    'new_requester_name' => $newRequesterId !== null
+                        ? ($userNames[$newRequesterId] ?? null)
+                        : null,
+                    'is_current' => false,
+                    'state' => 'completed',
+                ];
+
+                continue;
+            }
 
             if (self::isRecruiterReassignmentTransition($from, $to, $transition->reason)) {
                 $occurredAt = Carbon::parse($transition->created_at)->timezone($timezone);
@@ -73,11 +121,13 @@ final class RequirementWorkflowTimelinePresenter
                     'actor_name' => $transition->performer?->name,
                     'reason' => filled($transition->reason) ? (string) $transition->reason : null,
                     'previous_recruiter_name' => $previousId !== null
-                        ? ($recruiterNames[$previousId] ?? null)
+                        ? ($userNames[$previousId] ?? null)
                         : null,
                     'new_recruiter_name' => $newId !== null
-                        ? ($recruiterNames[$newId] ?? null)
+                        ? ($userNames[$newId] ?? null)
                         : null,
+                    'previous_requester_name' => null,
+                    'new_requester_name' => null,
                     'is_current' => false,
                     'state' => 'completed',
                 ];
@@ -103,6 +153,8 @@ final class RequirementWorkflowTimelinePresenter
                 'reason' => filled($transition->reason) ? (string) $transition->reason : null,
                 'previous_recruiter_name' => null,
                 'new_recruiter_name' => null,
+                'previous_requester_name' => null,
+                'new_requester_name' => null,
                 'is_current' => false,
                 'state' => 'completed',
             ];
@@ -126,6 +178,8 @@ final class RequirementWorkflowTimelinePresenter
                 'reason' => null,
                 'previous_recruiter_name' => null,
                 'new_recruiter_name' => null,
+                'previous_requester_name' => null,
+                'new_requester_name' => null,
                 'is_current' => false,
                 'state' => 'completed',
             ];
@@ -150,6 +204,22 @@ final class RequirementWorkflowTimelinePresenter
         ];
     }
 
+    private static function isOwnershipTransferTransition(
+        ?string $from,
+        string $to,
+        ?string $reason,
+    ): bool {
+        if ($from === null || $from !== $to) {
+            return false;
+        }
+
+        if (! filled($reason)) {
+            return false;
+        }
+
+        return strcasecmp(trim($reason), 'Ownership transferred') === 0;
+    }
+
     private static function isRecruiterReassignmentTransition(
         ?string $from,
         string $to,
@@ -171,7 +241,7 @@ final class RequirementWorkflowTimelinePresenter
      * @param  Collection<int, RecruitmentRequirementStatusTransition>  $transitions
      * @return array<int, string>
      */
-    private static function recruiterNamesForTransitions(Collection $transitions): array
+    private static function userNamesForTransitions(Collection $transitions): array
     {
         $userIds = [];
 
@@ -180,7 +250,12 @@ final class RequirementWorkflowTimelinePresenter
                 continue;
             }
 
-            foreach (['previous_recruiter_user_id', 'new_recruiter_user_id'] as $key) {
+            foreach ([
+                'previous_recruiter_user_id',
+                'new_recruiter_user_id',
+                'previous_requester_user_id',
+                'new_requester_user_id',
+            ] as $key) {
                 if (! isset($transition->context[$key])) {
                     continue;
                 }

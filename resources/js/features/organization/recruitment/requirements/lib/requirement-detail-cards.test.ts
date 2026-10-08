@@ -223,6 +223,7 @@ describe('Requirement detail cards', () => {
                 onChangeHeadcount: () => void;
                 onFill: () => void;
                 onCancel: () => void;
+                onTransferOwnership: () => void;
                 onReopen: () => void;
                 onRepeat: () => void;
             }>;
@@ -243,6 +244,7 @@ describe('Requirement detail cards', () => {
                         onChangeHeadcount: noop,
                         onFill: noop,
                         onCancel: noop,
+                        onTransferOwnership: noop,
                         onReopen: noop,
                         onRepeat: noop,
                     }),
@@ -278,6 +280,7 @@ describe('Requirement detail cards', () => {
                 onChangeHeadcount: () => void;
                 onFill: () => void;
                 onCancel: () => void;
+                onTransferOwnership: () => void;
                 onReopen: () => void;
                 onRepeat: () => void;
             }>;
@@ -305,6 +308,7 @@ describe('Requirement detail cards', () => {
                         onChangeHeadcount: noop,
                         onFill: noop,
                         onCancel: noop,
+                        onTransferOwnership: noop,
                         onReopen: noop,
                         onRepeat: noop,
                     }),
@@ -330,6 +334,7 @@ describe('Requirement detail cards', () => {
                         onChangeHeadcount: noop,
                         onFill: noop,
                         onCancel: noop,
+                        onTransferOwnership: noop,
                         onReopen: noop,
                         onRepeat: noop,
                     }),
@@ -354,6 +359,7 @@ describe('Requirement detail cards', () => {
                 onChangeHeadcount: () => void;
                 onFill: () => void;
                 onCancel: () => void;
+                onTransferOwnership: () => void;
                 onReopen: () => void;
                 onRepeat: () => void;
             }>;
@@ -383,6 +389,7 @@ describe('Requirement detail cards', () => {
                         onChangeHeadcount: noop,
                         onFill: noop,
                         onCancel: noop,
+                        onTransferOwnership: noop,
                         onReopen: noop,
                         onRepeat: noop,
                     }),
@@ -415,6 +422,7 @@ describe('Requirement detail cards', () => {
                 onChangeHeadcount: () => void;
                 onFill: () => void;
                 onCancel: () => void;
+                onTransferOwnership: () => void;
                 onReopen: () => void;
                 onRepeat: () => void;
             }>;
@@ -443,6 +451,7 @@ describe('Requirement detail cards', () => {
                         onChangeHeadcount: noop,
                         onFill: noop,
                         onCancel: noop,
+                        onTransferOwnership: noop,
                         onReopen: noop,
                         onRepeat: noop,
                     }),

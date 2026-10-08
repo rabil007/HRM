@@ -21,6 +21,7 @@ final class RequirementPagePermissions
      *     view_audit: bool,
      *     request_deadline_extension: bool,
      *     request_headcount_revision: bool,
+     *     transfer_ownership: bool,
      * }
      */
     public static function for(?User $user): array
@@ -42,6 +43,7 @@ final class RequirementPagePermissions
             'view_audit' => (bool) $user?->can('audit.view'),
             'request_deadline_extension' => (bool) $user?->can('recruitment.requirements.request_deadline_extension'),
             'request_headcount_revision' => (bool) $user?->can('recruitment.requirements.request_headcount_revision'),
+            'transfer_ownership' => (bool) $user?->can('recruitment.requirements.transfer_ownership'),
         ];
     }
 }

@@ -205,6 +205,7 @@ use App\Http\Controllers\Organization\Recruitment\RequirementResubmitController;
 use App\Http\Controllers\Organization\Recruitment\RequirementResumeController;
 use App\Http\Controllers\Organization\Recruitment\RequirementReturnController;
 use App\Http\Controllers\Organization\Recruitment\RequirementSubmitController;
+use App\Http\Controllers\Organization\Recruitment\RequirementTransferOwnershipController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SeaServicesExportController;
 use App\Http\Controllers\Organization\SeaServiceShowController;
@@ -576,6 +577,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/recruitment/requirements/{requirement}/cancel', RequirementCancelController::class)
         ->middleware('can:recruitment.requirements.cancel')
         ->name('organization.recruitment.requirements.cancel');
+    Route::post('organization/recruitment/requirements/{requirement}/transfer-ownership', RequirementTransferOwnershipController::class)
+        ->middleware('can:recruitment.requirements.transfer_ownership')
+        ->name('organization.recruitment.requirements.transfer-ownership');
     Route::post('organization/recruitment/requirements/{requirement}/reopen', RequirementReopenController::class)
         ->middleware('can:recruitment.requirements.reopen')
         ->name('organization.recruitment.requirements.reopen');
