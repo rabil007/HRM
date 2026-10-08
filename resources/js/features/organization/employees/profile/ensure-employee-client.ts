@@ -7,6 +7,7 @@ export type EnsuredEmployee = {
 export type EnsureEmployeeRequestBody = {
     name: string;
     employee_profile_template_id: number | null;
+    idempotency_key?: string | null;
 };
 
 export class EnsureEmployeeRequestError extends Error {
@@ -37,9 +38,22 @@ export async function postEnsureEmployee(
     }
 
     const token =
-        document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute('content') ?? '';
+        typeof document !== 'undefined'
+            ? (document
+                  .querySelector('meta[name="csrf-token"]')
+                  ?.getAttribute('content') ?? '')
+            : '';
+
+    const payload: Record<string, unknown> = {
+        name,
+        employee_profile_template_id: body.employee_profile_template_id,
+    };
+
+    const key = body.idempotency_key?.trim() ?? '';
+
+    if (key !== '') {
+        payload.idempotency_key = key;
+    }
 
     const response = await fetchImpl('/organization/employees/ensure', {
         method: 'POST',
@@ -50,20 +64,17 @@ export async function postEnsureEmployee(
             'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'same-origin',
-        body: JSON.stringify({
-            name,
-            employee_profile_template_id: body.employee_profile_template_id,
-        }),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
         throw new EnsureEmployeeRequestError('ensure_failed');
     }
 
-    const payload = (await response.json()) as {
+    const responsePayload = (await response.json()) as {
         employee?: EnsuredEmployee;
     };
-    const ensured = payload.employee;
+    const ensured = responsePayload.employee;
 
     if (!ensured?.id) {
         throw new EnsureEmployeeRequestError('ensure_invalid');
@@ -72,13 +83,24 @@ export async function postEnsureEmployee(
     return ensured;
 }
 
+export type DedupedEnsureRequest = {
+    name: string;
+    employee_profile_template_id: number | null;
+    idempotency_key: string;
+};
+
 /**
  * Deduplicate concurrent ensure calls and reuse a resolved provisional employee.
+ * Production hook uses this helper so retries share one in-flight request and
+ * one server-scoped idempotency key.
  */
 export function createDedupedEnsureEmployee(
-    runRequest: () => Promise<EnsuredEmployee>,
+    runRequest: (body: DedupedEnsureRequest) => Promise<EnsuredEmployee>,
 ): {
-    ensure: (resolvedEmployeeId: number | null) => Promise<EnsuredEmployee>;
+    ensure: (
+        resolvedEmployeeId: number | null,
+        body: DedupedEnsureRequest,
+    ) => Promise<EnsuredEmployee>;
     reset: () => void;
 } {
     let inFlight: Promise<EnsuredEmployee> | null = null;
@@ -87,6 +109,7 @@ export function createDedupedEnsureEmployee(
     return {
         async ensure(
             resolvedEmployeeId: number | null,
+            body: DedupedEnsureRequest,
         ): Promise<EnsuredEmployee> {
             if (resolvedEmployeeId !== null && resolvedEmployeeId > 0) {
                 if (cached !== null && cached.id === resolvedEmployeeId) {
@@ -95,7 +118,7 @@ export function createDedupedEnsureEmployee(
 
                 return {
                     id: resolvedEmployeeId,
-                    name: cached?.name ?? '',
+                    name: cached?.name ?? body.name,
                     employee_no: cached?.employee_no ?? '',
                 };
             }
@@ -108,7 +131,7 @@ export function createDedupedEnsureEmployee(
                 return inFlight;
             }
 
-            inFlight = runRequest()
+            inFlight = runRequest(body)
                 .then((ensured) => {
                     cached = ensured;
 
@@ -125,4 +148,15 @@ export function createDedupedEnsureEmployee(
             cached = null;
         },
     };
+}
+
+export function createEnsureIdempotencyKey(): string {
+    if (
+        typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+    ) {
+        return crypto.randomUUID().replaceAll('-', '');
+    }
+
+    return `ensure_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
 }

@@ -229,11 +229,35 @@ function EmployeeDetailsPage({
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
-    const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
-        setLocalEmployee((current) =>
-            mergePersistedEmployeeAfterEnsure(current, ensured),
-        );
-    }, []);
+    const handleEnsured = useCallback(
+        (ensured: EnsuredEmployee) => {
+            setLocalEmployee((current) =>
+                mergePersistedEmployeeAfterEnsure(current, ensured),
+            );
+
+            // Persist resume URL so refresh reloads the owned provisional draft.
+            if (typeof window === 'undefined' || !isCreateMode) {
+                return;
+            }
+
+            const search = new URLSearchParams(window.location.search);
+            search.set('employee_id', String(ensured.id));
+
+            if (selectedTemplateId) {
+                search.set('profile_template_id', String(selectedTemplateId));
+            } else {
+                search.delete('profile_template_id');
+            }
+
+            const next = `${window.location.pathname}?${search.toString()}`;
+            const current = `${window.location.pathname}${window.location.search}`;
+
+            if (next !== current) {
+                window.history.replaceState(null, '', next);
+            }
+        },
+        [isCreateMode, selectedTemplateId],
+    );
 
     const permissions = auth?.permissions ?? [];
 

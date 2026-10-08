@@ -362,16 +362,19 @@ test('create-only user can update provisional draft employee to official number'
 
     $ensure = $this->postJson('/organization/employees/ensure', [
         'name' => 'Create Only Employee',
+        'idempotency_key' => 'create-only-key-001',
     ])->assertOk();
 
     $employeeId = (int) $ensure->json('employee.id');
+
+    expect(Employee::query()->find($employeeId)?->provisional_created_by)->toBe($user->id);
 
     $this->from("/organization/employees/{$employeeId}")
         ->put("/organization/employees/{$employeeId}", [
             'employee_no' => 'CREATE-ONLY-1',
             'name' => 'Create Only Employee',
         ])
-        ->assertRedirect()
+        ->assertRedirect(route('organization.employees.create'))
         ->assertSessionHas('success');
 
     expect(Employee::query()->find($employeeId)?->employee_no)->toBe('CREATE-ONLY-1');

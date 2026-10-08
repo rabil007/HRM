@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import {
+    createDedupedEnsureEmployee,
+    createEnsureIdempotencyKey,
     EnsureEmployeeRequestError,
     postEnsureEmployee,
 } from '@/features/organization/employees/profile/ensure-employee-client';
@@ -21,61 +23,41 @@ export function useEnsureEmployee({
     selectedProfileTemplateId,
     onEnsured,
 }: UseEnsureEmployeeOptions): () => Promise<number> {
-    const inFlightRef = useRef<Promise<number> | null>(null);
-    const cachedEnsuredRef = useRef<EnsuredEmployee | null>(null);
+    const idempotencyKeyRef = useRef<string>(createEnsureIdempotencyKey());
+    const deduperRef = useRef(
+        createDedupedEnsureEmployee((body) => postEnsureEmployee(body)),
+    );
 
     useEffect(() => {
         if (employeeId !== null && employeeId > 0) {
             return;
         }
 
-        cachedEnsuredRef.current = null;
-        inFlightRef.current = null;
+        deduperRef.current.reset();
+        idempotencyKeyRef.current = createEnsureIdempotencyKey();
     }, [employeeId]);
 
     return useCallback(async (): Promise<number> => {
-        if (employeeId !== null && employeeId > 0) {
-            return employeeId;
-        }
+        try {
+            const ensured = await deduperRef.current.ensure(employeeId, {
+                name: getDraftName(),
+                employee_profile_template_id: selectedProfileTemplateId,
+                idempotency_key: idempotencyKeyRef.current,
+            });
 
-        if (cachedEnsuredRef.current !== null) {
-            onEnsured(cachedEnsuredRef.current);
+            onEnsured(ensured);
 
-            return cachedEnsuredRef.current.id;
-        }
-
-        if (inFlightRef.current !== null) {
-            return inFlightRef.current;
-        }
-
-        const promise = (async (): Promise<number> => {
-            try {
-                const ensured = await postEnsureEmployee({
-                    name: getDraftName(),
-                    employee_profile_template_id: selectedProfileTemplateId,
-                });
-
-                cachedEnsuredRef.current = ensured;
-                onEnsured(ensured);
-
-                return ensured.id;
-            } catch (error) {
-                if (error instanceof EnsureEmployeeRequestError) {
-                    if (error.reason === 'name_required') {
-                        toast.error('Employee name is required before saving.');
-                    } else {
-                        toast.error('Could not create employee record.');
-                    }
+            return ensured.id;
+        } catch (error) {
+            if (error instanceof EnsureEmployeeRequestError) {
+                if (error.reason === 'name_required') {
+                    toast.error('Employee name is required before saving.');
+                } else {
+                    toast.error('Could not create employee record.');
                 }
-
-                throw error;
-            } finally {
-                inFlightRef.current = null;
             }
-        })();
 
-        inFlightRef.current = promise;
-
-        return promise;
+            throw error;
+        }
     }, [employeeId, getDraftName, onEnsured, selectedProfileTemplateId]);
 }
