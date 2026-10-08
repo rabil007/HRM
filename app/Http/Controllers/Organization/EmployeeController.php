@@ -6,6 +6,7 @@ use App\Enums\RecentItemType;
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\AssignEmployeeProfileTemplateRequest;
+use App\Http\Requests\Organization\Employee\PreviewEmployeeHireDateChangeRequest;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Organization\Employee\StoreEnsureEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
@@ -13,6 +14,7 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
 use App\Services\Settings\AiSettingsService;
+use App\Support\Attendance\EmployeeHireDateChangeGuard;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -40,6 +42,7 @@ use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -289,6 +292,38 @@ class EmployeeController extends Controller
             ->with('success', 'Employee created successfully.');
     }
 
+    public function previewHireDateChange(
+        PreviewEmployeeHireDateChangeRequest $request,
+        Employee $employee,
+        EmployeeHireDateChangeGuard $hireDateChangeGuard,
+    ): JsonResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
+        abort_unless((int) $employee->company_id === $companyId, 404);
+        abort_unless(
+            ProvisionalEmployeeAccess::canAccessForProfileMutation($user, $employee, $companyId),
+            404,
+        );
+
+        $proposedHireDate = $hireDateChangeGuard->normalizeHireDate(
+            $request->validated('hire_date'),
+        );
+        $requiresAcknowledgment = $hireDateChangeGuard->requiresAcknowledgment(
+            $employee,
+            $companyId,
+            $proposedHireDate,
+        );
+
+        return response()->json([
+            'requires_acknowledgment' => $requiresAcknowledgment,
+            'previous_hire_date' => $employee->hire_date?->toDateString(),
+            'new_hire_date' => $proposedHireDate,
+            'annual_balance_years' => $requiresAcknowledgment
+                ? $hireDateChangeGuard->annualLeaveBalanceYears($companyId, (int) $employee->id)
+                : [],
+        ]);
+    }
+
     public function update(UpdateEmployeeRequest $request, Employee $employee)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -299,13 +334,22 @@ class EmployeeController extends Controller
             404,
         );
 
+        $hireDateChangeGuard = app(EmployeeHireDateChangeGuard::class);
+        $previousHireDate = $employee->hire_date?->toDateString();
+        $proposedHireDate = $request->has('hire_date')
+            ? $hireDateChangeGuard->normalizeHireDate($request->input('hire_date'))
+            : $previousHireDate;
+        $hireDateAcknowledgmentRequired = $request->has('hire_date')
+            && $hireDateChangeGuard->requiresAcknowledgment($employee, $companyId, $proposedHireDate);
+        $hireDateAcknowledgmentProvided = $request->boolean(EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT);
+
         $wasProvisional = DraftEmployeeNumber::isDraft($employee->employee_no);
 
         $employee->loadMissing('employeeProfileTemplate');
 
         $validated = $request->validated();
         $removeImage = $request->boolean('remove_image');
-        unset($validated['remove_image']);
+        unset($validated['remove_image'], $validated[EmployeeHireDateChangeGuard::ACKNOWLEDGMENT_INPUT]);
 
         $data = EmployeeProfileTemplateRequestRules::onlyVisibleAttributes(
             $employee,
@@ -410,9 +454,34 @@ class EmployeeController extends Controller
         $sssaOptionIds = $data['sssa_option_ids'] ?? null;
         unset($data['approval_location_ids'], $data['sssa_option_ids']);
 
+        if ($hireDateAcknowledgmentRequired) {
+            $hireDateChangeGuard->markOmitHireDateFromNextUpdateActivityLog((int) $employee->id);
+        }
+
         $result = app(ApplyEmployeeUpdateWithDepartmentGuard::class)
             ->handle($employee, $companyId, $data);
         $employee = $result['employee'];
+
+        if ($hireDateAcknowledgmentRequired) {
+            activity()
+                ->performedOn($employee)
+                ->causedBy($user)
+                ->event('hire_date_changed')
+                ->tap(function ($activity) use ($companyId): void {
+                    $activity->company_id = $companyId;
+                })
+                ->withProperties([
+                    'previous_hire_date' => $previousHireDate,
+                    'new_hire_date' => $employee->hire_date?->toDateString(),
+                    'annual_leave_balance_years' => $hireDateChangeGuard->annualLeaveBalanceYears(
+                        $companyId,
+                        (int) $employee->id,
+                    ),
+                    'acknowledgment_required' => true,
+                    'acknowledgment_provided' => $hireDateAcknowledgmentProvided,
+                ])
+                ->log('Employee hire date changed; existing annual leave allocations were preserved.');
+        }
 
         SyncEmployeeWorkAssignments::sync($employee, array_filter([
             'approval_location_ids' => $approvalLocationIds,

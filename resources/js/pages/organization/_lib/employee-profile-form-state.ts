@@ -259,6 +259,7 @@ export function resolveEmployeeProfileSaveVisit(
 export function buildEmployeeProfileUpdatePayload(
     data: Record<string, unknown>,
     templateEmployeeFields?: Record<string, TemplateFieldConfig>,
+    extraFields?: Record<string, unknown>,
 ): Record<string, unknown> {
     const payload = transformEmployeeProfileFormData(
         data,
@@ -274,5 +275,8 @@ export function buildEmployeeProfileUpdatePayload(
         payload.remove_image = true;
     }
 
-    return payload;
+    return {
+        ...payload,
+        ...(extraFields ?? {}),
+    };
 }

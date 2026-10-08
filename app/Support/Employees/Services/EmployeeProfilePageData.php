@@ -19,6 +19,7 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use App\Support\Attendance\EmployeeHireDateChangeGuard;
 use App\Support\EmployeeDocuments\DocumentAiSettings;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -89,11 +90,16 @@ final class EmployeeProfilePageData
         $canChangeProfileTemplate = $canUpdateEmployee && ! $needsProfileTemplate;
 
         $employeePayload = EmployeeDetailResource::toArray($employee);
+        $hireDateChangeGuard = app(EmployeeHireDateChangeGuard::class);
 
         return [
             'mode' => 'edit',
             'employee_navigation' => $employeeNavigation,
             'employee' => $employeePayload,
+            'hire_date_change' => [
+                'has_annual_leave_balances' => $canUpdateEmployee
+                    && $hireDateChangeGuard->hasAnnualLeaveBalances($companyId, (int) $employee->id),
+            ],
             'resolved_template' => EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate),
             'profile_templates' => ($canAssignProfileTemplate || $canChangeProfileTemplate)
                 ? self::activeProfileTemplates($companyId)
@@ -250,6 +256,9 @@ final class EmployeeProfilePageData
             'mode' => 'create',
             'employee_navigation' => null,
             'employee' => $employeePayload,
+            'hire_date_change' => [
+                'has_annual_leave_balances' => false,
+            ],
             'resolved_template' => $resolved,
             'profile_templates' => $profileTemplates,
             'selected_profile_template_id' => $selectedTemplate?->id ?? $employee?->employee_profile_template_id,

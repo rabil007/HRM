@@ -39,12 +39,14 @@ import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-he
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
+import { HireDateChangeWarningDialog } from '@/pages/organization/_components/hire-date-change-warning-dialog';
 import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import {
     canEditEmployeeProfile,
     mergePersistedEmployeeAfterEnsure,
 } from '@/pages/organization/_lib/employee-profile-persisted-state';
+import type { HireDateChangePreview } from '@/pages/organization/_lib/hire-date-change-preview';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
     DocumentTypeOption,
@@ -145,6 +147,7 @@ function EmployeeDetailsPage({
     profile_templates = [],
     selected_profile_template_id = null,
     employee,
+    hire_date_change = { has_annual_leave_balances: false },
     contract_count,
     contracts,
     documents,
@@ -233,6 +236,19 @@ function EmployeeDetailsPage({
     );
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
     const [createUserOpen, setCreateUserOpen] = useState(false);
+    const [hireDateWarningOpen, setHireDateWarningOpen] = useState(false);
+    const [hireDateWarningPreview, setHireDateWarningPreview] =
+        useState<HireDateChangePreview | null>(null);
+    const hireDateWarningContinueRef = useRef<(() => void) | null>(null);
+
+    const handleHireDateWarningRequired = useCallback(
+        (preview: HireDateChangePreview, continueSave: () => void) => {
+            setHireDateWarningPreview(preview);
+            hireDateWarningContinueRef.current = continueSave;
+            setHireDateWarningOpen(true);
+        },
+        [],
+    );
 
     const handleEnsured = useCallback(
         (ensured: EnsuredEmployee) => {
@@ -306,6 +322,9 @@ function EmployeeDetailsPage({
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
             listQuery: employee_navigation?.list_query ?? {},
+            hasAnnualLeaveBalances: hire_date_change.has_annual_leave_balances,
+            savedHireDate: employee.hire_date ?? null,
+            onHireDateWarningRequired: handleHireDateWarningRequired,
         },
     );
 
@@ -569,6 +588,25 @@ function EmployeeDetailsPage({
                         <EmployeeMissingRequiredFieldsAlert
                             missingFields={missingRequiredFields}
                             onFocusField={focusMissingField}
+                        />
+                        <HireDateChangeWarningDialog
+                            preview={hireDateWarningPreview}
+                            open={hireDateWarningOpen}
+                            processing={form.processing}
+                            onOpenChange={(open) => {
+                                setHireDateWarningOpen(open);
+
+                                if (!open) {
+                                    setHireDateWarningPreview(null);
+                                    hireDateWarningContinueRef.current = null;
+                                }
+                            }}
+                            onConfirm={() => {
+                                hireDateWarningContinueRef.current?.();
+                                setHireDateWarningOpen(false);
+                                setHireDateWarningPreview(null);
+                                hireDateWarningContinueRef.current = null;
+                            }}
                         />
                         <AlertDialog
                             open={unsavedDialogOpen}

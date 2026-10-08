@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\SalaryPaymentMethod;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Attendance\EmployeeHireDateChangeGuard;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Activitylog\Support\LogOptions;
 
 class Employee extends Model
@@ -20,7 +22,9 @@ class Employee extends Model
     /** @use HasFactory<EmployeeFactory> */
     use HasFactory;
 
-    use LogsActivityWithCompany;
+    use LogsActivityWithCompany {
+        beforeActivityLogged as assignCompanyToActivityLog;
+    }
     use SoftDeletes;
 
     protected $guarded = [];
@@ -76,6 +80,35 @@ class Employee extends Model
                 'employee_profile_template_id',
             ])
             ->logOnlyDirty();
+    }
+
+    public function beforeActivityLogged(Activity $activity, string $eventName): void
+    {
+        $this->assignCompanyToActivityLog($activity, $eventName);
+
+        if ($eventName !== 'updated') {
+            return;
+        }
+
+        if (! app(EmployeeHireDateChangeGuard::class)->shouldOmitHireDateFromUpdateActivityLog($this)) {
+            return;
+        }
+
+        $changes = $activity->attribute_changes?->toArray() ?? [];
+
+        foreach (['attributes', 'old'] as $section) {
+            if (! isset($changes[$section]) || ! is_array($changes[$section])) {
+                continue;
+            }
+
+            unset($changes[$section]['hire_date']);
+
+            if ($changes[$section] === []) {
+                unset($changes[$section]);
+            }
+        }
+
+        $activity->attribute_changes = collect($changes);
     }
 
     /**
