@@ -15,6 +15,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -918,6 +919,82 @@ test('requester cannot create a headcount revision when assigned recruiter lacks
     Mail::assertNothingSent();
 });
 
+test('requester can create a headcount revision when assigned recruiter is an eligible approver', function () {
+    expect(RecruiterOptionsQuery::isEligibleApprover($this->recruiter->id, $this->companyA->id))->toBeTrue();
+
+    $req = createHeadcountRevisionRequirement($this);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertRedirect();
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->pending()->count())->toBe(1);
+});
+
+test('requester cannot create a headcount revision when assigned recruiter is inactive', function () {
+    $inactiveRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'inactive-recruiter@example.com',
+        'status' => 'inactive',
+    ]);
+
+    expect(RecruiterOptionsQuery::isEligibleApprover($inactiveRecruiter->id, $this->companyA->id))->toBeFalse();
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $inactiveRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertSessionHasErrors(['assigned_to']);
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0)
+        ->and(DB::table('recruitment_requirement_headcount_revision_lines')->count())->toBe(0)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5);
+
+    Mail::assertNothingSent();
+});
+
+test('requester cannot create a headcount revision when assigned recruiter is soft-deleted', function () {
+    $deletedRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'deleted-recruiter@example.com',
+    ]);
+
+    $deletedRecruiter->delete();
+
+    expect(RecruiterOptionsQuery::isEligibleApprover($deletedRecruiter->id, $this->companyA->id))->toBeFalse();
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $deletedRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertSessionHasErrors(['assigned_to']);
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5);
+
+    Mail::assertNothingSent();
+});
+
 test('requester cannot create a headcount revision when assigned recruiter has neither approve nor request permission', function () {
     $viewOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
         'recruitment.requirements.view',
@@ -1073,8 +1150,7 @@ test('reviewer eligibility for requester revisions uses the requirement company 
         ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
     );
 
-    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
-    expect($crossCompanyRecruiter->can('recruitment.requirements.approve'))->toBeFalse();
+    expect(RecruiterOptionsQuery::isEligibleApprover($crossCompanyRecruiter->id, $this->companyA->id))->toBeFalse();
 
     $req = createHeadcountRevisionRequirement($this, [
         'assigned_to' => $crossCompanyRecruiter->id,

@@ -8,7 +8,6 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Record-relationship workflow guards.
@@ -167,22 +166,10 @@ final class RequirementWorkflowAuthorization
             return false;
         }
 
-        /** @var User|null $recruiter */
-        $recruiter = User::query()->find($requirement->assigned_to);
-        if ($recruiter === null) {
-            return false;
-        }
-
-        $companyId = (int) $requirement->company_id;
-
-        if (! $recruiter->companies()
-            ->whereKey($companyId)
-            ->where('company_user.status', 'active')
-            ->exists()) {
-            return false;
-        }
-
-        return self::userHasPermissionInCompany($recruiter, $companyId, 'recruitment.requirements.approve');
+        return RecruiterOptionsQuery::isEligibleApprover(
+            (int) $requirement->assigned_to,
+            (int) $requirement->company_id,
+        );
     }
 
     public static function assertAssignedRecruiterCanReviewRequesterHeadcountRevision(RecruitmentRequirement $requirement): void
@@ -209,23 +196,6 @@ final class RequirementWorkflowAuthorization
             && ! self::isAssignedRecruiter($user, $requirement)
             && ! self::blocksSelfApproval($requirement)
             && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true);
-    }
-
-    private static function userHasPermissionInCompany(User $user, int $companyId, string $permission): bool
-    {
-        /** @var PermissionRegistrar $registrar */
-        $registrar = app(PermissionRegistrar::class);
-        $originalTeamId = $registrar->getPermissionsTeamId();
-
-        try {
-            $registrar->setPermissionsTeamId($companyId);
-            $user->unsetRelation('roles')->unsetRelation('permissions');
-
-            return $user->can($permission);
-        } finally {
-            $registrar->setPermissionsTeamId($originalTeamId);
-            $user->unsetRelation('roles')->unsetRelation('permissions');
-        }
     }
 
     public static function canProposeHeadcountRevisionAsRecruiter(User $user, RecruitmentRequirement $requirement): bool
