@@ -431,6 +431,140 @@ test('show page exposes transfer ownership capability for authorized users', fun
         );
 });
 
+test('deadline requester transfer to the extension initiator is rejected', function () {
+    $req = createOwnershipTransferRequirement($this);
+    RecruitmentRequirementDeadlineExtension::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'requested_by' => $this->recruiter->id,
+        'initiator' => RequirementDeadlineExtensionInitiator::Recruiter,
+        'old_deadline' => $req->required_by_date,
+        'requested_deadline' => now()->addDays(20)->startOfDay(),
+        'reason' => 'Need more sourcing time.',
+        'status' => RequirementDeadlineExtensionStatus::Pending,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/transfer-ownership", [
+            'created_by' => $this->recruiter->id,
+            'assigned_to' => $this->replacementRecruiter->id,
+            'reason' => 'Would let extension initiator self-approve.',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['created_by']);
+
+    expect($req->fresh()->created_by)->toBe($this->requester->id);
+});
+
+test('headcount requester transfer to recruiter-originated revision initiator is rejected', function () {
+    $req = createOwnershipTransferRequirement($this);
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->position->id,
+        'required_headcount' => 5,
+        'status' => RequirementLineStatus::Open,
+    ]);
+    $revision = RecruitmentRequirementHeadcountRevision::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'requested_by' => $this->recruiter->id,
+        'initiator' => RequirementHeadcountRevisionInitiator::Recruiter,
+        'reason' => 'Client asked for more welders.',
+        'status' => RequirementHeadcountRevisionStatus::Pending,
+    ]);
+    RecruitmentRequirementHeadcountRevisionLine::query()->create([
+        'company_id' => $req->company_id,
+        'headcount_revision_id' => $revision->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title' => 'Welder',
+        'old_headcount' => 5,
+        'requested_headcount' => 8,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/transfer-ownership", [
+            'created_by' => $this->recruiter->id,
+            'assigned_to' => $this->replacementRecruiter->id,
+            'reason' => 'Would let revision initiator self-approve.',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['created_by']);
+
+    expect($req->fresh()->created_by)->toBe($this->requester->id);
+});
+
+test('recruiter transfer to requester-originated revision initiator is rejected', function () {
+    $req = createOwnershipTransferRequirement($this);
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->position->id,
+        'required_headcount' => 5,
+        'status' => RequirementLineStatus::Open,
+    ]);
+    $revision = RecruitmentRequirementHeadcountRevision::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'requested_by' => $this->requester->id,
+        'initiator' => RequirementHeadcountRevisionInitiator::Requester,
+        'reason' => 'Need more headcount.',
+        'status' => RequirementHeadcountRevisionStatus::Pending,
+    ]);
+    RecruitmentRequirementHeadcountRevisionLine::query()->create([
+        'company_id' => $req->company_id,
+        'headcount_revision_id' => $revision->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title' => 'Welder',
+        'old_headcount' => 5,
+        'requested_headcount' => 8,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/transfer-ownership", [
+            'created_by' => $this->replacementRequester->id,
+            'assigned_to' => $this->requester->id,
+            'reason' => 'Would let revision initiator self-approve.',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['assigned_to']);
+
+    expect($req->fresh()->assigned_to)->toBe($this->recruiter->id);
+});
+
+test('unrelated eligible replacement users can still receive ownership with pending requests', function () {
+    Queue::fake([DeliverRequirementOwnershipTransferEmailJob::class]);
+
+    $req = createOwnershipTransferRequirement($this);
+    RecruitmentRequirementDeadlineExtension::query()->create([
+        'company_id' => $req->company_id,
+        'recruitment_requirement_id' => $req->id,
+        'requested_by' => $this->recruiter->id,
+        'initiator' => RequirementDeadlineExtensionInitiator::Recruiter,
+        'old_deadline' => $req->required_by_date,
+        'requested_deadline' => now()->addDays(20)->startOfDay(),
+        'reason' => 'Need more sourcing time.',
+        'status' => RequirementDeadlineExtensionStatus::Pending,
+    ]);
+
+    $this->actingAs($this->admin)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/transfer-ownership", [
+            'created_by' => $this->replacementRequester->id,
+            'assigned_to' => $this->replacementRecruiter->id,
+            'reason' => 'Safe replacement owners.',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->created_by)->toBe($this->replacementRequester->id)
+        ->and($req->fresh()->assigned_to)->toBe($this->replacementRecruiter->id);
+});
+
 test('cross-company requirement ownership transfer is not found', function () {
     $req = createOwnershipTransferRequirement($this);
 

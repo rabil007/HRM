@@ -878,3 +878,39 @@ test('cancelled deadline extensions stay terminal after requirement reopen and c
             ->where('requirement.can_decide_deadline_extension', false)
         );
 });
+
+test('deadline extension initiator cannot approve their own request even as requester', function () {
+    $req = createOpenDeadlineRequirement($this);
+    $extension = createDeadlineExtensionRecord($req, $this->recruiter);
+
+    $req->update(['created_by' => $this->recruiter->id]);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/deadline-extensions/{$extension->id}/approve")
+        ->assertForbidden();
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.can_decide_deadline_extension', false)
+        );
+
+    expect($extension->fresh()->status)->toBe(RequirementDeadlineExtensionStatus::Pending);
+});
+
+test('deadline extension initiator cannot reject their own request even as requester', function () {
+    $req = createOpenDeadlineRequirement($this);
+    $extension = createDeadlineExtensionRecord($req, $this->recruiter);
+
+    $req->update(['created_by' => $this->recruiter->id]);
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/deadline-extensions/{$extension->id}/reject")
+        ->assertForbidden();
+
+    expect($extension->fresh()->status)->toBe(RequirementDeadlineExtensionStatus::Pending);
+});

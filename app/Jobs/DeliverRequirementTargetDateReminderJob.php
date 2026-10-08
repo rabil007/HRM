@@ -14,6 +14,7 @@ use App\Support\Recruitment\ComposeRequirementLifecycleMail;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use App\Support\Recruitment\RequirementPresenter;
 use App\Support\Recruitment\RequirementTargetDateReminderDeliveryKey;
+use App\Support\Recruitment\RequirementTargetDateReminderRecipients;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -146,6 +147,7 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
                 'assignedRecruiter:id,name,email,status,deleted_at',
                 'creator:id,name,email,status,deleted_at',
                 'submitter:id,name,email,status,deleted_at',
+                'notificationRecipients.user:id,name,email,status,deleted_at',
             ])
             ->first();
 
@@ -189,7 +191,7 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             return;
         }
 
-        $recipients = $this->resolveRecipients($requirement);
+        $recipients = RequirementTargetDateReminderRecipients::resolve($requirement);
         if ($recipients['to_user_id'] === null) {
             $this->markSkipped($reminderId, $claimToken, 'primary_missing_usable_email');
 
@@ -435,30 +437,6 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
                 'claim_token' => $claimToken,
             ]);
         }
-    }
-
-    /**
-     * @return array{to_user_id: int|null, cc_user_ids: list<int>}
-     */
-    private function resolveRecipients(RecruitmentRequirement $requirement): array
-    {
-        $ccUsers = [];
-        if ($requirement->creator instanceof User) {
-            $ccUsers[] = $requirement->creator;
-        }
-        if (
-            $requirement->submitter instanceof User
-            && (int) $requirement->submitter->id !== (int) ($requirement->creator?->id ?? 0)
-        ) {
-            $ccUsers[] = $requirement->submitter;
-        }
-
-        return RequirementNotificationRecipients::resolveUserIds(
-            $requirement,
-            $requirement->assignedRecruiter instanceof User ? $requirement->assignedRecruiter : null,
-            $ccUsers,
-            primaryMustBeEligibleApprover: false,
-        );
     }
 
     /**

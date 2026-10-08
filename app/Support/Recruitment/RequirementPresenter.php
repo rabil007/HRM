@@ -81,8 +81,8 @@ final class RequirementPresenter
             && RequirementWorkflowAuthorization::canRequestDeadlineExtension($user, $requirement)
             && $pendingExtensionPayload === null;
         $canDecideExtension = $user !== null
-            && RequirementWorkflowAuthorization::canDecideDeadlineExtension($user, $requirement)
-            && $pendingExtensionPayload !== null;
+            && $pendingExtension instanceof RecruitmentRequirementDeadlineExtension
+            && RequirementWorkflowAuthorization::canDecideDeadlineExtension($user, $requirement, $pendingExtension);
 
         $deadlineExtensionMode = $canDirectlyExtend
             ? 'direct'
