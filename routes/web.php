@@ -663,6 +663,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('organization/reports/leave-balances/{leaveBalance}/opening-balance', [LeaveBalanceReportController::class, 'updateOpening'])
         ->middleware(['can:reports.leave_balance.view', 'can:reports.leave_balance.update_opening'])
         ->name('organization.reports.leave-balances.update-opening');
+    Route::post('organization/reports/leave-balances/sync-missing', [LeaveBalanceReportController::class, 'syncMissingBalances'])
+        ->middleware(['can:reports.leave_balance.view', 'can:reports.leave_balance.sync'])
+        ->name('organization.reports.leave-balances.sync-missing');
 
     Route::get('organization/vessels/export', [VesselController::class, 'export'])
         ->middleware('can:crew_operations.vessels.view')

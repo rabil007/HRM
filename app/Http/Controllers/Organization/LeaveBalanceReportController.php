@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\LeaveBalanceReportExport;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\SyncMissingLeaveBalancesRequest;
 use App\Http\Requests\Organization\UpdateLeaveBalanceOpeningRequest;
 use App\Models\LeaveBalance;
 use App\Models\User;
 use App\Support\Attendance\Actions\UpdateLeaveBalanceOpening;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Reports\Actions\SyncMissingLeaveBalances;
 use App\Support\Reports\LeaveBalanceReportDepartmentTree;
 use App\Support\Reports\LeaveBalanceReportFilterOptions;
 use App\Support\Reports\LeaveBalanceReportFilters;
@@ -80,6 +82,19 @@ class LeaveBalanceReportController extends Controller
         }
 
         return Excel::download($export, "{$filename}.xlsx", ExcelWriter::XLSX);
+    }
+
+    public function syncMissingBalances(
+        SyncMissingLeaveBalancesRequest $request,
+        SyncMissingLeaveBalances $syncMissingBalances,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        /** @var User $user */
+        $user = $request->user();
+
+        $result = $syncMissingBalances->handle($companyId, $user);
+
+        return back()->with('leave_balance_sync_result', $result->toArray());
     }
 
     public function updateOpening(

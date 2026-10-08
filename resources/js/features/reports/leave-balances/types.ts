@@ -88,5 +88,26 @@ export type LeaveBalanceReportProps = {
     can: {
         export: boolean;
         update_opening: boolean;
+        sync_missing: boolean;
     };
+};
+
+export type LeaveBalanceSyncMessageVariant =
+    | 'no_active_leave_types'
+    | 'no_eligible_employees'
+    | 'nothing_missing'
+    | 'anomalies_only'
+    | 'partial_success'
+    | 'success';
+
+export type LeaveBalanceSyncResult = {
+    eligible_employees_checked: number;
+    employees_with_new_balances: number;
+    new_balance_records_created: number;
+    already_existing_balances: number;
+    skipped_or_anomalies: number;
+    active_leave_types_count: number;
+    year: number;
+    message_variant: LeaveBalanceSyncMessageVariant;
+    nothing_to_create: boolean;
 };

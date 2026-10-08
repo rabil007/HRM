@@ -2,7 +2,7 @@
 
 Leave Balance Report is a ledger of persisted `LeaveBalance` rows. It is separate from Leave Report, which shows leave requests and approval history.
 
-Opening the report does not call `ensureEmployeeYear()` and does not create or repair missing balances. Current provisioning and sync workflows remain responsible for those rows. If a balance does not exist, the report does not invent entitlement from `LeaveType.days_per_year`.
+Opening the report does not call `ensureEmployeeYear()` and does not create or repair missing balances on **GET**. The optional **Sync Missing Balances** action (see below) creates only missing current-year rows for eligible employees. If a balance does not exist, the report table does not invent entitlement from `LeaveType.days_per_year`.
 
 Authorized users with `reports.leave_balance.update_opening` can record **Previous Used** (opening/current-year migration usage) for the company's current business year. That value is stored independently of OMS-HRM leave requests and is never rebuilt by `leave-balances:sync`.
 
@@ -27,8 +27,22 @@ Inactive employees, terminated employees, inactive leave types, and soft-deleted
 - `reports.leave_balance.view` — view the report within the user's employee visibility scope.
 - `reports.leave_balance.export` — export that same dataset.
 - `reports.leave_balance.update_opening` — record or update previous used days for editable current-year balances the user can see.
+- `reports.leave_balance.sync` — run **Sync Missing Balances** for the active company's current business year (requires `reports.leave_balance.view` as well).
 
-These permissions are not copied onto existing roles. Routes enforce them independently of navigation. A user may view and export without being able to edit opening balances.
+These permissions are not copied onto existing roles. Routes enforce them independently of navigation. A user may view and export without being able to edit opening balances or run sync.
+
+## Sync Missing Balances
+
+Authorized users with `reports.leave_balance.view` and `reports.leave_balance.sync` can run **Sync Missing Balances** from the report header. The action:
+
+- Uses the active company from the session (`current_company_id`) and that company's timezone to determine the **current business year** only.
+- Checks **active** employees in Attendance & Leave departments (`include_in_attendance_leave = true`) within the actor's `EmployeeVisibilityScope`.
+- Creates a balance row only when no non-deleted balance exists for that employee, active leave type, and year. Entitlement comes from the leave type's current `days_per_year`; `used_days` and `pending_days` are initialized from approved/pending leave requests in OMS-HRM when present.
+- Does **not** change existing balances (`entitled_days`, `used_days`, `pending_days`, `opening_*`, `carried_days`), previous-year rows, payroll, or leave requests.
+- Does **not** restore soft-deleted balances; those keys are reported as skipped/anomalies.
+- Is idempotent: a second run reports that nothing was missing.
+
+The operation is logged in the company activity log with year, created count, and skipped/anomaly count. It is separate from `php artisan leave-balances:sync`, which repairs request-derived usage across a broader scope.
 
 ## Opening balance edits
 

@@ -926,6 +926,71 @@ final class LeaveBalanceManager
     }
 
     /**
+     * Create one missing balance and initialize request-derived usage in a single transaction.
+     * Never updates an existing row, including balances inserted by a concurrent process.
+     *
+     * @return 'created'|'existing'|'anomaly'
+     */
+    public function provisionMissingBalanceForYear(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+    ): string {
+        if ((int) $leaveType->company_id !== $companyId || (string) $leaveType->status !== 'active') {
+            return 'anomaly';
+        }
+
+        return DB::transaction(function () use ($companyId, $employeeId, $leaveType, $year): string {
+            if (
+                LeaveBalance::onlyTrashed()
+                    ->where('company_id', $companyId)
+                    ->where('employee_id', $employeeId)
+                    ->where('leave_type_id', $leaveType->id)
+                    ->where('year', $year)
+                    ->exists()
+            ) {
+                return 'anomaly';
+            }
+
+            $existing = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, $year, lock: true);
+
+            if ($existing !== null) {
+                return 'existing';
+            }
+
+            try {
+                $created = LeaveBalance::query()->create([
+                    'company_id' => $companyId,
+                    'employee_id' => $employeeId,
+                    'leave_type_id' => $leaveType->id,
+                    'year' => $year,
+                    'entitled_days' => $leaveType->days_per_year,
+                    'carried_days' => 0,
+                    'used_days' => 0,
+                    'pending_days' => 0,
+                ]);
+
+                $balance = LeaveBalance::query()
+                    ->whereKey($created->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+            } catch (UniqueConstraintViolationException) {
+                return 'existing';
+            }
+
+            $leaveTypeId = (int) $leaveType->id;
+
+            $balance->forceFill([
+                'used_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'approved'),
+                'pending_days' => $this->sumRequestDaysForYear($companyId, $employeeId, $leaveTypeId, $year, 'pending'),
+            ])->save();
+
+            return 'created';
+        });
+    }
+
+    /**
      * @param  list<int>  $years
      * @return list<array{employee_id: int, leave_type_id: int, year: int}>
      */

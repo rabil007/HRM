@@ -1977,6 +1977,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows authorized users to reassign the requester or assigned recruiter on Draft, Returned, Pending Approval, Open, or On Hold requirements when the current owner becomes inactive or unavailable.',
                 'group' => 'Recruitment',
             ],
+            336 => [
+                'name' => 'reports.leave_balance.sync',
+                'label' => 'Sync Missing Leave Balances',
+                'description' => 'Allows the user to create missing current-year leave balance rows for eligible employees without changing existing balances.',
+                'group' => 'Reports',
+            ],
         ];
     }
 }

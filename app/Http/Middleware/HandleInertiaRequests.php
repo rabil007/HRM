@@ -204,6 +204,7 @@ class HandleInertiaRequests extends Middleware
                 'info' => $request->session()->pull('info'),
                 'recipient_request_created' => $request->session()->pull('recipient_request_created'),
                 'recipient_request_link_regenerated' => $request->session()->pull('recipient_request_link_regenerated'),
+                'leave_balance_sync_result' => $request->session()->pull('leave_balance_sync_result'),
             ],
             'auth' => [
                 'user' => $this->formatAuthUser($request->user()),

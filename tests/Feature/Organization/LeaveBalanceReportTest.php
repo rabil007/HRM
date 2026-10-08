@@ -44,7 +44,8 @@ test('leave balance report requires view permission and does not provision balan
             ->component('organization/reports/leave-balances/index')
             ->has('balances', 0)
             ->where('can.export', false)
-            ->where('can.update_opening', false));
+            ->where('can.update_opening', false)
+            ->where('can.sync_missing', false));
 
     expect(LeaveBalance::query()->count())->toBe($before);
 
