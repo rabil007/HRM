@@ -29,7 +29,11 @@ class ApproveDeadlineExtensionRequest extends FormRequest
             abort_unless((int) $extension->recruitment_requirement_id === (int) $requirement->id, 404);
         }
 
-        return RequirementWorkflowAuthorization::canDecideDeadlineExtension($user, $requirement);
+        return RequirementWorkflowAuthorization::canDecideDeadlineExtension(
+            $user,
+            $requirement,
+            $extension instanceof RecruitmentRequirementDeadlineExtension ? $extension : null,
+        );
     }
 
     /**

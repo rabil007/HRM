@@ -36,7 +36,7 @@ final class RejectDeadlineExtensionAction
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            RequirementWorkflowAuthorization::assertCanDecideDeadlineExtension($actor, $locked);
+            RequirementWorkflowAuthorization::assertCanDecideDeadlineExtension($actor, $locked, $lockedExtension);
 
             if ($lockedExtension->status !== RequirementDeadlineExtensionStatus::Pending) {
                 throw ValidationException::withMessages([

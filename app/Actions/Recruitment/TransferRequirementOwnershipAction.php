@@ -11,6 +11,7 @@ use App\Support\Recruitment\RecordRequirementStatusTransition;
 use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use App\Support\Recruitment\SendRequirementOwnershipTransferEmails;
+use App\Support\Recruitment\ValidateRequirementOwnershipTransferPendingRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -97,6 +98,14 @@ final class TransferRequirementOwnershipAction
                     'status' => 'Select a different requester or assigned recruiter to transfer ownership.',
                 ]);
             }
+
+            ValidateRequirementOwnershipTransferPendingRequests::assertEligible(
+                $locked,
+                $newRequesterId,
+                $newRecruiterId,
+                $requesterChanged,
+                $recruiterChanged,
+            );
 
             $previousRequester = $previousRequesterId !== null
                 ? User::query()->find($previousRequesterId)

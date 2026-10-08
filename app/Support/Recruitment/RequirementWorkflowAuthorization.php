@@ -5,6 +5,7 @@ namespace App\Support\Recruitment;
 use App\Enums\Recruitment\RequirementHeadcountRevisionInitiator;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementDeadlineExtension;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
@@ -81,10 +82,20 @@ final class RequirementWorkflowAuthorization
             && $requirement->required_by_date !== null;
     }
 
-    public static function canDecideDeadlineExtension(User $user, RecruitmentRequirement $requirement): bool
-    {
-        return $user->can('recruitment.requirements.view')
-            && self::isCreator($user, $requirement);
+    public static function canDecideDeadlineExtension(
+        User $user,
+        RecruitmentRequirement $requirement,
+        ?RecruitmentRequirementDeadlineExtension $extension = null,
+    ): bool {
+        if (! $user->can('recruitment.requirements.view') || ! self::isCreator($user, $requirement)) {
+            return false;
+        }
+
+        if ($extension !== null && (int) $extension->requested_by === (int) $user->id) {
+            return false;
+        }
+
+        return true;
     }
 
     public static function assertCanDirectlyExtendDeadline(User $user, RecruitmentRequirement $requirement): void
@@ -262,8 +273,17 @@ final class RequirementWorkflowAuthorization
         }
     }
 
-    public static function assertCanDecideDeadlineExtension(User $user, RecruitmentRequirement $requirement): void
-    {
+    public static function assertCanDecideDeadlineExtension(
+        User $user,
+        RecruitmentRequirement $requirement,
+        ?RecruitmentRequirementDeadlineExtension $extension = null,
+    ): void {
+        if ($extension !== null && (int) $extension->requested_by === (int) $user->id) {
+            throw ValidationException::withMessages([
+                'status' => 'You cannot approve or reject a deadline extension you initiated.',
+            ]);
+        }
+
         if (! $user->can('recruitment.requirements.view')) {
             throw ValidationException::withMessages([
                 'status' => 'You do not have permission to review this deadline extension.',

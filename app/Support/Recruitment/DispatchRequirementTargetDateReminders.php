@@ -9,7 +9,6 @@ use App\Jobs\DeliverRequirementTargetDateReminderJob;
 use App\Models\Company;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementTargetDateReminder;
-use App\Models\User;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -111,6 +110,7 @@ final class DispatchRequirementTargetDateReminders
                     'assignedRecruiter:id,name,email,status,deleted_at',
                     'creator:id,name,email,status,deleted_at',
                     'submitter:id,name,email,status,deleted_at',
+                    'notificationRecipients.user:id,name,email,status,deleted_at',
                 ])
                 ->orderBy('id')
                 ->get();
@@ -143,7 +143,7 @@ final class DispatchRequirementTargetDateReminders
         string $targetDate,
         string $evaluationDate,
     ): string {
-        $recipients = $this->resolveRecipients($requirement);
+        $recipients = RequirementTargetDateReminderRecipients::resolve($requirement);
 
         if ($recipients['to_user_id'] === null) {
             Log::info('Requirement Target Date reminder skipped — no valid primary recipient.', [
@@ -324,32 +324,5 @@ final class DispatchRequirementTargetDateReminders
             ]);
 
         return $reclaimed > 0;
-    }
-
-    /**
-     * @return array{to_user_id: int|null, cc_user_ids: list<int>}
-     */
-    private function resolveRecipients(RecruitmentRequirement $requirement): array
-    {
-        $primary = $requirement->assignedRecruiter;
-        $ccUsers = [];
-
-        if ($requirement->creator instanceof User) {
-            $ccUsers[] = $requirement->creator;
-        }
-
-        if (
-            $requirement->submitter instanceof User
-            && (int) $requirement->submitter->id !== (int) ($requirement->creator?->id ?? 0)
-        ) {
-            $ccUsers[] = $requirement->submitter;
-        }
-
-        return RequirementNotificationRecipients::resolveUserIds(
-            $requirement,
-            $primary instanceof User ? $primary : null,
-            $ccUsers,
-            primaryMustBeEligibleApprover: false,
-        );
     }
 }

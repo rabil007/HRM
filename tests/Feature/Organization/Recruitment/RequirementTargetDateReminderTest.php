@@ -15,6 +15,7 @@ use App\Models\Position;
 use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
+use App\Models\RecruitmentRequirementNotificationRecipient;
 use App\Models\RecruitmentRequirementTargetDateReminder;
 use App\Models\User;
 use App\Support\Recruitment\DispatchRequirementTargetDateReminders;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -988,4 +990,219 @@ test('old failed callback cannot mutate replacement claim', function () {
     expect($reminder->fresh()->claim_token)->toBe($tokenB)
         ->and($reminder->fresh()->status)->toBe(RequirementTargetDateReminderStatus::Queued)
         ->and($reminder->fresh()->skip_reason)->toBeNull();
+});
+
+test('additional notification recipients receive three-day and target-day reminder cc emails', function () {
+    $additional = User::factory()->create([
+        'company_id' => $this->company->id,
+        'email' => 'reminder.additional@example.com',
+        'name' => 'Additional Recipient',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $additional->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    $threeDays = createReminderRequirement($this, [
+        'required_by_date' => '2026-10-10',
+        'requirement_number' => 'REQ-RM-ADD-3',
+    ]);
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $threeDays->id,
+        'user_id' => $additional->id,
+    ]);
+
+    $dueToday = createReminderRequirement($this, [
+        'required_by_date' => '2026-10-07',
+        'requirement_number' => 'REQ-RM-ADD-TODAY',
+    ]);
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $dueToday->id,
+        'user_id' => $additional->id,
+    ]);
+
+    Queue::fake();
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+    app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id);
+
+    $jobs = [];
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $job) use (&$jobs) {
+        $jobs[] = $job;
+
+        return true;
+    });
+    expect($jobs)->toHaveCount(2);
+
+    Mail::fake();
+    foreach ($jobs as $job) {
+        $job->handle();
+    }
+
+    Mail::assertSent(RequirementTargetDateReminderMail::class, 2);
+    Mail::assertSent(RequirementTargetDateReminderMail::class, function (RequirementTargetDateReminderMail $mail) {
+        $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
+
+        return in_array('reminder.additional@example.com', $cc, true);
+    });
+});
+
+test('target date reminder cc deduplicates requester submitter and additional recipients', function () {
+    $req = createReminderRequirement($this, [
+        'required_by_date' => '2026-10-07',
+        'submitted_by' => $this->submitter->id,
+        'created_by' => $this->requester->id,
+    ]);
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'user_id' => $this->requester->id,
+    ]);
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'user_id' => $this->submitter->id,
+    ]);
+
+    Queue::fake();
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+    app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id);
+
+    $job = null;
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $pushed) use (&$job) {
+        $job = $pushed;
+
+        return true;
+    });
+
+    Mail::fake();
+    $job->handle();
+
+    Mail::assertSent(RequirementTargetDateReminderMail::class, function (RequirementTargetDateReminderMail $mail) {
+        $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
+        $requesterCcCount = count(array_filter($cc, fn ($e) => $e === 'reminder.requester@example.com'));
+
+        expect($mail->hasTo('reminder.recruiter@example.com'))->toBeTrue()
+            ->and($requesterCcCount)->toBe(1)
+            ->and($cc)->not->toContain('reminder.recruiter@example.com');
+
+        return true;
+    });
+});
+
+test('inactive deleted and cross-company additional recipients are skipped for target date reminders', function () {
+    $inactive = User::factory()->create([
+        'company_id' => $this->company->id,
+        'email' => 'inactive.additional@example.com',
+        'status' => 'inactive',
+    ]);
+    $deleted = User::factory()->create([
+        'company_id' => $this->company->id,
+        'email' => 'deleted.additional@example.com',
+        'status' => 'active',
+    ]);
+    $deleted->delete();
+    $foreign = User::factory()->create([
+        'company_id' => $this->otherCompany->id,
+        'email' => 'foreign.additional@example.com',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->otherCompany->id, 'user_id' => $foreign->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    $validAdditional = User::factory()->create([
+        'company_id' => $this->company->id,
+        'email' => 'valid.additional@example.com',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $validAdditional->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    foreach ([$inactive, $deleted, $validAdditional] as $user) {
+        DB::table('company_user')->updateOrInsert(
+            ['company_id' => $this->company->id, 'user_id' => $user->id],
+            ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+        );
+    }
+
+    $req = createReminderRequirement($this, ['required_by_date' => '2026-10-07']);
+    foreach ([$inactive, $deleted, $foreign, $validAdditional] as $user) {
+        RecruitmentRequirementNotificationRecipient::query()->create([
+            'company_id' => $this->company->id,
+            'recruitment_requirement_id' => $req->id,
+            'user_id' => $user->id,
+        ]);
+    }
+
+    Queue::fake();
+    travelToCompanyLocalHour($this->company, '2026-10-07', 9);
+    app(DispatchRequirementTargetDateReminders::class)->forCompany($this->company->id);
+
+    $job = null;
+    Queue::assertPushed(DeliverRequirementTargetDateReminderJob::class, function (DeliverRequirementTargetDateReminderJob $pushed) use (&$job) {
+        $job = $pushed;
+
+        return true;
+    });
+
+    Mail::fake();
+    $job->handle();
+
+    Mail::assertSent(RequirementTargetDateReminderMail::class, function (RequirementTargetDateReminderMail $mail) {
+        $cc = collect($mail->cc)->pluck('address')->map(fn ($e) => strtolower((string) $e))->all();
+
+        expect($cc)->toContain('valid.additional@example.com')
+            ->and($cc)->not->toContain('inactive.additional@example.com')
+            ->and($cc)->not->toContain('deleted.additional@example.com')
+            ->and($cc)->not->toContain('foreign.additional@example.com');
+
+        return true;
+    });
+});
+
+test('notification recipients on a requirement do not gain approve or reject capability', function () {
+    $notifyOnly = User::factory()->create([
+        'company_id' => $this->company->id,
+        'email' => 'notify.only@example.com',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $notifyOnly->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->company->id);
+    $viewPerm = Permission::query()->firstOrCreate(['name' => 'recruitment.requirements.view', 'guard_name' => 'web']);
+    $notifyOnly->givePermissionTo($viewPerm);
+
+    $req = createReminderRequirement($this, [
+        'required_by_date' => '2026-10-07',
+        'status' => RequirementStatus::PendingApproval,
+        'submitted_at' => now(),
+        'submitted_by' => $this->requester->id,
+    ]);
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'user_id' => $notifyOnly->id,
+    ]);
+
+    $this->actingAs($notifyOnly)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.can_approve', false)
+            ->where('requirement.can_return', false)
+        );
+
+    $this->actingAs($notifyOnly)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->postJson("/organization/recruitment/requirements/{$req->id}/approve")
+        ->assertForbidden();
 });
