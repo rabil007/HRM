@@ -42,7 +42,7 @@ Authorized users with `reports.leave_balance.view` and `reports.leave_balance.sy
 - Does **not** restore soft-deleted balances; those keys are reported as skipped/anomalies.
 - Is idempotent: a second run reports that nothing was missing.
 
-The operation is logged in the company activity log with year, created count, and skipped/anomaly count. It is separate from `php artisan leave-balances:sync`, which repairs request-derived usage across a broader scope.
+The operation is logged in the company activity log with year, created count, and skipped/anomaly count. It is separate from `php artisan leave-balances:sync`, which repairs request-derived usage for the same Attendance & Leave department scope but across all relevant years and companies (deploy/cron), not only the current business year.
 
 ## Opening balance edits
 
