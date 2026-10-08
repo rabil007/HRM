@@ -3,10 +3,34 @@
 namespace App\Http\Requests\Organization\Employee\Concerns;
 
 use App\Models\Employee;
+use App\Support\Employees\DraftEmployeeNumber;
 use Closure;
 
 trait ValidatesEmployeeNumber
 {
+    /**
+     * Normalize employee_no before validation so whitespace-only and explicit
+     * null payloads fail the required rule instead of reaching the database.
+     */
+    protected function prepareEmployeeNumberForValidation(): void
+    {
+        if (! $this->exists('employee_no')) {
+            return;
+        }
+
+        $value = $this->input('employee_no');
+
+        if ($value === null) {
+            $this->merge(['employee_no' => '']);
+
+            return;
+        }
+
+        if (is_string($value) || is_numeric($value)) {
+            $this->merge(['employee_no' => trim((string) $value)]);
+        }
+    }
+
     /**
      * @return list<mixed>
      */
@@ -20,6 +44,14 @@ trait ValidatesEmployeeNumber
                 $employeeNo = trim((string) $value);
 
                 if ($employeeNo === '') {
+                    $fail('The employee number field is required.');
+
+                    return;
+                }
+
+                if (DraftEmployeeNumber::isDraft($employeeNo)) {
+                    $fail('Enter the official employee number. Temporary DRAFT identifiers cannot be used as the final employee number.');
+
                     return;
                 }
 

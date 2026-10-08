@@ -212,11 +212,15 @@ function EmployeeDetailsPage({
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
     const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
+        // Preserve the user's unsaved official employee number. ensureEmployee
+        // returns a provisional DRAFT-* id that must not overwrite form input.
         setLocalEmployee((current) => ({
             ...current,
             id: ensured.id,
-            name: ensured.name,
-            employee_no: ensured.employee_no,
+            name: current.name?.trim() ? current.name : ensured.name,
+            employee_no: formDraftRef.current.employee_no.trim()
+                ? formDraftRef.current.employee_no
+                : current.employee_no,
         }));
     }, []);
 

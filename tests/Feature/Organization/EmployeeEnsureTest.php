@@ -87,3 +87,49 @@ test('ensure employee requires name', function () {
         ->postJson('/organization/employees/ensure', ['name' => ''])
         ->assertUnprocessable();
 });
+
+test('ensure employee attaches selected profile template without requiring official employee number yet', function () {
+    $user = User::factory()->create();
+
+    $country = Country::query()->create([
+        'code' => 'EN3',
+        'name' => 'Ensure Land 3',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'EN3',
+        'name' => 'Ensure Currency 3',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Ensure Co 3',
+        'slug' => 'ensure-co-3',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Ensure Template');
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $response = $this->actingAs($user)->postJson('/organization/employees/ensure', [
+        'name' => 'Provisional Crew',
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('employee.name', 'Provisional Crew');
+
+    $employee = Employee::query()->findOrFail((int) $response->json('employee.id'));
+
+    expect($employee->employee_profile_template_id)->toBe($template->id)
+        ->and($employee->employee_no)->toStartWith('DRAFT-');
+});

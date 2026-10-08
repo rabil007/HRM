@@ -256,6 +256,20 @@ class EmployeeController extends Controller
         );
         $data['company_id'] = $companyId;
 
+        // Defense in depth: never persist an empty/null employee number even if
+        // a template or partial payload somehow bypasses required validation.
+        if (array_key_exists('employee_no', $data)) {
+            $employeeNo = is_string($data['employee_no']) || is_numeric($data['employee_no'])
+                ? trim((string) $data['employee_no'])
+                : '';
+
+            if ($employeeNo === '') {
+                unset($data['employee_no']);
+            } else {
+                $data['employee_no'] = $employeeNo;
+            }
+        }
+
         if ($request->hasFile('image')) {
             if ($employee->image) {
                 Storage::disk('public')->delete($employee->image);

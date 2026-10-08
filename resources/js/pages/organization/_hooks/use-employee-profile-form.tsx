@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { toast } from '@/lib/toast';
+import { isOfficialEmployeeNumberMissing } from '@/pages/organization/_lib/draft-employee-number';
 import {
     buildEmployeeProfileFormInitial,
     buildEmployeeProfileUpdatePayload,
@@ -16,6 +17,7 @@ import type {
 } from '@/pages/organization/employee-page.types';
 
 const DEFAULT_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
+const LOCKED_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 
 export type UseEmployeeProfileFormResult = {
     form: any;
@@ -91,7 +93,9 @@ export function useEmployeeProfileForm(
             }
         }
 
-        keys.add('name');
+        for (const locked of LOCKED_REQUIRED_FIELDS) {
+            keys.add(locked);
+        }
 
         return keys;
     }, [options?.templateRequiredFields]);
@@ -113,11 +117,17 @@ export function useEmployeeProfileForm(
         const active = new Set<string>();
 
         for (const field of missingRequiredFields) {
-            if (
-                String(
-                    form.data[field as keyof typeof form.data] ?? '',
-                ).trim() === ''
-            ) {
+            const raw = form.data[field as keyof typeof form.data] ?? '';
+
+            if (field === 'employee_no') {
+                if (isOfficialEmployeeNumberMissing(raw)) {
+                    active.add(field);
+                }
+
+                continue;
+            }
+
+            if (String(raw).trim() === '') {
                 active.add(field);
             }
         }
@@ -208,6 +218,18 @@ export function useEmployeeProfileForm(
                         continue;
                     }
 
+                    if (field === 'employee_no') {
+                        if (
+                            isOfficialEmployeeNumberMissing(
+                                form.data.employee_no,
+                            )
+                        ) {
+                            missing.push(field);
+                        }
+
+                        continue;
+                    }
+
                     if (
                         !String(
                             form.data[field as keyof typeof form.data] ?? '',
@@ -282,6 +304,18 @@ export function useEmployeeProfileForm(
                     afterSuccess?.();
                 },
                 onError: (errors: Record<string, string>) => {
+                    const errorKeys = Object.keys(errors ?? {});
+
+                    if (errorKeys.includes('employee_no')) {
+                        setMissingRequiredFields((current) => {
+                            const next = new Set(current);
+                            next.add('employee_no');
+
+                            return next;
+                        });
+                        focusMissingField('employee_no');
+                    }
+
                     const first = Object.values(errors ?? {})[0];
                     toast.error(
                         typeof first === 'string' && first.length

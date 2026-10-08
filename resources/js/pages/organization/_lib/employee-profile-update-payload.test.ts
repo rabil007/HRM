@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     buildEmployeeProfileUpdatePayload,
+    omitHiddenTemplateEmployeeFields,
+    transformEmployeeProfileFormData,
     employeeProfileUpdateRequiresPostSpoof,
     resolveEmployeeProfileSaveVisit,
 } from './employee-profile-form-state.ts';
@@ -88,5 +90,42 @@ describe('employee profile photo upload save contract', () => {
         assert.equal('_method' in payload, false);
         assert.equal(payload.remove_image, true);
         assert.equal('image' in payload, false);
+    });
+});
+
+describe('employee number payload handling', () => {
+    it('keeps blank employee numbers as empty strings instead of null', () => {
+        const payload = transformEmployeeProfileFormData(
+            profileData({ employee_no: '   ' }),
+        );
+
+        assert.equal(payload.employee_no, '');
+    });
+
+    it('preserves an entered official employee number', () => {
+        const payload = transformEmployeeProfileFormData(
+            profileData({ employee_no: ' EMP-7788 ' }),
+        );
+
+        assert.equal(payload.employee_no, 'EMP-7788');
+    });
+
+    it('never omits employee_no when a template marks it hidden', () => {
+        const payload = omitHiddenTemplateEmployeeFields(
+            {
+                employee_no: 'EMP-42',
+                name: 'Ada',
+                phone: '0500000000',
+            },
+            {
+                employee_no: { visible: false, required: false },
+                name: { visible: false, required: false },
+                phone: { visible: false, required: false },
+            },
+        );
+
+        assert.equal(payload.employee_no, 'EMP-42');
+        assert.equal(payload.name, 'Ada');
+        assert.equal('phone' in payload, false);
     });
 });

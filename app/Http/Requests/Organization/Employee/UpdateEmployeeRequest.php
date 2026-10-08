@@ -23,6 +23,11 @@ class UpdateEmployeeRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->prepareEmployeeNumberForValidation();
+    }
+
     public function rules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');

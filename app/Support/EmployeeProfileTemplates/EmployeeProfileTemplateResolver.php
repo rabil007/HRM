@@ -78,11 +78,30 @@ final class EmployeeProfileTemplateResolver
             }
         }
 
+        self::forceLockedEmployeeIdentityFields($fields);
+
         return [
             'version' => (int) ($stored['version'] ?? 1),
             'tabs' => $tabs,
             'fields' => $fields,
         ];
+    }
+
+    /**
+     * @param  array<string, array<string, array{visible: bool, required: bool}>>  $fields
+     */
+    private static function forceLockedEmployeeIdentityFields(array &$fields): void
+    {
+        foreach (EmployeeProfileTemplateRequestRules::LOCKED_REQUIRED_FIELDS_BY_TABLE as $table => $lockedKeys) {
+            foreach ($lockedKeys as $fieldKey) {
+                if (! isset($fields[$table][$fieldKey]) || ! is_array($fields[$table][$fieldKey])) {
+                    continue;
+                }
+
+                $fields[$table][$fieldKey]['visible'] = true;
+                $fields[$table][$fieldKey]['required'] = true;
+            }
+        }
     }
 
     /**
@@ -179,6 +198,7 @@ final class EmployeeProfileTemplateResolver
         $merged = self::mergeWithDefaults($configuration);
         $merged['version'] = 1;
         $merged['tabs']['personal']['visible'] = true;
+        self::forceLockedEmployeeIdentityFields($merged['fields']);
 
         return $merged;
     }
