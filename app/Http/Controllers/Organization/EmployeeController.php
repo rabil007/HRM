@@ -455,7 +455,7 @@ class EmployeeController extends Controller
         unset($data['approval_location_ids'], $data['sssa_option_ids']);
 
         if ($hireDateAcknowledgmentRequired) {
-            $employee->disableLogging();
+            $hireDateChangeGuard->markOmitHireDateFromNextUpdateActivityLog((int) $employee->id);
         }
 
         $result = app(ApplyEmployeeUpdateWithDepartmentGuard::class)
@@ -463,12 +463,13 @@ class EmployeeController extends Controller
         $employee = $result['employee'];
 
         if ($hireDateAcknowledgmentRequired) {
-            $employee->enableLogging();
-
             activity()
                 ->performedOn($employee)
                 ->causedBy($user)
                 ->event('hire_date_changed')
+                ->tap(function ($activity) use ($companyId): void {
+                    $activity->company_id = $companyId;
+                })
                 ->withProperties([
                     'previous_hire_date' => $previousHireDate,
                     'new_hire_date' => $employee->hire_date?->toDateString(),

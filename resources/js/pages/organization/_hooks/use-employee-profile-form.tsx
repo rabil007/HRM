@@ -14,7 +14,9 @@ import {
 import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import {
     fetchHireDateChangePreview,
+    HIRE_DATE_CHANGE_PREVIEW_ERROR_MESSAGE,
     hireDateCalendarValueChanged,
+    resolveHireDateChangePreviewFetchResult,
 } from '@/pages/organization/_lib/hire-date-change-preview';
 import type { HireDateChangePreview } from '@/pages/organization/_lib/hire-date-change-preview';
 import type {
@@ -72,6 +74,7 @@ export function useEmployeeProfileForm(
     >(() => new Set());
     const ensureEmployee = options?.ensureEmployee;
     const previousEmployeeIdRef = useRef<number | null>(employee.id);
+    const hireDatePreviewInFlightRef = useRef(false);
 
     const initialPersonal = useMemo(
         () => buildEmployeeProfileFormInitial(employee),
@@ -428,15 +431,40 @@ export function useEmployeeProfileForm(
                     proposedHireDate,
                 )
             ) {
-                const preview = await fetchHireDateChangePreview(
-                    targetEmployeeId,
-                    proposedHireDate,
-                );
-
-                if (preview?.requires_acknowledgment) {
-                    requestHireDateWarning(preview, afterSuccess);
-
+                if (hireDatePreviewInFlightRef.current) {
                     return;
+                }
+
+                hireDatePreviewInFlightRef.current = true;
+
+                try {
+                    const previewResult = await fetchHireDateChangePreview(
+                        targetEmployeeId,
+                        proposedHireDate,
+                    );
+                    const nextStep =
+                        resolveHireDateChangePreviewFetchResult(previewResult);
+
+                    if (nextStep === 'abort') {
+                        toast.error(HIRE_DATE_CHANGE_PREVIEW_ERROR_MESSAGE);
+
+                        return;
+                    }
+
+                    if (nextStep === 'show_warning') {
+                        if (
+                            previewResult.status === 'requires_acknowledgment'
+                        ) {
+                            requestHireDateWarning(
+                                previewResult.preview,
+                                afterSuccess,
+                            );
+                        }
+
+                        return;
+                    }
+                } finally {
+                    hireDatePreviewInFlightRef.current = false;
                 }
             }
 
