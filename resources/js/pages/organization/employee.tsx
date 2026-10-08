@@ -41,6 +41,10 @@ import { EmployeePersonalTab } from '@/pages/organization/_components/employee-p
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
 import { useEmployeeProfileForm } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
+import {
+    canEditEmployeeProfile,
+    mergePersistedEmployeeAfterEnsure,
+} from '@/pages/organization/_lib/employee-profile-persisted-state';
 import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
     DocumentTypeOption,
@@ -178,7 +182,21 @@ function EmployeeDetailsPage({
 
     const [localEmployee, setLocalEmployee] = useState(employee);
 
-    const linkedUser = employee.user ?? localEmployee.user;
+    const persistedEmployee = useMemo((): EmployeeDetails => {
+        const serverConfirmed =
+            employee.id !== null &&
+            employee.id === localEmployee.id &&
+            employee.updated_at &&
+            employee.updated_at !== localEmployee.updated_at;
+
+        if (serverConfirmed) {
+            return employee as EmployeeDetails;
+        }
+
+        return localEmployee as EmployeeDetails;
+    }, [employee, localEmployee]);
+
+    const linkedUser = employee.user ?? persistedEmployee.user;
 
     const formDraftRef = useRef({
         name: String(employee.name ?? ''),
@@ -212,28 +230,24 @@ function EmployeeDetailsPage({
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
     const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
-        // Preserve the user's unsaved official employee number. ensureEmployee
-        // returns a provisional DRAFT-* id that must not overwrite form input.
-        setLocalEmployee((current) => ({
-            ...current,
-            id: ensured.id,
-            name: current.name?.trim() ? current.name : ensured.name,
-            employee_no: formDraftRef.current.employee_no.trim()
-                ? formDraftRef.current.employee_no
-                : current.employee_no,
-        }));
+        setLocalEmployee((current) =>
+            mergePersistedEmployeeAfterEnsure(current, ensured),
+        );
     }, []);
 
-    const canUpdate = isCreateMode
-        ? true
-        : (auth?.permissions ?? []).includes('employees.update');
+    const permissions = auth?.permissions ?? [];
+
+    const canUpdate = canEditEmployeeProfile(permissions, {
+        isCreateMode,
+        persistedEmployeeNo: persistedEmployee.employee_no,
+    });
 
     void branches;
     void departments;
     void positions;
 
     const ensureEmployee = useEnsureEmployee({
-        employeeId: localEmployee.id,
+        employeeId: persistedEmployee.id,
         getDraftName: () => formDraftRef.current.name,
         selectedProfileTemplateId: selectedTemplateId,
         onEnsured: handleEnsured,
@@ -255,7 +269,7 @@ function EmployeeDetailsPage({
         removePhoto,
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
-        localEmployee as EmployeeDetails,
+        persistedEmployee,
         canUpdate,
         {
             ensureEmployee: isCreateMode ? ensureEmployee : undefined,
@@ -273,8 +287,7 @@ function EmployeeDetailsPage({
         };
     }, [form.data.name, form.data.employee_no]);
 
-    const canViewLinkedUser = (auth?.permissions ?? []).includes('users.view');
-    const permissions = auth?.permissions ?? [];
+    const canViewLinkedUser = permissions.includes('users.view');
     const canViewAttendanceCalendar = permissions.includes(
         'attendance.leave-requests.view',
     );
@@ -747,7 +760,7 @@ function EmployeeDetailsPage({
                                 can?.change_profile_template ?? false
                             }
                             profileTemplates={profile_templates}
-                            employee={localEmployee}
+                            employee={persistedEmployee}
                             departments={departments ?? []}
                             positions={positions ?? []}
                             projects={projects ?? []}
@@ -776,7 +789,7 @@ function EmployeeDetailsPage({
                             {employee_tabs.personal &&
                             activeTab === 'personal' ? (
                                 <EmployeePersonalTab
-                                    employee={localEmployee}
+                                    employee={persistedEmployee}
                                     countries={countries}
                                     approvalLocations={approval_locations}
                                     sssaOptions={sssa_options}

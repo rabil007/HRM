@@ -290,6 +290,7 @@ export function useEmployeeProfileForm(
 
             const visitOptions = {
                 preserveScroll: true,
+                preserveState: true,
                 onSuccess: () => {
                     if (hasPendingImage) {
                         form.setData((current) => ({

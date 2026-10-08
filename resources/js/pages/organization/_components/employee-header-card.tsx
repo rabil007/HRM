@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils';
 import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
 import { ChangeEmployeeProfileTemplateDialog } from '@/pages/organization/_components/change-employee-profile-template-dialog';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
-import { isDraftEmployeeNumber } from '@/pages/organization/_lib/draft-employee-number';
+import { resolveEmployeeNumberHeaderState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
 
@@ -277,6 +277,15 @@ export function EmployeeHeaderCard({
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
+
+    const employeeNumberHeader = useMemo(
+        () =>
+            resolveEmployeeNumberHeaderState(
+                employee.employee_no,
+                form.data.employee_no,
+            ),
+        [employee.employee_no, form.data.employee_no],
+    );
 
     const imageSrc = resolveEmployeeImageUrl(employee.image);
     const displayImageSrc = pendingImage
@@ -621,17 +630,7 @@ export function EmployeeHeaderCard({
                                     required
                                     value={form.data.employee_no}
                                     displayValue={
-                                        isDraftEmployeeNumber(
-                                            form.data.employee_no,
-                                        )
-                                            ? ''
-                                            : form.data.employee_no ||
-                                              (isDraftEmployeeNumber(
-                                                  employee.employee_no,
-                                              )
-                                                  ? ''
-                                                  : (employee.employee_no ??
-                                                    ''))
+                                        employeeNumberHeader.displayValue
                                     }
                                     activeField={activeField}
                                     setActiveField={setActiveField}
@@ -641,15 +640,13 @@ export function EmployeeHeaderCard({
                                         'employee_no',
                                     )}
                                     isProvisional={
-                                        isDraftEmployeeNumber(
-                                            form.data.employee_no,
-                                        ) ||
-                                        (!String(
-                                            form.data.employee_no ?? '',
-                                        ).trim() &&
-                                            isDraftEmployeeNumber(
-                                                employee.employee_no,
-                                            ))
+                                        employeeNumberHeader.isProvisional
+                                    }
+                                    hasUnsavedOfficialNumber={
+                                        employeeNumberHeader.hasUnsavedOfficialNumber
+                                    }
+                                    helperMessage={
+                                        employeeNumberHeader.helperMessage
                                     }
                                     error={form.errors.employee_no ?? null}
                                     onChange={(value) =>

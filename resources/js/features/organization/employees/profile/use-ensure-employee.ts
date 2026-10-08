@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import {
+    EnsureEmployeeRequestError,
+    postEnsureEmployee,
+} from '@/features/organization/employees/profile/ensure-employee-client';
+import type { EnsuredEmployee } from '@/features/organization/employees/profile/ensure-employee-client';
 import { toast } from '@/lib/toast';
 
-export type EnsuredEmployee = {
-    id: number;
-    name: string;
-    employee_no: string;
-};
+export type { EnsuredEmployee };
 
 type UseEnsureEmployeeOptions = {
     employeeId: number | null;
@@ -14,67 +15,67 @@ type UseEnsureEmployeeOptions = {
     onEnsured: (employee: EnsuredEmployee) => void;
 };
 
-function csrfToken(): string {
-    const token = document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute('content');
-
-    return token ?? '';
-}
-
 export function useEnsureEmployee({
     employeeId,
     getDraftName,
     selectedProfileTemplateId,
     onEnsured,
 }: UseEnsureEmployeeOptions): () => Promise<number> {
+    const inFlightRef = useRef<Promise<number> | null>(null);
+    const cachedEnsuredRef = useRef<EnsuredEmployee | null>(null);
+
+    useEffect(() => {
+        if (employeeId !== null && employeeId > 0) {
+            return;
+        }
+
+        cachedEnsuredRef.current = null;
+        inFlightRef.current = null;
+    }, [employeeId]);
+
     return useCallback(async (): Promise<number> => {
         if (employeeId !== null && employeeId > 0) {
             return employeeId;
         }
 
-        const name = getDraftName().trim();
+        if (cachedEnsuredRef.current !== null) {
+            onEnsured(cachedEnsuredRef.current);
 
-        if (name === '') {
-            toast.error('Employee name is required before saving.');
-
-            throw new Error('name_required');
+            return cachedEnsuredRef.current.id;
         }
 
-        const response = await fetch('/organization/employees/ensure', {
-            method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken(),
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                name,
-                employee_profile_template_id: selectedProfileTemplateId,
-            }),
-        });
-
-        if (!response.ok) {
-            toast.error('Could not create employee record.');
-
-            throw new Error('ensure_failed');
+        if (inFlightRef.current !== null) {
+            return inFlightRef.current;
         }
 
-        const payload = (await response.json()) as {
-            employee?: EnsuredEmployee;
-        };
-        const ensured = payload.employee;
+        const promise = (async (): Promise<number> => {
+            try {
+                const ensured = await postEnsureEmployee({
+                    name: getDraftName(),
+                    employee_profile_template_id: selectedProfileTemplateId,
+                });
 
-        if (!ensured?.id) {
-            toast.error('Could not create employee record.');
+                cachedEnsuredRef.current = ensured;
+                onEnsured(ensured);
 
-            throw new Error('ensure_invalid');
-        }
+                return ensured.id;
+            } catch (error) {
+                if (error instanceof EnsureEmployeeRequestError) {
+                    if (error.reason === 'name_required') {
+                        toast.error('Employee name is required before saving.');
+                    } else {
+                        toast.error('Could not create employee record.');
+                    }
+                }
 
-        onEnsured(ensured);
+                throw error;
+            } finally {
+                inFlightRef.current = null;
+            }
+        })();
 
-        return ensured.id;
+        inFlightRef.current = promise;
+
+        return promise;
     }, [employeeId, getDraftName, onEnsured, selectedProfileTemplateId]);
 }

@@ -354,6 +354,76 @@ test('create employee from name keeps unique draft numbers and does not overwrit
         ->and($second->fresh()->employee_no)->toStartWith('DRAFT-');
 });
 
+test('create-only user can update provisional draft employee to official number', function () {
+    ['user' => $user, 'company' => $company] = makeEmployeeNumberFixtures('create-only');
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $ensure = $this->postJson('/organization/employees/ensure', [
+        'name' => 'Create Only Employee',
+    ])->assertOk();
+
+    $employeeId = (int) $ensure->json('employee.id');
+
+    $this->from("/organization/employees/{$employeeId}")
+        ->put("/organization/employees/{$employeeId}", [
+            'employee_no' => 'CREATE-ONLY-1',
+            'name' => 'Create Only Employee',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(Employee::query()->find($employeeId)?->employee_no)->toBe('CREATE-ONLY-1');
+});
+
+test('create-only user cannot update official employee profiles', function () {
+    ['user' => $user, 'company' => $company] = makeEmployeeNumberFixtures('create-block');
+    $this->actingAs($user);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'OFFICIAL-1',
+        'name' => 'Official Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create']);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->put("/organization/employees/{$employee->id}", [
+            'employee_no' => 'OFFICIAL-1',
+            'name' => 'Attempted Edit',
+        ])
+        ->assertForbidden();
+
+    expect($employee->fresh()->name)->toBe('Official Employee');
+});
+
+test('failed validation does not update persisted employee number', function () {
+    ['user' => $user, 'company' => $company] = makeEmployeeNumberFixtures('fail-persist');
+    $this->actingAs($user);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DRAFT-FAIL001',
+        'name' => 'Draft Employee',
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'TAKEN-1',
+        'name' => 'Existing',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update']);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->put("/organization/employees/{$employee->id}", [
+            'employee_no' => 'TAKEN-1',
+            'name' => 'Draft Employee',
+        ])
+        ->assertSessionHasErrors('employee_no');
+
+    expect($employee->fresh()->employee_no)->toBe('DRAFT-FAIL001');
+});
+
 test('storing a new employee rejects draft employee numbers', function () {
     ['user' => $user, 'company' => $company] = makeEmployeeNumberFixtures('store-draft');
     $this->actingAs($user);
