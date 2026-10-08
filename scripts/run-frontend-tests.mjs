@@ -7,8 +7,8 @@
  * globstar expansion (fragile across macOS / Linux / npm script shells).
  */
 
-import { readdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -70,6 +70,7 @@ child.on('error', (error) => {
 child.on('exit', (code, signal) => {
     if (signal) {
         process.kill(process.pid, signal);
+
         return;
     }
 
