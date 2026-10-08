@@ -1,5 +1,5 @@
-import type { CalendarLeave } from '../types';
-import { buildLeaveDayMap } from './build-leave-day-map';
+import type { CalendarLeave } from '../types.ts';
+import { buildLeaveDayMap } from './build-leave-day-map.ts';
 
 export function getCalendarStats(leaves: CalendarLeave[], year: number) {
     const approvedLeaves = leaves.filter(
