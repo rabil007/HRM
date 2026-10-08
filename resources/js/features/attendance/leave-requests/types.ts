@@ -30,7 +30,8 @@ export type LeaveBalanceAllocationStatus = 'allocated' | 'unallocated';
 export type LeaveBalanceAllocationSkipReason =
     | 'missing_hire_date'
     | 'before_employment'
-    | 'not_yet_joined';
+    | 'not_yet_joined'
+    | 'inactive_employee';
 
 export type LeaveTypeYearBalance = {
     id: number;

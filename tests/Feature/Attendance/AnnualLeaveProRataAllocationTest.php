@@ -618,3 +618,88 @@ test('sync missing balances reports skipped annual allocations for missing hire 
 
     Carbon::setTestNow();
 });
+
+test('inactive employee without saved balance shows unallocated instead of configured days', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $inactive = createAttendanceLeaveEmployee($company, [
+        'status' => 'inactive',
+        'hire_date' => '2026-01-01',
+    ]);
+
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
+    ]);
+
+    $legend = app(LeaveTypeYearBalance::class)->forEmployee((int) $company->id, (int) $inactive->id, 2026);
+    $annualLegend = collect($legend)->firstWhere('id', $annual->id);
+
+    expect($annualLegend)->not->toBeNull()
+        ->and($annualLegend['allocation_status'])->toBe('unallocated')
+        ->and($annualLegend['allocation_skip_reason'])->toBe(LeaveTypeYearBalance::SKIP_INACTIVE_EMPLOYEE)
+        ->and($annualLegend['allocation_message'])->toBe(LeaveTypeYearBalance::MESSAGE_INACTIVE_EMPLOYEE)
+        ->and((float) $annualLegend['entitled_days'])->toBe(0.0)
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $inactive->id)
+                ->where('leave_type_id', $annual->id)
+                ->where('year', 2026)
+                ->exists()
+        )->toBeFalse();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('attendance.calendar.index', [
+            'year' => 2026,
+            'employee_id' => $inactive->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_types.0.allocation_status', 'unallocated')
+            ->where('leave_types.0.entitled_days', 0));
+
+    Carbon::setTestNow();
+});
+
+test('inactive employee with existing balance shows persisted entitlement', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $inactive = createAttendanceLeaveEmployee($company, [
+        'status' => 'inactive',
+        'hire_date' => '2026-01-01',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    LeaveBalance::factory()->forEmployee($inactive)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 18,
+        'used_days' => 4,
+        'pending_days' => 1,
+        'carried_days' => 2,
+    ]);
+
+    $legend = app(LeaveTypeYearBalance::class)->forEmployee((int) $company->id, (int) $inactive->id, 2026);
+    $annualLegend = collect($legend)->firstWhere('id', $annual->id);
+
+    expect($annualLegend)->not->toBeNull()
+        ->and($annualLegend['allocation_status'])->toBe('allocated')
+        ->and((float) $annualLegend['base_entitlement_days'])->toBe(18.0)
+        ->and((float) $annualLegend['entitled_days'])->toBe(20.0)
+        ->and((float) $annualLegend['used_days'])->toBe(4.0)
+        ->and((float) $annualLegend['pending_days'])->toBe(1.0);
+
+    Carbon::setTestNow();
+});

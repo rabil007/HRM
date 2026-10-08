@@ -9,6 +9,10 @@ use App\Support\Settings\CompanyTimezone;
 
 final class LeaveTypeYearBalance
 {
+    public const SKIP_INACTIVE_EMPLOYEE = 'inactive_employee';
+
+    public const MESSAGE_INACTIVE_EMPLOYEE = 'No leave balance allocated for this inactive employee.';
+
     public function __construct(
         private LeaveBalanceManager $leaveBalances,
         private AnnualLeaveEntitlementCalculator $annualEntitlement,
@@ -28,7 +32,7 @@ final class LeaveTypeYearBalance
      * - opening_used_days — previous/opening usage
      * - total_used_days — opening + HRM usage (employee-facing "Used")
      * - allocation_status — allocated | unallocated
-     * - allocation_skip_reason — missing_hire_date | before_employment | null
+     * - allocation_skip_reason — missing_hire_date | before_employment | not_yet_joined | inactive_employee | null
      * - allocation_message — HR-facing reason when unallocated
      *
      * Historical years (before the company business year) are read-only: never
@@ -93,13 +97,15 @@ final class LeaveTypeYearBalance
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey($employeeId)
-            ->first(['id', 'company_id', 'department_id', 'hire_date']);
+            ->first(['id', 'company_id', 'department_id', 'status', 'hire_date']);
 
         if ($employee === null) {
             return [];
         }
 
-        $this->leaveBalances->ensureEmployeeYear($companyId, $employeeId, $year);
+        if ((string) $employee->status === 'active') {
+            $this->leaveBalances->ensureEmployeeYear($companyId, $employeeId, $year);
+        }
 
         $leaveTypes = LeaveType::query()
             ->where('company_id', $companyId)
@@ -120,6 +126,14 @@ final class LeaveTypeYearBalance
                 $balance = $balances->get($leaveType->id);
 
                 if ($balance === null) {
+                    if ((string) $employee->status !== 'active') {
+                        return $this->presentUnallocatedBalance(
+                            $leaveType,
+                            self::SKIP_INACTIVE_EMPLOYEE,
+                            self::MESSAGE_INACTIVE_EMPLOYEE,
+                        );
+                    }
+
                     $skipReason = $this->annualEntitlement->newBalanceAllocationSkipReason(
                         $leaveType,
                         $employee,
@@ -214,7 +228,7 @@ final class LeaveTypeYearBalance
     }
 
     /**
-     * @param  AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE|AnnualLeaveEntitlementCalculator::SKIP_BEFORE_EMPLOYMENT  $skipReason
+     * @param  AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE|AnnualLeaveEntitlementCalculator::SKIP_BEFORE_EMPLOYMENT|AnnualLeaveEntitlementCalculator::SKIP_NOT_YET_JOINED|self::SKIP_INACTIVE_EMPLOYEE  $skipReason
      * @return array{
      *     id: int,
      *     name: string,
@@ -234,8 +248,11 @@ final class LeaveTypeYearBalance
      *     allocation_message: string|null,
      * }
      */
-    private function presentUnallocatedBalance(LeaveType $leaveType, string $skipReason): array
-    {
+    private function presentUnallocatedBalance(
+        LeaveType $leaveType,
+        string $skipReason,
+        ?string $allocationMessage = null,
+    ): array {
         return $this->presentBalance(
             leaveType: $leaveType,
             baseEntitlementDays: 0.0,
@@ -246,7 +263,7 @@ final class LeaveTypeYearBalance
             remainingDays: 0.0,
             allocationStatus: 'unallocated',
             allocationSkipReason: $skipReason,
-            allocationMessage: $this->annualEntitlement->skipMessageForReason($skipReason),
+            allocationMessage: $allocationMessage ?? $this->annualEntitlement->skipMessageForReason($skipReason),
         );
     }
 

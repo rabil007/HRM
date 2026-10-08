@@ -8,6 +8,7 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
+use App\Support\Attendance\LeaveTypeYearBalance;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -492,7 +493,13 @@ test('calendar honors employee_id for inactive employees without leave requests'
             ->where('selected_employee.name', 'Alice Tech')
             ->has('approved_leaves', 0)
             ->where('pending_request_count', 0)
-            ->has('employees', 2));
+            ->has('employees', 2)
+            ->where('leave_types.0.allocation_status', 'unallocated')
+            ->where(
+                'leave_types.0.allocation_skip_reason',
+                LeaveTypeYearBalance::SKIP_INACTIVE_EMPLOYEE,
+            )
+            ->where('leave_types.0.entitled_days', 0));
 
     $employeeIds = collect($response->original->getData()['page']['props']['employees'])->pluck('id')->all();
 

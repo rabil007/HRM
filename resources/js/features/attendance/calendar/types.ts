@@ -18,6 +18,7 @@ export type CalendarLeaveType = {
         | 'missing_hire_date'
         | 'before_employment'
         | 'not_yet_joined'
+        | 'inactive_employee'
         | null;
     allocation_message?: string | null;
 };
