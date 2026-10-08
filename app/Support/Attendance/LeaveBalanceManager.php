@@ -16,6 +16,7 @@ final class LeaveBalanceManager
 {
     public function __construct(
         private CalculateLeaveRequestDays $calculateDays,
+        private AnnualLeaveEntitlementCalculator $annualEntitlement,
     ) {}
 
     public function provisionEmployee(Employee $employee): void
@@ -41,6 +42,7 @@ final class LeaveBalanceManager
         Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
+            ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
             ->select('id')
             ->chunkById(100, function (Collection $employees) use ($companyId, $leaveType, $year): void {
                 foreach ($employees as $employee) {
@@ -51,12 +53,29 @@ final class LeaveBalanceManager
 
     public function ensureEmployeeYear(int $companyId, int $employeeId, int $year): void
     {
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)) {
+            return;
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'department_id', 'hire_date']);
+
+        if ($employee === null) {
+            return;
+        }
+
         $leaveTypes = LeaveType::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->get();
 
         foreach ($leaveTypes as $leaveType) {
+            if ($this->annualEntitlement->entitledDaysForNewBalance($leaveType, $employee, $year) === null) {
+                continue;
+            }
+
             $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
         }
     }
@@ -776,6 +795,7 @@ final class LeaveBalanceManager
         Employee::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
+            ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
             ->select('id')
             ->chunkById(100, function (Collection $employees) use ($companyId, $leaveTypes, $year, $previousYear, &$applied): void {
                 foreach ($employees as $employee) {
@@ -973,13 +993,19 @@ final class LeaveBalanceManager
                 return 'existing';
             }
 
+            $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+
+            if ($entitledDays === null) {
+                return 'anomaly';
+            }
+
             try {
                 $created = LeaveBalance::query()->create([
                     'company_id' => $companyId,
                     'employee_id' => $employeeId,
                     'leave_type_id' => $leaveType->id,
                     'year' => $year,
-                    'entitled_days' => $leaveType->days_per_year,
+                    'entitled_days' => $entitledDays,
                     'carried_days' => 0,
                     'used_days' => 0,
                     'pending_days' => 0,
@@ -1088,7 +1114,7 @@ final class LeaveBalanceManager
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey($employeeId)
-            ->first(['id', 'status']);
+            ->first(['id', 'status', 'hire_date', 'company_id', 'department_id']);
         $leaveType = LeaveType::query()
             ->where('company_id', $companyId)
             ->whereKey($leaveTypeId)
@@ -1100,6 +1126,8 @@ final class LeaveBalanceManager
             && $employee->status === 'active'
             && $leaveType !== null
             && $leaveType->status === 'active'
+            && AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)
+            && $this->annualEntitlement->entitledDaysForNewBalance($leaveType, $employee, $year) !== null
         ) {
             $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
             $this->synchronizeBalanceKey($companyId, $employeeId, $leaveTypeId, $year, createIfMissing: false);
@@ -1240,12 +1268,18 @@ final class LeaveBalanceManager
             }
 
             if ($balance === null) {
+                $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+
+                if ($entitledDays === null) {
+                    return false;
+                }
+
                 LeaveBalance::query()->create([
                     'company_id' => $companyId,
                     'employee_id' => $employeeId,
                     'leave_type_id' => $leaveType->id,
                     'year' => $year,
-                    'entitled_days' => $leaveType->days_per_year,
+                    'entitled_days' => $entitledDays,
                     'carried_days' => $carriedDays,
                     'used_days' => 0,
                     'pending_days' => 0,
@@ -1364,13 +1398,23 @@ final class LeaveBalanceManager
             return $balance;
         }
 
+        $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+
+        if ($entitledDays === null) {
+            throw new RuntimeException(sprintf(
+                'Cannot provision %s balance for %d: employee hire date is after this leave year.',
+                $leaveType->name,
+                $year,
+            ));
+        }
+
         try {
             $created = LeaveBalance::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employeeId,
                 'leave_type_id' => $leaveType->id,
                 'year' => $year,
-                'entitled_days' => $leaveType->days_per_year,
+                'entitled_days' => $entitledDays,
                 'carried_days' => 0,
                 'used_days' => 0,
                 'pending_days' => 0,
@@ -1451,5 +1495,23 @@ final class LeaveBalanceManager
         }
 
         DB::transaction($callback);
+    }
+
+    private function entitledDaysForNewBalance(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+    ): ?float {
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'hire_date']);
+
+        if ($employee === null) {
+            return null;
+        }
+
+        return $this->annualEntitlement->entitledDaysForNewBalance($leaveType, $employee, $year);
     }
 }

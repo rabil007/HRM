@@ -57,6 +57,7 @@ require __DIR__.'/Support/organization-test-clock.php';
 require __DIR__.'/Support/contract-fixtures.php';
 require __DIR__.'/Support/leave-approval-fixtures.php';
 require __DIR__.'/Support/leave-report-fixtures.php';
+require __DIR__.'/Support/leave-balance-fixtures.php';
 require __DIR__.'/Support/attendance-leave-department-fixtures.php';
 require __DIR__.'/Support/active-employee-fixtures.php';
 require __DIR__.'/Support/employee-visibility-fixtures.php';

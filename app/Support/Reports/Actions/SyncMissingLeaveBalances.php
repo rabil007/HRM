@@ -26,7 +26,7 @@ final class SyncMissingLeaveBalances
         $leaveTypes = LeaveType::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
-            ->get(['id', 'company_id', 'days_per_year', 'status']);
+            ->get(['id', 'company_id', 'days_per_year', 'status', 'category']);
 
         $activeLeaveTypesCount = $leaveTypes->count();
         $eligibleEmployeesChecked = 0;
