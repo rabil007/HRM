@@ -171,6 +171,20 @@ test('ci workflow and helper changes fail-safe to full ci', function () {
         ->and(oms_ci_classify_paths(['composer.lock']))->toMatchArray(oms_ci_full_classification());
 });
 
+test('pest timings updates run pest without forcing full ci or deploy', function () {
+    expect(oms_ci_classify_paths(['.github/ci/pest-timings.json']))->toMatchArray([
+        'pint' => false,
+        'pest' => true,
+        'frontend_static' => false,
+        'frontend_build' => false,
+        'pdf_renderer' => false,
+        'deploy' => false,
+        'docs_only' => false,
+        'scope' => 'mixed',
+    ])->and(oms_ci_is_ci_infra_path('.github/ci/pest-timings.json'))->toBeFalse()
+        ->and(oms_ci_is_pest_timings_path('.github/ci/pest-timings.json'))->toBeTrue();
+});
+
 test('unknown paths force full CI', function () {
     expect(oms_ci_classify_paths(['docker-compose.yml']))->toMatchArray(oms_ci_full_classification());
 });

@@ -19,7 +19,7 @@ Detect changes (system PHP classifier + CI plan artifact)
     |
     +-- PDF Renderer                     [if Chromium/PDF inputs changed]
     |
-    +-- Pest 1/6 .. Pest 6/6             [if backend/Pest inputs changed]
+    +-- Pest 1/8 .. Pest 8/8             [if backend/Pest inputs changed]
               |
         Quality gates (needs-based aggregator, no checkout)
 ```
@@ -28,7 +28,7 @@ Jobs that are not required are **skipped**. The quality gate treats `skipped` as
 
 ## Change classification
 
-Classification is fail-safe: empty or unreadable diffs run full CI. Unrecognized paths also run full CI. `.github/` and `composer.json` / `composer.lock` run full CI so infrastructure and PHP dependency changes self-validate.
+Classification is fail-safe: empty or unreadable diffs run full CI. Unrecognized paths also run full CI. `.github/` (except `.github/ci/pest-timings.json`) and `composer.json` / `composer.lock` run full CI so infrastructure and PHP dependency changes self-validate. Timings-only updates run Pest without frontend, PDF, or deploy.
 
 Independent flags (not a coarse backend→frontend coupling):
 
@@ -43,6 +43,7 @@ Independent flags (not a coarse backend→frontend coupling):
 | `package-lock.json` | skip | skip | run | run | run | run |
 | `docs/**`, root `*.md` | skip | skip | skip | skip | skip | skip |
 | `.github/workflows/ci.yml`, `ci.php` | run | run | run | run | run | skip |
+| `.github/ci/pest-timings.json` | skip | run | skip | skip | skip | skip |
 | Composer lock | run | run | run | run | run | run |
 
 Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files.
@@ -52,7 +53,7 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 | Gate | Job / step | Local command |
 |------|------------|---------------|
 | PHP formatting | PHP Style (Pint) → `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
-| Pest | Pest 1/6 .. 6/6 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
+| Pest | Pest 1/8 .. 8/8 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
 | ESLint | Frontend Static → `npm run lint:check` | `npm run lint:check` |
 | Prettier | Frontend Static → `npm run format:check` | `npm run format:check` |
 | Frontend tests | Frontend Static → `npm run test:frontend` | `npm run test:frontend` |
@@ -100,7 +101,8 @@ Local `ci:check` is sequential and unsharded; GitHub Actions is the parallel lay
 
 - **node_modules**: exact key `node-modules-<os>-<arch>-node22-<package-lock hash>`. No `restore-keys`. Cache hit skips `npm ci`. First lockfile change is a cold install.
 - npm download cache via `actions/setup-node` as cold-cache fallback.
-- Composer download cache keyed by OS + PHP 8.4 + `composer.lock` (CI test jobs do **not** use `--optimize-autoloader`; production deploy still does).
+- **vendor**: exact key `composer-vendor-<os>-<arch>-php8.4-<composer.lock hash>` via `.github/actions/composer-vendor`. No `restore-keys`. Cache hit skips `composer install` when `vendor/autoload.php` is present.
+- Composer download cache keyed by OS + PHP 8.4 + `composer.lock` as cold-install fallback (CI test jobs do **not** use `--optimize-autoloader`; production deploy still does).
 - Pint, ESLint, Prettier (`--cache --cache-location .cache/.prettiercache`), TypeScript `.tsbuildinfo`.
 - Puppeteer browser cache for the PDF job (`storage/app/puppeteer`), still verified with `browsershot:install` / `browsershot:doctor`.
 

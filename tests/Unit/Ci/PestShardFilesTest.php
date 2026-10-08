@@ -8,7 +8,7 @@ test('every Pest test file belongs to exactly one shard', function () {
     $total = OMS_CI_PEST_SHARD_COUNT;
 
     expect($all)->not->toBeEmpty()
-        ->and($total)->toBe(6);
+        ->and($total)->toBe(8);
 
     $union = [];
 
@@ -43,9 +43,9 @@ test('shards together equal the phpunit unit and feature suites', function () {
 test('workflow pest matrix matches the shard constant', function () {
     $workflow = (string) file_get_contents(dirname(__DIR__, 3).'/.github/workflows/ci.yml');
 
-    expect(OMS_CI_PEST_SHARD_COUNT)->toBe(6)
+    expect(OMS_CI_PEST_SHARD_COUNT)->toBe(8)
         ->and($workflow)->toContain('PEST_SHARD_TOTAL: '.OMS_CI_PEST_SHARD_COUNT)
-        ->and($workflow)->toContain('shard: [1, 2, 3, 4, 5, 6]')
+        ->and($workflow)->toContain('shard: [1, 2, 3, 4, 5, 6, 7, 8]')
         ->and($workflow)->toContain('--total="${PEST_SHARD_TOTAL}"')
         ->and($workflow)->toContain('php artisan test --compact --ansi "${TEST_FILES[@]}"')
         ->and($workflow)->not->toContain('php artisan test --compact --ansi -- "${TEST_FILES[@]}"')
@@ -66,6 +66,16 @@ test('node_modules cache is exact-lockfile keyed without restore-keys', function
 
     expect($action)->toContain("key: node-modules-\${{ runner.os }}-\${{ runner.arch }}-node\${{ env.NODE_VERSION }}-\${{ hashFiles('package-lock.json') }}")
         ->and($action)->not->toContain('restore-keys:');
+});
+
+test('composer vendor cache is exact-lockfile keyed without restore-keys', function () {
+    $action = (string) file_get_contents(dirname(__DIR__, 3).'/.github/actions/composer-vendor/action.yml');
+    $workflow = (string) file_get_contents(dirname(__DIR__, 3).'/.github/workflows/ci.yml');
+
+    expect($action)->toContain("key: composer-vendor-\${{ runner.os }}-\${{ runner.arch }}-php\${{ env.PHP_VERSION }}-\${{ hashFiles('composer.lock') }}")
+        ->and($action)->not->toContain('restore-keys:')
+        ->and($workflow)->toContain('uses: ./.github/actions/composer-vendor')
+        ->and($workflow)->not->toContain('run: composer install --no-interaction --prefer-dist --no-progress');
 });
 
 test('weighted packing assigns every file once and is deterministic', function () {

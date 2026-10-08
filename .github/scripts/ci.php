@@ -6,7 +6,7 @@
  * Invoked from .github/workflows/ci.yml and covered by tests/Unit/Ci.
  */
 
-const OMS_CI_PEST_SHARD_COUNT = 6;
+const OMS_CI_PEST_SHARD_COUNT = 8;
 
 const OMS_CI_PEST_TIMINGS_RELATIVE = '.github/ci/pest-timings.json';
 
@@ -269,8 +269,17 @@ function oms_ci_is_docs_path(string $path): bool
         || (str_ends_with($path, '.md') && ! str_contains($path, '/'));
 }
 
+function oms_ci_is_pest_timings_path(string $path): bool
+{
+    return $path === OMS_CI_PEST_TIMINGS_RELATIVE;
+}
+
 function oms_ci_is_ci_infra_path(string $path): bool
 {
+    if (oms_ci_is_pest_timings_path($path)) {
+        return false;
+    }
+
     return str_starts_with($path, '.github/')
         || in_array($path, [
             'composer.json',
@@ -287,6 +296,10 @@ function oms_ci_is_pint_path(string $path): bool
 
 function oms_ci_is_pest_path(string $path): bool
 {
+    if (oms_ci_is_pest_timings_path($path)) {
+        return true;
+    }
+
     foreach ([
         'app/',
         'routes/',

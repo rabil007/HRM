@@ -1,0 +1,63 @@
+name: Restore Composer vendor
+description: Exact composer.lock vendor cache with composer install fallback. Never restores a different lockfile tree.
+
+outputs:
+  cache-hit:
+    description: Whether the exact vendor cache was restored
+    value: ${{ steps.cache.outputs.cache-hit }}
+  composer-installed:
+    description: Whether composer install ran
+    value: ${{ steps.install.outputs.composer-installed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Restore vendor
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: vendor
+        key: composer-vendor-${{ runner.os }}-${{ runner.arch }}-php${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+
+    - name: Install PHP dependencies if needed
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+        start=$(date +%s)
+
+        cache_ok=false
+        if [[ "${{ steps.cache.outputs.cache-hit }}" == 'true' ]] \
+          && [[ -f vendor/autoload.php ]]; then
+          cache_ok=true
+        fi
+
+        if [[ "$cache_ok" == 'true' ]]; then
+          echo "composer-installed=false" >> "$GITHUB_OUTPUT"
+          echo "Restored exact vendor cache."
+        else
+          if [[ "${{ steps.cache.outputs.cache-hit }}" == 'true' ]]; then
+            echo "Exact vendor cache was incomplete; running composer install."
+            rm -rf vendor
+          fi
+          composer install --no-interaction --prefer-dist --no-progress
+          echo "composer-installed=true" >> "$GITHUB_OUTPUT"
+        fi
+
+        end=$(date +%s)
+        echo "composer_vendor_seconds=$((end - start))" >> "$GITHUB_OUTPUT"
+        echo "composer_vendor_cache_hit=${{ steps.cache.outputs.cache-hit }}" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## Composer vendor"
+          echo "- cache hit: ${{ steps.cache.outputs.cache-hit }}"
+          echo "- composer install: $( [[ "$cache_ok" == 'true' ]] && echo skipped || echo ran )"
+          echo "- duration: $((end - start))s"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Save vendor
+      if: steps.install.outputs.composer-installed == 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: vendor
+        key: composer-vendor-${{ runner.os }}-${{ runner.arch }}-php${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
