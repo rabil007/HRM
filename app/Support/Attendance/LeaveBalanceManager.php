@@ -17,6 +17,7 @@ final class LeaveBalanceManager
     public function __construct(
         private CalculateLeaveRequestDays $calculateDays,
         private AnnualLeaveEntitlementCalculator $annualEntitlement,
+        private LeaveBalanceNewAllocationEligibility $newAllocationEligibility,
     ) {}
 
     public function provisionEmployee(Employee $employee): void
@@ -959,7 +960,11 @@ final class LeaveBalanceManager
 
         DB::transaction(function () use ($companyId, $employeeId, $leaveType, $leaveTypeId, $year, $createIfMissing): void {
             if ($createIfMissing) {
-                $balance = $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+                $balance = $this->tryFindOrCreateBalance($companyId, $employeeId, $leaveType, $year, lock: true);
+
+                if ($balance === null) {
+                    return;
+                }
             } else {
                 $balance = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, $year, lock: true);
 
@@ -987,11 +992,20 @@ final class LeaveBalanceManager
         LeaveType $leaveType,
         int $year,
     ): string {
-        if ((int) $leaveType->company_id !== $companyId || (string) $leaveType->status !== 'active') {
+        if (! $this->newAllocationEligibility->leaveTypeCanBeProvisioned($leaveType, $companyId)) {
             return 'anomaly';
         }
 
-        return DB::transaction(function () use ($companyId, $employeeId, $leaveType, $year): string {
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'department_id', 'status', 'hire_date']);
+
+        if ($employee === null || ! $this->newAllocationEligibility->employeeCanReceiveNewBalance($employee, $companyId)) {
+            return 'skipped';
+        }
+
+        return DB::transaction(function () use ($companyId, $employeeId, $employee, $leaveType, $year): string {
             if (
                 LeaveBalance::onlyTrashed()
                     ->where('company_id', $companyId)
@@ -1009,7 +1023,7 @@ final class LeaveBalanceManager
                 return 'existing';
             }
 
-            $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+            $entitledDays = $this->entitledDaysForNewBalance($leaveType, $employee, $year);
 
             if ($entitledDays === null) {
                 return 'skipped';
@@ -1284,7 +1298,20 @@ final class LeaveBalanceManager
             }
 
             if ($balance === null) {
-                $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+                $employee = Employee::query()
+                    ->where('company_id', $companyId)
+                    ->whereKey($employeeId)
+                    ->first(['id', 'company_id', 'department_id', 'status', 'hire_date']);
+
+                if (
+                    $employee === null
+                    || ! $this->newAllocationEligibility->employeeCanReceiveNewBalance($employee, $companyId)
+                    || ! $this->newAllocationEligibility->leaveTypeCanBeProvisioned($leaveType, $companyId)
+                ) {
+                    return false;
+                }
+
+                $entitledDays = $this->entitledDaysForNewBalance($leaveType, $employee, $year);
 
                 if ($entitledDays === null) {
                     return false;
@@ -1436,7 +1463,20 @@ final class LeaveBalanceManager
             return $balance;
         }
 
-        $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'department_id', 'status', 'hire_date']);
+
+        if ($employee === null || ! $this->newAllocationEligibility->employeeCanReceiveNewBalance($employee, $companyId)) {
+            return null;
+        }
+
+        if (! $this->newAllocationEligibility->leaveTypeCanBeProvisioned($leaveType, $companyId)) {
+            return null;
+        }
+
+        $entitledDays = $this->entitledDaysForNewBalance($leaveType, $employee, $year);
 
         if ($entitledDays === null) {
             return null;
@@ -1560,21 +1600,8 @@ final class LeaveBalanceManager
         DB::transaction($callback);
     }
 
-    private function entitledDaysForNewBalance(
-        int $companyId,
-        int $employeeId,
-        LeaveType $leaveType,
-        int $year,
-    ): ?float {
-        $employee = Employee::query()
-            ->where('company_id', $companyId)
-            ->whereKey($employeeId)
-            ->first(['id', 'company_id', 'hire_date']);
-
-        if ($employee === null) {
-            return null;
-        }
-
+    private function entitledDaysForNewBalance(LeaveType $leaveType, Employee $employee, int $year): ?float
+    {
         return $this->annualEntitlement->entitledDaysForNewBalance($leaveType, $employee, $year);
     }
 }

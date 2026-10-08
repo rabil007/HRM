@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\LeaveTypeCategory;
+use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
@@ -248,6 +249,9 @@ test('sync missing balances action uses pro rata for annual category', function 
     ]);
     $employee = createAttendanceLeaveEmployee($company);
     $employee->update(['hire_date' => '2026-10-01']);
+
+    Carbon::setTestNow(Carbon::parse('2026-11-01 12:00:00', 'Asia/Dubai'));
+
     $annual = LeaveType::factory()->for($company)->create([
         'category' => LeaveTypeCategory::Annual,
         'days_per_year' => 30,
@@ -476,6 +480,142 @@ test('existing annual balance is preserved when hire date changes afterward', fu
     expect($annualLegend)->not->toBeNull()
         ->and($annualLegend['allocation_status'])->toBe('allocated')
         ->and((float) $annualLegend['base_entitlement_days'])->toBe(30.0);
+
+    Carbon::setTestNow();
+});
+
+test('shared balance creation rejects excluded departments and cross company combinations', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    ['company' => $otherCompany] = makeLeaveBalanceFixtures();
+
+    $excludedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Direct excluded',
+        'code' => 'DEX'.fake()->unique()->numerify('##'),
+        'status' => 'active',
+        'include_in_attendance_leave' => false,
+    ]);
+    $excludedEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $excludedDepartment->id,
+        'hire_date' => '2026-01-01',
+    ]);
+
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $otherLeaveType = LeaveType::factory()->for($otherCompany)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    $manager = app(LeaveBalanceManager::class);
+
+    expect($manager->tryFindOrCreateBalance((int) $company->id, (int) $excludedEmployee->id, $annual, 2026))
+        ->toBeNull()
+        ->and($manager->tryFindOrCreateBalance((int) $company->id, (int) $excludedEmployee->id, $otherLeaveType, 2026))
+        ->toBeNull()
+        ->and($manager->provisionMissingBalanceForYear((int) $company->id, (int) $excludedEmployee->id, $annual, 2026))
+        ->toBe('skipped');
+
+    $included = createAttendanceLeaveEmployee($company, ['hire_date' => '2026-01-01']);
+    $manual = LeaveBalance::factory()->forEmployee($included)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 25,
+        'used_days' => 2,
+        'pending_days' => 0,
+        'carried_days' => 0,
+    ]);
+
+    $included->update(['department_id' => $excludedDepartment->id]);
+
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $included->id, 2026);
+
+    $after = $manual->fresh();
+    expect((float) $after->entitled_days)->toBe(25.0)
+        ->and((float) $after->used_days)->toBe(2.0);
+
+    Carbon::setTestNow();
+});
+
+test('future same year hire date does not create annual leave until joining day', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-08 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $user->update(['current_company_id' => $company->id]);
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $futureJoiner = createAttendanceLeaveEmployee($company);
+    $futureJoiner->update(['hire_date' => '2026-12-31']);
+
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    $result = app(SyncMissingLeaveBalances::class)->handle((int) $company->id, $user);
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $futureJoiner->id)
+            ->where('leave_type_id', $annual->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeFalse()
+        ->and($result->skippedAnnualNotYetJoined)->toBe(1)
+        ->and($result->skippedOrAnomalies)->toBe(0)
+        ->and($result->messageVariant())->toBe('expected_skips_only');
+
+    Carbon::setTestNow(Carbon::parse('2026-12-31 09:00:00', 'Asia/Dubai'));
+
+    app(SyncMissingLeaveBalances::class)->handle((int) $company->id, $user);
+
+    $balance = LeaveBalance::query()
+        ->where('employee_id', $futureJoiner->id)
+        ->where('leave_type_id', $annual->id)
+        ->where('year', 2026)
+        ->first();
+
+    expect($balance)->not->toBeNull()
+        ->and((float) $balance->entitled_days)->toBe(1.0);
+
+    Carbon::setTestNow();
+});
+
+test('sync missing balances reports skipped annual allocations for missing hire dates', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $user->update(['current_company_id' => $company->id]);
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $employee = createAttendanceLeaveEmployee($company);
+    $employee->update(['hire_date' => null]);
+
+    LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    $result = app(SyncMissingLeaveBalances::class)->handle((int) $company->id, $user);
+
+    expect($result->skippedAnnualMissingHireDate)->toBe(1)
+        ->and($result->skippedOrAnomalies)->toBe(0)
+        ->and($result->messageVariant())->toBe('expected_skips_only')
+        ->and($result->summaryMessage())->toContain('hire dates are missing');
 
     Carbon::setTestNow();
 });

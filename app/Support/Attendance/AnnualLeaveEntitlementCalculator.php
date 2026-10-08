@@ -5,6 +5,7 @@ namespace App\Support\Attendance;
 use App\Enums\LeaveTypeCategory;
 use App\Models\Employee;
 use App\Models\LeaveType;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
 
 final class AnnualLeaveEntitlementCalculator
@@ -16,6 +17,10 @@ final class AnnualLeaveEntitlementCalculator
     public const SKIP_MISSING_HIRE_DATE = 'missing_hire_date';
 
     public const SKIP_BEFORE_EMPLOYMENT = 'before_employment';
+
+    public const SKIP_NOT_YET_JOINED = 'not_yet_joined';
+
+    public const MESSAGE_NOT_YET_JOINED = 'Annual leave is allocated after the employee joining date.';
 
     /**
      * Entitlement for a newly created leave balance row.
@@ -63,6 +68,13 @@ final class AnnualLeaveEntitlementCalculator
             return self::SKIP_BEFORE_EMPLOYMENT;
         }
 
+        $companyId = (int) $employee->company_id;
+        $today = now(CompanyTimezone::forCompanyId($companyId))->startOfDay();
+
+        if ($hireDate->copy()->startOfDay()->gt($today)) {
+            return self::SKIP_NOT_YET_JOINED;
+        }
+
         return null;
     }
 
@@ -71,6 +83,7 @@ final class AnnualLeaveEntitlementCalculator
         return match ($reason) {
             self::SKIP_MISSING_HIRE_DATE => self::MESSAGE_HIRE_DATE_REQUIRED,
             self::SKIP_BEFORE_EMPLOYMENT => self::MESSAGE_BEFORE_EMPLOYMENT,
+            self::SKIP_NOT_YET_JOINED => self::MESSAGE_NOT_YET_JOINED,
             default => null,
         };
     }

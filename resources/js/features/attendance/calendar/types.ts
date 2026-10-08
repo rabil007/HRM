@@ -14,7 +14,11 @@ export type CalendarLeaveType = {
     pending_days: number | null;
     remaining_days: number | null;
     allocation_status?: 'allocated' | 'unallocated';
-    allocation_skip_reason?: 'missing_hire_date' | 'before_employment' | null;
+    allocation_skip_reason?:
+        | 'missing_hire_date'
+        | 'before_employment'
+        | 'not_yet_joined'
+        | null;
     allocation_message?: string | null;
 };
 

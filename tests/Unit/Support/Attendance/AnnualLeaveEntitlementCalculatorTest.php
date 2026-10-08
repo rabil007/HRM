@@ -89,3 +89,27 @@ test('non default configured annual entitlement is respected', function () {
 
     expect($calculator->proRataForJoiningYear(Carbon::parse('2026-10-01'), 2026, 22.0))->toBe(6.0);
 });
+
+test('annual allocation is skipped before the employee joining date in company timezone', function () {
+    Carbon::setTestNow(Carbon::parse('2026-10-08 12:00:00', 'Asia/Dubai'));
+
+    $calculator = new AnnualLeaveEntitlementCalculator;
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'hire_date' => '2026-12-31',
+    ]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+    ]);
+
+    expect($calculator->entitledDaysForNewBalance($annual, $employee, 2026))->toBeNull()
+        ->and($calculator->newBalanceAllocationSkipReason($annual, $employee, 2026))
+        ->toBe(AnnualLeaveEntitlementCalculator::SKIP_NOT_YET_JOINED);
+
+    Carbon::setTestNow(Carbon::parse('2026-12-31 08:00:00', 'Asia/Dubai'));
+
+    expect($calculator->entitledDaysForNewBalance($annual, $employee->fresh(), 2026))->toBe(1.0);
+
+    Carbon::setTestNow();
+});

@@ -96,6 +96,7 @@ export type LeaveBalanceSyncMessageVariant =
     | 'no_active_leave_types'
     | 'no_eligible_employees'
     | 'nothing_missing'
+    | 'expected_skips_only'
     | 'anomalies_only'
     | 'partial_success'
     | 'success';
@@ -106,8 +107,11 @@ export type LeaveBalanceSyncResult = {
     new_balance_records_created: number;
     already_existing_balances: number;
     skipped_or_anomalies: number;
+    skipped_annual_missing_hire_date: number;
+    skipped_annual_not_yet_joined: number;
     active_leave_types_count: number;
     year: number;
     message_variant: LeaveBalanceSyncMessageVariant;
     nothing_to_create: boolean;
+    summary_message: string;
 };
