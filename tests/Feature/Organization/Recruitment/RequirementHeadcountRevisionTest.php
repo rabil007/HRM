@@ -888,7 +888,7 @@ test('assigned recruiter with approve can review requester-initiated revisions e
     expect($lines['welder']->fresh()->required_headcount)->toBe(8);
 });
 
-test('assigned recruiter with request permission but without approve cannot review requester-initiated revisions', function () {
+test('requester cannot create a headcount revision when assigned recruiter lacks approve permission', function () {
     $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
         'recruitment.requirements.view',
         'recruitment.requirements.request_headcount_revision',
@@ -907,6 +907,143 @@ test('assigned recruiter with request permission but without approve cannot revi
         ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
             ['id' => $lines['welder']->id, 'required_headcount' => 8],
         ], 'Additional manpower required.'))
+        ->assertSessionHasErrors([
+            'assigned_to' => 'The assigned recruiter does not have permission to approve headcount revisions. Assign an authorized recruiter before submitting this revision.',
+        ]);
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0)
+        ->and(DB::table('recruitment_requirement_headcount_revision_lines')->count())->toBe(0)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5);
+
+    Mail::assertNothingSent();
+});
+
+test('requester cannot create a headcount revision when assigned recruiter has neither approve nor request permission', function () {
+    $viewOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+    ], [
+        'email' => 'view-only-recruiter@example.com',
+        'name' => 'View Only Recruiter',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $viewOnlyRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertSessionHasErrors(['assigned_to']);
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0)
+        ->and($lines['welder']->fresh()->required_headcount)->toBe(5);
+
+    Mail::assertNothingSent();
+});
+
+test('requester cannot create a headcount revision without an assigned recruiter', function () {
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => null,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertSessionHasErrors([
+            'status' => 'An assigned recruiter is required before a headcount revision can be submitted.',
+        ]);
+
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0);
+});
+
+test('requester show page exposes headcount revision action only when assigned recruiter can approve', function () {
+    $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.request_headcount_revision',
+    ], [
+        'email' => 'request-only-recruiter-show@example.com',
+    ]);
+
+    $blockedReq = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $requestOnlyRecruiter->id,
+    ]);
+    createHeadcountRevisionLines($this, $blockedReq);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$blockedReq->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.can_change_headcount', false)
+            ->where('requirement.headcount_revision_mode', null)
+        );
+
+    $allowedReq = createHeadcountRevisionRequirement($this, [
+        'requirement_number' => 'REQ-0042',
+    ]);
+    createHeadcountRevisionLines($this, $allowedReq);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/requirements/{$allowedReq->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirement.can_change_headcount', true)
+            ->where('requirement.headcount_revision_mode', 'requester')
+        );
+});
+
+test('draft and returned requesters can still edit headcount directly when assigned recruiter lacks approve permission', function () {
+    $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.request_headcount_revision',
+    ]);
+
+    foreach ([RequirementStatus::Draft, RequirementStatus::Returned] as $index => $status) {
+        $req = createHeadcountRevisionRequirement($this, [
+            'status' => $status,
+            'assigned_to' => $requestOnlyRecruiter->id,
+            'requirement_number' => 'REQ-DR'.($index + 1),
+        ]);
+        $lines = createHeadcountRevisionLines($this, $req);
+
+        $this->actingAs($this->requester)
+            ->withSession(['current_company_id' => $this->companyA->id])
+            ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+                ['id' => $lines['welder']->id, 'required_headcount' => 8],
+            ], 'Direct edit while preparing requirement.'))
+            ->assertRedirect();
+
+        expect($lines['welder']->fresh()->required_headcount)->toBe(8)
+            ->and(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0);
+    }
+});
+
+test('assigned recruiter with request permission but without approve cannot review requester-initiated revisions', function () {
+    $requestOnlyRecruiter = createHeadcountRevisionTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.request_headcount_revision',
+    ], [
+        'email' => 'request-only-recruiter-review@example.com',
+        'name' => 'Request Only Recruiter Review',
+    ]);
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $this->recruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
         ->assertRedirect();
 
     $revision = RecruitmentRequirementHeadcountRevision::query()->firstOrFail();
@@ -920,15 +1057,38 @@ test('assigned recruiter with request permission but without approve cannot revi
         ->withSession(['current_company_id' => $this->companyA->id])
         ->post("/organization/recruitment/requirements/{$req->id}/headcount-revisions/{$revision->id}/reject")
         ->assertForbidden();
+});
 
-    $this->actingAs($requestOnlyRecruiter)
+test('reviewer eligibility for requester revisions uses the requirement company permission context', function () {
+    $crossCompanyRecruiter = createHeadcountRevisionTestUser($this->companyB, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.approve',
+    ], [
+        'email' => 'cross-company-recruiter@example.com',
+        'name' => 'Cross Company Recruiter',
+    ]);
+
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->companyA->id, 'user_id' => $crossCompanyRecruiter->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+    expect($crossCompanyRecruiter->can('recruitment.requirements.approve'))->toBeFalse();
+
+    $req = createHeadcountRevisionRequirement($this, [
+        'assigned_to' => $crossCompanyRecruiter->id,
+    ]);
+    $lines = createHeadcountRevisionLines($this, $req);
+
+    $this->actingAs($this->requester)
         ->withSession(['current_company_id' => $this->companyA->id])
-        ->get('/organization/recruitment/requirements?needs_action=deadline_extension')
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('requirements.data', 0));
+        ->post("/organization/recruitment/requirements/{$req->id}/change-headcount", headcountRevisionPayload([
+            ['id' => $lines['welder']->id, 'required_headcount' => 8],
+        ]))
+        ->assertSessionHasErrors(['assigned_to']);
 
-    expect($lines['welder']->fresh()->required_headcount)->toBe(5)
-        ->and($revision->fresh()->status)->toBe(RequirementHeadcountRevisionStatus::Pending);
+    expect(RecruitmentRequirementHeadcountRevision::query()->count())->toBe(0);
 });
 
 test('assigned recruiter with request permission can still submit their own recruiter-initiated revision', function () {

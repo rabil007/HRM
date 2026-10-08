@@ -8,6 +8,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Record-relationship workflow guards.
@@ -144,12 +145,87 @@ final class RequirementWorkflowAuthorization
 
     public static function canProposeHeadcountRevisionAsRequester(User $user, RecruitmentRequirement $requirement): bool
     {
+        return self::meetsOperationalRequesterHeadcountRevisionPreconditions($user, $requirement)
+            && $requirement->assigned_to !== null
+            && self::assignedRecruiterCanReviewRequesterHeadcountRevision($requirement);
+    }
+
+    public static function assertCanProposeHeadcountRevisionAsRequester(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! self::meetsOperationalRequesterHeadcountRevisionPreconditions($user, $requirement)) {
+            throw ValidationException::withMessages([
+                'status' => 'You are not allowed to revise headcount for this requirement.',
+            ]);
+        }
+
+        self::assertAssignedRecruiterCanReviewRequesterHeadcountRevision($requirement);
+    }
+
+    public static function assignedRecruiterCanReviewRequesterHeadcountRevision(RecruitmentRequirement $requirement): bool
+    {
+        if ($requirement->assigned_to === null) {
+            return false;
+        }
+
+        /** @var User|null $recruiter */
+        $recruiter = User::query()->find($requirement->assigned_to);
+        if ($recruiter === null) {
+            return false;
+        }
+
+        $companyId = (int) $requirement->company_id;
+
+        if (! $recruiter->companies()
+            ->whereKey($companyId)
+            ->where('company_user.status', 'active')
+            ->exists()) {
+            return false;
+        }
+
+        return self::userHasPermissionInCompany($recruiter, $companyId, 'recruitment.requirements.approve');
+    }
+
+    public static function assertAssignedRecruiterCanReviewRequesterHeadcountRevision(RecruitmentRequirement $requirement): void
+    {
+        if ($requirement->assigned_to === null) {
+            throw ValidationException::withMessages([
+                'status' => 'An assigned recruiter is required before a headcount revision can be submitted.',
+            ]);
+        }
+
+        if (! self::assignedRecruiterCanReviewRequesterHeadcountRevision($requirement)) {
+            throw ValidationException::withMessages([
+                'assigned_to' => 'The assigned recruiter does not have permission to approve headcount revisions. Assign an authorized recruiter before submitting this revision.',
+            ]);
+        }
+    }
+
+    private static function meetsOperationalRequesterHeadcountRevisionPreconditions(
+        User $user,
+        RecruitmentRequirement $requirement,
+    ): bool {
         return $user->can('recruitment.requirements.update')
             && self::isCreator($user, $requirement)
             && ! self::isAssignedRecruiter($user, $requirement)
             && ! self::blocksSelfApproval($requirement)
-            && $requirement->assigned_to !== null
             && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true);
+    }
+
+    private static function userHasPermissionInCompany(User $user, int $companyId, string $permission): bool
+    {
+        /** @var PermissionRegistrar $registrar */
+        $registrar = app(PermissionRegistrar::class);
+        $originalTeamId = $registrar->getPermissionsTeamId();
+
+        try {
+            $registrar->setPermissionsTeamId($companyId);
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+
+            return $user->can($permission);
+        } finally {
+            $registrar->setPermissionsTeamId($originalTeamId);
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+        }
     }
 
     public static function canProposeHeadcountRevisionAsRecruiter(User $user, RecruitmentRequirement $requirement): bool

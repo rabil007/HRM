@@ -191,13 +191,12 @@ final class ChangeHeadcountAction
             return RequirementHeadcountRevisionInitiator::Recruiter;
         }
 
-        if (
-            RequirementWorkflowAuthorization::isCreator($actor, $requirement)
-            && $requirement->assigned_to === null
+        if (RequirementWorkflowAuthorization::isCreator($actor, $requirement)
+            && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
+            && ! RequirementWorkflowAuthorization::isAssignedRecruiter($actor, $requirement)
+            && ! RequirementWorkflowAuthorization::blocksSelfApproval($requirement)
         ) {
-            throw ValidationException::withMessages([
-                'status' => 'An assigned recruiter is required before a headcount revision can be submitted.',
-            ]);
+            RequirementWorkflowAuthorization::assertAssignedRecruiterCanReviewRequesterHeadcountRevision($requirement);
         }
 
         throw ValidationException::withMessages([
@@ -216,11 +215,13 @@ final class ChangeHeadcountAction
             ]);
         }
 
-        $allowed = $initiator === RequirementHeadcountRevisionInitiator::Requester
-            ? RequirementWorkflowAuthorization::canProposeHeadcountRevisionAsRequester($actor, $requirement)
-            : RequirementWorkflowAuthorization::canProposeHeadcountRevisionAsRecruiter($actor, $requirement);
+        if ($initiator === RequirementHeadcountRevisionInitiator::Requester) {
+            RequirementWorkflowAuthorization::assertCanProposeHeadcountRevisionAsRequester($actor, $requirement);
 
-        if (! $allowed) {
+            return;
+        }
+
+        if (! RequirementWorkflowAuthorization::canProposeHeadcountRevisionAsRecruiter($actor, $requirement)) {
             throw ValidationException::withMessages([
                 'status' => 'You are not allowed to revise headcount for this requirement.',
             ]);
