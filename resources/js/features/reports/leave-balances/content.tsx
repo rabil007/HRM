@@ -1,4 +1,5 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
@@ -14,7 +15,9 @@ import {
 } from './leave-balance-active-filters';
 import { LeaveBalanceReportTable } from './report-table';
 import { LeaveBalanceLeaveTypeFilterCards } from './summary-cards';
-import type { LeaveBalanceReportProps } from './types';
+import { SyncMissingBalancesDialog } from './sync-missing-balances-dialog';
+import { SyncMissingBalancesResultDialog } from './sync-missing-balances-result-dialog';
+import type { LeaveBalanceReportProps, LeaveBalanceSyncResult } from './types';
 import { useLeaveBalanceReportFilters } from './use-leave-balance-report-filters';
 import { LeaveBalanceYearFilter } from './year-filter';
 
@@ -29,6 +32,11 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
         can,
     } = props;
     const controls = useLeaveBalanceReportFilters(filters, pagination.per_page);
+    const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+    const [syncResult, setSyncResult] = useState<LeaveBalanceSyncResult | null>(
+        null,
+    );
+    const [syncResultOpen, setSyncResultOpen] = useState(false);
     const hasActiveFilters =
         countSheetFilters(filters) > 0 ||
         filters.department_id !== '' ||
@@ -57,15 +65,28 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                         : 'Persisted entitlement ledger. This view never creates or repairs missing balances.'
                 }
                 right={
-                    can.export ? (
-                        <ExportMenu
-                            label="Export report"
-                            formats={['xlsx', 'csv']}
-                            getUrl={(format) =>
-                                exportUrl(format === 'csv' ? 'csv' : 'xlsx')
-                            }
-                        />
-                    ) : null
+                    <div className="flex flex-wrap items-center gap-2">
+                        {can.sync_missing ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="h-11 rounded-xl px-4"
+                                onClick={() => setSyncDialogOpen(true)}
+                            >
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Sync Missing Balances
+                            </Button>
+                        ) : null}
+                        {can.export ? (
+                            <ExportMenu
+                                label="Export report"
+                                formats={['xlsx', 'csv']}
+                                getUrl={(format) =>
+                                    exportUrl(format === 'csv' ? 'csv' : 'xlsx')
+                                }
+                            />
+                        ) : null}
+                    </div>
                 }
             />
 
@@ -144,6 +165,22 @@ export function LeaveBalanceReportContent(props: LeaveBalanceReportProps) {
                     />
                 )}
             </div>
+
+            {can.sync_missing ? (
+                <SyncMissingBalancesDialog
+                    open={syncDialogOpen}
+                    onOpenChange={setSyncDialogOpen}
+                    onCompleted={(result) => {
+                        setSyncResult(result);
+                        setSyncResultOpen(true);
+                    }}
+                />
+            ) : null}
+            <SyncMissingBalancesResultDialog
+                result={syncResult}
+                open={syncResultOpen}
+                onOpenChange={setSyncResultOpen}
+            />
 
             <Pagination
                 currentPage={pagination.current_page}

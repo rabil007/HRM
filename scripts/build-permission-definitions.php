@@ -169,6 +169,7 @@ $special = [
     'reports.leave.export' => ['Export Leave Report', 'Allows the user to export leave reporting data available to them within the active company.'],
     'reports.leave_balance.view' => ['View Leave Balance Report', 'Allows the user to view leave balance reporting data available to them within the active company.'],
     'reports.leave_balance.export' => ['Export Leave Balance Report', 'Allows the user to export leave balance reporting data available to them within the active company.'],
+    'reports.leave_balance.sync' => ['Sync Missing Leave Balances', 'Allows the user to create missing current-year leave balance rows for eligible employees without changing existing balances.'],
     'audit.view' => ['View Activity Log', 'Allows the user to view application activity and audit history for records they are otherwise authorized to access.'],
     'payroll.overview.view' => ['View Payroll Overview', 'Allows the user to view the payroll overview dashboard for the active company.'],
     'payroll.periods.revert_to_draft' => ['Revert Payroll Period to Draft', 'Allows the user to revert a payroll period to draft status according to existing payroll workflow rules.'],

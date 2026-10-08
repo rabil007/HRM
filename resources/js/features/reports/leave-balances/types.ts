@@ -88,5 +88,16 @@ export type LeaveBalanceReportProps = {
     can: {
         export: boolean;
         update_opening: boolean;
+        sync_missing: boolean;
     };
+};
+
+export type LeaveBalanceSyncResult = {
+    eligible_employees_checked: number;
+    employees_with_new_balances: number;
+    new_balance_records_created: number;
+    already_existing_balances: number;
+    skipped_or_anomalies: number;
+    year: number;
+    nothing_to_create: boolean;
 };
