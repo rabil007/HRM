@@ -52,7 +52,7 @@ test('non annual leave types keep configured days per year', function () {
     expect($calculator->entitledDaysForNewBalance($sick, $employee, 2026))->toBe(15.0);
 });
 
-test('missing hire date yields zero annual entitlement not full year', function () {
+test('missing hire date skips annual allocation instead of assigning full year', function () {
     $calculator = new AnnualLeaveEntitlementCalculator;
     ['company' => $company] = makeLeaveBalanceFixtures();
     $employee = Employee::factory()->forCompany($company)->create([
@@ -63,7 +63,11 @@ test('missing hire date yields zero annual entitlement not full year', function 
         'days_per_year' => 30,
     ]);
 
-    expect($calculator->entitledDaysForNewBalance($annual, $employee, 2026))->toBe(0.0);
+    expect($calculator->entitledDaysForNewBalance($annual, $employee, 2026))->toBeNull()
+        ->and($calculator->newBalanceAllocationSkipReason($annual, $employee, 2026))
+        ->toBe(AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE)
+        ->and($calculator->skipMessageForReason(AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE))
+        ->toBe(AnnualLeaveEntitlementCalculator::MESSAGE_HIRE_DATE_REQUIRED);
 });
 
 test('years before hire date are not provisioned', function () {

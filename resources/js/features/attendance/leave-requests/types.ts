@@ -25,6 +25,12 @@ export type LeaveRequestTypeOption = {
     color: string | null;
 };
 
+export type LeaveBalanceAllocationStatus = 'allocated' | 'unallocated';
+
+export type LeaveBalanceAllocationSkipReason =
+    | 'missing_hire_date'
+    | 'before_employment';
+
 export type LeaveTypeYearBalance = {
     id: number;
     name: string;
@@ -39,6 +45,9 @@ export type LeaveTypeYearBalance = {
     total_used_days: number;
     pending_days: number;
     remaining_days: number;
+    allocation_status?: LeaveBalanceAllocationStatus;
+    allocation_skip_reason?: LeaveBalanceAllocationSkipReason | null;
+    allocation_message?: string | null;
 };
 
 export type LeaveRequestStatusCounts = {

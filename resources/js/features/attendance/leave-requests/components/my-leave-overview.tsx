@@ -137,6 +137,8 @@ export function MyLeaveOverview({
             <div className="flex flex-col gap-2 sm:flex-row">
                 {balances.map((balance) => {
                     const accent = balance.color ?? FALLBACK_COLOR;
+                    const isUnallocated =
+                        balance.allocation_status === 'unallocated';
 
                     return (
                         <div
@@ -158,36 +160,46 @@ export function MyLeaveOverview({
                                         {balance.code}
                                     </p>
                                 </div>
-                                <p
-                                    className="shrink-0 text-xl font-bold tracking-tight tabular-nums"
-                                    style={{ color: accent }}
-                                >
-                                    {formatDays(balance.remaining_days)}
-                                    <span className="ml-1 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
-                                        left
-                                    </span>
-                                </p>
+                                {isUnallocated ? (
+                                    <p className="max-w-[9rem] text-right text-[10px] leading-snug font-medium text-amber-700 dark:text-amber-300">
+                                        {balance.allocation_message ??
+                                            'Not allocated yet'}
+                                    </p>
+                                ) : (
+                                    <p
+                                        className="shrink-0 text-xl font-bold tracking-tight tabular-nums"
+                                        style={{ color: accent }}
+                                    >
+                                        {formatDays(balance.remaining_days)}
+                                        <span className="ml-1 text-[9px] font-semibold tracking-wide text-muted-foreground uppercase">
+                                            left
+                                        </span>
+                                    </p>
+                                )}
                             </div>
 
-                            <p className="mt-1.5 pl-1 text-[11px] text-muted-foreground tabular-nums">
-                                {formatDays(balance.total_available_days)} avail
-                                <span className="mx-1 opacity-40">·</span>
-                                {formatDays(balance.total_used_days)} used
-                                <span className="mx-1 opacity-40">·</span>
-                                {formatDays(balance.pending_days)} pend
-                                {balance.carried_days > 0 ? (
-                                    <>
-                                        <span className="mx-1 opacity-40">
-                                            ·
-                                        </span>
-                                        {formatDays(
-                                            balance.base_entitlement_days,
-                                        )}
-                                        +{formatDays(balance.carried_days)}{' '}
-                                        carry
-                                    </>
-                                ) : null}
-                            </p>
+                            {isUnallocated ? null : (
+                                <p className="mt-1.5 pl-1 text-[11px] text-muted-foreground tabular-nums">
+                                    {formatDays(balance.total_available_days)}{' '}
+                                    avail
+                                    <span className="mx-1 opacity-40">·</span>
+                                    {formatDays(balance.total_used_days)} used
+                                    <span className="mx-1 opacity-40">·</span>
+                                    {formatDays(balance.pending_days)} pend
+                                    {balance.carried_days > 0 ? (
+                                        <>
+                                            <span className="mx-1 opacity-40">
+                                                ·
+                                            </span>
+                                            {formatDays(
+                                                balance.base_entitlement_days,
+                                            )}
+                                            +{formatDays(balance.carried_days)}{' '}
+                                            carry
+                                        </>
+                                    ) : null}
+                                </p>
+                            )}
                         </div>
                     );
                 })}

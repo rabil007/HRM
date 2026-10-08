@@ -43,10 +43,10 @@ final class LeaveBalanceManager
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
-            ->select('id')
+            ->select(['id', 'company_id', 'department_id', 'hire_date'])
             ->chunkById(100, function (Collection $employees) use ($companyId, $leaveType, $year): void {
                 foreach ($employees as $employee) {
-                    $this->findOrCreateBalance($companyId, (int) $employee->id, $leaveType, $year);
+                    $this->tryFindOrCreateBalance($companyId, (int) $employee->id, $leaveType, $year);
                 }
             });
     }
@@ -82,7 +82,23 @@ final class LeaveBalanceManager
 
     public function findOrCreateBalance(int $companyId, int $employeeId, LeaveType $leaveType, int $year): LeaveBalance
     {
-        return $this->lockedBalance($companyId, $employeeId, $leaveType, $year, lock: false);
+        $balance = $this->tryFindOrCreateBalance($companyId, $employeeId, $leaveType, $year, lock: false);
+
+        if ($balance !== null) {
+            return $balance;
+        }
+
+        throw new RuntimeException($this->provisioningBlockedMessage($companyId, $employeeId, $leaveType, $year));
+    }
+
+    public function tryFindOrCreateBalance(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+        bool $lock = false,
+    ): ?LeaveBalance {
+        return $this->createBalanceIfEligible($companyId, $employeeId, $leaveType, $year, lock: $lock);
     }
 
     public function reserveLeaveRequest(LeaveRequest $leaveRequest): void
@@ -963,7 +979,7 @@ final class LeaveBalanceManager
      * Create one missing balance and initialize request-derived usage in a single transaction.
      * Never updates an existing row, including balances inserted by a concurrent process.
      *
-     * @return 'created'|'existing'|'anomaly'
+     * @return 'created'|'existing'|'skipped'|'anomaly'
      */
     public function provisionMissingBalanceForYear(
         int $companyId,
@@ -996,7 +1012,7 @@ final class LeaveBalanceManager
             $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
 
             if ($entitledDays === null) {
-                return 'anomaly';
+                return 'skipped';
             }
 
             try {
@@ -1398,14 +1414,32 @@ final class LeaveBalanceManager
             return $balance;
         }
 
+        $created = $this->createBalanceIfEligible($companyId, $employeeId, $leaveType, $year, lock: $lock);
+
+        if ($created === null) {
+            throw new RuntimeException($this->provisioningBlockedMessage($companyId, $employeeId, $leaveType, $year));
+        }
+
+        return $created;
+    }
+
+    private function createBalanceIfEligible(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+        bool $lock,
+    ): ?LeaveBalance {
+        $balance = $this->existingBalance($companyId, $employeeId, (int) $leaveType->id, $year, lock: $lock);
+
+        if ($balance !== null) {
+            return $balance;
+        }
+
         $entitledDays = $this->entitledDaysForNewBalance($companyId, $employeeId, $leaveType, $year);
 
         if ($entitledDays === null) {
-            throw new RuntimeException(sprintf(
-                'Cannot provision %s balance for %d: employee hire date is after this leave year.',
-                $leaveType->name,
-                $year,
-            ));
+            return null;
         }
 
         try {
@@ -1441,6 +1475,35 @@ final class LeaveBalanceManager
 
             return $retry->firstOrFail();
         }
+    }
+
+    private function provisioningBlockedMessage(
+        int $companyId,
+        int $employeeId,
+        LeaveType $leaveType,
+        int $year,
+    ): string {
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'hire_date']);
+
+        if ($employee === null) {
+            return sprintf('Cannot provision %s balance for %d: employee record is missing.', $leaveType->name, $year);
+        }
+
+        $skipReason = $this->annualEntitlement->newBalanceAllocationSkipReason($leaveType, $employee, $year);
+        $message = $this->annualEntitlement->skipMessageForReason($skipReason);
+
+        if ($message !== null) {
+            return $message;
+        }
+
+        return sprintf(
+            'Cannot provision %s balance for %d: employee is not eligible for a new allocation.',
+            $leaveType->name,
+            $year,
+        );
     }
 
     /**

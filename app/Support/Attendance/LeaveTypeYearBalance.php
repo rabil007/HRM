@@ -2,6 +2,7 @@
 
 namespace App\Support\Attendance;
 
+use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Support\Settings\CompanyTimezone;
@@ -10,6 +11,7 @@ final class LeaveTypeYearBalance
 {
     public function __construct(
         private LeaveBalanceManager $leaveBalances,
+        private AnnualLeaveEntitlementCalculator $annualEntitlement,
     ) {}
 
     /**
@@ -25,6 +27,9 @@ final class LeaveTypeYearBalance
      * - used_days — OMS-HRM approved request usage only
      * - opening_used_days — previous/opening usage
      * - total_used_days — opening + HRM usage (employee-facing "Used")
+     * - allocation_status — allocated | unallocated
+     * - allocation_skip_reason — missing_hire_date | before_employment | null
+     * - allocation_message — HR-facing reason when unallocated
      *
      * Historical years (before the company business year) are read-only: never
      * provision balances and never invent entitlement from today's LeaveType rules.
@@ -43,6 +48,9 @@ final class LeaveTypeYearBalance
      *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
+     *     allocation_status: string,
+     *     allocation_skip_reason: string|null,
+     *     allocation_message: string|null,
      * }>
      */
     public function forEmployee(int $companyId, int $employeeId, int $year): array
@@ -71,10 +79,26 @@ final class LeaveTypeYearBalance
      *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
+     *     allocation_status: string,
+     *     allocation_skip_reason: string|null,
+     *     allocation_message: string|null,
      * }>
      */
     private function forCurrentOrFutureYear(int $companyId, int $employeeId, int $year): array
     {
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployeeId($employeeId, $companyId)) {
+            return [];
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($employeeId)
+            ->first(['id', 'company_id', 'department_id', 'hire_date']);
+
+        if ($employee === null) {
+            return [];
+        }
+
         $this->leaveBalances->ensureEmployeeYear($companyId, $employeeId, $year);
 
         $leaveTypes = LeaveType::query()
@@ -92,10 +116,20 @@ final class LeaveTypeYearBalance
             ->keyBy('leave_type_id');
 
         return $leaveTypes
-            ->map(function (LeaveType $leaveType) use ($balances) {
+            ->map(function (LeaveType $leaveType) use ($balances, $employee, $year) {
                 $balance = $balances->get($leaveType->id);
 
                 if ($balance === null) {
+                    $skipReason = $this->annualEntitlement->newBalanceAllocationSkipReason(
+                        $leaveType,
+                        $employee,
+                        $year,
+                    );
+
+                    if ($skipReason !== null) {
+                        return $this->presentUnallocatedBalance($leaveType, $skipReason);
+                    }
+
                     $base = (float) $leaveType->days_per_year;
 
                     return $this->presentBalance(
@@ -141,6 +175,9 @@ final class LeaveTypeYearBalance
      *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
+     *     allocation_status: string,
+     *     allocation_skip_reason: string|null,
+     *     allocation_message: string|null,
      * }>
      */
     private function forHistoricalYear(int $companyId, int $employeeId, int $year): array
@@ -177,6 +214,7 @@ final class LeaveTypeYearBalance
     }
 
     /**
+     * @param  AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE|AnnualLeaveEntitlementCalculator::SKIP_BEFORE_EMPLOYMENT  $skipReason
      * @return array{
      *     id: int,
      *     name: string,
@@ -191,6 +229,45 @@ final class LeaveTypeYearBalance
      *     total_used_days: float,
      *     pending_days: float,
      *     remaining_days: float,
+     *     allocation_status: string,
+     *     allocation_skip_reason: string|null,
+     *     allocation_message: string|null,
+     * }
+     */
+    private function presentUnallocatedBalance(LeaveType $leaveType, string $skipReason): array
+    {
+        return $this->presentBalance(
+            leaveType: $leaveType,
+            baseEntitlementDays: 0.0,
+            carriedDays: 0.0,
+            openingUsedDays: 0.0,
+            usedDays: 0.0,
+            pendingDays: 0.0,
+            remainingDays: 0.0,
+            allocationStatus: 'unallocated',
+            allocationSkipReason: $skipReason,
+            allocationMessage: $this->annualEntitlement->skipMessageForReason($skipReason),
+        );
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     name: string,
+     *     code: string,
+     *     color: string|null,
+     *     base_entitlement_days: float,
+     *     carried_days: float,
+     *     total_available_days: float,
+     *     entitled_days: float,
+     *     opening_used_days: float,
+     *     used_days: float,
+     *     total_used_days: float,
+     *     pending_days: float,
+     *     remaining_days: float,
+     *     allocation_status: string,
+     *     allocation_skip_reason: string|null,
+     *     allocation_message: string|null,
      * }
      */
     private function presentBalance(
@@ -201,6 +278,9 @@ final class LeaveTypeYearBalance
         float $usedDays,
         float $pendingDays,
         float $remainingDays,
+        string $allocationStatus = 'allocated',
+        ?string $allocationSkipReason = null,
+        ?string $allocationMessage = null,
     ): array {
         $totalAvailable = $baseEntitlementDays + $carriedDays;
 
@@ -219,6 +299,9 @@ final class LeaveTypeYearBalance
             'total_used_days' => $openingUsedDays + $usedDays,
             'pending_days' => $pendingDays,
             'remaining_days' => $remainingDays,
+            'allocation_status' => $allocationStatus,
+            'allocation_skip_reason' => $allocationSkipReason,
+            'allocation_message' => $allocationMessage,
         ];
     }
 }

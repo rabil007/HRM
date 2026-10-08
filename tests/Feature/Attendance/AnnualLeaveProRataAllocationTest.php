@@ -5,10 +5,13 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
+use App\Support\Attendance\AnnualLeaveEntitlementCalculator;
 use App\Support\Attendance\LeaveBalanceManager;
+use App\Support\Attendance\LeaveTypeYearBalance;
 use App\Support\Reports\Actions\SyncMissingLeaveBalances;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('february joiner receives pro rata annual entitlement on provisioning', function () {
     Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
@@ -261,6 +264,218 @@ test('sync missing balances action uses pro rata for annual category', function 
 
     expect($balance)->not->toBeNull()
         ->and((float) $balance->entitled_days)->toBe(8.0);
+
+    Carbon::setTestNow();
+});
+
+test('missing hire date does not create an annual leave balance row', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company);
+    $employee->update(['hire_date' => null]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+    $sick = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Sick,
+        'days_per_year' => 12,
+        'status' => 'active',
+    ]);
+
+    app(LeaveBalanceManager::class)->provisionEmployee($employee);
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('leave_type_id', $annual->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeFalse()
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $employee->id)
+                ->where('leave_type_id', $sick->id)
+                ->where('year', 2026)
+                ->exists()
+        )->toBeTrue();
+
+    Carbon::setTestNow();
+});
+
+test('entering hire date later allows sync missing balances to provision annual leave', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $user->update(['current_company_id' => $company->id]);
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $employee = createAttendanceLeaveEmployee($company);
+    $employee->update(['hire_date' => null]);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    app(SyncMissingLeaveBalances::class)->handle((int) $company->id, $user);
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('leave_type_id', $annual->id)
+            ->where('year', 2026)
+            ->exists()
+    )->toBeFalse();
+
+    $employee->update(['hire_date' => '2026-02-02']);
+
+    app(SyncMissingLeaveBalances::class)->handle((int) $company->id, $user);
+
+    $balance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $annual->id)
+        ->where('year', 2026)
+        ->first();
+
+    expect($balance)->not->toBeNull()
+        ->and((float) $balance->entitled_days)->toBe(28.0);
+
+    Carbon::setTestNow();
+});
+
+test('future hire date does not interrupt leave type provisioning for other employees', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $eligible = createAttendanceLeaveEmployee($company);
+    $eligible->update(['hire_date' => '2026-01-01']);
+
+    $futureHire = createAttendanceLeaveEmployee($company);
+    $futureHire->update(['hire_date' => '2027-03-01']);
+
+    grantCompanyPermissions($user, $company, ['attendance.types.create']);
+    $this->actingAs($user);
+
+    $this->post(route('attendance.types.store'), [
+        'name' => 'Annual Future Safe',
+        'code' => 'AFS',
+        'days_per_year' => 30,
+        'carry_forward' => false,
+        'max_carry_days' => 0,
+        'color' => '#3b82f6',
+        'status' => 'active',
+        'payroll_treatment' => 'paid',
+        'category' => 'annual',
+    ])->assertRedirect();
+
+    $annual = LeaveType::query()->where('company_id', $company->id)->where('code', 'AFS')->first();
+
+    expect($annual)->not->toBeNull()
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $eligible->id)
+                ->where('leave_type_id', $annual->id)
+                ->where('year', 2026)
+                ->value('entitled_days')
+        )->toEqual(30.0)
+        ->and(
+            LeaveBalance::query()
+                ->where('employee_id', $futureHire->id)
+                ->where('leave_type_id', $annual->id)
+                ->where('year', 2026)
+                ->exists()
+        )->toBeFalse();
+
+    Carbon::setTestNow();
+});
+
+test('my leave and calendar do not show fabricated annual entitlement when allocation was skipped', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company, ['user_id' => $user->id]);
+    $employee->update(['hire_date' => null]);
+
+    LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'name' => 'Annual Leave',
+        'code' => 'ANN',
+        'days_per_year' => 30,
+        'status' => 'active',
+        'color' => '#0ea5e9',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/my-leave')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_balances.0.allocation_status', 'unallocated')
+            ->where(
+                'leave_balances.0.allocation_message',
+                AnnualLeaveEntitlementCalculator::MESSAGE_HIRE_DATE_REQUIRED,
+            )
+            ->where('leave_balances.0.entitled_days', 0)
+            ->where('leave_balances.0.remaining_days', 0));
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_types.0.allocation_status', 'unallocated')
+            ->where(
+                'leave_types.0.allocation_message',
+                AnnualLeaveEntitlementCalculator::MESSAGE_HIRE_DATE_REQUIRED,
+            )
+            ->where('leave_types.0.entitled_days', 0));
+
+    Carbon::setTestNow();
+});
+
+test('existing annual balance is preserved when hire date changes afterward', function () {
+    Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00', 'Asia/Dubai'));
+
+    ['company' => $company] = makeLeaveBalanceFixtures();
+    $employee = createAttendanceLeaveEmployee($company);
+    $annual = LeaveType::factory()->for($company)->create([
+        'category' => LeaveTypeCategory::Annual,
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    $existing = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($annual)->create([
+        'year' => 2026,
+        'entitled_days' => 30,
+        'used_days' => 3,
+        'pending_days' => 1,
+        'carried_days' => 0,
+    ]);
+
+    $employee->update(['hire_date' => '2026-10-01']);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, 2026);
+
+    $after = $existing->fresh();
+    expect((float) $after->entitled_days)->toBe(30.0)
+        ->and((float) $after->used_days)->toBe(3.0)
+        ->and((float) $after->pending_days)->toBe(1.0);
+
+    $legend = app(LeaveTypeYearBalance::class)->forEmployee((int) $company->id, (int) $employee->id, 2026);
+    $annualLegend = collect($legend)->firstWhere('id', $annual->id);
+
+    expect($annualLegend)->not->toBeNull()
+        ->and($annualLegend['allocation_status'])->toBe('allocated')
+        ->and((float) $annualLegend['base_entitlement_days'])->toBe(30.0);
 
     Carbon::setTestNow();
 });

@@ -91,6 +91,8 @@ final class SyncMissingLeaveBalances
                             $newBalanceRecordsCreated++;
                         } elseif ($outcome === 'existing') {
                             $alreadyExistingBalances++;
+                        } elseif ($outcome === 'skipped') {
+                            // Expected skip (e.g. annual leave without hire date).
                         } else {
                             $skippedOrAnomalies++;
                         }
