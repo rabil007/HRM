@@ -83,15 +83,8 @@ describe('persisted employee state after ensure', () => {
         );
     });
 
-    it('disables preserveState for create-mode saves so blank create remounts cleanly', () => {
-        assert.equal(
-            resolveEmployeeProfilePreserveState({ isCreateMode: true }),
-            false,
-        );
-        assert.equal(
-            resolveEmployeeProfilePreserveState({ isCreateMode: false }),
-            true,
-        );
+    it('uses Inertia preserveState errors so failed saves keep form state', () => {
+        assert.equal(resolveEmployeeProfilePreserveState(), 'errors');
     });
 
     it('detects a fresh create page after successful finalize redirect', () => {

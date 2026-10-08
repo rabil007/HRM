@@ -46,7 +46,6 @@ export function useEmployeeProfileForm(
             | Record<string, TemplateFieldConfig>
             | undefined;
         listQuery?: Record<string, string>;
-        isCreateMode?: boolean;
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
@@ -54,7 +53,6 @@ export function useEmployeeProfileForm(
         Set<string>
     >(() => new Set());
     const ensureEmployee = options?.ensureEmployee;
-    const isCreateMode = options?.isCreateMode ?? false;
     const previousEmployeeIdRef = useRef<number | null>(employee.id);
 
     const initialPersonal = useMemo(
@@ -316,9 +314,7 @@ export function useEmployeeProfileForm(
 
             const visitOptions = {
                 preserveScroll: true,
-                preserveState: resolveEmployeeProfilePreserveState({
-                    isCreateMode,
-                }),
+                preserveState: resolveEmployeeProfilePreserveState(),
                 onSuccess: () => {
                     if (hasPendingImage) {
                         form.setData((current) => ({
@@ -372,7 +368,6 @@ export function useEmployeeProfileForm(
             ensureEmployee,
             focusMissingField,
             form,
-            isCreateMode,
             options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,

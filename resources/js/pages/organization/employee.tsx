@@ -125,12 +125,14 @@ const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
 const EMPTY_DOCUMENT_TYPES: DocumentTypeOption[] = [];
 
 export default function EmployeeDetails(props: EmployeePageProps) {
-    // Key remounts the create page when a finalized draft is cleared (id → null)
-    // or when resuming a different provisional employee, so form/local state
-    // cannot leak across successful create → blank create navigations.
+    // Create-mode key must NOT include employee.id. ensureEmployee / failed-save
+    // redirects promote null → provisional id; keying on that remounts and wipes
+    // entered form values. Successful finalize uses preserveState:'errors' (false
+    // on success) so Inertia remounts a blank create page from server props.
+    // Template changes still remount intentionally.
     const pageKey =
         props.mode === 'create'
-            ? `create-${props.employee.id ?? 'new'}-${props.selected_profile_template_id ?? 'none'}`
+            ? `create-${props.selected_profile_template_id ?? 'none'}`
             : `${props.employee.id}-${props.employee.updated_at}`;
 
     return <EmployeeDetailsPage key={pageKey} {...props} />;
@@ -304,7 +306,6 @@ function EmployeeDetailsPage({
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
             listQuery: employee_navigation?.list_query ?? {},
-            isCreateMode,
         },
     );
 
