@@ -16,6 +16,14 @@ function LeaveTypeBalance({
     leaveType: CalendarLeaveType;
     year: number;
 }) {
+    if (leaveType.allocation_status === 'unallocated') {
+        return (
+            <p className="mt-1 text-[11px] leading-snug font-medium text-amber-700 dark:text-amber-300">
+                {leaveType.allocation_message ?? 'Not allocated yet'}
+            </p>
+        );
+    }
+
     const totalAvailable =
         leaveType.total_available_days ?? leaveType.entitled_days;
 

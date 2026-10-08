@@ -2,10 +2,12 @@
 
 namespace App\Support\Reports\Actions;
 
+use App\Enums\LeaveTypeCategory;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\AnnualLeaveEntitlementCalculator;
 use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -17,6 +19,7 @@ final class SyncMissingLeaveBalances
 {
     public function __construct(
         private LeaveBalanceManager $leaveBalances,
+        private AnnualLeaveEntitlementCalculator $annualEntitlement,
     ) {}
 
     public function handle(int $companyId, User $actor): SyncMissingLeaveBalancesResult
@@ -26,7 +29,7 @@ final class SyncMissingLeaveBalances
         $leaveTypes = LeaveType::query()
             ->where('company_id', $companyId)
             ->where('status', 'active')
-            ->get(['id', 'company_id', 'days_per_year', 'status']);
+            ->get(['id', 'company_id', 'days_per_year', 'status', 'category']);
 
         $activeLeaveTypesCount = $leaveTypes->count();
         $eligibleEmployeesChecked = 0;
@@ -34,6 +37,8 @@ final class SyncMissingLeaveBalances
         $newBalanceRecordsCreated = 0;
         $alreadyExistingBalances = 0;
         $skippedOrAnomalies = 0;
+        $skippedAnnualMissingHireDate = 0;
+        $skippedAnnualNotYetJoined = 0;
 
         if ($activeLeaveTypesCount === 0) {
             $result = new SyncMissingLeaveBalancesResult(
@@ -42,6 +47,8 @@ final class SyncMissingLeaveBalances
                 newBalanceRecordsCreated: 0,
                 alreadyExistingBalances: 0,
                 skippedOrAnomalies: 0,
+                skippedAnnualMissingHireDate: 0,
+                skippedAnnualNotYetJoined: 0,
                 activeLeaveTypesCount: 0,
                 year: $year,
             );
@@ -67,6 +74,8 @@ final class SyncMissingLeaveBalances
                 &$newBalanceRecordsCreated,
                 &$alreadyExistingBalances,
                 &$skippedOrAnomalies,
+                &$skippedAnnualMissingHireDate,
+                &$skippedAnnualNotYetJoined,
             ): void {
                 foreach ($employees as $employee) {
                     $employee->refresh();
@@ -91,6 +100,23 @@ final class SyncMissingLeaveBalances
                             $newBalanceRecordsCreated++;
                         } elseif ($outcome === 'existing') {
                             $alreadyExistingBalances++;
+                        } elseif ($outcome === 'skipped') {
+                            if ($leaveType->category === LeaveTypeCategory::Annual) {
+                                $skipReason = $this->annualEntitlement->newBalanceAllocationSkipReason(
+                                    $leaveType,
+                                    $employee,
+                                    $year,
+                                );
+
+                                if ($skipReason === AnnualLeaveEntitlementCalculator::SKIP_MISSING_HIRE_DATE) {
+                                    $skippedAnnualMissingHireDate++;
+                                } elseif (
+                                    $skipReason === AnnualLeaveEntitlementCalculator::SKIP_NOT_YET_JOINED
+                                    || $skipReason === AnnualLeaveEntitlementCalculator::SKIP_BEFORE_EMPLOYMENT
+                                ) {
+                                    $skippedAnnualNotYetJoined++;
+                                }
+                            }
                         } else {
                             $skippedOrAnomalies++;
                         }
@@ -108,6 +134,8 @@ final class SyncMissingLeaveBalances
             newBalanceRecordsCreated: $newBalanceRecordsCreated,
             alreadyExistingBalances: $alreadyExistingBalances,
             skippedOrAnomalies: $skippedOrAnomalies,
+            skippedAnnualMissingHireDate: $skippedAnnualMissingHireDate,
+            skippedAnnualNotYetJoined: $skippedAnnualNotYetJoined,
             activeLeaveTypesCount: $activeLeaveTypesCount,
             year: $year,
         );
@@ -154,8 +182,11 @@ final class SyncMissingLeaveBalances
                 'new_balance_records_created' => $result->newBalanceRecordsCreated,
                 'already_existing_balances' => $result->alreadyExistingBalances,
                 'skipped_or_anomalies' => $result->skippedOrAnomalies,
+                'skipped_annual_missing_hire_date' => $result->skippedAnnualMissingHireDate,
+                'skipped_annual_not_yet_joined' => $result->skippedAnnualNotYetJoined,
                 'active_leave_types_count' => $result->activeLeaveTypesCount,
                 'message_variant' => $result->messageVariant(),
+                'summary_message' => $result->summaryMessage(),
             ])
             ->log('Synced missing leave balances for current business year');
 

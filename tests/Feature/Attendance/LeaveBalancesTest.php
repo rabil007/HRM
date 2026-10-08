@@ -7,49 +7,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
-use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
-use Illuminate\Support\Facades\DB;
-
-/**
- * @return array{user: User, company: Company}
- */
-function makeLeaveBalanceFixtures(): array
-{
-    $user = User::factory()->create();
-    $country = Country::query()->create([
-        'code' => 'LB'.fake()->unique()->numerify('##'),
-        'name' => 'Leave Balanceland',
-        'dial_code' => '+999',
-        'is_active' => true,
-    ]);
-    $currency = Currency::query()->create([
-        'code' => 'LB'.fake()->unique()->numerify('##'),
-        'name' => 'Leave Balance Currency',
-        'symbol' => 'B$',
-        'is_active' => true,
-    ]);
-    $company = Company::query()->create([
-        'name' => 'Balance Co',
-        'slug' => 'balance-'.fake()->unique()->numerify('####'),
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    DB::table('company_user')->insert([
-        'company_id' => $company->id,
-        'user_id' => $user->id,
-        'status' => 'active',
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
-    return ['user' => $user, 'company' => $company];
-}
 
 test('leave balance rollover carries unused days up to max carry days', function () {
     ['company' => $company] = makeLeaveBalanceFixtures();
@@ -228,6 +186,48 @@ test('leave requests cannot exceed available balance', function () {
         'end_date' => '2026-06-12',
         'reason' => 'Too many days',
     ])->assertSessionHasErrors('leave_type_id');
+});
+
+test('creating leave type provisions balances only for attendance and leave departments', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    createAttendanceLeaveEmployee($company);
+    $excludedDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Crew excluded',
+        'code' => 'CRX'.fake()->unique()->numerify('##'),
+        'status' => 'active',
+        'include_in_attendance_leave' => false,
+    ]);
+    Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'department_id' => $excludedDepartment->id,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.types.create']);
+
+    $this->post(route('attendance.types.store'), [
+        'name' => 'Sick Leave',
+        'code' => 'SK',
+        'days_per_year' => 15,
+        'carry_forward' => false,
+        'max_carry_days' => 0,
+        'color' => '#22c55e',
+        'status' => 'active',
+        'payroll_treatment' => 'paid',
+        'category' => 'sick',
+    ])->assertRedirect();
+
+    $leaveType = LeaveType::query()->where('company_id', $company->id)->where('code', 'SK')->first();
+
+    expect($leaveType)->not->toBeNull()
+        ->and(
+            LeaveBalance::query()
+                ->where('company_id', $company->id)
+                ->where('leave_type_id', $leaveType->id)
+                ->where('year', (int) now()->year)
+                ->count(),
+        )->toBe(1);
 });
 
 test('creating leave type provisions balances for active employees', function () {

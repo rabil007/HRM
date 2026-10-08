@@ -17,6 +17,8 @@ function resultTitle(result: LeaveBalanceSyncResult): string {
             return 'No eligible employees';
         case 'nothing_missing':
             return 'Leave balances are up to date';
+        case 'expected_skips_only':
+            return 'Sync completed — action may be required';
         case 'anomalies_only':
             return 'Sync completed with anomalies';
         case 'partial_success':
@@ -48,61 +50,85 @@ function ResultSummary({ result }: { result: LeaveBalanceSyncResult }) {
         case 'nothing_missing':
             return (
                 <p className="text-sm text-muted-foreground">
-                    All eligible employees already have their current-year leave
-                    balances. No changes were needed.
+                    {result.summary_message}
                 </p>
+            );
+        case 'expected_skips_only':
+            return (
+                <div className="space-y-3 text-sm text-muted-foreground">
+                    <p>{result.summary_message}</p>
+                    <SyncStatsList result={result} />
+                </div>
             );
         case 'anomalies_only':
             return (
                 <div className="space-y-3 text-sm text-muted-foreground">
-                    <p>
-                        Sync completed. Some leave balances require attention
-                        and were not created.
-                    </p>
-                    <p>
-                        Skipped/anomalies:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.skipped_or_anomalies}
-                        </span>
-                    </p>
+                    <p>{result.summary_message}</p>
                 </div>
             );
         default:
             return (
-                <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
-                    <li>
-                        Eligible employees checked:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.eligible_employees_checked}
-                        </span>
-                    </li>
-                    <li>
-                        Employees with newly created balances:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.employees_with_new_balances}
-                        </span>
-                    </li>
-                    <li>
-                        New balance records created:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.new_balance_records_created}
-                        </span>
-                    </li>
-                    <li>
-                        Already existing balances:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.already_existing_balances}
-                        </span>
-                    </li>
-                    <li>
-                        Skipped/anomalies:{' '}
-                        <span className="font-medium text-foreground tabular-nums">
-                            {result.skipped_or_anomalies}
-                        </span>
-                    </li>
-                </ul>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                    <p>{result.summary_message}</p>
+                    <SyncStatsList result={result} />
+                </div>
             );
     }
+}
+
+function SyncStatsList({ result }: { result: LeaveBalanceSyncResult }) {
+    return (
+        <ul className="list-disc space-y-1.5 pl-5">
+            <li>
+                Eligible employees checked:{' '}
+                <span className="font-medium text-foreground tabular-nums">
+                    {result.eligible_employees_checked}
+                </span>
+            </li>
+            <li>
+                Employees with newly created balances:{' '}
+                <span className="font-medium text-foreground tabular-nums">
+                    {result.employees_with_new_balances}
+                </span>
+            </li>
+            <li>
+                New balance records created:{' '}
+                <span className="font-medium text-foreground tabular-nums">
+                    {result.new_balance_records_created}
+                </span>
+            </li>
+            <li>
+                Already existing balances preserved:{' '}
+                <span className="font-medium text-foreground tabular-nums">
+                    {result.already_existing_balances}
+                </span>
+            </li>
+            {result.skipped_annual_missing_hire_date > 0 && (
+                <li>
+                    Annual leave skipped (missing hire date):{' '}
+                    <span className="font-medium text-foreground tabular-nums">
+                        {result.skipped_annual_missing_hire_date}
+                    </span>
+                </li>
+            )}
+            {result.skipped_annual_not_yet_joined > 0 && (
+                <li>
+                    Annual leave skipped (not yet joined):{' '}
+                    <span className="font-medium text-foreground tabular-nums">
+                        {result.skipped_annual_not_yet_joined}
+                    </span>
+                </li>
+            )}
+            {result.skipped_or_anomalies > 0 && (
+                <li>
+                    Records requiring attention:{' '}
+                    <span className="font-medium text-foreground tabular-nums">
+                        {result.skipped_or_anomalies}
+                    </span>
+                </li>
+            )}
+        </ul>
+    );
 }
 
 export function SyncMissingBalancesResultDialog({
