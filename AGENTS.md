@@ -54,12 +54,14 @@ Never run `migrate:fresh`, `migrate:refresh`, `db:wipe`, or destructive database
 
 ## Verification
 
-**Default:** before every commit or push, run CI-matching checks on **changed files only**. See `.cursor/rules/pre-push-verification.mdc`. Skip only when the user's prompt explicitly overrides verification.
+**Default:** before every commit or push, run CI-matching checks on **changed files only**. See `.cursor/rules/pre-push-verification.mdc` (same rule for Cursor Local and Cloud Agents). Skip only when the user's prompt explicitly overrides verification.
 
 Run the narrowest relevant checks first.
 
 - PHP edits: `vendor/bin/pint --dirty --format agent`, then focused Pest.
-- Frontend edits on each changed `resources/js/**/*.{ts,tsx}` file: `npx prettier --write`, `npx eslint`, `npm run types:check`, plus matching `*.test.ts` files when present.
+- Frontend edits: `npx prettier --write` and `npx eslint` on each changed `resources/js/**/*.{ts,tsx}` file, then project-wide `npm run types:check`, plus matching `*.test.ts` files when present.
+- Wayfinder inputs (`routes/**`, `app/Http/Controllers/**`): run `php artisan wayfinder:generate --with-form --no-interaction` before `npm run types:check`. Never edit generated Wayfinder files by hand.
+- Broader frontend verification: `npm run verify:quick` (Wayfinder → types → ESLint). Pre-push / cross-domain: `npm run verify:push` (adds Prettier check + frontend unit tests). Do not use these as the default for every small change.
 - Run `npm run build` only when the changed scope warrants it (Vite/Wayfinder-wide impact).
 
 Never claim a command passed unless it actually ran successfully. Review the final diff for unrelated changes, generated files, exposed secrets, stale docs, tenancy, and backend authorization before finishing.
