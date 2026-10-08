@@ -5,6 +5,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\LeaveBalance;
 use App\Models\LeaveType;
+use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Reports\Actions\SyncMissingLeaveBalances;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Facades\DB;
@@ -151,7 +152,7 @@ test('repeated sync is idempotent and does not create duplicate balances', funct
         ->from(route('organization.reports.leave-balances.index'))
         ->post(route('organization.reports.leave-balances.sync-missing'))
         ->assertSessionHas('leave_balance_sync_result', fn (array $result): bool => $result['new_balance_records_created'] === 0
-            && $result['nothing_to_create'] === true);
+            && $result['message_variant'] === 'nothing_missing');
 
     expect(
         LeaveBalance::query()
@@ -251,14 +252,17 @@ test('sync initializes used and pending days from existing leave requests', func
 });
 
 test('soft deleted current year balance is skipped as anomaly and not recreated', function () {
-    ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    ['user' => $user, 'company' => $company, 'employee' => $fixtureEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
     grantCompanyPermissions($user, $company, [
         'reports.leave_balance.view',
         'reports.leave_balance.sync',
     ]);
 
-    $employee = createAttendanceLeaveEmployee($company);
     $year = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+
+    LeaveBalance::factory()->forEmployee($fixtureEmployee)->forLeaveType($leaveType)->create(['year' => $year]);
+
+    $employee = createAttendanceLeaveEmployee($company);
 
     $deleted = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
         'year' => $year,
@@ -269,7 +273,9 @@ test('soft deleted current year balance is skipped as anomaly and not recreated'
     $this->actingAs($user)
         ->from(route('organization.reports.leave-balances.index'))
         ->post(route('organization.reports.leave-balances.sync-missing'))
-        ->assertSessionHas('leave_balance_sync_result.skipped_or_anomalies', 1);
+        ->assertSessionHas('leave_balance_sync_result', fn (array $result): bool => $result['skipped_or_anomalies'] === 1
+            && $result['message_variant'] === 'anomalies_only'
+            && $result['new_balance_records_created'] === 0);
 
     expect(
         LeaveBalance::query()
@@ -281,7 +287,7 @@ test('soft deleted current year balance is skipped as anomaly and not recreated'
         ->and(LeaveBalance::onlyTrashed()->whereKey($deleted->id)->exists())->toBeTrue();
 });
 
-test('concurrent sync requests do not create duplicate balance rows', function () {
+test('repeated sync in one transaction remains idempotent without duplicate rows', function () {
     ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
     grantCompanyPermissions($user, $company, [
         'reports.leave_balance.view',
@@ -304,6 +310,172 @@ test('concurrent sync requests do not create duplicate balance rows', function (
             ->where('year', $year)
             ->count()
     )->toBe(1);
+});
+
+test('provision missing balance classifies concurrent insert as existing without reconciling', function () {
+    ['company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    $employee = createAttendanceLeaveEmployee($company);
+    $year = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+    $manager = app(LeaveBalanceManager::class);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => "{$year}-05-01",
+        'end_date' => "{$year}-05-03",
+        'total_days' => 3,
+        'status' => 'approved',
+    ]);
+
+    $preexisting = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create([
+        'year' => $year,
+        'entitled_days' => 30,
+        'used_days' => 0,
+        'pending_days' => 0,
+    ]);
+
+    expect($manager->provisionMissingBalanceForYear(
+        (int) $company->id,
+        (int) $employee->id,
+        $leaveType,
+        $year,
+    ))->toBe('existing')
+        ->and((float) $preexisting->fresh()->used_days)->toBe(0.0);
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('leave_type_id', $leaveType->id)
+            ->where('year', $year)
+            ->count()
+    )->toBe(1);
+});
+
+test('provision missing balance returns created then existing on second call', function () {
+    ['company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    $employee = createAttendanceLeaveEmployee($company);
+    $year = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+    $manager = app(LeaveBalanceManager::class);
+
+    expect($manager->provisionMissingBalanceForYear(
+        (int) $company->id,
+        (int) $employee->id,
+        $leaveType,
+        $year,
+    ))->toBe('created')
+        ->and($manager->provisionMissingBalanceForYear(
+            (int) $company->id,
+            (int) $employee->id,
+            $leaveType,
+            $year,
+        ))->toBe('existing');
+});
+
+test('provision missing balance rolls back when usage reconciliation fails', function () {
+    ['company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    $employee = createAttendanceLeaveEmployee($company);
+    $year = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+    $manager = app(LeaveBalanceManager::class);
+
+    createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => "{$year}-06-01",
+        'end_date' => "{$year}-06-02",
+        'total_days' => 2,
+        'status' => 'approved',
+    ]);
+
+    $failed = false;
+    LeaveBalance::updated(function () use (&$failed): void {
+        if ($failed) {
+            return;
+        }
+
+        $failed = true;
+        throw new RuntimeException('Simulated reconciliation failure');
+    });
+
+    try {
+        $manager->provisionMissingBalanceForYear(
+            (int) $company->id,
+            (int) $employee->id,
+            $leaveType,
+            $year,
+        );
+    } catch (RuntimeException) {
+        // expected
+    } finally {
+        LeaveBalance::flushEventListeners();
+    }
+
+    expect(
+        LeaveBalance::query()
+            ->where('employee_id', $employee->id)
+            ->where('leave_type_id', $leaveType->id)
+            ->where('year', $year)
+            ->exists()
+    )->toBeFalse();
+});
+
+test('sync reports anomalies only when nothing was created', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $fixtureEmployee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $year = (int) now(CompanyTimezone::forCompanyId($company->id))->year;
+
+    LeaveBalance::factory()->forEmployee($fixtureEmployee)->forLeaveType($leaveType)->create(['year' => $year]);
+
+    $employee = createAttendanceLeaveEmployee($company);
+    $deleted = LeaveBalance::factory()->forEmployee($employee)->forLeaveType($leaveType)->create(['year' => $year]);
+    $deleted->delete();
+
+    $this->actingAs($user)
+        ->from(route('organization.reports.leave-balances.index'))
+        ->post(route('organization.reports.leave-balances.sync-missing'))
+        ->assertSessionHas('leave_balance_sync_result', fn (array $result): bool => $result['message_variant'] === 'anomalies_only'
+            && $result['new_balance_records_created'] === 0
+            && $result['skipped_or_anomalies'] === 1
+            && $result['already_existing_balances'] === 1);
+});
+
+test('sync reports no active leave types accurately', function () {
+    ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $leaveType->update(['status' => 'inactive']);
+    createAttendanceLeaveEmployee($company);
+
+    $this->actingAs($user)
+        ->from(route('organization.reports.leave-balances.index'))
+        ->post(route('organization.reports.leave-balances.sync-missing'))
+        ->assertSessionHas('leave_balance_sync_result', fn (array $result): bool => $result['message_variant'] === 'no_active_leave_types'
+            && $result['active_leave_types_count'] === 0);
+});
+
+test('sync reports no eligible employees when none are in scope', function () {
+    ['user' => $user, 'company' => $company, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, [
+        'reports.leave_balance.view',
+        'reports.leave_balance.sync',
+    ]);
+
+    $leaveType->update(['status' => 'active']);
+    Employee::query()->where('company_id', $company->id)->update(['status' => 'inactive']);
+
+    $this->actingAs($user)
+        ->from(route('organization.reports.leave-balances.index'))
+        ->post(route('organization.reports.leave-balances.sync-missing'))
+        ->assertSessionHas('leave_balance_sync_result', fn (array $result): bool => $result['message_variant'] === 'no_eligible_employees'
+            && $result['eligible_employees_checked'] === 0);
 });
 
 test('sync logs company scoped activity with counts', function () {

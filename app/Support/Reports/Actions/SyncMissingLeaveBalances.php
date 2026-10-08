@@ -4,7 +4,6 @@ namespace App\Support\Reports\Actions;
 
 use App\Models\Company;
 use App\Models\Employee;
-use App\Models\LeaveBalance;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\AttendanceLeaveDepartmentScope;
@@ -29,29 +28,21 @@ final class SyncMissingLeaveBalances
             ->where('status', 'active')
             ->get(['id', 'company_id', 'days_per_year', 'status']);
 
-        $employeeIds = Employee::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'active')
-            ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
-            ->tap(fn ($query) => EmployeeVisibilityScope::apply($query, $actor, $companyId))
-            ->orderBy('id')
-            ->pluck('id')
-            ->map(fn ($id): int => (int) $id)
-            ->all();
-
-        $eligibleEmployeesChecked = count($employeeIds);
+        $activeLeaveTypesCount = $leaveTypes->count();
+        $eligibleEmployeesChecked = 0;
         $employeesWithNewBalances = 0;
         $newBalanceRecordsCreated = 0;
         $alreadyExistingBalances = 0;
         $skippedOrAnomalies = 0;
 
-        if ($employeeIds === [] || $leaveTypes->isEmpty()) {
+        if ($activeLeaveTypesCount === 0) {
             $result = new SyncMissingLeaveBalancesResult(
-                eligibleEmployeesChecked: $eligibleEmployeesChecked,
+                eligibleEmployeesChecked: 0,
                 employeesWithNewBalances: 0,
                 newBalanceRecordsCreated: 0,
                 alreadyExistingBalances: 0,
                 skippedOrAnomalies: 0,
+                activeLeaveTypesCount: 0,
                 year: $year,
             );
 
@@ -62,22 +53,33 @@ final class SyncMissingLeaveBalances
 
         Employee::query()
             ->where('company_id', $companyId)
-            ->whereIn('id', $employeeIds)
+            ->where('status', 'active')
+            ->tap(fn ($query) => AttendanceLeaveDepartmentScope::apply($query, $companyId))
+            ->tap(fn ($query) => EmployeeVisibilityScope::apply($query, $actor, $companyId))
             ->orderBy('id')
             ->chunkById(100, function (Collection $employees) use (
                 $companyId,
+                $actor,
                 $leaveTypes,
                 $year,
+                &$eligibleEmployeesChecked,
                 &$employeesWithNewBalances,
                 &$newBalanceRecordsCreated,
                 &$alreadyExistingBalances,
                 &$skippedOrAnomalies,
             ): void {
                 foreach ($employees as $employee) {
+                    $employee->refresh();
+
+                    if (! $this->employeeIsEligible($employee, $companyId, $actor)) {
+                        continue;
+                    }
+
+                    $eligibleEmployeesChecked++;
                     $createdForEmployee = 0;
 
                     foreach ($leaveTypes as $leaveType) {
-                        $outcome = $this->provisionMissingBalance(
+                        $outcome = $this->leaveBalances->provisionMissingBalanceForYear(
                             $companyId,
                             (int) $employee->id,
                             $leaveType,
@@ -106,6 +108,7 @@ final class SyncMissingLeaveBalances
             newBalanceRecordsCreated: $newBalanceRecordsCreated,
             alreadyExistingBalances: $alreadyExistingBalances,
             skippedOrAnomalies: $skippedOrAnomalies,
+            activeLeaveTypesCount: $activeLeaveTypesCount,
             year: $year,
         );
 
@@ -114,47 +117,21 @@ final class SyncMissingLeaveBalances
         return $result;
     }
 
-    /**
-     * @return 'created'|'existing'|'anomaly'
-     */
-    private function provisionMissingBalance(
-        int $companyId,
-        int $employeeId,
-        LeaveType $leaveType,
-        int $year,
-    ): string {
-        if (
-            LeaveBalance::onlyTrashed()
-                ->where('company_id', $companyId)
-                ->where('employee_id', $employeeId)
-                ->where('leave_type_id', $leaveType->id)
-                ->where('year', $year)
-                ->exists()
-        ) {
-            return 'anomaly';
+    private function employeeIsEligible(Employee $employee, int $companyId, User $actor): bool
+    {
+        if ((int) $employee->company_id !== $companyId) {
+            return false;
         }
 
-        $exists = LeaveBalance::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employeeId)
-            ->where('leave_type_id', $leaveType->id)
-            ->where('year', $year)
-            ->exists();
-
-        if ($exists) {
-            return 'existing';
+        if ((string) $employee->status !== 'active') {
+            return false;
         }
 
-        $this->leaveBalances->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
-        $this->leaveBalances->synchronizeBalanceKey(
-            $companyId,
-            $employeeId,
-            (int) $leaveType->id,
-            $year,
-            createIfMissing: false,
-        );
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
+            return false;
+        }
 
-        return 'created';
+        return EmployeeVisibilityScope::canAccess($actor, $employee, $companyId);
     }
 
     private function logActivity(int $companyId, User $actor, SyncMissingLeaveBalancesResult $result): void
@@ -177,6 +154,8 @@ final class SyncMissingLeaveBalances
                 'new_balance_records_created' => $result->newBalanceRecordsCreated,
                 'already_existing_balances' => $result->alreadyExistingBalances,
                 'skipped_or_anomalies' => $result->skippedOrAnomalies,
+                'active_leave_types_count' => $result->activeLeaveTypesCount,
+                'message_variant' => $result->messageVariant(),
             ])
             ->log('Synced missing leave balances for current business year');
 
