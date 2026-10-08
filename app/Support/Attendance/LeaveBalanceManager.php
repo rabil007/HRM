@@ -61,9 +61,13 @@ final class LeaveBalanceManager
         $employee = Employee::query()
             ->where('company_id', $companyId)
             ->whereKey($employeeId)
-            ->first(['id', 'company_id', 'department_id', 'hire_date']);
+            ->first(['id', 'company_id', 'department_id', 'status', 'hire_date']);
 
         if ($employee === null) {
+            return;
+        }
+
+        if (! $this->newAllocationEligibility->employeeCanReceiveNewBalance($employee, $companyId)) {
             return;
         }
 
@@ -73,11 +77,7 @@ final class LeaveBalanceManager
             ->get();
 
         foreach ($leaveTypes as $leaveType) {
-            if ($this->annualEntitlement->entitledDaysForNewBalance($leaveType, $employee, $year) === null) {
-                continue;
-            }
-
-            $this->findOrCreateBalance($companyId, $employeeId, $leaveType, $year);
+            $this->tryFindOrCreateBalance($companyId, $employeeId, $leaveType, $year);
         }
     }
 
