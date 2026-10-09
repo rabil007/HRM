@@ -1983,6 +1983,42 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to create missing current-year leave balance rows for eligible employees without changing existing balances.',
                 'group' => 'Reports',
             ],
+            337 => [
+                'name' => 'recruitment.candidates.view',
+                'label' => 'View Recruitment Candidates',
+                'description' => 'Allows the user to view recruitment candidates for the active company, including lists, Kanban boards, and candidate detail pages.',
+                'group' => 'Recruitment',
+            ],
+            338 => [
+                'name' => 'recruitment.candidates.create',
+                'label' => 'Create Recruitment Candidates',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to add candidates to open requirements and open position lines.',
+                'group' => 'Recruitment',
+            ],
+            339 => [
+                'name' => 'recruitment.candidates.update',
+                'label' => 'Update Recruitment Candidates',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to edit candidate profile details, interview scheduling information, and CV uploads.',
+                'group' => 'Recruitment',
+            ],
+            340 => [
+                'name' => 'recruitment.candidates.move',
+                'label' => 'Move Recruitment Candidates',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to move candidates between Applied, Screening, and Interview, and to record selection or rejection outcomes.',
+                'group' => 'Recruitment',
+            ],
+            341 => [
+                'name' => 'recruitment.candidates.manage',
+                'label' => 'Manage Recruitment Candidates',
+                'description' => 'Allows authorized users to override assigned-recruiter ownership for candidate create, update, and movement actions. Does not bypass company scope, action permissions, or workflow validation.',
+                'group' => 'Recruitment',
+            ],
+            342 => [
+                'name' => 'recruitment.candidates.cv.download',
+                'label' => 'Download Candidate CVs',
+                'description' => 'Allows the user to download private candidate CV files for candidates they are authorized to view in the active company.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }

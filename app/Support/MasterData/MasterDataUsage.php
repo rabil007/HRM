@@ -255,6 +255,7 @@ final class MasterDataUsage
                 MasterDataUsageSource::model('trainings', EmployeeTraining::class, 'country_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::model('vaccinations', EmployeeVaccination::class, 'country_id', 'company_id', includeSoftDeletedReferences: true),
                 MasterDataUsageSource::table('recruitment candidates', 'candidates', 'nationality_id', 'company_id'),
+                MasterDataUsageSource::table('recruitment candidates', 'recruitment_candidates', 'nationality_id', 'company_id'),
             ],
             Currency::class => [
                 MasterDataUsageSource::model('companies', Company::class, 'currency_id', 'id', includeSoftDeletedReferences: true),

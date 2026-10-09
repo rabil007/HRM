@@ -1,3 +1,9 @@
+import type {
+    CandidateFormOptions,
+    CandidatePagePermissions,
+    CandidateRequirementSummary,
+} from '@/features/organization/recruitment/candidates/types';
+
 export type RequirementStatus =
     | 'draft'
     | 'pending_approval'
@@ -396,4 +402,7 @@ export type RequirementShowProps = {
         created_at: string;
         causer_name?: string | null;
     }>;
+    candidate_summary?: CandidateRequirementSummary | null;
+    candidate_options?: CandidateFormOptions | null;
+    candidate_can?: CandidatePagePermissions;
 };

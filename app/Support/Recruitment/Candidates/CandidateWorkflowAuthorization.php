@@ -1,0 +1,271 @@
+<?php
+
+namespace App\Support\Recruitment\Candidates;
+
+use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateStage;
+use App\Enums\Recruitment\RequirementLineStatus;
+use App\Enums\Recruitment\RequirementStatus;
+use App\Models\RecruitmentCandidate;
+use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementLine;
+use App\Models\User;
+use Illuminate\Validation\ValidationException;
+
+/**
+ * Candidate workflow guards: permission + assigned-recruiter ownership (+ manage override).
+ * CC notification recipients gain no action rights.
+ */
+final class CandidateWorkflowAuthorization
+{
+    public static function isAssignedRecruiter(User $user, ?RecruitmentRequirement $requirement): bool
+    {
+        if ($requirement === null || $requirement->assigned_to === null) {
+            return false;
+        }
+
+        return (int) $requirement->assigned_to === (int) $user->id;
+    }
+
+    public static function hasOwnershipOrManage(User $user, ?RecruitmentRequirement $requirement): bool
+    {
+        if ($user->can('recruitment.candidates.manage')) {
+            return true;
+        }
+
+        return self::isAssignedRecruiter($user, $requirement);
+    }
+
+    public static function canCreate(User $user, RecruitmentRequirement $requirement): bool
+    {
+        return $user->can('recruitment.candidates.create')
+            && self::hasOwnershipOrManage($user, $requirement);
+    }
+
+    public static function canUpdate(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.update')
+            && self::hasOwnershipOrManage($user, $candidate->requirement);
+    }
+
+    public static function canMove(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.move')
+            && self::hasOwnershipOrManage($user, $candidate->requirement);
+    }
+
+    public static function canReopenRejected(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.move')
+            && $user->can('recruitment.candidates.manage')
+            && self::hasOwnershipOrManage($user, $candidate->requirement);
+    }
+
+    public static function canDownloadCv(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.view')
+            && $user->can('recruitment.candidates.cv.download')
+            && (int) $candidate->company_id > 0;
+    }
+
+    public static function assertCanCreate(User $user, RecruitmentRequirement $requirement): void
+    {
+        if (! $user->can('recruitment.candidates.create')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to create candidates.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can add candidates to this requirement.',
+            ]);
+        }
+    }
+
+    public static function assertCanUpdate(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.update')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to update candidates.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can update this candidate.',
+            ]);
+        }
+    }
+
+    public static function assertCanMove(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.move')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to move candidates.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can move this candidate.',
+            ]);
+        }
+    }
+
+    public static function assertCanReopenRejected(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.move') || ! $user->can('recruitment.candidates.manage')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Reopening a rejected candidate requires move permission and management override.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can reopen this candidate.',
+            ]);
+        }
+    }
+
+    /**
+     * Parents must be present, Open requirement + Open line, and belong together / to company.
+     *
+     * @return array{requirement: RecruitmentRequirement, line: RecruitmentRequirementLine}
+     */
+    public static function assertOpenParentsForWorkflow(
+        RecruitmentCandidate $candidate,
+        int $companyId,
+    ): array {
+        $requirement = $candidate->requirement;
+        $line = $candidate->line;
+
+        if ($requirement === null || $line === null) {
+            throw ValidationException::withMessages([
+                'candidate' => 'This candidate is missing a linked requirement or position line. Workflow actions are disabled until a valid parent exists.',
+            ]);
+        }
+
+        if ((int) $requirement->company_id !== $companyId || (int) $line->company_id !== $companyId) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Candidate parent records do not belong to the active company.',
+            ]);
+        }
+
+        if ((int) $line->recruitment_requirement_id !== (int) $requirement->id) {
+            throw ValidationException::withMessages([
+                'candidate' => 'The candidate position line does not belong to the linked requirement.',
+            ]);
+        }
+
+        if ($requirement->status !== RequirementStatus::Open) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Workflow actions require an Open requirement.',
+            ]);
+        }
+
+        if ($line->status !== RequirementLineStatus::Open) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Workflow actions require an Open position line.',
+            ]);
+        }
+
+        return ['requirement' => $requirement, 'line' => $line];
+    }
+
+    public static function assertParentsAllowCreate(
+        RecruitmentRequirement $requirement,
+        RecruitmentRequirementLine $line,
+        int $companyId,
+    ): void {
+        if ((int) $requirement->company_id !== $companyId || (int) $line->company_id !== $companyId) {
+            throw ValidationException::withMessages([
+                'recruitment_requirement_id' => 'The selected requirement does not belong to the active company.',
+            ]);
+        }
+
+        if ((int) $line->recruitment_requirement_id !== (int) $requirement->id) {
+            throw ValidationException::withMessages([
+                'recruitment_requirement_line_id' => 'The selected position line does not belong to the requirement.',
+            ]);
+        }
+
+        if ($requirement->status !== RequirementStatus::Open) {
+            throw ValidationException::withMessages([
+                'recruitment_requirement_id' => 'Candidates can only be added to Open requirements.',
+            ]);
+        }
+
+        if ($line->status !== RequirementLineStatus::Open) {
+            throw ValidationException::withMessages([
+                'recruitment_requirement_line_id' => 'Candidates can only be added to Open position lines.',
+            ]);
+        }
+    }
+
+    public static function hasValidParentsForActions(RecruitmentCandidate $candidate): bool
+    {
+        $requirement = $candidate->requirement;
+        $line = $candidate->line;
+
+        if ($requirement === null || $line === null) {
+            return false;
+        }
+
+        if ((int) $line->recruitment_requirement_id !== (int) $requirement->id) {
+            return false;
+        }
+
+        return $requirement->status === RequirementStatus::Open
+            && $line->status === RequirementLineStatus::Open;
+    }
+
+    public static function assertExpectedLock(
+        RecruitmentCandidate $candidate,
+        ?int $expectedLockVersion,
+        ?string $expectedStage,
+        ?string $expectedOutcome,
+    ): void {
+        if ($expectedLockVersion !== null && (int) $candidate->lock_version !== $expectedLockVersion) {
+            throw ValidationException::withMessages([
+                'lock_version' => 'This candidate was updated by someone else. Refresh and try again.',
+            ]);
+        }
+
+        if ($expectedStage !== null && $candidate->stage->value !== $expectedStage) {
+            throw ValidationException::withMessages([
+                'stage' => 'This candidate is no longer in the expected stage. Refresh and try again.',
+            ]);
+        }
+
+        $currentOutcome = $candidate->interview_outcome?->value;
+
+        if ($expectedOutcome !== null) {
+            $normalizedExpected = $expectedOutcome === '' ? null : $expectedOutcome;
+
+            if ($currentOutcome !== $normalizedExpected) {
+                throw ValidationException::withMessages([
+                    'interview_outcome' => 'This candidate outcome changed. Refresh and try again.',
+                ]);
+            }
+        }
+    }
+
+    public static function canSelect(RecruitmentCandidate $candidate): bool
+    {
+        return $candidate->stage === CandidateStage::Interview
+            && $candidate->interview_outcome !== CandidateInterviewOutcome::Selected
+            && $candidate->interview_outcome !== CandidateInterviewOutcome::NotSelected;
+    }
+
+    public static function canUndoSelected(RecruitmentCandidate $candidate): bool
+    {
+        return $candidate->stage === CandidateStage::Interview
+            && $candidate->interview_outcome === CandidateInterviewOutcome::Selected;
+    }
+
+    public static function canReject(RecruitmentCandidate $candidate): bool
+    {
+        return $candidate->stage->allowsRejection();
+    }
+}

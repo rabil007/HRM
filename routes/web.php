@@ -184,6 +184,14 @@ use App\Http\Controllers\Organization\OrganizationBulkRecordController;
 use App\Http\Controllers\Organization\PositionAttachmentController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
+use App\Http\Controllers\Organization\Recruitment\CandidateCheckDuplicatesController;
+use App\Http\Controllers\Organization\Recruitment\CandidateController;
+use App\Http\Controllers\Organization\Recruitment\CandidateCvDownloadController;
+use App\Http\Controllers\Organization\Recruitment\CandidateMoveController;
+use App\Http\Controllers\Organization\Recruitment\CandidateRejectController;
+use App\Http\Controllers\Organization\Recruitment\CandidateReopenController;
+use App\Http\Controllers\Organization\Recruitment\CandidateSelectController;
+use App\Http\Controllers\Organization\Recruitment\CandidateUndoSelectController;
 use App\Http\Controllers\Organization\Recruitment\RecruitmentController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAddHeadcountController;
 use App\Http\Controllers\Organization\Recruitment\RequirementApproveController;
@@ -595,6 +603,43 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/recruitment/requirements/{requirement}/attachments/{attachment}', [RequirementAttachmentController::class, 'destroy'])
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.attachments.destroy');
+
+    Route::get('organization/recruitment/candidates', [CandidateController::class, 'index'])
+        ->middleware('can:recruitment.candidates.view')
+        ->name('organization.recruitment.candidates.index');
+    Route::post('organization/recruitment/candidates', [CandidateController::class, 'store'])
+        ->middleware('can:recruitment.candidates.create')
+        ->name('organization.recruitment.candidates.store');
+    Route::post('organization/recruitment/candidates/check-duplicates', CandidateCheckDuplicatesController::class)
+        ->middleware('can:recruitment.candidates.view')
+        ->name('organization.recruitment.candidates.check-duplicates');
+    Route::get('organization/recruitment/candidates/{candidate}', [CandidateController::class, 'show'])
+        ->middleware('can:recruitment.candidates.view')
+        ->name('organization.recruitment.candidates.show');
+    Route::put('organization/recruitment/candidates/{candidate}', [CandidateController::class, 'update'])
+        ->middleware('can:recruitment.candidates.update')
+        ->name('organization.recruitment.candidates.update');
+    Route::put('organization/recruitment/candidates/{candidate}/interview', [CandidateController::class, 'updateInterview'])
+        ->middleware('can:recruitment.candidates.update')
+        ->name('organization.recruitment.candidates.interview.update');
+    Route::post('organization/recruitment/candidates/{candidate}/move', CandidateMoveController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.move');
+    Route::post('organization/recruitment/candidates/{candidate}/reject', CandidateRejectController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.reject');
+    Route::post('organization/recruitment/candidates/{candidate}/select', CandidateSelectController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.select');
+    Route::post('organization/recruitment/candidates/{candidate}/undo-select', CandidateUndoSelectController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.undo-select');
+    Route::post('organization/recruitment/candidates/{candidate}/reopen', CandidateReopenController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.reopen');
+    Route::get('organization/recruitment/candidates/{candidate}/cv', CandidateCvDownloadController::class)
+        ->middleware('can:recruitment.candidates.cv.download')
+        ->name('organization.recruitment.candidates.cv.download');
 
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');

@@ -11,6 +11,7 @@ import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
+import type { CandidateRequirementSummary } from '@/features/organization/recruitment/candidates/types';
 import { toast } from '@/lib/toast';
 import type { RequirementShowProps } from '@/types/recruitment';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
@@ -22,6 +23,7 @@ import {
 import { DeadlineExtensionHistoryCard } from './components/show/deadline-extension-history-card';
 import { HeadcountRevisionHistoryCard } from './components/show/headcount-revision-history-card';
 import { RequirementAttachmentsCard } from './components/show/requirement-attachments-card';
+import { RequirementCandidatesCard } from './components/show/requirement-candidates-card';
 import { RequirementDetailsWorkflowCard } from './components/show/requirement-details-workflow-card';
 import { RequirementOverviewCard } from './components/show/requirement-overview-card';
 import { RequirementPositionLinesCard } from './components/show/requirement-position-lines-card';
@@ -47,6 +49,9 @@ export function RequirementsShowContent({
     options,
     can,
     recent_activity,
+    candidate_summary,
+    candidate_options,
+    candidate_can,
 }: RequirementShowProps) {
     const [isEditOpen, setIsEditOpen] = useState(() => {
         if (typeof window === 'undefined') {
@@ -258,6 +263,19 @@ export function RequirementsShowContent({
                             setIsChangeHeadcountOpen(true);
                         }}
                     />
+
+                    {candidate_summary && candidate_options && candidate_can ? (
+                        <RequirementCandidatesCard
+                            requirementId={requirement.id}
+                            requirementNumber={requirement.requirement_number}
+                            defaultLineId={requirement.lines?.[0]?.id ?? null}
+                            summary={
+                                candidate_summary as CandidateRequirementSummary
+                            }
+                            options={candidate_options}
+                            can={candidate_can}
+                        />
+                    ) : null}
 
                     <RequirementDetailsWorkflowCard requirement={requirement} />
 

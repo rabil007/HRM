@@ -80,6 +80,12 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'recruitment.requirements.request_deadline_extension')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.request_headcount_revision')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.requirements.transfer_ownership')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.view')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.create')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.update')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.move')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.manage')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.cv.download')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -109,6 +115,10 @@ test('permission metadata follows current module categories without changing nam
         'recruitment.requirements.request_deadline_extension' => 'Recruitment',
         'recruitment.requirements.request_headcount_revision' => 'Recruitment',
         'recruitment.requirements.transfer_ownership' => 'Recruitment',
+        'recruitment.candidates.view' => 'Recruitment',
+        'recruitment.candidates.move' => 'Recruitment',
+        'recruitment.candidates.manage' => 'Recruitment',
+        'recruitment.candidates.cv.download' => 'Recruitment',
     ];
 
     foreach ($groups as $name => $group) {
@@ -252,7 +262,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 12
+                return $recruitmentOptions->count() === 18
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -274,7 +284,14 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->get('recruitment.requirements.request_headcount_revision')['group'] === 'Recruitment'
                     && $options->has('recruitment.requirements.transfer_ownership')
                     && $options->get('recruitment.requirements.transfer_ownership')['label'] === 'Transfer Requirement Ownership'
-                    && $options->get('recruitment.requirements.transfer_ownership')['group'] === 'Recruitment';
+                    && $options->get('recruitment.requirements.transfer_ownership')['group'] === 'Recruitment'
+                    && $options->has('recruitment.candidates.view')
+                    && $options->has('recruitment.candidates.create')
+                    && $options->has('recruitment.candidates.update')
+                    && $options->has('recruitment.candidates.move')
+                    && $options->has('recruitment.candidates.manage')
+                    && $options->has('recruitment.candidates.cv.download')
+                    && $options->get('recruitment.candidates.view')['group'] === 'Recruitment';
             }),
         );
 });

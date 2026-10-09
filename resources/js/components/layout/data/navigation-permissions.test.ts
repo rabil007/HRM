@@ -727,9 +727,14 @@ describe('Recruitment navigation', () => {
     it('exposes only active recruitment submodules in the module catalog', () => {
         const activeSubmodules = getActiveRecruitmentSubmodules();
 
-        assert.equal(activeSubmodules.length, 1);
+        assert.equal(activeSubmodules.length, 2);
         assert.equal(activeSubmodules[0].key, 'requirements');
         assert.equal(activeSubmodules[0].href, RECRUITMENT_REQUIREMENTS_URL);
+        assert.equal(activeSubmodules[1].key, 'candidates');
+        assert.equal(
+            activeSubmodules[1].href,
+            '/organization/recruitment/candidates',
+        );
         assert.equal(
             activeSubmodules.some((sub) => !sub.available),
             false,

@@ -7,6 +7,7 @@ use App\Enums\Recruitment\RequirementHeadcountRevisionStatus;
 use App\Enums\Recruitment\RequirementPriority;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\Recruitment\Candidates\CandidateDeletionGuard;
 use Database\Factories\RecruitmentRequirementFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -54,6 +55,13 @@ class RecruitmentRequirement extends Model
         'updated_by',
     ];
 
+    protected static function booted(): void
+    {
+        static::forceDeleting(function (RecruitmentRequirement $requirement): void {
+            CandidateDeletionGuard::assertRequirementMayBeForceDeleted($requirement);
+        });
+    }
+
     protected function casts(): array
     {
         return [
@@ -78,6 +86,11 @@ class RecruitmentRequirement extends Model
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
         ];
+    }
+
+    public function candidates(): HasMany
+    {
+        return $this->hasMany(RecruitmentCandidate::class, 'recruitment_requirement_id');
     }
 
     public function getActivitylogOptions(): LogOptions

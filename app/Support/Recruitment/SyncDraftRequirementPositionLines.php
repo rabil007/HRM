@@ -5,6 +5,7 @@ namespace App\Support\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
+use App\Support\Recruitment\Candidates\CandidateDeletionGuard;
 use App\Support\Settings\CompanyCurrency;
 
 /**
@@ -88,6 +89,7 @@ final class SyncDraftRequirementPositionLines
             }
 
             if ($line->status === RequirementLineStatus::Open) {
+                CandidateDeletionGuard::assertLineMayBeDeleted($line);
                 $line->delete();
             }
         }

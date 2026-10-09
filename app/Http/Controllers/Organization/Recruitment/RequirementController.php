@@ -11,6 +11,9 @@ use App\Http\Requests\Organization\Recruitment\UpdateRequirementRequest;
 use App\Models\Position;
 use App\Models\RecruitmentRequirement;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Recruitment\Candidates\CandidateFormOptionsQuery;
+use App\Support\Recruitment\Candidates\CandidatePagePermissions;
+use App\Support\Recruitment\Candidates\CandidatePresenter;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
 use App\Support\Recruitment\DuplicateRequirementDetector;
 use App\Support\Recruitment\DuplicateRequirementDto;
@@ -22,6 +25,7 @@ use App\Support\Recruitment\RequirementPresenter;
 use App\Support\Recruitment\RequirementSubmissionReadinessLookup;
 use App\Support\Recruitment\RequirementWorkflowTimelinePresenter;
 use App\Support\Settings\CompanyCurrency;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -182,11 +186,27 @@ class RequirementController extends Controller
             'currency_code' => $companyCurrency,
         ];
 
+        $user = $request->user();
+        $timezone = CompanyTimezone::forCompany($companyId);
+        $candidateSummary = null;
+        $candidateOptions = null;
+        $candidateCan = CandidatePagePermissions::for($user);
+
+        if ($user !== null && $candidateCan['view']) {
+            $candidateSummary = CandidatePresenter::requirementSummary(
+                (int) $requirement->id,
+                $companyId,
+                $user,
+                $timezone,
+            );
+            $candidateOptions = CandidateFormOptionsQuery::forCompany($companyId, $user);
+        }
+
         return Inertia::render('organization/recruitment/requirements/show', [
-            'requirement' => RequirementPresenter::toShow($requirement, null, $request->user()),
+            'requirement' => RequirementPresenter::toShow($requirement, null, $user),
             'workflow_timeline' => RequirementWorkflowTimelinePresenter::for(
                 $requirement,
-                $request->user(),
+                $user,
             ),
             'options' => $options,
             'clients' => $clients,
@@ -194,9 +214,12 @@ class RequirementController extends Controller
             'positions' => $positions,
             'users' => $recruiters,
             'currency_code' => $companyCurrency,
-            'can' => RequirementPagePermissions::for($request->user()),
+            'can' => RequirementPagePermissions::for($user),
             'can_view_audit' => $canViewAudit,
             'recent_activity' => $recentActivity,
+            'candidate_summary' => $candidateSummary,
+            'candidate_options' => $candidateOptions,
+            'candidate_can' => $candidateCan,
         ]);
     }
 

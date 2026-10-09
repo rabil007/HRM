@@ -36,7 +36,7 @@ export const RECRUITMENT_SUBMODULES: RecruitmentSubmodule[] = [
         href: '/organization/recruitment/candidates',
         permission: 'recruitment.candidates.view',
         icon: Users,
-        available: false,
+        available: true,
     },
     {
         key: 'client-assessments',
