@@ -151,6 +151,62 @@ test('pre join hotel view excludes completed historical p2a assignments', functi
     expect($paginator->total())->toBe(0);
 });
 
+test('crew on site view returns only active p4 assignments as a flat list', function () {
+    $fixtures = makeOperationalViewsFixtures();
+
+    makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::OnVessel,
+    );
+
+    $other = Employee::factory()->forCompany($fixtures['company'])->create([
+        'position_id' => $fixtures['rank']->id,
+    ]);
+    makeCurrentCrewPhaseAssignment(
+        $fixtures['company'],
+        $other,
+        $fixtures['rank'],
+        $fixtures['vessel'],
+        CrewPhaseCode::DemobStandby,
+    );
+
+    $paginator = CurrentCrewQuery::paginate(
+        $fixtures['company']->id,
+        [],
+        CurrentCrewRequestFilters::VIEW_CREW_ON_SITE,
+    );
+
+    expect($paginator->total())->toBe(1)
+        ->and($paginator->items()[0]->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+});
+
+test('crew on site index renders assignment cards instead of vessel board', function () {
+    $fixtures = makeOperationalViewsFixtures();
+
+    makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        $fixtures['vessel'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-assignments.index', [
+            'view' => CurrentCrewRequestFilters::VIEW_CREW_ON_SITE,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew/index')
+            ->where('view', 'crew_on_site')
+            ->has('assignments', 1)
+            ->has('vessels', 0)
+            ->where('filters.status', '')
+            ->where('filters.phase', ''));
+});
+
 test('post signoff hotel view returns only active p5 assignments', function () {
     $fixtures = makeOperationalViewsFixtures();
 

@@ -521,6 +521,7 @@ export interface CrewAssignmentFilterOptions {
 export type CurrentCrewView =
     | 'crew'
     | 'pre_join_hotel'
+    | 'crew_on_site'
     | 'vessel'
     | 'post_signoff_hotel'
     | 'on_home';

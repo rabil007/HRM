@@ -434,6 +434,12 @@ class CurrentCrewQuery
                 return;
             }
 
+            if ($view === CurrentCrewRequestFilters::VIEW_CREW_ON_SITE) {
+                $phase->where('phase_code', CrewPhaseCode::OnVessel);
+
+                return;
+            }
+
             $phase->where('phase_code', CrewPhaseCode::DemobStandby);
         });
     }
