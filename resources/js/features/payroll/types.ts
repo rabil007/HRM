@@ -78,6 +78,11 @@ export type CrewPayrollGenerationPreview = {
     period_blocking_reason: string | null;
     blocking_reason: string | null;
     affected_employee_id: number | null;
+    future_payable_days_count?: number;
+    future_payable_employee_count?: number;
+    future_payable_from?: string | null;
+    future_payable_to?: string | null;
+    requires_future_days_acknowledgment?: boolean;
 };
 
 export type PayrollPeriodStatus =

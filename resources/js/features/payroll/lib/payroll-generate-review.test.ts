@@ -26,6 +26,11 @@ function preview(
         period_blocking_reason: null,
         blocking_reason: null,
         affected_employee_id: null,
+        future_payable_days_count: 0,
+        future_payable_employee_count: 0,
+        future_payable_from: null,
+        future_payable_to: null,
+        requires_future_days_acknowledgment: false,
         ...overrides,
     };
 }

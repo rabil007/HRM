@@ -249,6 +249,8 @@ Generate Payroll uses the Crew Timesheet records on the period directly. It does
 
 Generation still refuses genuine blockers (missing/overlapping contracts, missing historical salary revision, malformed segments, reserved work-allocation conflicts, and other existing payroll blockers).
 
+When the generation preview finds payable Sign-On Standby / Onsite / Sign-Off Standby work dates after company-local today (from Crew Assignment, Manual, or Excel segments that would actually be paid), the Generate Payroll dialog shows a **Future payable dates detected** warning and requires an explicit `acknowledge_future_payable_days` confirmation. Populate / Refresh does **not** require this acknowledgment. Past-only runs are unchanged. The backend re-evaluates future payable days under the generation lock and rejects requests that omit acknowledgment. Successful acknowledgments are recorded on the existing `crew_payroll_generated` activity entry (`future_payable_days_acknowledged`, count, actor, timestamp).
+
 Dormant preparation tables and historical preparation rows are retained. Retired approval routes and permissions are removed from the active surface; do not rely on hidden UI for security.
 
 #### Manual and Excel entry

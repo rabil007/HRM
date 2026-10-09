@@ -14,6 +14,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -103,6 +104,11 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         $readyIds = $employees->pluck('id')->map(intval(...))->values()->all();
+        $futureSummary = $this->summarizeFuturePayableDaysForEmployees(
+            $period,
+            $companyId,
+            $readyIds,
+        );
 
         return new CrewPayrollGenerationPreview(
             ready: true,
@@ -121,6 +127,11 @@ final class BuildCrewPayrollGenerationPreview
             appliedPreparationVersion: $legacy['applied_preparation_version'],
             skippedIssues: $skippedIssues,
             skippedCount: count($skippedIssues),
+            futurePayableDaysCount: $futureSummary['days_count'],
+            futurePayableEmployeeCount: $futureSummary['employee_count'],
+            futurePayableFrom: $futureSummary['from'],
+            futurePayableTo: $futureSummary['to'],
+            requiresFutureDaysAcknowledgment: $futureSummary['days_count'] > 0,
         );
     }
 
@@ -175,6 +186,9 @@ final class BuildCrewPayrollGenerationPreview
         $readyIds = [];
         $missingIds = [];
         $awaitingIds = [];
+        /** @var array<int, array<string, true>> $futureDatesByEmployee */
+        $futureDatesByEmployee = [];
+        $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->startOfDay();
 
         if ($applied->count() > 1) {
             $blockingIssues[] = [
@@ -276,6 +290,8 @@ final class BuildCrewPayrollGenerationPreview
                     $employee,
                     $blockingIssues,
                     $automaticAdjustments,
+                    $futureDatesByEmployee,
+                    $today,
                 )) {
                     continue;
                 }
@@ -312,6 +328,8 @@ final class BuildCrewPayrollGenerationPreview
                 $employee,
                 $blockingIssues,
                 $automaticAdjustments,
+                $futureDatesByEmployee,
+                $today,
             )) {
                 continue;
             }
@@ -323,6 +341,7 @@ final class BuildCrewPayrollGenerationPreview
         $warningCount = count($warningIssues);
         $readyCount = count($readyIds);
         $periodBlocking = null;
+        $futureSummary = $this->summarizeCollectedFutureDates($futureDatesByEmployee, $readyIds);
 
         if ($blockingCount > 0 && ($blockingIssues[0]['employee_id'] ?? null) === null) {
             $periodBlocking = $blockingIssues[0]['message'];
@@ -352,6 +371,11 @@ final class BuildCrewPayrollGenerationPreview
             skippedCount: count($skippedIssues),
             automaticAdjustments: $automaticAdjustments,
             automaticAdjustmentCount: count($automaticAdjustments),
+            futurePayableDaysCount: $futureSummary['days_count'],
+            futurePayableEmployeeCount: $futureSummary['employee_count'],
+            futurePayableFrom: $futureSummary['from'],
+            futurePayableTo: $futureSummary['to'],
+            requiresFutureDaysAcknowledgment: $futureSummary['days_count'] > 0,
         );
     }
 
@@ -405,6 +429,7 @@ final class BuildCrewPayrollGenerationPreview
      *
      * @param  list<array<string, mixed>>  $blockingIssues
      * @param  list<array<string, mixed>>  $automaticAdjustments
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
      * @return bool True when blocking allocation issues were found
      */
     private function appendDailyAllocationPlan(
@@ -413,6 +438,8 @@ final class BuildCrewPayrollGenerationPreview
         Employee $employee,
         array &$blockingIssues,
         array &$automaticAdjustments,
+        array &$futureDatesByEmployee,
+        CarbonImmutable $today,
     ): bool {
         $timesheet->loadMissing(['segments']);
 
@@ -435,6 +462,13 @@ final class BuildCrewPayrollGenerationPreview
         $this->appendAutomaticAdjustmentsFromPlan($employee, $plan, $automaticAdjustments);
 
         if ($plan['issues'] === []) {
+            $this->collectFuturePayableDatesFromPlan(
+                (int) $timesheet->employee_id,
+                $plan,
+                $today,
+                $futureDatesByEmployee,
+            );
+
             return false;
         }
 
@@ -457,6 +491,137 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         return true;
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return array{days_count: int, employee_count: int, from: ?string, to: ?string}
+     */
+    private function summarizeFuturePayableDaysForEmployees(
+        PayrollPeriod $period,
+        int $companyId,
+        array $employeeIds,
+    ): array {
+        if ($employeeIds === []) {
+            return [
+                'days_count' => 0,
+                'employee_count' => 0,
+                'from' => null,
+                'to' => null,
+            ];
+        }
+
+        $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->startOfDay();
+        /** @var array<int, array<string, true>> $futureDatesByEmployee */
+        $futureDatesByEmployee = [];
+
+        $timesheets = CrewTimesheet::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->with(['segments', 'employee'])
+            ->get();
+
+        $existingRecordIds = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->pluck('id', 'employee_id');
+
+        foreach ($timesheets as $timesheet) {
+            if ($timesheet->segments->isEmpty()) {
+                continue;
+            }
+
+            $employeeId = (int) $timesheet->employee_id;
+            $existingRecordId = $existingRecordIds->get($employeeId);
+            $plan = $this->buildAllocationPlan->handle(
+                $period,
+                $timesheet,
+                $existingRecordId !== null ? (int) $existingRecordId : null,
+            );
+
+            if ($plan['issues'] !== []) {
+                continue;
+            }
+
+            $this->collectFuturePayableDatesFromPlan(
+                $employeeId,
+                $plan,
+                $today,
+                $futureDatesByEmployee,
+            );
+        }
+
+        return $this->summarizeCollectedFutureDates($futureDatesByEmployee, $employeeIds);
+    }
+
+    /**
+     * @param  array{
+     *     days: list<array<string, mixed>>
+     * }  $plan
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
+     */
+    private function collectFuturePayableDatesFromPlan(
+        int $employeeId,
+        array $plan,
+        CarbonImmutable $today,
+        array &$futureDatesByEmployee,
+    ): void {
+        $todayDate = $today->toDateString();
+
+        foreach ($plan['days'] as $day) {
+            $workDate = isset($day['work_date']) ? (string) $day['work_date'] : '';
+
+            if ($workDate === '' || $workDate <= $todayDate) {
+                continue;
+            }
+
+            $futureDatesByEmployee[$employeeId][$workDate] = true;
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
+     * @param  list<int>  $readyEmployeeIds
+     * @return array{days_count: int, employee_count: int, from: ?string, to: ?string}
+     */
+    private function summarizeCollectedFutureDates(
+        array $futureDatesByEmployee,
+        array $readyEmployeeIds,
+    ): array {
+        $readyLookup = array_fill_keys($readyEmployeeIds, true);
+        $daysCount = 0;
+        $employeeCount = 0;
+        $allDates = [];
+
+        foreach ($futureDatesByEmployee as $employeeId => $dates) {
+            if (! isset($readyLookup[$employeeId]) || $dates === []) {
+                continue;
+            }
+
+            $employeeCount++;
+            $daysCount += count($dates);
+            $allDates = [...$allDates, ...array_keys($dates)];
+        }
+
+        if ($allDates === []) {
+            return [
+                'days_count' => 0,
+                'employee_count' => 0,
+                'from' => null,
+                'to' => null,
+            ];
+        }
+
+        sort($allDates);
+
+        return [
+            'days_count' => $daysCount,
+            'employee_count' => $employeeCount,
+            'from' => $allDates[0],
+            'to' => $allDates[count($allDates) - 1],
+        ];
     }
 
     /**

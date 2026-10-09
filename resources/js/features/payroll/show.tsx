@@ -352,7 +352,9 @@ export function PayrollShowContent({
         />
     );
 
-    const handleGeneratePayroll = () => {
+    const handleGeneratePayroll = (options?: {
+        acknowledge_future_payable_days?: boolean;
+    }) => {
         setIsGenerating(true);
         const employeeDatesPayload: Record<
             number,
@@ -370,6 +372,9 @@ export function PayrollShowContent({
             {
                 excluded_employee_ids: Array.from(excludedIds),
                 employee_dates: employeeDatesPayload,
+                ...(options?.acknowledge_future_payable_days
+                    ? { acknowledge_future_payable_days: true }
+                    : {}),
             },
             {
                 preserveScroll: true,

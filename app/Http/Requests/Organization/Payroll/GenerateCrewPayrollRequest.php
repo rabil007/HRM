@@ -26,6 +26,7 @@ class GenerateCrewPayrollRequest extends FormRequest
             'employee_dates' => ['sometimes', 'array'],
             'employee_dates.*.start_date' => ['nullable', 'date'],
             'employee_dates.*.end_date' => ['nullable', 'date'],
+            'acknowledge_future_payable_days' => ['sometimes', 'boolean'],
         ];
     }
 

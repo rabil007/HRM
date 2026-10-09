@@ -100,6 +100,8 @@ The same bound clips **all** payable allocation, including completed phases whos
 
 Informational `future_actual_date` warnings may still surface when recorded actuals are after company-local today. Those warnings do not block Populate / Refresh. Existing preparation versions remain immutable snapshots; a new Prepare / Refresh creates a new version through the current effective end.
 
+Generate Payroll is separate: when payable movement segments include work dates after company-local today, the generation preview sets `requires_future_days_acknowledgment` and the backend requires `acknowledge_future_payable_days` before salary calculation proceeds. That confirmation is an auditable safety gate, not a reintroduction of the Populate today-clip.
+
 ### Effective preparation cutoff ("as-of" date)
 
 Each preparation persists an explicit `effective_cutoff_date` (`CrewTimesheetPreparation.effective_cutoff_date`), resolved by `CrewTimelinePhaseQuery::resolveEffectiveCutoffDate()`:

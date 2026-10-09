@@ -970,6 +970,7 @@ class PayrollController extends Controller
                 $payrollPeriod,
                 $request->input('excluded_employee_ids', []),
                 $request->user(),
+                $request->boolean('acknowledge_future_payable_days'),
             )
             : $generateOfficePayroll->handle(
                 $payrollPeriod,

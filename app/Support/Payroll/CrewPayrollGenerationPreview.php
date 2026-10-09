@@ -52,6 +52,11 @@ final class CrewPayrollGenerationPreview
         public readonly int $skippedCount = 0,
         public readonly array $automaticAdjustments = [],
         public readonly int $automaticAdjustmentCount = 0,
+        public readonly int $futurePayableDaysCount = 0,
+        public readonly int $futurePayableEmployeeCount = 0,
+        public readonly ?string $futurePayableFrom = null,
+        public readonly ?string $futurePayableTo = null,
+        public readonly bool $requiresFutureDaysAcknowledgment = false,
     ) {}
 
     /**
@@ -80,6 +85,11 @@ final class CrewPayrollGenerationPreview
             'blocking_reason' => $this->periodBlockingReason
                 ?? ($this->blockingIssues[0]['message'] ?? null),
             'affected_employee_id' => $this->blockingIssues[0]['employee_id'] ?? null,
+            'future_payable_days_count' => $this->futurePayableDaysCount,
+            'future_payable_employee_count' => $this->futurePayableEmployeeCount,
+            'future_payable_from' => $this->futurePayableFrom,
+            'future_payable_to' => $this->futurePayableTo,
+            'requires_future_days_acknowledgment' => $this->requiresFutureDaysAcknowledgment,
         ];
 
         if ($includeEmployeeIds) {
