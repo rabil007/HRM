@@ -1,3 +1,4 @@
+import { toCompanyDateLocal } from '../../../../lib/company-timezone.ts';
 import {
     formatUtcIsoDate,
     inclusivePeriodPositionStyle,
@@ -21,17 +22,107 @@ export const PHASE_TIMELINE_DISPLAY_MODES: Array<{
 
 const MS_PER_DAY = 86_400_000;
 
+/**
+ * Normalize any supported date/datetime representation to a company-local
+ * calendar day (`YYYY-MM-DD`). Returns null for missing/invalid values.
+ */
+export function normalizeCalendarDate(
+    value: string | null | undefined,
+    timeZone?: string | null,
+): string | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    const trimmed = String(value).trim();
+
+    if (trimmed === '') {
+        return null;
+    }
+
+    const normalized = toCompanyDateLocal(trimmed, timeZone);
+
+    return normalized === '' ? null : normalized;
+}
+
+/** True when both values resolve to the same company-local calendar day. */
+export function calendarDatesEqual(
+    left: string | null | undefined,
+    right: string | null | undefined,
+    timeZone?: string | null,
+): boolean {
+    const a = normalizeCalendarDate(left, timeZone);
+    const b = normalizeCalendarDate(right, timeZone);
+
+    if (a === null || b === null) {
+        return false;
+    }
+
+    return a === b;
+}
+
+/**
+ * True when both values are present and resolve to different calendar days.
+ * Missing/invalid pairs never count as variance.
+ */
+export function calendarDatesDiffer(
+    left: string | null | undefined,
+    right: string | null | undefined,
+    timeZone?: string | null,
+): boolean {
+    const a = normalizeCalendarDate(left, timeZone);
+    const b = normalizeCalendarDate(right, timeZone);
+
+    if (a === null || b === null) {
+        return false;
+    }
+
+    return a !== b;
+}
+
+export function phaseHasPlannedDates(phase: PhaseTimelineItem): boolean {
+    return Boolean(phase.planned_start_at || phase.planned_end_at);
+}
+
+export function phasesHavePlannedDates(phases: PhaseTimelineItem[]): boolean {
+    return phases.some((phase) => phaseHasPlannedDates(phase));
+}
+
+/**
+ * Include today in the shared scale only when an open-ended actual phase needs
+ * a visual end. Historical completed assignments must not stretch to today.
+ */
+export function shouldIncludeTodayInTimelineRange(
+    phases: PhaseTimelineItem[],
+    mode: PhaseTimelineDisplayMode,
+): boolean {
+    if (mode === 'planned_only') {
+        return false;
+    }
+
+    return phases.some(
+        (phase) =>
+            Boolean(phase.actual_start_at) &&
+            !phase.actual_end_at &&
+            (phase.status === 'active' || phase.status === 'planned'),
+    );
+}
+
 /** Inclusive calendar-day duration. Same-day start/end counts as 1 day. */
 export function inclusiveDurationDays(
     start: string | null | undefined,
     end: string | null | undefined,
+    timeZone?: string | null,
 ): number | null {
-    if (!start || !end) {
+    const startDate = normalizeCalendarDate(start, timeZone);
+    const endDate = normalizeCalendarDate(end, timeZone);
+
+    if (!startDate || !endDate) {
         return null;
     }
 
     const delta = Math.round(
-        (parseIsoToUtcMs(end) - parseIsoToUtcMs(start)) / MS_PER_DAY,
+        (parseIsoToUtcMs(endDate) - parseIsoToUtcMs(startDate)) / MS_PER_DAY,
     );
 
     if (delta < 0) {
@@ -45,41 +136,45 @@ export function inclusiveDurationDays(
 export function signedDayDelta(
     planned: string | null | undefined,
     actual: string | null | undefined,
+    timeZone?: string | null,
 ): number | null {
-    if (!planned || !actual) {
+    const plannedDate = normalizeCalendarDate(planned, timeZone);
+    const actualDate = normalizeCalendarDate(actual, timeZone);
+
+    if (!plannedDate || !actualDate) {
         return null;
     }
 
     return Math.round(
-        (parseIsoToUtcMs(actual) - parseIsoToUtcMs(planned)) / MS_PER_DAY,
+        (parseIsoToUtcMs(actualDate) - parseIsoToUtcMs(plannedDate)) /
+            MS_PER_DAY,
     );
 }
 
 export function collectTimelineDates(
     phases: PhaseTimelineItem[],
     mode: PhaseTimelineDisplayMode,
+    timeZone?: string | null,
 ): string[] {
     const dates: string[] = [];
 
+    const push = (value: string | null | undefined): void => {
+        const normalized = normalizeCalendarDate(value, timeZone);
+
+        if (normalized) {
+            dates.push(normalized);
+        }
+    };
+
     for (const phase of phases) {
         if (mode !== 'actual_only') {
-            if (phase.planned_start_at) {
-                dates.push(phase.planned_start_at);
-            }
-
-            if (phase.planned_end_at) {
-                dates.push(phase.planned_end_at);
-            }
+            push(phase.planned_start_at);
+            push(phase.planned_end_at);
         }
 
         if (mode !== 'planned_only') {
-            if (phase.actual_start_at) {
-                dates.push(phase.actual_start_at);
-            }
-
-            if (phase.actual_end_at) {
-                dates.push(phase.actual_end_at);
-            }
+            push(phase.actual_start_at);
+            push(phase.actual_end_at);
         }
     }
 
@@ -88,15 +183,28 @@ export function collectTimelineDates(
 
 export function resolveSharedTimelineRange(
     dates: string[],
-    todayIso?: string | null,
+    options?: {
+        todayIso?: string | null;
+        includeToday?: boolean;
+        timeZone?: string | null;
+    },
 ): { from: string; to: string } | null {
-    if (dates.length === 0) {
+    const normalizedDates = dates
+        .map((date) => normalizeCalendarDate(date, options?.timeZone))
+        .filter((date): date is string => date !== null);
+
+    if (normalizedDates.length === 0) {
         return null;
     }
 
-    const sorted = [...dates].sort();
+    const sorted = [...normalizedDates].sort();
     let from = sorted[0]!;
     let to = sorted[sorted.length - 1]!;
+
+    const todayIso =
+        options?.includeToday === true
+            ? normalizeCalendarDate(options.todayIso, options.timeZone)
+            : null;
 
     if (todayIso && todayIso < from) {
         from = todayIso;
@@ -121,17 +229,25 @@ export function phaseBarStyle(
     end: string | null | undefined,
     rangeFrom: string,
     rangeTo: string,
-    options?: { openEndedVisualEnd?: string | null },
+    options?: {
+        openEndedVisualEnd?: string | null;
+        timeZone?: string | null;
+    },
 ): { left: string; width: string } | { display: 'none' } {
-    if (!start) {
+    const startDate = normalizeCalendarDate(start, options?.timeZone);
+
+    if (!startDate) {
         return { display: 'none' };
     }
 
-    const visualEnd = end ?? options?.openEndedVisualEnd ?? start;
+    const endDate =
+        normalizeCalendarDate(end, options?.timeZone) ??
+        normalizeCalendarDate(options?.openEndedVisualEnd, options?.timeZone) ??
+        startDate;
 
     return inclusivePeriodPositionStyle(
-        start,
-        visualEnd,
+        startDate,
+        endDate,
         new Date(parseIsoToUtcMs(rangeFrom)),
         new Date(parseIsoToUtcMs(rangeTo)),
     );

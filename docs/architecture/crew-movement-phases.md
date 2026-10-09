@@ -1298,6 +1298,7 @@ Data sources (unchanged storage):
 - Per-phase planned/actual windows come from `crew_assignment_phases.planned_start_at` / `planned_end_at` / `actual_start_at` / `actual_end_at` (presented as company-local date strings by `CrewAssignmentPresenter`).
 - Assignment-level forecast milestones (Arrival, Vessel Join, Travel, Sign-Off, Started, Closed) remain on `CrewAssignment` and appear as an expandable **Assignment milestones** strip inside the same card — not a separate Plan vs Actual card.
 - Variance is presentation-only. Active phases without `actual_end_at` never treat “today” as a confirmed completion for end/duration variance. Planned and actual values stay independent; movement workflows, corrections, overrides, transfers, timesheets, and sea service are unchanged.
+- Shared calendar scale uses planned/actual dates only for completed historical assignments. “Today” is included only when an open-ended active actual phase needs a visual end. Milestone comparisons normalize calendar dates in the company timezone before highlighting variance.
 
 ### Operational timestamps and company timezone UX
 

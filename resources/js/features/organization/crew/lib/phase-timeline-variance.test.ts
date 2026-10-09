@@ -116,8 +116,49 @@ describe('summarizePhaseVariance', () => {
         assert.equal(summary.hasPlannedDates, false);
         assert.equal(summary.startVarianceDays, null);
         assert.equal(summary.endVarianceDays, null);
-        assert.equal(summary.headline, 'Completed · no planned dates');
+        assert.equal(
+            summary.headline,
+            'Completed · variance unavailable (no planned dates)',
+        );
         assert.equal(summary.tone, 'success');
+    });
+
+    it('keeps plan vs actual usable when planned dates are incomplete', () => {
+        const summary = summarizePhaseVariance(
+            phase({
+                planned_start_at: null,
+                planned_end_at: null,
+                status: 'active',
+                status_label: 'Active',
+                actual_start_at: '2026-09-03',
+                actual_end_at: null,
+            }),
+        );
+
+        assert.equal(summary.isInProgress, true);
+        assert.equal(summary.hasActualDates, true);
+        assert.equal(
+            summary.headline,
+            'In progress · variance unavailable (no planned dates)',
+        );
+        assert.equal(summary.startVarianceDays, null);
+        assert.equal(summary.endVarianceDays, null);
+    });
+
+    it('normalizes equivalent date representations before variance math', () => {
+        const summary = summarizePhaseVariance(
+            phase({
+                planned_start_at: '2026-09-01T00:00:00',
+                planned_end_at: '2026-09-15 00:00:00',
+                actual_start_at: '2026-09-01',
+                actual_end_at: '2026-09-15',
+            }),
+        );
+
+        assert.equal(summary.hasDeviation, false);
+        assert.equal(summary.headline, 'On time');
+        assert.equal(summary.startVarianceDays, 0);
+        assert.equal(summary.endVarianceDays, 0);
     });
 
     it('marks not-started planned phases', () => {

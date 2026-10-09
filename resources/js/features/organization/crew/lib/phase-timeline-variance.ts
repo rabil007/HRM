@@ -2,6 +2,7 @@ import type { PhaseTimelineItem } from '../types.ts';
 import {
     formatSignedDayPhrase,
     inclusiveDurationDays,
+    phaseHasPlannedDates,
     signedDayDelta,
 } from './phase-timeline-math.ts';
 
@@ -36,10 +37,9 @@ function phaseIsActive(phase: PhaseTimelineItem): boolean {
 
 export function summarizePhaseVariance(
     phase: PhaseTimelineItem,
+    timeZone?: string | null,
 ): PhaseVarianceSummary {
-    const hasPlannedDates = Boolean(
-        phase.planned_start_at || phase.planned_end_at,
-    );
+    const hasPlannedDates = phaseHasPlannedDates(phase);
     const hasActualDates = Boolean(
         phase.actual_start_at || phase.actual_end_at,
     );
@@ -53,18 +53,24 @@ export function summarizePhaseVariance(
     const plannedDurationDays = inclusiveDurationDays(
         phase.planned_start_at,
         phase.planned_end_at,
+        timeZone,
     );
     // Only confirmed ends contribute to actual duration / duration variance.
     const actualDurationDays = hasConfirmedActualEnd
-        ? inclusiveDurationDays(phase.actual_start_at, phase.actual_end_at)
+        ? inclusiveDurationDays(
+              phase.actual_start_at,
+              phase.actual_end_at,
+              timeZone,
+          )
         : null;
 
     const startVarianceDays = signedDayDelta(
         phase.planned_start_at,
         phase.actual_start_at,
+        timeZone,
     );
     const endVarianceDays = hasConfirmedActualEnd
-        ? signedDayDelta(phase.planned_end_at, phase.actual_end_at)
+        ? signedDayDelta(phase.planned_end_at, phase.actual_end_at, timeZone)
         : null;
     const durationVarianceDays =
         plannedDurationDays !== null && actualDurationDays !== null
@@ -129,10 +135,10 @@ export function summarizePhaseVariance(
     if (!hasPlannedDates && hasActualDates) {
         tone = phase.status === 'completed' ? 'success' : 'pending';
         headline = isInProgress
-            ? 'In progress · no planned dates'
+            ? 'In progress · variance unavailable (no planned dates)'
             : phase.status === 'completed'
-              ? 'Completed · no planned dates'
-              : 'Actual recorded · no planned dates';
+              ? 'Completed · variance unavailable (no planned dates)'
+              : 'Actual recorded · variance unavailable (no planned dates)';
     } else if (hasPlannedDates && isNotStarted) {
         tone = 'pending';
         headline = 'Not started';

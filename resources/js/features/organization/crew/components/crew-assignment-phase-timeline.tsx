@@ -14,10 +14,14 @@ import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-pha
 import type { PhaseTimelineDisplayMode } from '@/features/organization/crew/lib/phase-timeline-math';
 import {
     PHASE_TIMELINE_DISPLAY_MODES,
+    calendarDatesDiffer,
     collectTimelineDates,
     formatDayCount,
     phaseBarStyle,
+    phaseHasPlannedDates,
+    phasesHavePlannedDates,
     resolveSharedTimelineRange,
+    shouldIncludeTodayInTimelineRange,
 } from '@/features/organization/crew/lib/phase-timeline-math';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
@@ -26,7 +30,7 @@ import type {
     CrewAssignmentPagePermissions,
     PhaseTimelineItem,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate } from '@/lib/format-date';
+import { formatDisplayDate, nowInCompanyDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
 
@@ -34,19 +38,6 @@ interface AssignmentMilestone {
     label: string;
     planned: string | null | undefined;
     actual: string | null | undefined;
-}
-
-function todayIsoInTimezone(timezone?: string | null): string {
-    try {
-        return new Intl.DateTimeFormat('en-CA', {
-            timeZone: timezone || undefined,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-        }).format(new Date());
-    } catch {
-        return new Date().toISOString().slice(0, 10);
-    }
 }
 
 function SegmentedControl({
@@ -109,25 +100,10 @@ function TimelineBarTrack({
     openEnded = false,
 }: {
     label: string;
-    style: { left: string; width: string } | { display: 'none' };
+    style: { left: string; width: string };
     tone: 'planned' | 'actual-success' | 'actual-warning' | 'actual-pending';
     openEnded?: boolean;
 }): ReactElement {
-    if ('display' in style) {
-        return (
-            <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                    {label}
-                </span>
-                <div className="relative h-2.5 flex-1 rounded-full bg-muted/40">
-                    <span className="sr-only">
-                        No {label.toLowerCase()} dates
-                    </span>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="flex items-center gap-2">
             <span className="w-14 shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
@@ -155,8 +131,10 @@ function TimelineBarTrack({
 
 function AssignmentMilestones({
     milestones,
+    timeZone,
 }: {
     milestones: AssignmentMilestone[];
+    timeZone?: string | null;
 }): ReactElement | null {
     const visible = milestones.filter((row) => row.planned || row.actual);
 
@@ -182,10 +160,11 @@ function AssignmentMilestones({
                         </span>
                     </div>
                     {visible.map((row) => {
-                        const hasVariance =
-                            row.planned &&
-                            row.actual &&
-                            row.planned !== row.actual;
+                        const hasVariance = calendarDatesDiffer(
+                            row.planned,
+                            row.actual,
+                            timeZone,
+                        );
 
                         return (
                             <div
@@ -226,6 +205,7 @@ function PhaseTimelineRow({
     mode,
     range,
     today,
+    timeZone,
     can,
     employeeId,
     correctablePhaseIds,
@@ -238,6 +218,7 @@ function PhaseTimelineRow({
     mode: PhaseTimelineDisplayMode;
     range: { from: string; to: string } | null;
     today: string;
+    timeZone?: string | null;
     can: Pick<
         CrewAssignmentPagePermissions,
         | 'view_corrections'
@@ -250,23 +231,26 @@ function PhaseTimelineRow({
     onCorrect: (phaseId: number) => void;
     onCancelPending: (correctionId: number) => void;
 }): ReactElement {
-    const variance = summarizePhaseVariance(phase);
+    const variance = summarizePhaseVariance(phase, timeZone);
     const showPlanned = mode !== 'actual_only';
     const showActual = mode !== 'planned_only';
+    const hasPlanned = phaseHasPlannedDates(phase);
+    const hasActual = Boolean(phase.actual_start_at || phase.actual_end_at);
     const [detailsOpen, setDetailsOpen] = useState(false);
 
     const plannedStyle =
-        range && showPlanned
+        range && showPlanned && hasPlanned
             ? phaseBarStyle(
                   phase.planned_start_at,
                   phase.planned_end_at,
                   range.from,
                   range.to,
+                  { timeZone },
               )
-            : { display: 'none' as const };
+            : null;
 
     const actualStyle =
-        range && showActual
+        range && showActual && hasActual
             ? phaseBarStyle(
                   phase.actual_start_at,
                   phase.actual_end_at,
@@ -274,9 +258,10 @@ function PhaseTimelineRow({
                   range.to,
                   {
                       openEndedVisualEnd: variance.isInProgress ? today : null,
+                      timeZone,
                   },
               )
-            : { display: 'none' as const };
+            : null;
 
     const actualTone =
         mode === 'plan_vs_actual' && variance.tone === 'warning'
@@ -284,6 +269,14 @@ function PhaseTimelineRow({
             : variance.isInProgress || variance.isNotStarted
               ? 'actual-pending'
               : 'actual-success';
+
+    const showPlannedBar =
+        plannedStyle !== null && !('display' in plannedStyle);
+    const showActualBar = actualStyle !== null && !('display' in actualStyle);
+    const showMissingPlannedMessage = showPlanned && !hasPlanned;
+    const showBarPanel =
+        range !== null &&
+        (showPlannedBar || showActualBar || showMissingPlannedMessage);
 
     const hasExpandableDetails = Boolean(
         phase.remarks ||
@@ -419,8 +412,7 @@ function PhaseTimelineRow({
                                     : ''}
                             </div>
                         ) : null}
-                        {showPlanned &&
-                        (phase.planned_start_at || phase.planned_end_at) ? (
+                        {showPlanned && hasPlanned ? (
                             <div>
                                 Planned:{' '}
                                 {formatDisplayDate(phase.planned_start_at)}
@@ -432,9 +424,7 @@ function PhaseTimelineRow({
                                     : ''}
                             </div>
                         ) : null}
-                        {showPlanned &&
-                        !phase.planned_start_at &&
-                        !phase.planned_end_at ? (
+                        {showMissingPlannedMessage ? (
                             <div className="text-muted-foreground/60">
                                 No planned dates
                             </div>
@@ -442,16 +432,23 @@ function PhaseTimelineRow({
                     </div>
                 </div>
 
-                {range && (showPlanned || showActual) ? (
+                {showBarPanel && range ? (
                     <div className="space-y-1.5 rounded-lg border border-border/40 bg-muted/10 px-3 py-2.5">
-                        {showPlanned ? (
+                        {showMissingPlannedMessage ? (
+                            <p className="text-xs text-muted-foreground">
+                                {mode === 'planned_only'
+                                    ? 'No planned dates recorded for this phase.'
+                                    : 'No planned dates — variance cannot be calculated.'}
+                            </p>
+                        ) : null}
+                        {showPlannedBar && plannedStyle ? (
                             <TimelineBarTrack
                                 label="Planned"
                                 style={plannedStyle}
                                 tone="planned"
                             />
                         ) : null}
-                        {showActual ? (
+                        {showActualBar && actualStyle ? (
                             <TimelineBarTrack
                                 label="Actual"
                                 style={actualStyle}
@@ -459,10 +456,12 @@ function PhaseTimelineRow({
                                 openEnded={variance.isInProgress}
                             />
                         ) : null}
-                        <div className="flex justify-between pt-0.5 text-[10px] text-muted-foreground/70">
-                            <span>{formatDisplayDate(range.from)}</span>
-                            <span>{formatDisplayDate(range.to)}</span>
-                        </div>
+                        {showPlannedBar || showActualBar ? (
+                            <div className="flex justify-between pt-0.5 text-[10px] text-muted-foreground/70">
+                                <span>{formatDisplayDate(range.from)}</span>
+                                <span>{formatDisplayDate(range.to)}</span>
+                            </div>
+                        ) : null}
                     </div>
                 ) : null}
 
@@ -550,17 +549,29 @@ export function CrewAssignmentPhaseTimeline({
 }): ReactElement {
     const [mode, setMode] =
         useState<PhaseTimelineDisplayMode>('plan_vs_actual');
+    const timeZone = assignment.company_timezone;
 
-    const today = useMemo(
-        () => todayIsoInTimezone(assignment.company_timezone),
-        [assignment.company_timezone],
+    const today = useMemo(() => nowInCompanyDate(timeZone), [timeZone]);
+
+    const includeToday = useMemo(
+        () =>
+            shouldIncludeTodayInTimelineRange(assignment.phase_timeline, mode),
+        [assignment.phase_timeline, mode],
     );
 
     const range = useMemo(() => {
-        const dates = collectTimelineDates(assignment.phase_timeline, mode);
+        const dates = collectTimelineDates(
+            assignment.phase_timeline,
+            mode,
+            timeZone,
+        );
 
-        return resolveSharedTimelineRange(dates, today);
-    }, [assignment.phase_timeline, mode, today]);
+        return resolveSharedTimelineRange(dates, {
+            todayIso: today,
+            includeToday,
+            timeZone,
+        });
+    }, [assignment.phase_timeline, includeToday, mode, timeZone, today]);
 
     const milestones: AssignmentMilestone[] = useMemo(
         () => [
@@ -598,6 +609,14 @@ export function CrewAssignmentPhaseTimeline({
         [assignment],
     );
 
+    const hasAnyPlannedDates = phasesHavePlannedDates(
+        assignment.phase_timeline,
+    );
+    const plannedOnlyEmpty =
+        mode === 'planned_only' &&
+        assignment.phase_timeline.length > 0 &&
+        !hasAnyPlannedDates;
+
     return (
         <Card className="border-border/80 dark:border-white/10">
             <CardHeader className="space-y-3 pb-3">
@@ -613,12 +632,21 @@ export function CrewAssignmentPhaseTimeline({
                     </div>
                     <SegmentedControl value={mode} onChange={setMode} />
                 </div>
-                <AssignmentMilestones milestones={milestones} />
+                <AssignmentMilestones
+                    milestones={milestones}
+                    timeZone={timeZone}
+                />
             </CardHeader>
             <CardContent>
                 {assignment.phase_timeline.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                         No phase timeline recorded yet.
+                    </p>
+                ) : plannedOnlyEmpty ? (
+                    <p className="text-sm text-muted-foreground">
+                        No planned phase dates recorded for this assignment.
+                        Switch to Actual Only or Plan vs Actual to review
+                        recorded movements.
                     </p>
                 ) : (
                     <ol className="relative space-y-0 border-l border-border/70 pl-5">
@@ -633,6 +661,7 @@ export function CrewAssignmentPhaseTimeline({
                                 mode={mode}
                                 range={range}
                                 today={today}
+                                timeZone={timeZone}
                                 can={can}
                                 employeeId={assignment.employee?.id}
                                 correctablePhaseIds={correctablePhaseIds}
