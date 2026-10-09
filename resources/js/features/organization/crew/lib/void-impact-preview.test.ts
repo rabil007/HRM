@@ -15,6 +15,7 @@ const basePreview = {
     total_sea_service_records: 0,
     total_training_records: 0,
     total_draft_timesheet_segments: 2,
+    total_draft_preparation_lines: 0,
     total_draft_timesheet_periods: 1,
     total_accommodation_records: 1,
     can_delete_sea_service: true,
@@ -66,6 +67,7 @@ const basePreview = {
             has_accommodation: true,
             draft_timesheet: {
                 segment_count: 2,
+                preparation_line_count: 0,
                 period_count: 1,
                 periods: [{ id: 1, name: 'Oct Draft', status: 'draft' }],
             },
@@ -139,6 +141,7 @@ describe('void-impact-preview helpers', () => {
             has_draft_timesheet: false,
             has_accommodation: false,
             total_draft_timesheet_segments: 0,
+            total_draft_preparation_lines: 0,
             total_draft_timesheet_periods: 0,
             total_accommodation_records: 0,
             assignments: [

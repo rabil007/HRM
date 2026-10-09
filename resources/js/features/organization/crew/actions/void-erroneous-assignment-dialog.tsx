@@ -405,19 +405,22 @@ export function VoidErroneousAssignmentDialog({
                                 <div className="flex items-center justify-between text-muted-foreground">
                                     <span>Draft timesheet</span>
                                     <span className="font-medium text-foreground">
-                                        {preview.total_draft_timesheet_segments}{' '}
-                                        segment
-                                        {preview.total_draft_timesheet_segments ===
-                                        1
-                                            ? ''
-                                            : 's'}{' '}
-                                        across{' '}
-                                        {preview.total_draft_timesheet_periods}{' '}
-                                        Draft period
-                                        {preview.total_draft_timesheet_periods ===
-                                        1
-                                            ? ''
-                                            : 's'}
+                                        {[
+                                            preview.total_draft_timesheet_segments >
+                                            0
+                                                ? `${preview.total_draft_timesheet_segments} segment${preview.total_draft_timesheet_segments === 1 ? '' : 's'}`
+                                                : null,
+                                            preview.total_draft_preparation_lines >
+                                            0
+                                                ? `${preview.total_draft_preparation_lines} prep line${preview.total_draft_preparation_lines === 1 ? '' : 's'}`
+                                                : null,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' · ')}
+                                        {preview.total_draft_timesheet_periods >
+                                        0
+                                            ? ` across ${preview.total_draft_timesheet_periods} period${preview.total_draft_timesheet_periods === 1 ? '' : 's'}`
+                                            : ''}
                                     </span>
                                 </div>
                             ) : null}

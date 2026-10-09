@@ -20,6 +20,7 @@ final class VoidCrewAssignmentImpactResolver
      *     total_sea_service_records: int,
      *     total_training_records: int,
      *     total_draft_timesheet_segments: int,
+     *     total_draft_preparation_lines: int,
      *     total_draft_timesheet_periods: int,
      *     total_accommodation_records: int,
      *     can_delete_sea_service: bool,
@@ -46,9 +47,9 @@ final class VoidCrewAssignmentImpactResolver
      *         has_sea_service: bool,
      *         has_draft_timesheet: bool,
      *         has_accommodation: bool,
-     *         draft_timesheet: array{segment_count: int, period_count: int, periods: list<array{id: int, name: string, status: string}>}|null,
+     *         draft_timesheet: array{segment_count: int, preparation_line_count: int, period_count: int, periods: list<array{id: int, name: string, status: string}>}|null,
      *         accommodation: array{record_count: int, open_count: int, summaries: list<array{id: int, stay_type: string, accommodation_status: string, hotel_name: string|null, is_open: bool}>}|null,
-     *         dependent_assignments: list<array{id: int, assignment_no: string}>
+     *         dependent_assignments: list<array{id: int, assignment_no: string, relationship?: string}>
      *     }>
      * }
      */
@@ -69,6 +70,7 @@ final class VoidCrewAssignmentImpactResolver
                 'total_sea_service_records' => 0,
                 'total_training_records' => 0,
                 'total_draft_timesheet_segments' => 0,
+                'total_draft_preparation_lines' => 0,
                 'total_draft_timesheet_periods' => 0,
                 'total_accommodation_records' => 0,
                 'can_delete_sea_service' => $canDeleteSeaService,
@@ -144,6 +146,7 @@ final class VoidCrewAssignmentImpactResolver
         $totalSeaService = 0;
         $totalTraining = 0;
         $totalDraftSegments = 0;
+        $totalDraftPrepLines = 0;
         $draftPeriodIds = [];
         $totalAccommodation = 0;
         $anyProtectedBlockers = false;
@@ -176,6 +179,7 @@ final class VoidCrewAssignmentImpactResolver
                 if ($blocker['code'] === 'draft_timesheet_exists' && isset($blocker['draft_timesheet'])) {
                     $draftMeta = $blocker['draft_timesheet'];
                     $totalDraftSegments += (int) ($draftMeta['segment_count'] ?? 0);
+                    $totalDraftPrepLines += (int) ($draftMeta['preparation_line_count'] ?? 0);
                     foreach ($draftMeta['periods'] ?? [] as $period) {
                         $draftPeriodIds[(int) $period['id']] = true;
                     }
@@ -237,6 +241,7 @@ final class VoidCrewAssignmentImpactResolver
             'total_sea_service_records' => $totalSeaService,
             'total_training_records' => $totalTraining,
             'total_draft_timesheet_segments' => $totalDraftSegments,
+            'total_draft_preparation_lines' => $totalDraftPrepLines,
             'total_draft_timesheet_periods' => count($draftPeriodIds),
             'total_accommodation_records' => $totalAccommodation,
             'can_delete_sea_service' => $canDeleteSeaService,
@@ -245,7 +250,7 @@ final class VoidCrewAssignmentImpactResolver
             'can_delete_accommodation' => $canDeleteAccommodation,
             'has_sea_service' => $totalSeaService > 0,
             'has_training' => $totalTraining > 0,
-            'has_draft_timesheet' => $totalDraftSegments > 0,
+            'has_draft_timesheet' => $totalDraftSegments > 0 || $totalDraftPrepLines > 0,
             'has_accommodation' => $totalAccommodation > 0,
             'has_protected_blockers' => $anyProtectedBlockers,
             'blocked_assignment_nos' => array_values(array_unique($blockedNos)),

@@ -553,11 +553,11 @@ Opening the confirmation dialog triggers an impact preflight (`POST /organizatio
    - Manual or imported trainings are strictly preserved and never touched.
 
 3. **Draft Timesheet Cleanup (`delete_draft_timesheet`)**:
-   - Assignment-linked `CrewTimesheetSegment` rows on **Draft** payroll periods are cleanup-eligible (`draft_timesheet_exists`), not hard-blocked.
-   - Without the checkbox, void remains blocked with an exact backend message identifying segment/period counts.
-   - With confirmation (authorised by `crew_operations.assignments.void`), only segments for the selected assignment(s) are soft-deleted, draft/returned/superseded preparation lines for those assignments are soft-deleted, and parent timesheet totals are recalculated via `SyncCrewTimesheetParentFromSegments`.
-   - Parent timesheets, unrelated assignment segments, manual/financial adjustments, and non-Draft periods are preserved.
-   - Processing, Approved, Paid, Applied preparation, Submitted/Approved preparation, and protected work allocations remain hard blockers (`payroll_protected` / `payroll_applied`). Draft period status alone never authorises deletion when those protected dependencies exist.
+   - Assignment-linked `CrewTimesheetSegment` rows on **Draft** payroll periods **and** Draft/Returned/Superseded `CrewTimesheetPreparationLine` rows are cleanup-eligible (`draft_timesheet_exists`), including preparation-only cases with no segments.
+   - Without the checkbox, void remains blocked with an exact backend message identifying segment, preparation-line, and period counts.
+   - With confirmation (authorised by `crew_operations.assignments.void`), only records for the selected assignment(s) are soft-deleted, and parent timesheet totals are recalculated via `SyncCrewTimesheetParentFromSegments`.
+   - Parent timesheets, unrelated assignment segments/lines, manual/financial adjustments, and non-Draft periods are preserved.
+   - `delete_draft_timesheet` never suppresses non-Draft segment checks. Processing, Approved, Paid, Cancelled, Applied preparation, Submitted/Approved preparation, and protected work allocations remain hard blockers (`payroll_protected` / `payroll_applied` / `protected_dependency_exists`).
 
 4. **Accommodation Cleanup (`delete_accommodation`)**:
    - Linked `CrewAccommodationStay` rows (including explicit No Accommodation) are cleanup-eligible (`accommodation_history_exists`) with explicit confirmation.
@@ -574,7 +574,7 @@ The void dialog shows **exact backend blocker messages** (never invented fronten
 Cleanup flags cannot bypass non-negotiable operational and accounting protections enforced by `CrewAssignmentVoidGuard`:
 - `payroll_applied` / `payroll_protected` — Applied, Submitted/Approved Crew Timesheet prep, reserved/approved/paid work allocations, or timesheet segments on Processing/Approved/Paid periods
 - `protected_dependency_exists` — timesheet segments on non-Draft periods that are not already covered by `payroll_protected` (for example Cancelled)
-- `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id` (message names the dependent assignment number; dependents are never auto-deleted or reparented)
+- `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`, incoming relief assignments via `relieves_crew_assignment_id`, and active relief planning rows that relieve the source (message names the dependent record and relationship; dependents are never auto-deleted or reparented). Derived planning bars owned by the assignment (`crew_assignment_id`) remain soft-deleted by existing void cleanup and are not blockers.
 - `already_voided` / `cross_company`
 - Cleanup-eligible until confirmed: `sea_service_exists`, `draft_timesheet_exists`, `accommodation_history_exists`
 

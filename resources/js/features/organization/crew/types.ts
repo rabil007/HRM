@@ -586,6 +586,7 @@ export type VoidBlocker = {
 
 export type VoidDraftTimesheetImpact = {
     segment_count: number;
+    preparation_line_count: number;
     period_count: number;
     periods: Array<{
         id: number;
@@ -609,6 +610,9 @@ export type VoidAccommodationImpact = {
 export type VoidDependentAssignment = {
     id: number;
     assignment_no: string;
+    relationship?: string;
+    planning_assignment_id?: number;
+    linked_crew_assignment_id?: number | null;
 };
 
 export type VoidAssignmentImpactItem = {
@@ -639,6 +643,7 @@ export type VoidImpactPreview = {
     total_sea_service_records: number;
     total_training_records: number;
     total_draft_timesheet_segments: number;
+    total_draft_preparation_lines: number;
     total_draft_timesheet_periods: number;
     total_accommodation_records: number;
     can_delete_sea_service: boolean;

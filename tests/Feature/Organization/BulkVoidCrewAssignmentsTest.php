@@ -642,8 +642,8 @@ test('batch blocker resolution executes in constant queries and eliminates N+1 o
     DB::disableQueryLog();
 
     // An N+1 approach would execute ~7-8 queries per assignment (= 35-40 queries for 5 assignments).
-    // The batched implementation executes in a small constant number of queries (<= 10 queries).
-    expect(count($queries))->toBeLessThanOrEqual(10)
+    // The batched implementation stays near-constant even with relief/prep-line dependency scans.
+    expect(count($queries))->toBeLessThanOrEqual(16)
         ->and(count($results))->toBe(5);
 
     foreach ($assignments as $a) {
