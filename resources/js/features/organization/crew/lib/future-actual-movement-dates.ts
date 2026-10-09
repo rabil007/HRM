@@ -4,6 +4,9 @@
  * aligned with CrewActualMovementTimestampGuard.
  */
 
+export const TESTING_OVERRIDE_BANNER_MESSAGE =
+    'Testing Mode: Future-dated movements are recorded immediately and may update current crew status, accommodation, Sea Service and reports. Use test records only.';
+
 export function resolveMovementOccurredAtMax(
     companyNow: string,
     allowFutureActualMovementDates: boolean,

@@ -6,12 +6,12 @@ use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
-use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTravelHomeCompletionIntent;
 use App\Models\CrewAssignment;
 use App\Models\RoomType;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\CrewMovements\CrewInitialArrivalBackdateGuard;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -421,11 +421,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             // Only the initial, active P0 phase can be reconciled backwards; subsequent
             // movement phases retain strict chronological validation.
             $isInitialArrival = $action === CrewMovementAction::RecordArrival->value
-                && $assignment->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation
-                && $assignment->currentPhase?->status === CrewPhaseStatus::Active
-                && $assignment->currentPhase?->actual_end_at === null
-                && $assignment->currentPhase?->sequence === 1
-                && $assignment->phases->count() === 1;
+                && CrewInitialArrivalBackdateGuard::isEligible($assignment, $assignment->currentPhase);
 
             if ($occurredAt !== null && $currentStart !== null && $occurredAt->lt($currentStart) && ! $isInitialArrival) {
                 $validator->errors()->add(

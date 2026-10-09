@@ -48,6 +48,7 @@ final class CrewMovementService
         private CrewAccommodationService $accommodation = new CrewAccommodationService,
         private CrewActualMovementTimestampGuard $actualMovementTimestamps = new CrewActualMovementTimestampGuard,
         private CrewAssignmentConflictEvaluator $conflictEvaluator = new CrewAssignmentConflictEvaluator,
+        private CrewInitialArrivalBackdateGuard $initialArrivalBackdate = new CrewInitialArrivalBackdateGuard,
     ) {}
 
     /**
@@ -502,6 +503,11 @@ final class CrewMovementService
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $this->accommodation->validatePreJoinCheckInPayload($assignment, $payload, $occurredAt);
+
+        // Operators may record the first arrival after creating the assignment.
+        // Reconcile the initial P0 start so the closed phase never has a negative duration.
+        $this->initialArrivalBackdate->reconcileIfNeeded($assignment, $current, $occurredAt, $actorId);
+        $current->refresh();
 
         $assignment = $this->completeAndOpenNext($assignment, $current, $nextCode, $occurredAt, $actorId);
         $assignment->unsetRelation('currentPhase');
