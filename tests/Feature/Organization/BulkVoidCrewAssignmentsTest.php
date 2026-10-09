@@ -53,6 +53,8 @@ function postBulkVoidViaHttp(
     string $reason = 'Entered by mistake',
     bool $deleteSeaService = false,
     bool $deleteTraining = false,
+    bool $deleteDraftTimesheet = false,
+    bool $deleteAccommodation = false,
 ): mixed {
     return actingAs($user)
         ->withSession(['current_company_id' => $user->current_company_id])
@@ -61,6 +63,8 @@ function postBulkVoidViaHttp(
             'void_reason' => $reason,
             'delete_sea_service' => $deleteSeaService,
             'delete_training' => $deleteTraining,
+            'delete_draft_timesheet' => $deleteDraftTimesheet,
+            'delete_accommodation' => $deleteAccommodation,
         ]);
 }
 
@@ -99,14 +103,20 @@ test('preview returns server-authoritative impact details and permissions', func
             'total_training_records' => 1,
             'can_delete_sea_service' => true,
             'can_delete_training' => true,
+            'can_delete_draft_timesheet' => true,
+            'can_delete_accommodation' => true,
             'has_sea_service' => true,
             'has_training' => true,
+            'has_draft_timesheet' => false,
+            'has_accommodation' => false,
             'has_protected_blockers' => false,
         ]);
 
     expect($response->json('assignments.0.id'))->toBe($assignment->id)
         ->and($response->json('assignments.0.sea_service_count'))->toBe(1)
-        ->and($response->json('assignments.0.training_count'))->toBe(1);
+        ->and($response->json('assignments.0.training_count'))->toBe(1)
+        ->and($response->json('assignments.0.protected_blockers'))->toBe([])
+        ->and(collect($response->json('assignments.0.cleanup_blockers'))->pluck('code')->all())->toContain('sea_service_exists');
 });
 
 // 1. User with crew_operations.assignments.void can delete an eligible assignment
@@ -632,8 +642,8 @@ test('batch blocker resolution executes in constant queries and eliminates N+1 o
     DB::disableQueryLog();
 
     // An N+1 approach would execute ~7-8 queries per assignment (= 35-40 queries for 5 assignments).
-    // The batched implementation executes in a small constant number of queries (<= 10 queries).
-    expect(count($queries))->toBeLessThanOrEqual(10)
+    // The batched implementation stays near-constant even with relief/prep-line dependency scans.
+    expect(count($queries))->toBeLessThanOrEqual(16)
         ->and(count($results))->toBe(5);
 
     foreach ($assignments as $a) {

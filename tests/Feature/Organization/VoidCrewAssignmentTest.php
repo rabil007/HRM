@@ -3,15 +3,19 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Company;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewPlanningAssignment;
 use App\Models\CrewTimesheet;
+use App\Models\CrewTimesheetPreparation;
+use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
@@ -534,12 +538,14 @@ test('paid payroll period segment blocks void', function () {
         'source' => CrewTimesheetSource::CrewOperations,
     ]);
 
-    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+    $blockers = app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id);
+    $codes = collect($blockers)->pluck('code');
     expect($codes)->toContain('payroll_protected')
-        ->and($codes)->toContain('protected_dependency_exists');
+        ->and($codes)->not->toContain('draft_timesheet_exists')
+        ->and(collect($blockers)->firstWhere('code', 'payroll_protected')['message'])->toContain('protected payroll');
 });
 
-test('timesheet segment dependency blocks void', function () {
+test('draft timesheet segment blocks void without cleanup and allows with cleanup', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
@@ -548,6 +554,119 @@ test('timesheet segment dependency blocks void', function () {
     $period = PayrollPeriod::factory()->for($company)->create([
         'status' => PayrollPeriodStatus::Draft,
         'payroll_category' => 'crew',
+        'name' => 'Oct 2026 Crew Draft',
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::CrewOperations,
+        'onsite_days' => 5,
+        'additional_amount' => 25,
+    ]);
+
+    $segment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-05',
+        'days' => 5,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $otherAssignment = app(CrewMovementService::class)->createDraft($company->id, $otherEmployee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $otherTimesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $otherEmployee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::CrewOperations,
+        'onsite_days' => 3,
+    ]);
+
+    $otherSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $otherTimesheet->id,
+        'crew_assignment_id' => $otherAssignment->id,
+        'from_date' => '2026-07-06',
+        'to_date' => '2026-07-08',
+        'days' => 3,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    // Keep an unrelated segment on the same timesheet so parent totals stay consistent.
+    $siblingSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $otherAssignment->id,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-06',
+        'to_date' => '2026-07-08',
+        'days' => 3,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+    expect($codes)->toContain('draft_timesheet_exists')
+        ->and($codes)->not->toContain('protected_dependency_exists');
+
+    expect(fn () => app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Draft without cleanup',
+    ))->toThrow(ValidationException::class);
+
+    expect(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeTrue();
+
+    app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Draft with cleanup',
+        deleteDraftTimesheet: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeFalse()
+        ->and(CrewTimesheetSegment::withTrashed()->findOrFail($segment->id)->trashed())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($otherSegment->id)->exists())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($siblingSegment->id)->exists())->toBeTrue()
+        ->and((float) $timesheet->fresh()->additional_amount)->toBe(25.0)
+        ->and((float) $timesheet->fresh()->onsite_days)->toBe(3.0)
+        ->and(CrewAssignment::query()->whereKey($otherAssignment->id)->exists())->toBeTrue();
+
+    $activity = Activity::query()
+        ->where('description', 'Crew assignment voided as erroneous')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->properties['delete_draft_timesheet'])->toBeTrue()
+        ->and($activity->properties['draft_timesheet_segments_deleted'])->toBe(1);
+});
+
+test('processing payroll period segment remains a hard blocker', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'payroll_category' => 'crew',
+        'name' => 'Processing Period',
     ]);
 
     $timesheet = CrewTimesheet::factory()->create([
@@ -567,8 +686,86 @@ test('timesheet segment dependency blocks void', function () {
         'source' => CrewTimesheetSource::CrewOperations,
     ]);
 
-    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
-    expect($codes)->toContain('protected_dependency_exists');
+    $blockers = app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id);
+    $codes = collect($blockers)->pluck('code');
+
+    expect($codes)->toContain('payroll_protected')
+        ->and(collect($blockers)->firstWhere('code', 'payroll_protected')['message'])->toContain('Processing Period')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Should stay blocked',
+            deleteDraftTimesheet: true,
+        ))->toThrow(ValidationException::class);
+});
+
+test('linked transfer child blocker names the dependent assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $sourceVessel = makeCrewMovementVessel('Named Transfer Source');
+    $destinationVessel = makeCrewMovementVessel('Named Transfer Dest');
+    $source = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
+
+    app(CrewMovementService::class)->perform($company->id, $source->id, CrewMovementAction::TransferVessel, [
+        'occurred_at' => '2026-06-01 08:00:00',
+        'vessel_id' => $destinationVessel->id,
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $child = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('previous_assignment_id', $source->id)
+        ->firstOrFail();
+
+    $blocker = collect(app(CrewAssignmentVoidGuard::class)->blockers($source->fresh(), $company->id))
+        ->firstWhere('code', 'linked_assignment_exists');
+
+    expect($blocker)->not->toBeNull()
+        ->and($blocker['message'])->toContain($source->assignment_no)
+        ->and($blocker['message'])->toContain($child->assignment_no)
+        ->and($blocker['dependent_assignments'][0]['assignment_no'])->toBe($child->assignment_no);
+});
+
+test('void preview distinguishes protected blockers from cleanup-eligible dependencies', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'payroll_category' => 'crew',
+    ]);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+    ]);
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.crew-assignments.void-preview'), [
+            'assignment_ids' => [$assignment->id],
+        ])
+        ->assertOk()
+        ->assertJsonPath('has_protected_blockers', false)
+        ->assertJsonPath('has_draft_timesheet', true)
+        ->assertJsonPath('has_accommodation', true)
+        ->assertJsonPath('can_delete_draft_timesheet', true)
+        ->assertJsonPath('can_delete_accommodation', true);
+
+    expect(collect($response->json('assignments.0.cleanup_blockers'))->pluck('code')->all())
+        ->toContain('draft_timesheet_exists', 'accommodation_history_exists')
+        ->and($response->json('assignments.0.protected_blockers'))->toBe([]);
 });
 
 test('normal cancel behavior remains unchanged', function () {
@@ -709,4 +906,360 @@ test('tenant isolation: void guard ignores foreign company sea service rows', fu
     app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'Foreign sea service ignored');
 
     expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue();
+});
+
+test('delete_draft_timesheet cannot bypass cancelled period segment protection', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Cancelled,
+        'payroll_category' => 'crew',
+        'name' => 'Cancelled Period',
+    ]);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+    ]);
+    $segment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers(
+        $assignment->fresh(),
+        $company->id,
+        ignoreDraftTimesheet: true,
+    ))->pluck('code');
+
+    expect($codes)->toContain('protected_dependency_exists')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Bypass attempt',
+            deleteDraftTimesheet: true,
+        ))->toThrow(ValidationException::class)
+        ->and(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeTrue();
+});
+
+test('delete_draft_timesheet cannot bypass processing approved or paid period segments', function (PayrollPeriodStatus $status) {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => $status,
+        'payroll_category' => 'crew',
+        'name' => $status->value.' Period',
+    ]);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+    ]);
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+
+    expect(collect(app(CrewAssignmentVoidGuard::class)->blockers(
+        $assignment->fresh(),
+        $company->id,
+        ignoreDraftTimesheet: true,
+    ))->pluck('code'))->toContain('payroll_protected')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Bypass protected',
+            deleteDraftTimesheet: true,
+        ))->toThrow(ValidationException::class)
+        ->and(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue();
+})->with([
+    PayrollPeriodStatus::Processing,
+    PayrollPeriodStatus::Approved,
+    PayrollPeriodStatus::Paid,
+]);
+
+test('mixed draft and protected segments remain blocked even with draft cleanup', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $draftPeriod = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'payroll_category' => 'crew',
+    ]);
+    $paidPeriod = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Paid,
+        'payroll_category' => 'crew',
+    ]);
+
+    $draftTimesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $draftPeriod->id,
+    ]);
+    $paidTimesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $paidPeriod->id,
+    ]);
+
+    $draftSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $draftTimesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+    $paidSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $paidTimesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+
+    expect($codes)->toContain('draft_timesheet_exists')
+        ->and($codes)->toContain('payroll_protected')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Mixed deps',
+            deleteDraftTimesheet: true,
+        ))->toThrow(ValidationException::class)
+        ->and(CrewTimesheetSegment::query()->whereKey($draftSegment->id)->exists())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($paidSegment->id)->exists())->toBeTrue()
+        ->and(CrewAssignment::query()->whereKey($assignment->id)->exists())->toBeTrue();
+});
+
+test('eligible preparation lines without segments require draft cleanup confirmation', function (CrewTimesheetPreparationStatus $status) {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'payroll_category' => 'crew',
+        'name' => 'Prep Only Draft',
+    ]);
+    $preparation = CrewTimesheetPreparation::factory()->forPeriod($period)->create([
+        'status' => $status,
+        'prepared_by' => $user->id,
+    ]);
+    $line = CrewTimesheetPreparationLine::factory()
+        ->forPreparation($preparation)
+        ->forAssignment($assignment)
+        ->create();
+
+    $blockers = app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id);
+    $draftBlocker = collect($blockers)->firstWhere('code', 'draft_timesheet_exists');
+
+    expect($draftBlocker)->not->toBeNull()
+        ->and($draftBlocker['draft_timesheet']['segment_count'])->toBe(0)
+        ->and($draftBlocker['draft_timesheet']['preparation_line_count'])->toBe(1)
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Prep without cleanup',
+        ))->toThrow(ValidationException::class)
+        ->and(CrewTimesheetPreparationLine::query()->whereKey($line->id)->exists())->toBeTrue();
+
+    app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Prep with cleanup',
+        deleteDraftTimesheet: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewTimesheetPreparationLine::query()->whereKey($line->id)->exists())->toBeFalse()
+        ->and(CrewTimesheetPreparationLine::withTrashed()->findOrFail($line->id)->trashed())->toBeTrue();
+
+    $activity = Activity::query()
+        ->where('description', 'Crew assignment voided as erroneous')
+        ->latest('id')
+        ->first();
+
+    expect($activity->properties['draft_timesheet_prep_lines_deleted'])->toBe(1);
+})->with([
+    CrewTimesheetPreparationStatus::Draft,
+    CrewTimesheetPreparationStatus::Returned,
+    CrewTimesheetPreparationStatus::Superseded,
+]);
+
+test('prep-only cleanup preserves unrelated preparation lines', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+    $otherAssignment = app(CrewMovementService::class)->createDraft($company->id, $otherEmployee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'payroll_category' => 'crew',
+    ]);
+    $preparation = CrewTimesheetPreparation::factory()->forPeriod($period)->create([
+        'status' => CrewTimesheetPreparationStatus::Draft,
+        'prepared_by' => $user->id,
+    ]);
+    $targetLine = CrewTimesheetPreparationLine::factory()
+        ->forPreparation($preparation)
+        ->forAssignment($assignment)
+        ->create();
+    $otherLine = CrewTimesheetPreparationLine::factory()
+        ->forPreparation($preparation)
+        ->forAssignment($otherAssignment)
+        ->create();
+
+    app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Prep cleanup preserves siblings',
+        deleteDraftTimesheet: true,
+    );
+
+    expect(CrewTimesheetPreparationLine::query()->whereKey($targetLine->id)->exists())->toBeFalse()
+        ->and(CrewTimesheetPreparationLine::query()->whereKey($otherLine->id)->exists())->toBeTrue()
+        ->and(CrewAssignment::query()->whereKey($otherAssignment->id)->exists())->toBeTrue();
+});
+
+test('incoming relief assignment blocks void of the relieved source', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures(['sea_services.delete']);
+    $vessel = makeCrewMovementVessel('Relief Source Vessel');
+    $source = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $reliefEmployee = Employee::factory()->forCompany($company)->create([
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $relief = app(CrewMovementService::class)->createDraft($company->id, $reliefEmployee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'relieves_crew_assignment_id' => $source->id,
+    ], $user->id);
+
+    $blocker = collect(app(CrewAssignmentVoidGuard::class)->blockers($source->fresh(), $company->id))
+        ->firstWhere('code', 'linked_assignment_exists');
+
+    expect($blocker)->not->toBeNull()
+        ->and($blocker['message'])->toContain($relief->assignment_no)
+        ->and($blocker['message'])->toContain('relief assignment')
+        ->and(collect($blocker['dependent_assignments'])->pluck('relationship')->all())->toContain('relief_assignment')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $source->id,
+            $user,
+            'Should stay blocked',
+            deleteSeaService: true,
+        ))->toThrow(ValidationException::class)
+        ->and(CrewAssignment::query()->whereKey($source->id)->exists())->toBeTrue()
+        ->and(CrewAssignment::query()->whereKey($relief->id)->exists())->toBeTrue();
+});
+
+test('active relief planning referencing the source blocks void', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures(['sea_services.delete']);
+    $vessel = makeCrewMovementVessel('Relief Plan Vessel');
+    $source = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $plan = CrewPlanningAssignment::factory()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'crew_assignment_id' => null,
+    ]);
+
+    $blocker = collect(app(CrewAssignmentVoidGuard::class)->blockers($source->fresh(), $company->id))
+        ->firstWhere('code', 'linked_assignment_exists');
+
+    expect($blocker)->not->toBeNull()
+        ->and($blocker['message'])->toContain('relief plan')
+        ->and(collect($blocker['dependent_assignments'])->pluck('relationship')->all())->toContain('relief_planning')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $source->id,
+            $user,
+            'Relief plan blocks',
+            deleteSeaService: true,
+        ))->toThrow(ValidationException::class)
+        ->and(CrewAssignment::query()->whereKey($source->id)->exists())->toBeTrue()
+        ->and(CrewPlanningAssignment::query()->whereKey($plan->id)->exists())->toBeTrue();
+});
+
+test('derived planning owned by the assignment remains cleanup-eligible and does not block', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Derived Planning Vessel');
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'planned_join_at' => '2026-08-01 00:00:00',
+        'planned_signoff_at' => '2026-11-01 00:00:00',
+    ], $user->id);
+
+    $planning = syncPlanningFromAssignment($assignment);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+
+    expect($codes)->not->toContain('linked_assignment_exists');
+
+    app(VoidCrewAssignment::class)->handle($company->id, $assignment->id, $user, 'Derived planning ok');
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewPlanningAssignment::query()->whereKey($planning->id)->exists())->toBeFalse()
+        ->and(CrewPlanningAssignment::withTrashed()->whereKey($planning->id)->exists())->toBeTrue();
+});
+
+test('cross-company relief relationships do not block local void', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures(['sea_services.delete']);
+    ['company' => $otherCompany, 'employee' => $otherEmployee, 'rank' => $otherRank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Local Relief Isolation Vessel');
+    $source = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    // Persist a forged cross-company relief pointer without the movement service
+    // (the service correctly rejects mismatched company IDs).
+    $foreign = app(CrewMovementService::class)->createDraft($otherCompany->id, $otherEmployee->id, [
+        'position_id' => $otherRank->id,
+    ]);
+    $foreign->forceFill(['relieves_crew_assignment_id' => $source->id])->saveQuietly();
+
+    CrewPlanningAssignment::factory()->create([
+        'company_id' => $otherCompany->id,
+        'position_id' => $otherRank->id,
+        'relieves_crew_assignment_id' => $source->id,
+        'crew_assignment_id' => null,
+    ]);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($source->fresh(), $company->id))->pluck('code');
+
+    expect($codes)->not->toContain('linked_assignment_exists');
+
+    app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $source->id,
+        $user,
+        'Foreign relief ignored',
+        deleteSeaService: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($source->id)->trashed())->toBeTrue();
 });

@@ -552,25 +552,42 @@ Opening the confirmation dialog triggers an impact preflight (`POST /organizatio
    - If the user selects "Delete generated Training" and possesses `training.delete`, the linked training records are soft-deleted and all certificate versions/files are cleaned up after database transaction commit via `StoresEmployeeTrainingCertificate::deletePaths()`.
    - Manual or imported trainings are strictly preserved and never touched.
 
+3. **Draft Timesheet Cleanup (`delete_draft_timesheet`)**:
+   - Assignment-linked `CrewTimesheetSegment` rows on **Draft** payroll periods **and** Draft/Returned/Superseded `CrewTimesheetPreparationLine` rows are cleanup-eligible (`draft_timesheet_exists`), including preparation-only cases with no segments.
+   - Without the checkbox, void remains blocked with an exact backend message identifying segment, preparation-line, and period counts.
+   - With confirmation (authorised by `crew_operations.assignments.void`), only records for the selected assignment(s) are soft-deleted, and parent timesheet totals are recalculated via `SyncCrewTimesheetParentFromSegments`.
+   - Parent timesheets, unrelated assignment segments/lines, manual/financial adjustments, and non-Draft periods are preserved.
+   - `delete_draft_timesheet` never suppresses non-Draft segment checks. Processing, Approved, Paid, Cancelled, Applied preparation, Submitted/Approved preparation, and protected work allocations remain hard blockers (`payroll_protected` / `payroll_applied` / `protected_dependency_exists`).
+
+4. **Accommodation Cleanup (`delete_accommodation`)**:
+   - Linked `CrewAccommodationStay` rows (including explicit No Accommodation) are cleanup-eligible (`accommodation_history_exists`) with explicit confirmation.
+   - Stays are hard-deleted (the model has no SoftDeletes). An audit snapshot of removed stay details is stored on the `crew_assignment_voided` activity properties.
+   - Only stays belonging to the selected assignment and company are removed. Hotel/room master data is untouched.
+   - Cleanup is authorised by the same privileged void permission; it is never automatic.
+
+### Impact Preview UX
+
+The void dialog shows **exact backend blocker messages** (never invented frontend reasons). Cleanup-eligible dependencies appear as checkboxes; true blockers appear as a warning badge/list and keep Delete disabled. Bulk void groups protected blockers by assignment number. The generic “protected payroll, accommodation history, or linked assignment” copy is not used as a catch-all.
+
 ### Preserved Operational Blockers
 
 Cleanup flags cannot bypass non-negotiable operational and accounting protections enforced by `CrewAssignmentVoidGuard`:
-- `payroll_applied` / `payroll_protected` — Applied, Approved/Submitted Crew Timesheet prep, paid/approved work allocations, or timesheet segments
-- `sea_service_exists` — linked generated Sea Service when the user does not select Sea Service cleanup
-- `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`
-- `accommodation_history_exists` — any `CrewAccommodationStay` row for the assignment
-- `already_voided` — already voided / soft-deleted
+- `payroll_applied` / `payroll_protected` — Applied, Submitted/Approved Crew Timesheet prep, reserved/approved/paid work allocations, or timesheet segments on Processing/Approved/Paid periods
+- `protected_dependency_exists` — timesheet segments on non-Draft periods that are not already covered by `payroll_protected` (for example Cancelled)
+- `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`, incoming relief assignments via `relieves_crew_assignment_id`, and active relief planning rows that relieve the source (message names the dependent record and relationship; dependents are never auto-deleted or reparented). Derived planning bars owned by the assignment (`crew_assignment_id`) remain soft-deleted by existing void cleanup and are not blockers.
+- `already_voided` / `cross_company`
+- Cleanup-eligible until confirmed: `sea_service_exists`, `draft_timesheet_exists`, `accommodation_history_exists`
 
 ### All-or-Nothing Transactional Execution
 
 Bulk voiding (`POST /organization/crew/bulk-void`) is strictly all-or-nothing:
 1. Resolves all selected IDs scoped to `current_company_id` and employee visibility (`EmployeeVisibilityScope`).
 2. Acquires row locks (`lockForUpdate()`) in consistent ascending ID order.
-3. Runs preflight safety assertions and permission verification on every assignment.
+3. Revalidates permissions and runs preflight safety assertions on every assignment (honouring selected cleanup flags).
 4. If any single assignment in the batch is blocked, cross-company, or unauthorized, the entire transaction rolls back and 0 assignments are modified.
-5. Soft-deletes derived planning bars, selected linked sea service, selected linked training, and the assignments themselves.
+5. Performs selected cleanups (Draft timesheet, accommodation, Sea Service, Training), soft-deletes derived planning bars, then voids the assignments.
 6. Deletes certificate files via a `DB::afterCommit` hook only after the database transaction successfully commits.
-7. Records an independent `crew_assignment_voided` activity audit record per assignment.
+7. Records an independent `crew_assignment_voided` activity audit record per assignment, including cleanup counts and accommodation snapshots when applicable.
 
 HTTP routes:
 - `POST /organization/crew/void-preview` (`organization.crew-assignments.void-preview`, middleware: `can:crew_operations.assignments.void`, `privileged.2fa`)

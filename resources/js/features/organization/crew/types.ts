@@ -579,6 +579,42 @@ export interface CrewAssignmentPagePermissions {
     delete_training?: boolean;
 }
 
+export type VoidBlocker = {
+    code: string;
+    message: string;
+};
+
+export type VoidDraftTimesheetImpact = {
+    segment_count: number;
+    preparation_line_count: number;
+    period_count: number;
+    periods: Array<{
+        id: number;
+        name: string;
+        status: string;
+    }>;
+};
+
+export type VoidAccommodationImpact = {
+    record_count: number;
+    open_count: number;
+    summaries: Array<{
+        id: number;
+        stay_type: string;
+        accommodation_status: string;
+        hotel_name: string | null;
+        is_open: boolean;
+    }>;
+};
+
+export type VoidDependentAssignment = {
+    id: number;
+    assignment_no: string;
+    relationship?: string;
+    planning_assignment_id?: number;
+    linked_crew_assignment_id?: number | null;
+};
+
 export type VoidAssignmentImpactItem = {
     id: number;
     assignment_no: string;
@@ -590,19 +626,34 @@ export type VoidAssignmentImpactItem = {
     } | null;
     sea_service_count: number;
     training_count: number;
-    blockers: Array<{ code: string; message: string }>;
+    blockers: VoidBlocker[];
+    protected_blockers: VoidBlocker[];
+    cleanup_blockers: VoidBlocker[];
     has_protected_blockers: boolean;
     has_sea_service: boolean;
+    has_draft_timesheet: boolean;
+    has_accommodation: boolean;
+    draft_timesheet: VoidDraftTimesheetImpact | null;
+    accommodation: VoidAccommodationImpact | null;
+    dependent_assignments: VoidDependentAssignment[];
 };
 
 export type VoidImpactPreview = {
     total_assignments: number;
     total_sea_service_records: number;
     total_training_records: number;
+    total_draft_timesheet_segments: number;
+    total_draft_preparation_lines: number;
+    total_draft_timesheet_periods: number;
+    total_accommodation_records: number;
     can_delete_sea_service: boolean;
     can_delete_training: boolean;
+    can_delete_draft_timesheet: boolean;
+    can_delete_accommodation: boolean;
     has_sea_service: boolean;
     has_training: boolean;
+    has_draft_timesheet: boolean;
+    has_accommodation: boolean;
     has_protected_blockers: boolean;
     blocked_assignment_nos: string[];
     assignments: VoidAssignmentImpactItem[];

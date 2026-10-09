@@ -51,6 +51,8 @@ class BulkVoidCrewAssignmentsRequest extends FormRequest
             'assignment_ids.*' => ['integer', 'distinct'],
             'delete_sea_service' => ['sometimes', 'boolean'],
             'delete_training' => ['sometimes', 'boolean'],
+            'delete_draft_timesheet' => ['sometimes', 'boolean'],
+            'delete_accommodation' => ['sometimes', 'boolean'],
             'void_reason' => ['required', 'string', 'max:2000'],
         ];
     }

@@ -18,6 +18,8 @@ final class VoidCrewAssignment
         string $reason,
         bool $deleteSeaService = false,
         bool $deleteTraining = false,
+        bool $deleteDraftTimesheet = false,
+        bool $deleteAccommodation = false,
     ): CrewAssignment {
         return $this->bulkVoid->handle(
             companyId: $companyId,
@@ -26,6 +28,8 @@ final class VoidCrewAssignment
             reason: $reason,
             deleteSeaService: $deleteSeaService,
             deleteTraining: $deleteTraining,
+            deleteDraftTimesheet: $deleteDraftTimesheet,
+            deleteAccommodation: $deleteAccommodation,
         )->first();
     }
 }

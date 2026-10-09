@@ -8,6 +8,7 @@ use App\Enums\PayrollWorkAllocationStatus;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewPlanningAssignment;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetSegment;
 use App\Models\EmployeeSeaService;
@@ -18,26 +19,66 @@ use Illuminate\Validation\ValidationException;
  * Downstream safety checks for privileged Void Erroneous Assignment.
  *
  * Permission alone is never sufficient; blockers are machine-readable codes.
+ * Cleanup-eligible blockers may be ignored when the matching void option is confirmed.
  */
 final class CrewAssignmentVoidGuard
 {
     public const BLOCKED_MESSAGE = 'This assignment cannot be voided because it has already affected protected payroll, sea service, or a linked assignment. Use the appropriate correction or reversal workflow instead.';
 
-    public const ACCOMMODATION_BLOCKED_MESSAGE = 'This assignment cannot be voided because accommodation history exists. Use the appropriate correction workflow instead.';
+    public const ACCOMMODATION_CLEANUP_MESSAGE = 'This assignment has accommodation history. Select "Delete linked accommodation records" to continue, or use the appropriate correction workflow instead.';
 
     public const SEA_SERVICE_BLOCKED_MESSAGE = 'This assignment has generated Sea Service records. To delete this erroneous assignment, also select "Delete generated Sea Service", or use the appropriate correction/reversal workflow.';
+
+    public const DRAFT_TIMESHEET_CLEANUP_MESSAGE = 'This assignment has Draft timesheet data. Select "Remove linked Draft timesheet data" to continue.';
+
+    public const PAYROLL_PROTECTED_MESSAGE = 'This assignment is linked to protected payroll records.';
+
+    public const PAYROLL_APPLIED_MESSAGE = 'This assignment has applied timesheet preparation records that require a formal reversal workflow.';
+
+    /**
+     * Blocker codes that can be resolved by explicit cleanup confirmation.
+     *
+     * @var list<string>
+     */
+    public const CLEANUP_ELIGIBLE_CODES = [
+        'sea_service_exists',
+        'draft_timesheet_exists',
+        'accommodation_history_exists',
+    ];
 
     /**
      * @return list<array{code: string, message: string}>
      */
-    public function blockers(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): array
-    {
-        return $this->batchBlockers([$assignment], $companyId, $ignoreLinkedSeaService)[(int) $assignment->id] ?? [];
+    public function blockers(
+        CrewAssignment $assignment,
+        int $companyId,
+        bool $ignoreLinkedSeaService = false,
+        bool $ignoreDraftTimesheet = false,
+        bool $ignoreAccommodation = false,
+    ): array {
+        return $this->batchBlockers(
+            [$assignment],
+            $companyId,
+            $ignoreLinkedSeaService,
+            $ignoreDraftTimesheet,
+            $ignoreAccommodation,
+        )[(int) $assignment->id] ?? [];
     }
 
-    public function assertCanVoid(CrewAssignment $assignment, int $companyId, bool $ignoreLinkedSeaService = false): void
-    {
-        $this->assertCanVoidMany([$assignment], $companyId, $ignoreLinkedSeaService);
+    public function assertCanVoid(
+        CrewAssignment $assignment,
+        int $companyId,
+        bool $ignoreLinkedSeaService = false,
+        bool $ignoreDraftTimesheet = false,
+        bool $ignoreAccommodation = false,
+    ): void {
+        $this->assertCanVoidMany(
+            [$assignment],
+            $companyId,
+            $ignoreLinkedSeaService,
+            $ignoreDraftTimesheet,
+            $ignoreAccommodation,
+        );
     }
 
     /**
@@ -46,8 +87,13 @@ final class CrewAssignmentVoidGuard
      * @param  iterable<CrewAssignment>  $assignments
      * @return array<int, list<array{code: string, message: string}>>
      */
-    public function batchBlockers(iterable $assignments, int $companyId, bool $ignoreLinkedSeaService = false): array
-    {
+    public function batchBlockers(
+        iterable $assignments,
+        int $companyId,
+        bool $ignoreLinkedSeaService = false,
+        bool $ignoreDraftTimesheet = false,
+        bool $ignoreAccommodation = false,
+    ): array {
         $assignmentList = is_array($assignments) ? $assignments : iterator_to_array($assignments);
 
         if ($assignmentList === []) {
@@ -55,19 +101,67 @@ final class CrewAssignmentVoidGuard
         }
 
         $assignmentIds = [];
+        $assignmentNos = [];
         foreach ($assignmentList as $assignment) {
-            $assignmentIds[] = (int) $assignment->id;
+            $id = (int) $assignment->id;
+            $assignmentIds[] = $id;
+            $assignmentNos[$id] = (string) $assignment->assignment_no;
         }
         $assignmentIds = array_values(array_unique($assignmentIds));
 
-        // 1. Linked child assignments
-        $linkedChildAssignmentIds = CrewAssignment::query()
+        // 1. Linked operational dependencies (transfer / redeploy / relief)
+        $linkedChildrenByParent = [];
+        $linkedChildren = CrewAssignment::query()
             ->where('company_id', $companyId)
             ->whereIn('previous_assignment_id', $assignmentIds)
-            ->pluck('previous_assignment_id')
-            ->map(fn ($id): int => (int) $id)
-            ->flip()
-            ->all();
+            ->get(['id', 'assignment_no', 'previous_assignment_id']);
+
+        foreach ($linkedChildren as $child) {
+            $parentId = (int) $child->previous_assignment_id;
+            $linkedChildrenByParent[$parentId][] = [
+                'id' => (int) $child->id,
+                'assignment_no' => (string) $child->assignment_no,
+                'relationship' => 'transfer_or_redeploy',
+            ];
+        }
+
+        $reliefAssignments = CrewAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('relieves_crew_assignment_id', $assignmentIds)
+            ->get(['id', 'assignment_no', 'relieves_crew_assignment_id']);
+
+        foreach ($reliefAssignments as $relief) {
+            $sourceId = (int) $relief->relieves_crew_assignment_id;
+            $linkedChildrenByParent[$sourceId][] = [
+                'id' => (int) $relief->id,
+                'assignment_no' => (string) $relief->assignment_no,
+                'relationship' => 'relief_assignment',
+            ];
+        }
+
+        // Active relief planning that points at the source (not the soft-deleted derived
+        // planning bar owned by the assignment itself via crew_assignment_id).
+        $reliefPlans = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereIn('relieves_crew_assignment_id', $assignmentIds)
+            ->where(function ($query) use ($assignmentIds): void {
+                $query->whereNull('crew_assignment_id')
+                    ->orWhereNotIn('crew_assignment_id', $assignmentIds);
+            })
+            ->get(['id', 'relieves_crew_assignment_id', 'crew_assignment_id']);
+
+        foreach ($reliefPlans as $plan) {
+            $sourceId = (int) $plan->relieves_crew_assignment_id;
+            $linkedChildrenByParent[$sourceId][] = [
+                'id' => (int) $plan->id,
+                'assignment_no' => 'Planning #'.$plan->id,
+                'relationship' => 'relief_planning',
+                'planning_assignment_id' => (int) $plan->id,
+                'linked_crew_assignment_id' => $plan->crew_assignment_id !== null
+                    ? (int) $plan->crew_assignment_id
+                    : null,
+            ];
+        }
 
         // 2. Phases & Sea Service
         $phases = CrewAssignmentPhase::query()
@@ -129,7 +223,7 @@ final class CrewAssignmentVoidGuard
             ->all();
 
         // 5. Protected payroll: timesheet segments on approved/paid/processing periods
-        $assignmentsWithProtectedPeriodSegments = CrewTimesheetSegment::query()
+        $protectedPeriodSegmentRows = CrewTimesheetSegment::query()
             ->where('crew_timesheet_segments.company_id', $companyId)
             ->whereIn('crew_timesheet_segments.crew_assignment_id', $assignmentIds)
             ->whereHas('timesheet.period', function ($query) use ($companyId): void {
@@ -140,10 +234,28 @@ final class CrewAssignmentVoidGuard
                         PayrollPeriodStatus::Processing,
                     ]);
             })
-            ->pluck('crew_assignment_id')
-            ->map(fn ($id): int => (int) $id)
-            ->flip()
-            ->all();
+            ->join('crew_timesheets', 'crew_timesheets.id', '=', 'crew_timesheet_segments.crew_timesheet_id')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'crew_timesheets.period_id')
+            ->whereNull('crew_timesheet_segments.deleted_at')
+            ->whereNull('crew_timesheets.deleted_at')
+            ->get([
+                'crew_timesheet_segments.crew_assignment_id',
+                'payroll_periods.id as period_id',
+                'payroll_periods.name as period_name',
+                'payroll_periods.status as period_status',
+            ]);
+
+        $assignmentsWithProtectedPeriodSegments = [];
+        $protectedPeriodMeta = [];
+        foreach ($protectedPeriodSegmentRows as $row) {
+            $aId = (int) $row->crew_assignment_id;
+            $assignmentsWithProtectedPeriodSegments[$aId] = true;
+            $protectedPeriodMeta[$aId] ??= [
+                'period_id' => (int) $row->period_id,
+                'period_name' => (string) $row->period_name,
+                'period_status' => (string) $row->period_status,
+            ];
+        }
 
         // 6. Protected payroll: work allocations
         $assignmentsWithWorkAllocations = PayrollWorkAllocation::query()
@@ -159,27 +271,173 @@ final class CrewAssignmentVoidGuard
             ->flip()
             ->all();
 
-        // 7. Protected timesheet dependency (any segment exists)
-        $assignmentsWithSegments = CrewTimesheetSegment::query()
-            ->where('company_id', $companyId)
-            ->whereIn('crew_assignment_id', $assignmentIds)
+        // 7. Draft timesheet segments + eligible preparation lines (cleanup-eligible)
+        $draftTimesheetMeta = [];
+        if (! $ignoreDraftTimesheet) {
+            $draftSegmentRows = CrewTimesheetSegment::query()
+                ->where('crew_timesheet_segments.company_id', $companyId)
+                ->whereIn('crew_timesheet_segments.crew_assignment_id', $assignmentIds)
+                ->whereHas('timesheet.period', function ($query) use ($companyId): void {
+                    $query->where('company_id', $companyId)
+                        ->where('status', PayrollPeriodStatus::Draft);
+                })
+                ->join('crew_timesheets', 'crew_timesheets.id', '=', 'crew_timesheet_segments.crew_timesheet_id')
+                ->join('payroll_periods', 'payroll_periods.id', '=', 'crew_timesheets.period_id')
+                ->whereNull('crew_timesheet_segments.deleted_at')
+                ->whereNull('crew_timesheets.deleted_at')
+                ->get([
+                    'crew_timesheet_segments.crew_assignment_id',
+                    'crew_timesheet_segments.id as segment_id',
+                    'payroll_periods.id as period_id',
+                    'payroll_periods.name as period_name',
+                    'payroll_periods.status as period_status',
+                ]);
+
+            foreach ($draftSegmentRows as $row) {
+                $aId = (int) $row->crew_assignment_id;
+                $draftTimesheetMeta[$aId] ??= [
+                    'segment_ids' => [],
+                    'preparation_line_ids' => [],
+                    'period_ids' => [],
+                    'periods' => [],
+                ];
+                $draftTimesheetMeta[$aId]['segment_ids'][(int) $row->segment_id] = true;
+                $periodId = (int) $row->period_id;
+                if (! isset($draftTimesheetMeta[$aId]['period_ids'][$periodId])) {
+                    $draftTimesheetMeta[$aId]['period_ids'][$periodId] = true;
+                    $draftTimesheetMeta[$aId]['periods'][] = [
+                        'id' => $periodId,
+                        'name' => (string) $row->period_name,
+                        'status' => (string) $row->period_status,
+                    ];
+                }
+            }
+
+            $eligiblePrepLines = CrewTimesheetPreparationLine::query()
+                ->where('crew_timesheet_preparation_lines.company_id', $companyId)
+                ->whereIn('crew_timesheet_preparation_lines.crew_assignment_id', $assignmentIds)
+                ->whereHas('preparation', function ($query) use ($companyId): void {
+                    $query->where('company_id', $companyId)
+                        ->whereIn('status', [
+                            CrewTimesheetPreparationStatus::Draft,
+                            CrewTimesheetPreparationStatus::Returned,
+                            CrewTimesheetPreparationStatus::Superseded,
+                        ]);
+                })
+                ->join(
+                    'crew_timesheet_preparations',
+                    'crew_timesheet_preparations.id',
+                    '=',
+                    'crew_timesheet_preparation_lines.crew_timesheet_preparation_id',
+                )
+                ->leftJoin(
+                    'payroll_periods',
+                    'payroll_periods.id',
+                    '=',
+                    'crew_timesheet_preparations.payroll_period_id',
+                )
+                ->whereNull('crew_timesheet_preparation_lines.deleted_at')
+                ->whereNull('crew_timesheet_preparations.deleted_at')
+                ->get([
+                    'crew_timesheet_preparation_lines.crew_assignment_id',
+                    'crew_timesheet_preparation_lines.id as preparation_line_id',
+                    'crew_timesheet_preparations.status as preparation_status',
+                    'payroll_periods.id as period_id',
+                    'payroll_periods.name as period_name',
+                    'payroll_periods.status as period_status',
+                ]);
+
+            foreach ($eligiblePrepLines as $row) {
+                $aId = (int) $row->crew_assignment_id;
+                $draftTimesheetMeta[$aId] ??= [
+                    'segment_ids' => [],
+                    'preparation_line_ids' => [],
+                    'period_ids' => [],
+                    'periods' => [],
+                ];
+                $draftTimesheetMeta[$aId]['preparation_line_ids'][(int) $row->preparation_line_id] = true;
+
+                if ($row->period_id !== null) {
+                    $periodId = (int) $row->period_id;
+                    if (! isset($draftTimesheetMeta[$aId]['period_ids'][$periodId])) {
+                        $draftTimesheetMeta[$aId]['period_ids'][$periodId] = true;
+                        $draftTimesheetMeta[$aId]['periods'][] = [
+                            'id' => $periodId,
+                            'name' => (string) ($row->period_name ?? 'Payroll period'),
+                            'status' => (string) ($row->period_status ?? 'unknown'),
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Non-draft, non-protected period segments (e.g. Cancelled) remain hard blockers.
+        // This check is NEVER skipped by delete_draft_timesheet confirmation.
+        $assignmentsWithOtherSegments = CrewTimesheetSegment::query()
+            ->where('crew_timesheet_segments.company_id', $companyId)
+            ->whereIn('crew_timesheet_segments.crew_assignment_id', $assignmentIds)
+            ->whereHas('timesheet.period', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId)
+                    ->whereNotIn('status', [
+                        PayrollPeriodStatus::Draft,
+                        PayrollPeriodStatus::Approved,
+                        PayrollPeriodStatus::Paid,
+                        PayrollPeriodStatus::Processing,
+                    ]);
+            })
             ->pluck('crew_assignment_id')
             ->map(fn ($id): int => (int) $id)
             ->flip()
             ->all();
 
-        // 8. Accommodation history
-        $assignmentsWithAccommodation = CrewAccommodationStay::query()
-            ->where('company_id', $companyId)
-            ->whereIn('crew_assignment_id', $assignmentIds)
-            ->pluck('crew_assignment_id')
-            ->map(fn ($id): int => (int) $id)
-            ->flip()
-            ->all();
+        // 8. Accommodation history (cleanup-eligible when confirmed)
+        $accommodationMeta = [];
+        if (! $ignoreAccommodation) {
+            $accommodationRows = CrewAccommodationStay::query()
+                ->where('crew_accommodation_stays.company_id', $companyId)
+                ->whereIn('crew_accommodation_stays.crew_assignment_id', $assignmentIds)
+                ->leftJoin('hotels', 'hotels.id', '=', 'crew_accommodation_stays.hotel_id')
+                ->get([
+                    'crew_accommodation_stays.id',
+                    'crew_accommodation_stays.crew_assignment_id',
+                    'crew_accommodation_stays.stay_type',
+                    'crew_accommodation_stays.accommodation_status',
+                    'crew_accommodation_stays.check_out_date',
+                    'hotels.name as hotel_name',
+                ]);
+
+            foreach ($accommodationRows as $row) {
+                $aId = (int) $row->crew_assignment_id;
+                $accommodationMeta[$aId] ??= [
+                    'count' => 0,
+                    'open_count' => 0,
+                    'summaries' => [],
+                ];
+                $status = $row->accommodation_status instanceof \BackedEnum
+                    ? $row->accommodation_status->value
+                    : (string) $row->accommodation_status;
+                $stayType = $row->stay_type instanceof \BackedEnum
+                    ? $row->stay_type->value
+                    : (string) $row->stay_type;
+                $isOpen = $row->check_out_date === null && $status === 'hotel';
+                $accommodationMeta[$aId]['count']++;
+                if ($isOpen) {
+                    $accommodationMeta[$aId]['open_count']++;
+                }
+                $accommodationMeta[$aId]['summaries'][] = [
+                    'id' => (int) $row->id,
+                    'stay_type' => $stayType,
+                    'accommodation_status' => $status,
+                    'hotel_name' => $row->hotel_name !== null ? (string) $row->hotel_name : null,
+                    'is_open' => $isOpen,
+                ];
+            }
+        }
 
         $result = [];
         foreach ($assignmentList as $assignment) {
             $id = (int) $assignment->id;
+            $assignmentNo = $assignmentNos[$id] ?? (string) $assignment->assignment_no;
             $blockers = [];
 
             if ((int) $assignment->company_id !== $companyId) {
@@ -196,10 +454,28 @@ final class CrewAssignmentVoidGuard
                 ];
             }
 
-            if (isset($linkedChildAssignmentIds[$id])) {
+            if (isset($linkedChildrenByParent[$id])) {
+                $dependents = $linkedChildrenByParent[$id];
+                $labels = array_map(
+                    function (array $child): string {
+                        $label = $child['assignment_no'];
+                        $relationship = $child['relationship'] ?? 'transfer_or_redeploy';
+
+                        return match ($relationship) {
+                            'relief_assignment' => "{$label} (relief assignment)",
+                            'relief_planning' => "{$label} (relief plan)",
+                            default => "{$label} (transfer/redeploy)",
+                        };
+                    },
+                    $dependents,
+                );
+                $dependentList = implode(', ', $labels);
                 $blockers[] = [
                     'code' => 'linked_assignment_exists',
-                    'message' => self::BLOCKED_MESSAGE,
+                    'message' => count($labels) === 1
+                        ? "Cannot delete {$assignmentNo} because {$dependentList} depends on it."
+                        : "Cannot delete {$assignmentNo} because these records depend on it: {$dependentList}.",
+                    'dependent_assignments' => $dependents,
                 ];
             }
 
@@ -213,7 +489,7 @@ final class CrewAssignmentVoidGuard
             if (isset($assignmentsWithAppliedPayroll[$id])) {
                 $blockers[] = [
                     'code' => 'payroll_applied',
-                    'message' => self::BLOCKED_MESSAGE,
+                    'message' => "Cannot delete {$assignmentNo}. ".self::PAYROLL_APPLIED_MESSAGE,
                 ];
             }
 
@@ -222,23 +498,67 @@ final class CrewAssignmentVoidGuard
                 || isset($assignmentsWithProtectedPeriodSegments[$id])
                 || isset($assignmentsWithWorkAllocations[$id])
             ) {
+                $meta = $protectedPeriodMeta[$id] ?? null;
+                $periodSuffix = $meta !== null
+                    ? " Payroll period \"{$meta['period_name']}\" is {$meta['period_status']}."
+                    : '';
                 $blockers[] = [
                     'code' => 'payroll_protected',
-                    'message' => self::BLOCKED_MESSAGE,
+                    'message' => "Cannot delete {$assignmentNo}. ".self::PAYROLL_PROTECTED_MESSAGE.$periodSuffix,
+                    'payroll_period' => $meta,
                 ];
             }
 
-            if (isset($assignmentsWithSegments[$id])) {
+            if (isset($draftTimesheetMeta[$id])) {
+                $segmentCount = count($draftTimesheetMeta[$id]['segment_ids']);
+                $prepLineCount = count($draftTimesheetMeta[$id]['preparation_line_ids']);
+                $periodCount = count($draftTimesheetMeta[$id]['period_ids']);
+                $parts = [];
+                if ($segmentCount > 0) {
+                    $parts[] = "{$segmentCount} segment".($segmentCount === 1 ? '' : 's');
+                }
+                if ($prepLineCount > 0) {
+                    $parts[] = "{$prepLineCount} preparation line".($prepLineCount === 1 ? '' : 's');
+                }
+                $detail = implode(' and ', $parts);
+                $periodPart = $periodCount > 0
+                    ? " across {$periodCount} period".($periodCount === 1 ? '' : 's')
+                    : '';
+                $blockers[] = [
+                    'code' => 'draft_timesheet_exists',
+                    'message' => "Assignment {$assignmentNo} has Draft timesheet data ({$detail}{$periodPart}). Select \"Remove linked Draft timesheet data\" to continue.",
+                    'draft_timesheet' => [
+                        'segment_count' => $segmentCount,
+                        'preparation_line_count' => $prepLineCount,
+                        'period_count' => $periodCount,
+                        'periods' => $draftTimesheetMeta[$id]['periods'],
+                    ],
+                ];
+            }
+
+            if (isset($assignmentsWithOtherSegments[$id])) {
                 $blockers[] = [
                     'code' => 'protected_dependency_exists',
-                    'message' => self::BLOCKED_MESSAGE,
+                    'message' => "Cannot delete {$assignmentNo}. This assignment is linked to timesheet segments outside an editable Draft payroll period.",
                 ];
             }
 
-            if (isset($assignmentsWithAccommodation[$id])) {
+            if (isset($accommodationMeta[$id])) {
+                $count = $accommodationMeta[$id]['count'];
+                $openCount = $accommodationMeta[$id]['open_count'];
+                $openSuffix = $openCount > 0
+                    ? " {$openCount} stay".($openCount === 1 ? ' remains' : 's remain').' open.'
+                    : '';
                 $blockers[] = [
                     'code' => 'accommodation_history_exists',
-                    'message' => self::ACCOMMODATION_BLOCKED_MESSAGE,
+                    'message' => "This assignment has {$count} accommodation record"
+                        .($count === 1 ? '' : 's')
+                        .".{$openSuffix} Select \"Delete linked accommodation records\" to continue.",
+                    'accommodation' => [
+                        'record_count' => $count,
+                        'open_count' => $openCount,
+                        'summaries' => $accommodationMeta[$id]['summaries'],
+                    ],
                 ];
             }
 
@@ -251,9 +571,20 @@ final class CrewAssignmentVoidGuard
     /**
      * @param  iterable<CrewAssignment>  $assignments
      */
-    public function assertCanVoidMany(iterable $assignments, int $companyId, bool $ignoreLinkedSeaService = false): void
-    {
-        $batchBlockers = $this->batchBlockers($assignments, $companyId, $ignoreLinkedSeaService);
+    public function assertCanVoidMany(
+        iterable $assignments,
+        int $companyId,
+        bool $ignoreLinkedSeaService = false,
+        bool $ignoreDraftTimesheet = false,
+        bool $ignoreAccommodation = false,
+    ): void {
+        $batchBlockers = $this->batchBlockers(
+            $assignments,
+            $companyId,
+            $ignoreLinkedSeaService,
+            $ignoreDraftTimesheet,
+            $ignoreAccommodation,
+        );
 
         foreach ($assignments as $assignment) {
             $blockers = $batchBlockers[(int) $assignment->id] ?? [];
@@ -264,30 +595,51 @@ final class CrewAssignmentVoidGuard
     }
 
     /**
+     * True blockers that cannot be cleared by cleanup checkboxes.
+     *
+     * @param  list<array{code: string, message: string}>  $blockers
+     * @return list<array{code: string, message: string}>
+     */
+    public function protectedBlockers(array $blockers): array
+    {
+        return array_values(array_filter(
+            $blockers,
+            fn (array $blocker): bool => ! in_array($blocker['code'], self::CLEANUP_ELIGIBLE_CODES, true),
+        ));
+    }
+
+    /**
      * @param  list<array{code: string, message: string}>  $blockers
      */
     private function throwBlockerValidationException(array $blockers): never
     {
-        $alreadyVoided = collect($blockers)->contains(
-            fn (array $blocker): bool => $blocker['code'] === 'already_voided',
-        );
+        $priorityCodes = [
+            'already_voided',
+            'cross_company',
+            'linked_assignment_exists',
+            'payroll_applied',
+            'payroll_protected',
+            'protected_dependency_exists',
+            'draft_timesheet_exists',
+            'accommodation_history_exists',
+            'sea_service_exists',
+        ];
 
-        $accommodationBlocked = collect($blockers)->contains(
-            fn (array $blocker): bool => $blocker['code'] === 'accommodation_history_exists',
-        );
+        $byCode = [];
+        foreach ($blockers as $blocker) {
+            $byCode[$blocker['code']] = $blocker['message'];
+        }
 
-        $seaServiceBlocked = collect($blockers)->contains(
-            fn (array $blocker): bool => $blocker['code'] === 'sea_service_exists',
-        );
+        $message = self::BLOCKED_MESSAGE;
+        foreach ($priorityCodes as $code) {
+            if (isset($byCode[$code])) {
+                $message = $byCode[$code];
+                break;
+            }
+        }
 
         throw ValidationException::withMessages([
-            'void' => $alreadyVoided
-                ? 'This assignment has already been voided.'
-                : ($accommodationBlocked
-                    ? self::ACCOMMODATION_BLOCKED_MESSAGE
-                    : ($seaServiceBlocked
-                        ? self::SEA_SERVICE_BLOCKED_MESSAGE
-                        : self::BLOCKED_MESSAGE)),
+            'void' => $message,
         ]);
     }
 

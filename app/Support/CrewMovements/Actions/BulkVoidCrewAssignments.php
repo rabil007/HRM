@@ -23,6 +23,8 @@ final class BulkVoidCrewAssignments
     public function __construct(
         private readonly CrewAssignmentVoidGuard $guard,
         private readonly StoresEmployeeTrainingCertificate $certificateStore,
+        private readonly CleanupDraftTimesheetForVoid $cleanupDraftTimesheet,
+        private readonly CleanupAccommodationForVoid $cleanupAccommodation,
     ) {}
 
     /**
@@ -36,6 +38,8 @@ final class BulkVoidCrewAssignments
         string $reason,
         bool $deleteSeaService = false,
         bool $deleteTraining = false,
+        bool $deleteDraftTimesheet = false,
+        bool $deleteAccommodation = false,
     ): Collection {
         $reason = trim($reason);
 
@@ -66,6 +70,14 @@ final class BulkVoidCrewAssignments
                 );
             }
 
+            if ($deleteDraftTimesheet || $deleteAccommodation) {
+                abort_unless(
+                    $actor->can('crew_operations.assignments.void'),
+                    403,
+                    'Unauthorized to clean up linked void dependencies.',
+                );
+            }
+
             $uniqueIds = array_values(array_unique(array_map('intval', $assignmentIds)));
 
             if ($uniqueIds === []) {
@@ -80,7 +92,9 @@ final class BulkVoidCrewAssignments
                 $actor,
                 $reason,
                 $deleteSeaService,
-                $deleteTraining
+                $deleteTraining,
+                $deleteDraftTimesheet,
+                $deleteAccommodation,
             ): Collection {
                 $assignments = CrewAssignmentAccess::queryForCompany($companyId, $actor)
                     ->withTrashed()
@@ -95,7 +109,33 @@ final class BulkVoidCrewAssignments
                 }
 
                 // Preflight safety checks for all assignments in a single batched check
-                $this->guard->assertCanVoidMany($assignments, $companyId, ignoreLinkedSeaService: $deleteSeaService);
+                $this->guard->assertCanVoidMany(
+                    $assignments,
+                    $companyId,
+                    ignoreLinkedSeaService: $deleteSeaService,
+                    ignoreDraftTimesheet: $deleteDraftTimesheet,
+                    ignoreAccommodation: $deleteAccommodation,
+                );
+
+                $draftCleanup = [
+                    'segments_deleted' => 0,
+                    'preparation_lines_deleted' => 0,
+                    'timesheets_recalculated' => 0,
+                    'period_ids' => [],
+                    'counts_by_assignment' => [],
+                ];
+                if ($deleteDraftTimesheet) {
+                    $draftCleanup = $this->cleanupDraftTimesheet->handle($companyId, $uniqueIds);
+                }
+
+                $accommodationCleanup = [
+                    'records_deleted' => 0,
+                    'snapshots_by_assignment' => [],
+                    'counts_by_assignment' => [],
+                ];
+                if ($deleteAccommodation) {
+                    $accommodationCleanup = $this->cleanupAccommodation->handle($companyId, $uniqueIds);
+                }
 
                 $phases = CrewAssignmentPhase::query()
                     ->where('company_id', $companyId)
@@ -172,6 +212,7 @@ final class BulkVoidCrewAssignments
                 foreach ($assignments as $assignment) {
                     $previousStatus = $assignment->status?->value;
                     $previousPhase = $assignment->currentPhase?->phase_code?->value;
+                    $assignmentId = (int) $assignment->id;
 
                     $assignment->forceFill([
                         'voided_at' => now(),
@@ -194,8 +235,14 @@ final class BulkVoidCrewAssignments
                         isBulk: $isBulk,
                         deleteSeaService: $deleteSeaService,
                         deleteTraining: $deleteTraining,
-                        seaServiceRecordsDeleted: $seaServiceDeletedCounts[$assignment->id] ?? 0,
-                        trainingRecordsDeleted: $trainingDeletedCounts[$assignment->id] ?? 0,
+                        deleteDraftTimesheet: $deleteDraftTimesheet,
+                        deleteAccommodation: $deleteAccommodation,
+                        seaServiceRecordsDeleted: $seaServiceDeletedCounts[$assignmentId] ?? 0,
+                        trainingRecordsDeleted: $trainingDeletedCounts[$assignmentId] ?? 0,
+                        draftTimesheetSegmentsDeleted: (int) ($draftCleanup['counts_by_assignment'][$assignmentId]['segments_deleted'] ?? 0),
+                        draftTimesheetPrepLinesDeleted: (int) ($draftCleanup['counts_by_assignment'][$assignmentId]['preparation_lines_deleted'] ?? 0),
+                        accommodationRecordsDeleted: (int) ($accommodationCleanup['counts_by_assignment'][$assignmentId] ?? 0),
+                        accommodationSnapshots: $accommodationCleanup['snapshots_by_assignment'][$assignmentId] ?? [],
                     );
                 }
 
@@ -221,6 +268,9 @@ final class BulkVoidCrewAssignments
         $linked->delete();
     }
 
+    /**
+     * @param  list<array<string, mixed>>  $accommodationSnapshots
+     */
     private function logVoid(
         CrewAssignment $assignment,
         int $companyId,
@@ -231,8 +281,14 @@ final class BulkVoidCrewAssignments
         bool $isBulk,
         bool $deleteSeaService,
         bool $deleteTraining,
+        bool $deleteDraftTimesheet,
+        bool $deleteAccommodation,
         int $seaServiceRecordsDeleted,
         int $trainingRecordsDeleted,
+        int $draftTimesheetSegmentsDeleted,
+        int $draftTimesheetPrepLinesDeleted,
+        int $accommodationRecordsDeleted,
+        array $accommodationSnapshots,
     ): void {
         $activity = activity()
             ->performedOn($assignment)
@@ -251,8 +307,14 @@ final class BulkVoidCrewAssignments
                 'is_bulk' => $isBulk,
                 'delete_sea_service' => $deleteSeaService,
                 'delete_training' => $deleteTraining,
+                'delete_draft_timesheet' => $deleteDraftTimesheet,
+                'delete_accommodation' => $deleteAccommodation,
                 'sea_service_records_deleted' => $seaServiceRecordsDeleted,
                 'training_records_deleted' => $trainingRecordsDeleted,
+                'draft_timesheet_segments_deleted' => $draftTimesheetSegmentsDeleted,
+                'draft_timesheet_prep_lines_deleted' => $draftTimesheetPrepLinesDeleted,
+                'accommodation_records_deleted' => $accommodationRecordsDeleted,
+                'accommodation_deleted_snapshot' => $accommodationSnapshots,
                 'timestamp' => now()->toIso8601String(),
             ])
             ->log('Crew assignment voided as erroneous');
