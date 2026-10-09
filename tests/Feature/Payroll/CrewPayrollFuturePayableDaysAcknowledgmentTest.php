@@ -12,6 +12,7 @@ use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\PayrollWorkAllocation;
 use App\Models\User;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
@@ -683,4 +684,161 @@ test('legacy flat-field cross-company generate remains blocked', function () {
             'acknowledge_future_payable_days' => true,
         ])
         ->assertNotFound();
+});
+
+test('legacy flat movement entirely after payroll period blocks preview and generate even with acknowledgment', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet(
+        $period,
+        (int) $company->id,
+        (int) $employee->id,
+        '2026-11-01',
+        '2026-11-06',
+        source: CrewTimesheetSource::CrewOperations,
+    );
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->canGenerate)->toBeFalse()
+        ->and($preview->readyCount)->toBe(0)
+        ->and($preview->blockingCount)->toBe(1)
+        ->and($preview->blockingIssues[0]['code'])->toBe('legacy_movement_outside_payroll_period')
+        ->and($preview->blockingIssues[0]['message'])->toContain("{$employee->name}'s Onsite dates (01 Nov – 06 Nov 2026)")
+        ->and($preview->blockingIssues[0]['message'])->toContain('01 Oct – 30 Oct 2026')
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('payroll.generation-preview', $period), [
+            'excluded_employee_ids' => [],
+        ])
+        ->assertOk()
+        ->assertJsonPath('can_generate', false)
+        ->assertJsonPath('blocking_count', 1)
+        ->assertJsonPath('blocking_issues.0.code', 'legacy_movement_outside_payroll_period');
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($period, [], $user, true))
+        ->toThrow(ValidationException::class);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [],
+            'acknowledge_future_payable_days' => true,
+        ])
+        ->assertSessionHasErrors('period_id');
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0)
+        ->and(PayrollWorkAllocation::query()->where('payroll_period_id', $period->id)->count())->toBe(0);
+});
+
+test('legacy flat movement starting before payroll period remains permitted when period end is respected', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-09-25', '2026-10-05');
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->canGenerate)->toBeTrue()
+        ->and($preview->readyCount)->toBe(1)
+        ->and($preview->blockingCount)->toBe(0)
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse();
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, false);
+
+    expect($result->generatedCount)->toBe(1)
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $employee->id)->exists())->toBeTrue();
+});
+
+test('legacy flat movement partially extending past payroll period end is blocked', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-25', '2026-11-05');
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->canGenerate)->toBeFalse()
+        ->and($preview->blockingIssues[0]['code'])->toBe('legacy_movement_outside_payroll_period')
+        ->and($preview->blockingIssues[0]['message'])->toContain('25 Oct – 05 Nov 2026');
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($period, [], $user, true))
+        ->toThrow(ValidationException::class);
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0)
+        ->and(PayrollWorkAllocation::query()->where('payroll_period_id', $period->id)->count())->toBe(0);
+});
+
+test('valid legacy flat movement inside payroll period still generates with future acknowledgment when needed', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet(
+        $period,
+        (int) $company->id,
+        (int) $employee->id,
+        '2026-10-15',
+        '2026-10-20',
+        source: CrewTimesheetSource::Import,
+    );
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->canGenerate)->toBeTrue()
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeTrue()
+        ->and($preview->blockingCount)->toBe(0);
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($period, [], $user, false))
+        ->toThrow(ValidationException::class);
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, true);
+
+    expect($result->generatedCount)->toBe(1);
+});
+
+test('segment-based prior-period arrears remain functional alongside legacy flat period boundary guard', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedFutureOnsiteSegment($period, (int) $company->id, (int) $employee->id, '2026-09-25', '2026-10-05');
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->canGenerate)->toBeTrue()
+        ->and($preview->blockingCount)->toBe(0)
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse();
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, false);
+
+    expect($result->generatedCount)->toBe(1)
+        ->and(PayrollWorkAllocation::query()
+            ->where('payroll_period_id', $period->id)
+            ->where('employee_id', $employee->id)
+            ->count())->toBe(11);
+});
+
+test('restricted visibility still hides legacy flat-field employees from generation preview', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-11-01', '2026-11-06');
+
+    $restricted = User::factory()->create();
+    grantCompanyPermissions($restricted, $company, [
+        'payroll.periods.update',
+        'payroll.periods.view',
+    ], 'restricted-flat-boundary-role');
+    restrictTestRoleEmployeeVisibility(
+        $restricted,
+        $company,
+        [],
+        'restricted-flat-boundary-role',
+    );
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle(
+        $period,
+        (int) $company->id,
+        [],
+        $restricted,
+    );
+
+    expect($preview->readyCount)->toBe(0)
+        ->and($preview->blockingCount)->toBe(0)
+        ->and($preview->canGenerate)->toBeFalse();
 });

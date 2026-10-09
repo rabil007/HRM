@@ -279,6 +279,7 @@ final class BuildCrewPayrollGenerationPreview
                 if ($this->appendIntegrityFindings(
                     $timesheet,
                     $employee,
+                    $period,
                     $blockingIssues,
                     $warningIssues,
                 )) {
@@ -317,6 +318,7 @@ final class BuildCrewPayrollGenerationPreview
             if ($this->appendIntegrityFindings(
                 $timesheet,
                 $employee,
+                $period,
                 $blockingIssues,
                 $warningIssues,
             )) {
@@ -389,10 +391,11 @@ final class BuildCrewPayrollGenerationPreview
     private function appendIntegrityFindings(
         CrewTimesheet $timesheet,
         Employee $employee,
+        PayrollPeriod $period,
         array &$blockingIssues,
         array &$warningIssues,
     ): bool {
-        $integrity = $this->validateIntegrity->handle($timesheet, $employee);
+        $integrity = $this->validateIntegrity->handle($timesheet, $employee, $period);
 
         foreach ($integrity->warnings as $warning) {
             $warningIssues[] = [
@@ -792,6 +795,7 @@ final class BuildCrewPayrollGenerationPreview
             'reserved_conflict' => 'Remove these dates from this timesheet or resolve the competing open payroll that already reserved them.',
             'invalid_timesheet_source', 'invalid_source_for_monthly' => 'Correct the timesheet source for this employee’s salary structure.',
             'incomplete_movement_range' => 'Complete the Sign-On / Onsite / Sign-Off movement dates if this employee should be paid for a full voyage.',
+            'legacy_movement_outside_payroll_period' => 'Correct the legacy flat-field movement dates so they do not extend past this payroll period end, or generate in the matching period.',
             default => null,
         };
     }
