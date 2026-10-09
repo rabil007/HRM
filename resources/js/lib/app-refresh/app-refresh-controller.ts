@@ -2,7 +2,9 @@ import { router } from '@inertiajs/react';
 import { fetchAppVersion } from '@/lib/app-refresh/fetch-app-version';
 import { hasUnsavedWork } from '@/lib/app-refresh/has-unsaved-work';
 import {
+    isValidAuthorizationRevision,
     resolveInertiaVisitAction,
+    resolveSyncedAuthorizationRevision,
     shouldAdvanceAuthorizationRevision,
     shouldReportManualRefreshSuccess,
 } from '@/lib/app-refresh/inertia-visit-outcome';
@@ -143,6 +145,7 @@ class AppRefreshController {
      * Apply version/auth hints from a successful Inertia page payload.
      * Never replaces loadedVersion. Does not invent success for failed visits —
      * callers only invoke this when page props actually updated.
+     * Only commits a validated `{user}.{company}` authorization revision.
      */
     syncFromInertiaProps(
         serverVersion: string,
@@ -152,7 +155,7 @@ class AppRefreshController {
             return;
         }
 
-        if (authorizationRevision !== null) {
+        if (isValidAuthorizationRevision(authorizationRevision)) {
             this.authorizationRevision = authorizationRevision;
         }
 
@@ -448,9 +451,15 @@ class AppRefreshController {
                 cleanup();
 
                 if (shouldAdvanceAuthorizationRevision(action)) {
-                    this.authorizationRevision =
-                        revisionFromSuccess ?? expectedRevision;
-                    this.emit();
+                    const committed = resolveSyncedAuthorizationRevision({
+                        expectedRevision,
+                        receivedRevision: revisionFromSuccess,
+                    });
+
+                    if (committed !== null) {
+                        this.authorizationRevision = committed;
+                        this.emit();
+                    }
                 }
 
                 if (action === 'login') {
