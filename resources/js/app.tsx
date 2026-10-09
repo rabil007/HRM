@@ -1,5 +1,4 @@
 import { createInertiaApp, router } from '@inertiajs/react';
-import { AppRefreshSync } from '@/components/app-refresh-sync';
 import { HttpExceptionToasts } from '@/components/http-exception-toasts';
 import { PwaUpdatePrompt } from '@/components/pwa-update-prompt';
 import { Toaster } from '@/components/ui/sonner';
@@ -14,7 +13,6 @@ import {
     syncApplicationAppNameFromInertiaPage,
 } from '@/lib/application-app-name';
 import { inertiaPageLayoutKind } from '@/lib/inertia-page-layout';
-import { version as appVersion } from '@/routes/app';
 
 seedApplicationAppNameFromDom();
 
@@ -41,7 +39,6 @@ createInertiaApp({
         return (
             <TooltipProvider delayDuration={0}>
                 <PwaUpdatePrompt />
-                <AppRefreshSync versionUrl={appVersion.url()} />
                 <HttpExceptionToasts />
                 <Toaster duration={5000} />
                 {app}
