@@ -11,6 +11,7 @@ use App\Models\CrewAssignmentPhase;
 use App\Support\CrewMovements\Historical\HistoricalAssignmentIntervalOverlap;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 /**
  * Narrow exception for recording an actual arrival before the initial P0 phase start.
@@ -124,32 +125,47 @@ final class CrewInitialArrivalBackdateGuard
             );
         }
 
-        $completed = CrewAssignment::query()
+        $historical = CrewAssignment::query()
             ->where('company_id', $assignment->company_id)
             ->where('employee_id', $assignment->employee_id)
-            ->where('status', CrewAssignmentStatus::Completed)
-            ->whereNotNull('started_at')
-            ->whereNotNull('closed_at')
+            ->whereIn('status', [
+                CrewAssignmentStatus::Completed,
+                CrewAssignmentStatus::Cancelled,
+            ])
             ->whereKeyNot($assignment->id)
             ->lockForUpdate()
-            ->get(['id', 'assignment_no', 'started_at', 'closed_at', 'vessel_id']);
+            ->with(['phases' => fn ($query) => $query->orderBy('sequence')])
+            ->get(['id', 'assignment_no', 'status', 'started_at', 'closed_at']);
 
-        foreach ($completed as $past) {
+        foreach ($historical as $past) {
+            $interval = $this->resolveHistoricalActualInterval($past->phases);
+
+            if ($interval === null) {
+                // Cancelled drafts / records with no actual movement history do not block.
+                continue;
+            }
+
             if (! HistoricalAssignmentIntervalOverlap::intervalsOverlap(
                 $occurredAt,
                 $previousPhaseStart,
-                $past->started_at,
-                $past->closed_at,
+                $interval['start'],
+                $interval['end'],
             )) {
                 continue;
             }
 
-            $hStart = $past->started_at->copy()->timezone($timezone)->toDateString();
-            $hEnd = $past->closed_at->copy()->timezone($timezone)->toDateString();
+            $hStart = $interval['start']->copy()->timezone($timezone)->toDateString();
+            $hEnd = $interval['end'] !== null
+                ? $interval['end']->copy()->timezone($timezone)->toDateString()
+                : 'open';
+            $statusLabel = $past->status === CrewAssignmentStatus::Cancelled
+                ? 'cancelled'
+                : 'completed';
 
             throw CrewMovementException::make(
                 sprintf(
-                    'This arrival date overlaps completed assignment %s (%s – %s). Adjust the arrival date or correct the conflicting assignment first.',
+                    'This arrival date overlaps %s assignment %s (%s – %s). Adjust the arrival date or correct the conflicting assignment first.',
+                    $statusLabel,
                     $past->assignment_no,
                     $hStart,
                     $hEnd,
@@ -157,5 +173,52 @@ final class CrewInitialArrivalBackdateGuard
                 'backdated_arrival_assignment_overlap',
             );
         }
+    }
+
+    /**
+     * Build the authoritative operational interval from phases that recorded actual
+     * movement timestamps. Lifecycle started_at / closed_at are ignored here because
+     * corrections and backdating can diverge from those assignment-level fields.
+     *
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return array{start: CarbonInterface, end: CarbonInterface|null}|null
+     */
+    private function resolveHistoricalActualInterval(Collection $phases): ?array
+    {
+        $actualPhases = $phases
+            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->actual_start_at !== null)
+            ->values();
+
+        if ($actualPhases->isEmpty()) {
+            return null;
+        }
+
+        /** @var CarbonInterface $start */
+        $start = $actualPhases
+            ->map(fn (CrewAssignmentPhase $phase): CarbonInterface => $phase->actual_start_at)
+            ->sortBy(fn (CarbonInterface $timestamp): int => $timestamp->getTimestamp())
+            ->first();
+
+        $hasOpenPhase = $actualPhases->contains(
+            fn (CrewAssignmentPhase $phase): bool => $phase->actual_end_at === null,
+        );
+
+        if ($hasOpenPhase) {
+            return [
+                'start' => $start,
+                'end' => null,
+            ];
+        }
+
+        /** @var CarbonInterface $end */
+        $end = $actualPhases
+            ->map(fn (CrewAssignmentPhase $phase): CarbonInterface => $phase->actual_end_at)
+            ->sortByDesc(fn (CarbonInterface $timestamp): int => $timestamp->getTimestamp())
+            ->first();
+
+        return [
+            'start' => $start,
+            'end' => $end,
+        ];
     }
 }
