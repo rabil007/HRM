@@ -1,23 +1,45 @@
 /**
- * Shared helpers for the company testing override that allows future
- * actual movement timestamps. Keep MovementOccurredAtField and related UI
- * aligned with CrewActualMovementTimestampGuard.
+ * Shared helpers for Record Now vs Schedule for Later timestamp UX.
+ *
+ * Record Now rejects future actual timestamps (unless a legacy testing override
+ * remains enabled). Schedule for Later intentionally uses future instants and
+ * never treats them as actual movements until automatic execution.
  */
 
 export const TESTING_OVERRIDE_BANNER_MESSAGE =
-    'Testing Mode: Future-dated movements are recorded immediately and may update current crew status, accommodation, Sea Service and reports. Use test records only.';
+    'Legacy Testing Override is still enabled for this company. Prefer Schedule for Later for future movements so actual status, accommodation, and Sea Service stay unchanged until execution.';
+
+export const SCHEDULE_LATER_HELP =
+    'Saving a schedule does not change the current phase, hotel stay, Sea Service, or payroll movement dates. The system executes automatically when due.';
 
 export function resolveMovementOccurredAtMax(
     companyNow: string,
     allowFutureActualMovementDates: boolean,
+    schedulingMode = false,
 ): string | undefined {
-    return allowFutureActualMovementDates ? undefined : companyNow;
+    if (schedulingMode || allowFutureActualMovementDates) {
+        return undefined;
+    }
+
+    return companyNow;
+}
+
+export function resolveMovementOccurredAtMin(
+    companyNow: string,
+    schedulingMode = false,
+): string | undefined {
+    return schedulingMode ? companyNow : undefined;
 }
 
 export function shouldShowFutureMovementWarning(
     isFuture: boolean,
     allowFutureActualMovementDates: boolean,
+    schedulingMode = false,
 ): boolean {
+    if (schedulingMode) {
+        return false;
+    }
+
     return isFuture && !allowFutureActualMovementDates;
 }
 
@@ -28,12 +50,25 @@ export function shouldShowFutureMovementWarning(
 export function shouldBlockFutureActualMovementDate(
     isFuture: boolean,
     allowFutureActualMovementDates: boolean,
+    schedulingMode = false,
 ): boolean {
+    if (schedulingMode) {
+        return false;
+    }
+
     return isFuture && !allowFutureActualMovementDates;
 }
 
 export function shouldShowTestingOverrideBanner(
     allowFutureActualMovementDates: boolean,
+    schedulingMode = false,
 ): boolean {
-    return allowFutureActualMovementDates;
+    return allowFutureActualMovementDates && !schedulingMode;
+}
+
+export function isSchedulableMovementAction(
+    action: string,
+    schedulableActions: string[],
+): boolean {
+    return schedulableActions.includes(action);
 }

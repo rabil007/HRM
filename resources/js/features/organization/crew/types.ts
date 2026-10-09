@@ -91,6 +91,9 @@ export type CrewMovementContext = {
     training_course_id?: number | null;
     sync_training_enabled?: boolean;
     allow_future_actual_movement_dates?: boolean;
+    can_schedule?: boolean;
+    has_active_schedule?: boolean;
+    schedulable_actions?: string[];
     training_started_at: string | null;
     training_expected_completion_at: string | null;
     company_timezone: string;
@@ -564,6 +567,9 @@ export interface CrewAssignmentPagePermissions {
     start: boolean;
     update: boolean;
     perform_movement: boolean;
+    schedule_movement?: boolean;
+    manage_scheduled_movement?: boolean;
+    view_scheduled_movements?: boolean;
     cancel: boolean;
     void: boolean;
     view_audit: boolean;
@@ -578,6 +584,46 @@ export interface CrewAssignmentPagePermissions {
     delete_sea_service?: boolean;
     delete_training?: boolean;
 }
+
+export type CrewScheduledMovementCard = {
+    id: number;
+    crew_assignment_id: number;
+    employee_id: number;
+    movement_action: string;
+    movement_action_label: string;
+    status: string;
+    status_label: string;
+    scheduled_at: string | null;
+    scheduled_at_display: string | null;
+    scheduled_timezone: string;
+    expected_current_phase_code: string | null;
+    expected_result_phase_code: string | null;
+    expected_result_phase_label: string;
+    action_payload: Record<string, unknown>;
+    created_by: { id: number; name: string } | null;
+    updated_by: { id: number; name: string } | null;
+    cancelled_by: { id: number; name: string } | null;
+    executed_at: string | null;
+    effective_occurred_at: string | null;
+    cancelled_at: string | null;
+    execution_attempts: number;
+    last_error_code: string | null;
+    last_error_message: string | null;
+    can_edit: boolean;
+    can_cancel: boolean;
+    assignment_no?: string | null;
+    employee_name?: string | null;
+    employee_no?: string | null;
+    vessel_name?: string | null;
+};
+
+export type CrewScheduledMovementsSummary = {
+    active: CrewScheduledMovementCard | null;
+    history: CrewScheduledMovementCard[];
+    can_schedule: boolean;
+    can_manage: boolean;
+    schedulable_actions: string[];
+};
 
 export type VoidBlocker = {
     code: string;
@@ -739,6 +785,8 @@ export const CREW_PHASE_LABELS: Record<string, string> = {
 export interface CrewMovementActionFormData {
     action: CrewMovementAction;
     occurred_at: string;
+    mode?: 'record_now' | 'schedule_later';
+    scheduled_at?: string;
     next_phase: string;
     starting_phase: string;
     provider: string;
@@ -768,6 +816,8 @@ export interface CrewMovementActionFormData {
     check_out_date: string;
     source_check_out_date: string;
     no_hotel_accommodation: boolean;
+    check_out_date_auto_synced?: boolean;
+    source_check_out_date_auto_synced?: boolean;
 }
 
 export interface HistoricalPreviewCheck {

@@ -168,6 +168,10 @@ export function crewOperationsHref(permissions: string[]): string {
         return '/organization/crew-movement-corrections';
     }
 
+    if (has(permissions, 'crew_operations.movements.schedule.view')) {
+        return '/organization/crew-scheduled-movements';
+    }
+
     if (has(permissions, 'crew_operations.settings.view')) {
         return '/organization/crew-operations/settings';
     }
@@ -275,6 +279,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'crew_operations.settings.view'),
     '/organization/crew-movement-corrections': (permissions) =>
         has(permissions, 'crew_operations.corrections.view'),
+    '/organization/crew-scheduled-movements': (permissions) =>
+        has(permissions, 'crew_operations.movements.schedule.view'),
     '/organization/reports/crew-movement-history': (permissions) =>
         has(permissions, 'reports.crew_movement_history.view'),
     '/organization/reports/crew-relief': (permissions) =>

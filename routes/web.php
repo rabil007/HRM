@@ -86,6 +86,7 @@ use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\CrewReadinessController;
 use App\Http\Controllers\Organization\CrewReliefDeskController;
 use App\Http\Controllers\Organization\CrewReliefReportController;
+use App\Http\Controllers\Organization\CrewScheduledMovementController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
@@ -807,6 +808,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew/{assignment}/edit', [CrewAssignmentController::class, 'edit'])->name('organization.crew-assignments.edit');
     Route::put('organization/crew/{assignment}', [CrewAssignmentController::class, 'update'])->name('organization.crew-assignments.update');
     Route::post('organization/crew/{assignment}/actions', CrewMovementActionController::class)->name('organization.crew-assignments.perform-action');
+    Route::post('organization/crew/{assignment}/scheduled-movements', [CrewScheduledMovementController::class, 'store'])
+        ->middleware('can:crew_operations.movements.schedule')
+        ->name('organization.crew-assignments.scheduled-movements.store');
     Route::post('organization/crew/{assignment}/apply-tour', ApplyCrewTourOfDutyController::class)
         ->middleware('can:crew_operations.movements.perform')
         ->name('organization.crew-assignments.apply-tour');
@@ -819,6 +823,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew/{assignment}/corrections/override', [CrewMovementCorrectionController::class, 'override'])
         ->middleware(['can:crew_operations.corrections.override', 'privileged.2fa'])
         ->name('organization.crew-assignments.corrections.override');
+
+    Route::get('organization/crew-scheduled-movements', [CrewScheduledMovementController::class, 'index'])
+        ->middleware('can:crew_operations.movements.schedule.view')
+        ->name('organization.crew-scheduled-movements.index');
+    Route::put('organization/crew-scheduled-movements/{scheduledMovement}', [CrewScheduledMovementController::class, 'update'])
+        ->middleware('can:crew_operations.movements.schedule.manage')
+        ->name('organization.crew-scheduled-movements.update');
+    Route::post('organization/crew-scheduled-movements/{scheduledMovement}/cancel', [CrewScheduledMovementController::class, 'cancel'])
+        ->middleware('can:crew_operations.movements.schedule.manage')
+        ->name('organization.crew-scheduled-movements.cancel');
 
     Route::get('organization/crew-movement-corrections', [CrewMovementCorrectionController::class, 'index'])
         ->middleware('can:crew_operations.corrections.view')

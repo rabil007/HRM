@@ -8,6 +8,7 @@ export function CloseAssignmentForm({
     config,
     context,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     return (
         <div className="space-y-4">
@@ -55,6 +56,7 @@ export function CloseAssignmentForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

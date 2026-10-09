@@ -41,6 +41,11 @@ Schedule::command('announcements:publish-scheduled')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('crew:process-scheduled-movements')
+    ->everyMinute()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping(5);
+
 Schedule::command('crew:reconcile-operational-alerts')
     ->everyTenMinutes()
     ->timezone(config('app.timezone', 'UTC'))

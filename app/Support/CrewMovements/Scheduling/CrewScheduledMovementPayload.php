@@ -1,0 +1,91 @@
+<?php
+
+namespace App\Support\CrewMovements\Scheduling;
+
+use App\Enums\CrewMovementAction;
+
+/**
+ * Sanitizes validated schedule payloads for persistence and later execution.
+ * Does not store operator company context or secrets.
+ */
+final class CrewScheduledMovementPayload
+{
+    /**
+     * Keys that belong to schedule metadata rather than movement execution.
+     *
+     * @var list<string>
+     */
+    private const META_KEYS = [
+        'action',
+        'mode',
+        'scheduled_at',
+        'scheduled_timezone',
+        'check_out_date_auto_synced',
+        'source_check_out_date_auto_synced',
+    ];
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    public static function fromValidated(CrewMovementAction $action, array $validated): array
+    {
+        $payload = collect($validated)
+            ->except(self::META_KEYS)
+            ->all();
+
+        // Scheduled movements apply occurred_at only at execution time.
+        unset($payload['occurred_at']);
+
+        if (array_key_exists('check_out_date_auto_synced', $validated)) {
+            $payload['check_out_date_auto_synced'] = (bool) $validated['check_out_date_auto_synced'];
+        }
+
+        if (array_key_exists('source_check_out_date_auto_synced', $validated)) {
+            $payload['source_check_out_date_auto_synced'] = (bool) $validated['source_check_out_date_auto_synced'];
+        }
+
+        $payload['_action'] = $action->value;
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function forExecution(array $payload, string $occurredAtLocal): array
+    {
+        $execution = $payload;
+        unset(
+            $execution['_action'],
+            $execution['check_out_date_auto_synced'],
+            $execution['source_check_out_date_auto_synced'],
+        );
+        $execution['occurred_at'] = $occurredAtLocal;
+
+        return $execution;
+    }
+
+    /**
+     * When rescheduling, keep manually overridden checkout dates but follow
+     * the new scheduled date when the checkout was auto-synced.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public static function syncAutoLinkedDates(array $payload, string $scheduledAtLocal): array
+    {
+        $date = substr($scheduledAtLocal, 0, 10);
+
+        if (($payload['check_out_date_auto_synced'] ?? false) === true) {
+            $payload['check_out_date'] = $date;
+        }
+
+        if (($payload['source_check_out_date_auto_synced'] ?? false) === true) {
+            $payload['source_check_out_date'] = $date;
+        }
+
+        return $payload;
+    }
+}

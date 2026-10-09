@@ -20,6 +20,7 @@ export function CompleteTrainingForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const isSyncEnabled = Boolean(context.sync_training_enabled);
     const shouldSync =
@@ -41,6 +42,7 @@ export function CompleteTrainingForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

@@ -39,6 +39,7 @@ export function RedeployForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const startingPhase = form.data.starting_phase;
     const requiresVessel = startingPhase === 'p4';
@@ -383,6 +384,7 @@ export function RedeployForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={
                         postSignoffAccommodation?.status === 'open_hotel'
                             ? undefined

@@ -64,7 +64,8 @@ export function getTopNavLinks(
                 url.startsWith('/organization/crew-planning') ||
                 url.startsWith('/organization/crew-operations') ||
                 url.startsWith('/organization/crew') ||
-                url.startsWith('/organization/crew-movement-corrections'),
+                url.startsWith('/organization/crew-movement-corrections') ||
+                url.startsWith('/organization/crew-scheduled-movements'),
         });
     }
 

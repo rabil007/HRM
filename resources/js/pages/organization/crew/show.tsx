@@ -19,6 +19,7 @@ import {
 } from '@/features/organization/crew/components/crew-assignment-records-section';
 import { CrewAssignmentRelationships } from '@/features/organization/crew/components/crew-assignment-relationships';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
+import { ScheduledMovementCard } from '@/features/organization/crew/components/scheduled-movement-card';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
 import { RequestCorrectionDialog } from '@/features/organization/crew/corrections/request-correction-dialog';
 import type {
@@ -27,6 +28,7 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
     CrewCorrectionRequestContext,
+    CrewScheduledMovementsSummary,
 } from '@/features/organization/crew/types';
 import {
     edit as editAssignment,
@@ -153,6 +155,7 @@ export default function CrewAssignmentShow({
     assignment,
     corrections,
     correction_request_context,
+    scheduled_movements,
     recent_activity,
     form_options,
     can,
@@ -160,6 +163,7 @@ export default function CrewAssignmentShow({
     assignment: CrewAssignmentDetail;
     corrections?: CorrectionsSummary | null;
     correction_request_context?: CrewCorrectionRequestContext | null;
+    scheduled_movements?: CrewScheduledMovementsSummary | null;
     recent_activity: RecentActivityItem[];
     form_options?: CrewAssignmentFormOptions;
     can: CrewAssignmentPagePermissions;
@@ -327,32 +331,43 @@ export default function CrewAssignmentShow({
                     </div>
 
                     <div className="order-1 min-w-0 [scrollbar-width:thin] xl:sticky xl:top-4 xl:order-2 xl:max-h-[calc(100vh-2rem)] xl:self-start xl:overflow-y-auto xl:pr-1.5">
-                        <CrewAssignmentOperationsCenter
-                            assignment={assignment}
-                            corrections={corrections}
-                            correctionRequestContext={
-                                correction_request_context
-                            }
-                            can={can}
-                            formOptions={form_options}
-                            reliefHref={reliefHref}
-                            reliefActionLabel={reliefActionLabel}
-                            onApplyTour={() => setIsApplyTourDialogOpen(true)}
-                            onRequestCorrection={() => {
-                                setCorrectionDialogMode('request');
-                                setCorrectionInitialPhaseId(null);
-                                setIsCorrectionDialogOpen(true);
-                            }}
-                            onOverrideCorrection={() => {
-                                setCorrectionDialogMode('override');
-                                setCorrectionInitialPhaseId(null);
-                                setIsCorrectionDialogOpen(true);
-                            }}
-                            onVoid={() => setIsVoidDialogOpen(true)}
-                            onEdit={() =>
-                                router.visit(editAssignment.url(assignment.id))
-                            }
-                        />
+                        <div className="space-y-5">
+                            {scheduled_movements?.active ? (
+                                <ScheduledMovementCard
+                                    schedule={scheduled_movements.active}
+                                />
+                            ) : null}
+                            <CrewAssignmentOperationsCenter
+                                assignment={assignment}
+                                corrections={corrections}
+                                correctionRequestContext={
+                                    correction_request_context
+                                }
+                                can={can}
+                                formOptions={form_options}
+                                reliefHref={reliefHref}
+                                reliefActionLabel={reliefActionLabel}
+                                onApplyTour={() =>
+                                    setIsApplyTourDialogOpen(true)
+                                }
+                                onRequestCorrection={() => {
+                                    setCorrectionDialogMode('request');
+                                    setCorrectionInitialPhaseId(null);
+                                    setIsCorrectionDialogOpen(true);
+                                }}
+                                onOverrideCorrection={() => {
+                                    setCorrectionDialogMode('override');
+                                    setCorrectionInitialPhaseId(null);
+                                    setIsCorrectionDialogOpen(true);
+                                }}
+                                onVoid={() => setIsVoidDialogOpen(true)}
+                                onEdit={() =>
+                                    router.visit(
+                                        editAssignment.url(assignment.id),
+                                    )
+                                }
+                            />
+                        </div>
                     </div>
                 </div>
             </Main>

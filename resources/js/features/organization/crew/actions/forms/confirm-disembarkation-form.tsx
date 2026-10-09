@@ -24,6 +24,7 @@ export function ConfirmDisembarkationForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const disembarkDate = form.data.occurred_at.slice(0, 10);
     const beforeJoin =
@@ -160,6 +161,7 @@ export function ConfirmDisembarkationForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                     min={
                         context.actual_join_at

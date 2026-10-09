@@ -2019,6 +2019,24 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to download private candidate CV files for candidates they are authorized to view in the active company.',
                 'group' => 'Recruitment',
             ],
+            343 => [
+                'name' => 'crew_operations.movements.schedule.view',
+                'label' => 'View Scheduled Crew Movements',
+                'description' => 'Allows the user to view scheduled future crew movements and their execution status for the active company.',
+                'group' => 'Crew Operations',
+            ],
+            344 => [
+                'name' => 'crew_operations.movements.schedule',
+                'label' => 'Schedule Crew Movements',
+                'description' => 'Allows the user to schedule eligible future crew movements without performing them immediately.',
+                'group' => 'Crew Operations',
+            ],
+            345 => [
+                'name' => 'crew_operations.movements.schedule.manage',
+                'label' => 'Manage Scheduled Crew Movements',
+                'description' => 'Allows the user to edit, reschedule, or cancel pending scheduled crew movements before automatic execution.',
+                'group' => 'Crew Operations',
+            ],
         ];
     }
 }

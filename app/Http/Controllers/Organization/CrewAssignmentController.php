@@ -35,6 +35,7 @@ use App\Support\CrewMovements\CurrentCrewHomeQuery;
 use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use App\Support\CrewMovements\CurrentCrewVesselQuery;
+use App\Support\CrewMovements\Scheduling\CrewScheduledMovementPresenter;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\CrewPlanningAssignmentAccess;
 use App\Support\CrewPlanning\LinkVacantCrewPlanningSlot;
@@ -437,6 +438,15 @@ class CrewAssignmentController extends Controller
             ? $correctionPresenter->correctionRequestContext($assignment)
             : null;
 
+        $scheduledMovements = app(CrewScheduledMovementPresenter::class)
+            ->forAssignment($assignment, $request->user());
+
+        if (is_array($scheduledMovements)) {
+            $detail['movement_context']['can_schedule'] = (bool) ($scheduledMovements['can_schedule'] ?? false);
+            $detail['movement_context']['has_active_schedule'] = ($scheduledMovements['active'] ?? null) !== null;
+            $detail['movement_context']['schedulable_actions'] = $scheduledMovements['schedulable_actions'] ?? [];
+        }
+
         $recentActivity = Gate::allows('viewAudit', CrewAssignment::class)
             ? RecentActivityQuery::for($request->user(), $companyId, CrewAssignment::class, $assignment->id)
             : [];
@@ -445,6 +455,7 @@ class CrewAssignmentController extends Controller
             'assignment' => $detail,
             'corrections' => $corrections,
             'correction_request_context' => $correctionRequestContext,
+            'scheduled_movements' => $scheduledMovements,
             'recent_activity' => $recentActivity,
             'form_options' => $this->movementFormOptions($companyId),
             'can' => CrewAssignmentPagePermissions::forAssignment($request->user(), $assignment),

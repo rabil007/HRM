@@ -13,6 +13,7 @@ use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewInitialArrivalBackdateGuard;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
+use App\Support\CrewMovements\Scheduling\CrewSchedulableMovementActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
@@ -430,20 +431,25 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
 
-            // The movement engine already honors this company-scoped demo/testing
-            // override. Keep HTTP validation in sync without removing the production
-            // protection for companies that leave the override disabled.
+            // Record Now rejects future actual timestamps unless the legacy testing
+            // override remains enabled. Schedule for Later validates against the
+            // intended future instant without treating it as an actual movement yet.
             if ($occurredAt !== null
                 && $this->actionRequiresActualTimestamp($action)
+                && ! $this->isSchedulingMode()
                 && ! CrewOperationsSettings::allowFutureActualMovementDates($companyId)) {
                 $now = Carbon::now($timezone);
 
                 if ($occurredAt->gt($now)) {
                     $validator->errors()->add(
                         'occurred_at',
-                        'Actual movement events cannot be recorded in the future.',
+                        'Actual movement events cannot be recorded in the future. Use Schedule for Later for future movements.',
                     );
                 }
+            }
+
+            if ($this->isSchedulingMode()) {
+                $this->validateSchedulingMode($validator, $assignment, $action, $timezone, $occurredAt);
             }
 
             if ($action === 'approve_mobilisation') {
@@ -957,6 +963,50 @@ class PerformCrewMovementActionRequest extends FormRequest
             'check_out_date.required' => 'Please enter the hotel check-out date.',
             'source_check_out_date.required' => 'Please enter the hotel check-out date.',
         ];
+    }
+
+    protected function isSchedulingMode(): bool
+    {
+        return $this->input('mode') === 'schedule_later';
+    }
+
+    protected function validateSchedulingMode(
+        Validator $validator,
+        CrewAssignment $assignment,
+        string $action,
+        string $timezone,
+        ?Carbon $occurredAt,
+    ): void {
+        $movementAction = CrewMovementAction::tryFrom($action);
+
+        if ($movementAction === null || ! CrewSchedulableMovementActions::isSchedulable($movementAction)) {
+            $validator->errors()->add(
+                'mode',
+                'This movement action cannot be scheduled for later.',
+            );
+
+            return;
+        }
+
+        $scheduledInput = $this->input('scheduled_at') ?: $this->input('occurred_at');
+
+        if ($scheduledInput === null || $scheduledInput === '') {
+            $validator->errors()->add(
+                'scheduled_at',
+                'Please enter the future date and time for this scheduled movement.',
+            );
+
+            return;
+        }
+
+        $scheduledAt = $occurredAt ?? Carbon::parse((string) $scheduledInput, $timezone);
+
+        if ($scheduledAt->lessThanOrEqualTo(Carbon::now($timezone))) {
+            $validator->errors()->add(
+                'scheduled_at',
+                'Schedule for Later requires a future date and time. Use Record Now for current or historical movements.',
+            );
+        }
     }
 
     private function currentCompanyId(): int

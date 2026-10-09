@@ -197,6 +197,14 @@ class CrewAssignment extends Model
     }
 
     /**
+     * @return HasMany<CrewScheduledMovement, $this>
+     */
+    public function scheduledMovements(): HasMany
+    {
+        return $this->hasMany(CrewScheduledMovement::class);
+    }
+
+    /**
      * @return HasMany<CrewTimesheetPreparationLine, $this>
      */
     public function timesheetPreparationLines(): HasMany

@@ -22,6 +22,7 @@ export function RecordArrivalForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const isFixedArrivalPhase =
         context.current_phase_code === 'p0' ||
@@ -83,6 +84,7 @@ export function RecordArrivalForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                     onValueChange={syncCheckInDate}
                 />
