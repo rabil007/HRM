@@ -257,6 +257,38 @@ export function isCompanyTimeInFuture(
 }
 
 /**
+ * Milliseconds until the company-local calendar date rolls to the next day.
+ * Uses a short binary search so DST transitions stay correct without inventing
+ * a confirmed wall-clock midnight converter.
+ */
+export function msUntilNextCompanyMidnight(
+    timeZone?: string | null,
+    referenceDate: Date = new Date(),
+): number {
+    const tz = safeCompanyTimezone(timeZone);
+    const today = nowInCompanyDate(tz, referenceDate);
+    const nowMs = referenceDate.getTime();
+    let low = nowMs;
+    let high = nowMs + 36 * 60 * 60 * 1000;
+
+    if (nowInCompanyDate(tz, new Date(high)) === today) {
+        return 36 * 60 * 60 * 1000;
+    }
+
+    while (high - low > 250) {
+        const mid = Math.floor((low + high) / 2);
+
+        if (nowInCompanyDate(tz, new Date(mid)) === today) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    return Math.max(high - nowMs, 1_000);
+}
+
+/**
  * React hook to resolve the active company timezone from Inertia's shared page props,
  * with optional component-level override.
  */
