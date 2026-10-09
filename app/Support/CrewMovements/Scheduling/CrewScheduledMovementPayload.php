@@ -20,9 +20,49 @@ final class CrewScheduledMovementPayload
         'mode',
         'scheduled_at',
         'scheduled_timezone',
+        'action_fields',
         'check_out_date_auto_synced',
         'source_check_out_date_auto_synced',
     ];
+
+    /**
+     * Known movement field keys that may appear in action_fields / action_payload.
+     *
+     * @var list<string>
+     */
+    private const ALLOWED_ACTION_FIELD_KEYS = [
+        'vessel_id',
+        'position_id',
+        'client_id',
+        'next_phase',
+        'starting_phase',
+        'accommodation_status',
+        'hotel_id',
+        'room_type_id',
+        'check_in_date',
+        'check_out_date',
+        'source_check_out_date',
+        'no_hotel_accommodation',
+        'planned_signoff_choice',
+        'planned_signoff_at',
+        'planned_signoff_override_reason',
+        'provider',
+        'course',
+        'course_id',
+        'completion_intent',
+        'remarks',
+        'check_out_date_auto_synced',
+        'source_check_out_date_auto_synced',
+    ];
+
+    /**
+     * @param  array<string, mixed>  $fields
+     * @return list<string>
+     */
+    public static function unknownActionFieldKeys(array $fields): array
+    {
+        return array_values(array_diff(array_keys($fields), self::ALLOWED_ACTION_FIELD_KEYS));
+    }
 
     /**
      * @param  array<string, mixed>  $validated

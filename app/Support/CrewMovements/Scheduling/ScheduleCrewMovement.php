@@ -11,7 +11,6 @@ use App\Models\CrewScheduledMovement;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\Settings\CompanyTimezone;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,9 +35,9 @@ final class ScheduleCrewMovement
 
         $timezone = CompanyTimezone::forCompanyId($companyId);
         $scheduledAtLocal = (string) ($validated['scheduled_at'] ?? '');
-        $scheduledAt = Carbon::parse($scheduledAtLocal, $timezone);
+        $scheduledAtUtc = CrewScheduledMovementTimestamp::fromCompanyLocal($scheduledAtLocal, $timezone);
 
-        if ($scheduledAt->lessThanOrEqualTo(Carbon::now($timezone))) {
+        if ($scheduledAtUtc->lessThanOrEqualTo(CrewScheduledMovementTimestamp::nowUtc())) {
             throw CrewMovementException::make(
                 'Schedule for Later requires a future date and time in the company timezone. Use Record Now for current or historical movements.',
                 CrewScheduledMovementErrorCode::ScheduledAtNotFuture->value,
@@ -52,7 +51,8 @@ final class ScheduleCrewMovement
             $validated,
             $actor,
             $timezone,
-            $scheduledAt,
+            $scheduledAtLocal,
+            $scheduledAtUtc,
         ): CrewScheduledMovement {
             $locked = CrewAssignment::query()
                 ->where('company_id', $companyId)
@@ -100,8 +100,7 @@ final class ScheduleCrewMovement
                 'employee_id' => $locked->employee_id,
                 'movement_action' => $action,
                 'action_payload' => CrewScheduledMovementPayload::fromValidated($action, $validated),
-                // Store company-local wall time (naive), consistent with other crew timestamps.
-                'scheduled_at' => $scheduledAt->format('Y-m-d H:i:s'),
+                'scheduled_at' => CrewScheduledMovementTimestamp::storeUtc($scheduledAtUtc),
                 'scheduled_timezone' => $timezone,
                 'status' => CrewScheduledMovementStatus::Scheduled,
                 'expected_current_phase_id' => $current?->id,
@@ -121,7 +120,9 @@ final class ScheduleCrewMovement
                     'company_id' => $companyId,
                     'crew_assignment_id' => $locked->id,
                     'movement_action' => $action->value,
-                    'scheduled_at' => $scheduledAt->toIso8601String(),
+                    'scheduled_at' => $scheduledAtUtc->toIso8601String(),
+                    'scheduled_at_local' => $scheduledAtLocal,
+                    'scheduled_timezone' => $timezone,
                     'expected_current_phase_code' => $current?->phase_code?->value,
                     'expected_result_phase_code' => $expectedResult?->value,
                 ])

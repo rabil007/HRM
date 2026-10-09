@@ -48,7 +48,9 @@ final class CancelCrewScheduledMovement
 
             $locked->update([
                 'status' => CrewScheduledMovementStatus::Cancelled,
-                'cancelled_at' => now(),
+                'cancelled_at' => CrewScheduledMovementTimestamp::storeUtc(
+                    CrewScheduledMovementTimestamp::nowUtc(),
+                ),
                 'cancelled_by' => $actor->id,
                 'updated_by' => $actor->id,
                 'last_error_code' => $reason !== null && $reason !== ''

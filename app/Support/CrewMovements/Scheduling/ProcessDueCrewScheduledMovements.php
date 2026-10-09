@@ -4,7 +4,6 @@ namespace App\Support\CrewMovements\Scheduling;
 
 use App\Enums\CrewScheduledMovementStatus;
 use App\Models\CrewScheduledMovement;
-use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -15,8 +14,7 @@ use Illuminate\Support\Facades\Log;
  * runner — work is bounded and executed inline without requiring a long-lived
  * queue worker.
  *
- * Due comparison uses each row's scheduled_timezone wall clock because
- * scheduled_at is stored as company-local naive datetime.
+ * Due comparison uses UTC instants stored in scheduled_at.
  */
 final class ProcessDueCrewScheduledMovements
 {
@@ -29,30 +27,17 @@ final class ProcessDueCrewScheduledMovements
      */
     public function handle(int $limit = 25, ?Carbon $now = null): array
     {
-        $now = $now ?? Carbon::now('UTC');
+        $now = ($now ?? CrewScheduledMovementTimestamp::nowUtc())->copy()->utc();
+        $nowSql = CrewScheduledMovementTimestamp::sqlUtc($now);
 
         $recovered = $this->executor->recoverStaleProcessing($now);
 
-        $candidates = CrewScheduledMovement::query()
+        $dueIds = CrewScheduledMovement::query()
             ->where('status', CrewScheduledMovementStatus::Scheduled)
+            ->where('scheduled_at', '<=', $nowSql)
             ->orderBy('scheduled_at')
             ->orderBy('id')
-            ->limit(max($limit * 5, 50))
-            ->get(['id', 'scheduled_at', 'scheduled_timezone', 'company_id']);
-
-        $dueIds = $candidates
-            ->filter(function (CrewScheduledMovement $row) use ($now): bool {
-                $timezone = $row->scheduled_timezone
-                    ?: CompanyTimezone::forCompanyId((int) $row->company_id);
-                $scheduledLocal = Carbon::parse(
-                    $row->scheduled_at?->format('Y-m-d H:i:s') ?? '',
-                    $timezone,
-                );
-                $nowLocal = $now->copy()->timezone($timezone);
-
-                return $scheduledLocal->lessThanOrEqualTo($nowLocal);
-            })
-            ->take($limit)
+            ->limit($limit)
             ->pluck('id');
 
         $claimed = 0;

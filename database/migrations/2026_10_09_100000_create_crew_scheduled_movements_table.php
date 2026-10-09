@@ -26,8 +26,9 @@ return new class extends Migration
             $table->foreignId('employee_id')->constrained('employees')->restrictOnDelete();
             $table->string('movement_action', 64);
             $table->json('action_payload');
-            $table->timestamp('scheduled_at');
-            $table->string('scheduled_timezone', 64);
+            // DATETIME (not TIMESTAMP): store UTC instants without MySQL session TZ conversion.
+            $table->dateTime('scheduled_at')->comment('UTC instant of scheduled intent');
+            $table->string('scheduled_timezone', 64)->comment('IANA TZ used for operator local input/display');
             $table->string('status', 32);
             $table->foreignId('expected_current_phase_id')
                 ->nullable()
@@ -39,14 +40,14 @@ return new class extends Migration
             $table->string('expected_result_phase_code', 16)->nullable();
             $table->foreignId('created_by')->constrained('users')->restrictOnDelete();
             $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('executed_at')->nullable();
-            $table->timestamp('effective_occurred_at')->nullable();
-            $table->timestamp('cancelled_at')->nullable();
+            $table->dateTime('executed_at')->nullable()->comment('UTC instant when automatic execution succeeded');
+            $table->dateTime('effective_occurred_at')->nullable()->comment('UTC operational occurrence applied to the movement');
+            $table->dateTime('cancelled_at')->nullable()->comment('UTC instant when cancelled');
             $table->foreignId('cancelled_by')->nullable()->constrained('users')->nullOnDelete();
             $table->unsignedInteger('execution_attempts')->default(0);
             $table->string('last_error_code', 64)->nullable();
             $table->text('last_error_message')->nullable();
-            $table->timestamp('processing_started_at')->nullable();
+            $table->dateTime('processing_started_at')->nullable()->comment('UTC claim time for processing');
             $table->timestamps();
 
             $table->unsignedBigInteger(self::UNRESOLVED_COLUMN)

@@ -2,6 +2,7 @@
 
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
+use App\Enums\CrewOperationalAlertType;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewScheduledMovementStatus;
 use App\Models\Company;
@@ -12,11 +13,17 @@ use App\Models\EmployeeSeaService;
 use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\Scheduling\CancelCrewScheduledMovement;
+use App\Support\CrewMovements\Scheduling\CrewScheduledMovementPresenter;
+use App\Support\CrewMovements\Scheduling\ExecuteCrewScheduledMovement;
 use App\Support\CrewMovements\Scheduling\ProcessDueCrewScheduledMovements;
 use App\Support\CrewMovements\Scheduling\ScheduleCrewMovement;
+use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewOperations\DetectCrewOperationalAlerts;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     freezeCrewMovementTestClock();
@@ -441,4 +448,318 @@ test('demo lifecycle schedule then execute arrival join disembark return home', 
     $final = $assignment->fresh(['currentPhase']);
     expect($final->status)->toBe(CrewAssignmentStatus::Completed)
         ->and($final->closed_at)->not->toBeNull();
+});
+
+test('scheduled_at is stored as utc while display stays company local for dubai', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $fixtures['company']->update(['timezone' => 'Asia/Dubai']);
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'UTC store dubai',
+        ],
+        $fixtures['user'],
+    );
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+    $raw = DB::table('crew_scheduled_movements')->where('id', $schedule->id)->value('scheduled_at');
+
+    expect((string) $raw)->toStartWith('2027-01-20 05:00:00')
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-01-20 05:00:00')
+        ->and($schedule->scheduled_timezone)->toBe('Asia/Dubai');
+
+    $card = app(CrewScheduledMovementPresenter::class)
+        ->card($schedule, 'Asia/Dubai', $fixtures['user']);
+
+    expect($card['scheduled_at'])->toBe('2027-01-20 09:00:00');
+});
+
+test('utc company timezone stores local wall as identical utc digits', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $fixtures['company']->update(['timezone' => 'UTC']);
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'UTC company',
+        ],
+        $fixtures['user'],
+    );
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+    $raw = DB::table('crew_scheduled_movements')->where('id', $schedule->id)->value('scheduled_at');
+
+    expect((string) $raw)->toStartWith('2027-01-20 09:00:00');
+});
+
+test('america new york timezone behind utc stores offset correctly and executes when due', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $fixtures['company']->update(['timezone' => 'America/New_York']);
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'NY schedule',
+        ],
+        $fixtures['user'],
+    );
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+    $raw = DB::table('crew_scheduled_movements')->where('id', $schedule->id)->value('scheduled_at');
+
+    // America/New_York in January is UTC-5 → 09:00 local = 14:00 UTC
+    expect((string) $raw)->toStartWith('2027-01-20 14:00:00');
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:00:00', 'America/New_York'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-20 09:00:00', 'America/New_York'));
+
+    $result = app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+
+    expect($result['executed'])->toBe(1)
+        ->and($schedule->status)->toBe(CrewScheduledMovementStatus::Executed)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+});
+
+test('update rejects unknown action_fields and preserves hotel manual override', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Edit fields',
+            'check_out_date' => '2027-01-19',
+            'check_out_date_auto_synced' => false,
+        ],
+        $fixtures['user'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-21 10:00:00',
+            'action_fields' => [
+                'vessel_id' => $assignment->vessel_id,
+                'position_id' => $assignment->position_id,
+                'planned_signoff_choice' => 'manual_override',
+                'planned_signoff_at' => '2027-03-20',
+                'planned_signoff_override_reason' => 'Edit fields',
+                'not_a_real_field' => 'nope',
+            ],
+        ])
+        ->assertSessionHasErrors('action_fields');
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-21 10:00:00',
+            'action_fields' => [
+                'vessel_id' => $assignment->vessel_id,
+                'position_id' => $assignment->position_id,
+                'planned_signoff_choice' => 'manual_override',
+                'planned_signoff_at' => '2027-03-20',
+                'planned_signoff_override_reason' => 'Edit fields',
+                'check_out_date' => '2027-01-19',
+                'check_out_date_auto_synced' => false,
+            ],
+        ])
+        ->assertRedirect();
+
+    $schedule->refresh();
+    expect($schedule->action_payload['check_out_date'] ?? null)->toBe('2027-01-19')
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-01-21 06:00:00');
+});
+
+test('stale processing recovery uses utc processing_started_at', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Stale',
+        ],
+        $fixtures['user'],
+    );
+
+    $schedule->update([
+        'status' => CrewScheduledMovementStatus::Processing,
+        'processing_started_at' => '2027-01-20 04:50:00',
+        'execution_attempts' => 1,
+    ]);
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 05:00:00', 'UTC'));
+    $recovered = app(ExecuteCrewScheduledMovement::class)
+        ->recoverStaleProcessing(Carbon::now('UTC'), 300);
+
+    $schedule->refresh();
+
+    expect($recovered)->toBe(1)
+        ->and($schedule->status)->toBe(CrewScheduledMovementStatus::NeedsAttention)
+        ->and($schedule->last_error_code)->toBe('stale_processing');
+});
+
+test('needs attention schedules are detected for operational alerts without duplicates', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Alert',
+        ],
+        $fixtures['user'],
+    );
+
+    $schedule->update([
+        'status' => CrewScheduledMovementStatus::NeedsAttention,
+        'last_error_code' => 'lateness_exceeded',
+        'last_error_message' => 'Delayed beyond tolerance.',
+    ]);
+
+    CrewOperationsSettings::saveSettings($fixtures['company']->id, [], 30, true, [
+        'notifications_enabled' => true,
+        'notification_recipient_user_ids' => [$fixtures['user']->id],
+        'alert_scheduled_movement_needs_attention' => true,
+    ]);
+
+    $detector = app(DetectCrewOperationalAlerts::class);
+    $types = [CrewOperationalAlertType::ScheduledMovementNeedsAttention];
+    $first = $detector->forCompany($fixtures['company']->id, $types);
+    $second = $detector->forCompany($fixtures['company']->id, $types);
+
+    expect($first)->toHaveCount(1)
+        ->and($second)->toHaveCount(1)
+        ->and($first[0]['dedupe_key'])->toBe('scheduled_movement_needs_attention:schedule:'.$schedule->id)
+        ->and($first[0]['context']['employee_id'])->toBe($fixtures['employee']->id)
+        ->and($first[0]['dedupe_key'])->toBe($second[0]['dedupe_key']);
+});
+
+test('concurrent claim executes only once', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Concurrent',
+        ],
+        $fixtures['user'],
+    );
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:00:00', 'Asia/Dubai'));
+    $executor = app(ExecuteCrewScheduledMovement::class);
+    $now = Carbon::now('UTC');
+
+    $firstClaim = $executor->claim($schedule->id, $now);
+    $secondClaim = $executor->claim($schedule->id, $now);
+
+    expect($firstClaim)->not->toBeNull()
+        ->and($secondClaim)->toBeNull();
+
+    $executor->execute($firstClaim, $now);
+    $secondRun = app(ProcessDueCrewScheduledMovements::class)->handle(25, $now);
+
+    expect($secondRun['executed'])->toBe(0)
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count())->toBeGreaterThan(0);
+});
+
+test('cancelled schedule is not due and sea service untouched before execution', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+    $seaBefore = EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count();
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Cancel before due',
+        ],
+        $fixtures['user'],
+    );
+
+    app(CancelCrewScheduledMovement::class)->handle(
+        $fixtures['company']->id,
+        $schedule,
+        $fixtures['user'],
+        'Operator cancelled',
+    );
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:05:00', 'Asia/Dubai'));
+    $result = app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+
+    expect($result['executed'])->toBe(0)
+        ->and($schedule->fresh()->status)->toBe(CrewScheduledMovementStatus::Cancelled)
+        ->and(EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count())->toBe($seaBefore)
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });

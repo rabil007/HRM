@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Casts\UtcDateTimeCast;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewScheduledMovementStatus;
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\CrewMovements\Scheduling\CrewScheduledMovementTimestamp;
 use Database\Factories\CrewScheduledMovementFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -83,19 +85,19 @@ class CrewScheduledMovement extends Model
             'employee_id' => 'integer',
             'movement_action' => CrewMovementAction::class,
             'action_payload' => 'array',
-            'scheduled_at' => 'datetime',
+            'scheduled_at' => UtcDateTimeCast::class,
             'status' => CrewScheduledMovementStatus::class,
             'expected_current_phase_id' => 'integer',
             'expected_current_phase_sequence' => 'integer',
             'expected_vessel_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
-            'executed_at' => 'datetime',
-            'effective_occurred_at' => 'datetime',
-            'cancelled_at' => 'datetime',
+            'executed_at' => UtcDateTimeCast::class,
+            'effective_occurred_at' => UtcDateTimeCast::class,
+            'cancelled_at' => UtcDateTimeCast::class,
             'cancelled_by' => 'integer',
             'execution_attempts' => 'integer',
-            'processing_started_at' => 'datetime',
+            'processing_started_at' => UtcDateTimeCast::class,
         ];
     }
 
@@ -158,9 +160,13 @@ class CrewScheduledMovement extends Model
      */
     public function scopeDue(Builder $query, $asOf = null): Builder
     {
+        $asOfUtc = CrewScheduledMovementTimestamp::sqlUtc(
+            $asOf ?? CrewScheduledMovementTimestamp::nowUtc(),
+        );
+
         return $query
             ->where('status', CrewScheduledMovementStatus::Scheduled)
-            ->where('scheduled_at', '<=', $asOf ?? now());
+            ->where('scheduled_at', '<=', $asOfUtc);
     }
 
     public function isUnresolved(): bool

@@ -11,6 +11,7 @@ use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -21,6 +22,9 @@ use Throwable;
  * The background executor never trusts browser/request company context.
  * Actor identity for the operational transition is null (system execution);
  * scheduling actor remains on created_by / activity history.
+ *
+ * All schedule timestamps are UTC instants. Operational occurred_at passed into
+ * CrewMovementService remains company-local wall time (crew movement convention).
  */
 final class ExecuteCrewScheduledMovement
 {
@@ -33,7 +37,9 @@ final class ExecuteCrewScheduledMovement
      */
     public function claim(int $scheduleId, Carbon $now): ?CrewScheduledMovement
     {
-        return DB::transaction(function () use ($scheduleId, $now): ?CrewScheduledMovement {
+        $nowUtc = $now->copy()->utc();
+
+        return DB::transaction(function () use ($scheduleId, $nowUtc): ?CrewScheduledMovement {
             /** @var CrewScheduledMovement|null $schedule */
             $schedule = CrewScheduledMovement::query()
                 ->whereKey($scheduleId)
@@ -45,21 +51,13 @@ final class ExecuteCrewScheduledMovement
                 return null;
             }
 
-            $timezone = $schedule->scheduled_timezone
-                ?: CompanyTimezone::forCompanyId((int) $schedule->company_id);
-            $scheduledLocal = Carbon::parse(
-                $schedule->scheduled_at?->format('Y-m-d H:i:s') ?? '',
-                $timezone,
-            );
-            $nowLocal = $now->copy()->timezone($timezone);
-
-            if ($scheduledLocal->greaterThan($nowLocal)) {
+            if ($schedule->scheduled_at === null || $schedule->scheduled_at->greaterThan($nowUtc)) {
                 return null;
             }
 
             $schedule->update([
                 'status' => CrewScheduledMovementStatus::Processing,
-                'processing_started_at' => $nowLocal->format('Y-m-d H:i:s'),
+                'processing_started_at' => CrewScheduledMovementTimestamp::storeUtc($nowUtc),
                 'execution_attempts' => ((int) $schedule->execution_attempts) + 1,
             ]);
 
@@ -69,9 +67,11 @@ final class ExecuteCrewScheduledMovement
 
     public function recoverStaleProcessing(Carbon $now, int $staleAfterSeconds = 300): int
     {
+        $cutoff = CrewScheduledMovementTimestamp::sqlUtc($now->copy()->utc()->subSeconds($staleAfterSeconds));
+
         return CrewScheduledMovement::query()
             ->where('status', CrewScheduledMovementStatus::Processing)
-            ->where('processing_started_at', '<=', $now->copy()->subSeconds($staleAfterSeconds))
+            ->where('processing_started_at', '<=', $cutoff)
             ->update([
                 'status' => CrewScheduledMovementStatus::NeedsAttention->value,
                 'last_error_code' => CrewScheduledMovementErrorCode::StaleProcessing->value,
@@ -85,15 +85,10 @@ final class ExecuteCrewScheduledMovement
         $companyId = (int) $schedule->company_id;
         $timezone = $schedule->scheduled_timezone
             ?: CompanyTimezone::forCompanyId($companyId);
+        $nowUtc = $now->copy()->utc();
 
-        // scheduled_at is stored as company-local wall time; compare in that zone.
-        $scheduledLocal = Carbon::parse(
-            $schedule->scheduled_at?->format('Y-m-d H:i:s') ?? '',
-            $timezone,
-        );
-        $nowLocal = $now->copy()->timezone($timezone);
-
-        if (! CrewScheduledMovementLatenessPolicy::isWithinTolerance($scheduledLocal, $nowLocal)) {
+        if ($schedule->scheduled_at === null
+            || ! CrewScheduledMovementLatenessPolicy::isWithinTolerance($schedule->scheduled_at, $nowUtc)) {
             return $this->markNeedsAttention(
                 $schedule,
                 CrewScheduledMovementErrorCode::LatenessExceeded,
@@ -105,7 +100,7 @@ final class ExecuteCrewScheduledMovement
         }
 
         try {
-            return DB::transaction(function () use ($schedule, $companyId, $now, $nowLocal): CrewScheduledMovement {
+            return DB::transaction(function () use ($schedule, $companyId, $nowUtc, $timezone): CrewScheduledMovement {
                 /** @var CrewScheduledMovement|null $locked */
                 $locked = CrewScheduledMovement::query()
                     ->whereKey($schedule->id)
@@ -191,7 +186,7 @@ final class ExecuteCrewScheduledMovement
                     );
                 }
 
-                $occurredAtLocal = $nowLocal->format('Y-m-d H:i:s');
+                $occurredAtLocal = CrewScheduledMovementTimestamp::toCompanyLocalString($nowUtc, $timezone);
                 $payload = CrewScheduledMovementPayload::forExecution(
                     $locked->action_payload ?? [],
                     $occurredAtLocal,
@@ -208,8 +203,8 @@ final class ExecuteCrewScheduledMovement
 
                 $locked->update([
                     'status' => CrewScheduledMovementStatus::Executed,
-                    'executed_at' => $nowLocal->format('Y-m-d H:i:s'),
-                    'effective_occurred_at' => $occurredAtLocal,
+                    'executed_at' => CrewScheduledMovementTimestamp::storeUtc($nowUtc),
+                    'effective_occurred_at' => CrewScheduledMovementTimestamp::storeUtc($nowUtc),
                     'processing_started_at' => null,
                     'last_error_code' => null,
                     'last_error_message' => null,
@@ -223,7 +218,7 @@ final class ExecuteCrewScheduledMovement
                         'crew_assignment_id' => $locked->crew_assignment_id,
                         'movement_action' => $locked->movement_action->value,
                         'scheduled_at' => $locked->scheduled_at?->toIso8601String(),
-                        'executed_at' => $now->toIso8601String(),
+                        'executed_at' => $nowUtc->toIso8601String(),
                         'effective_occurred_at' => $occurredAtLocal,
                         'executor' => 'system_automatic',
                         'scheduled_by' => $locked->created_by,
@@ -248,19 +243,29 @@ final class ExecuteCrewScheduledMovement
             };
 
             return $this->markNeedsAttention($schedule, $code, $this->sanitizeMessage($e->getMessage()));
-        } catch (Throwable $e) {
+        } catch (QueryException $e) {
             Log::error('crew.scheduled_movement.unexpected', [
                 'schedule_id' => $schedule->id,
                 'company_id' => $companyId,
-                'message' => $e->getMessage(),
+                'exception' => $e::class,
             ]);
 
             return $this->markNeedsAttention(
                 $schedule,
                 CrewScheduledMovementErrorCode::MovementFailed,
-                $this->sanitizeMessage(
-                    'Automatic execution failed: '.$e->getMessage(),
-                ),
+                'Automatic execution failed due to a database error. Support has been notified via logs.',
+            );
+        } catch (Throwable $e) {
+            Log::error('crew.scheduled_movement.unexpected', [
+                'schedule_id' => $schedule->id,
+                'company_id' => $companyId,
+                'exception' => $e::class,
+            ]);
+
+            return $this->markNeedsAttention(
+                $schedule,
+                CrewScheduledMovementErrorCode::MovementFailed,
+                'Automatic execution failed unexpectedly. Review the assignment and reschedule or use Record Now.',
             );
         }
     }
@@ -319,6 +324,15 @@ final class ExecuteCrewScheduledMovement
 
     private function sanitizeMessage(string $message): string
     {
-        return mb_substr(trim(preg_replace('/\s+/', ' ', $message) ?? $message), 0, 1000);
+        $clean = trim(preg_replace('/\s+/', ' ', $message) ?? $message);
+        // Never leak SQL / connection / stack fragments to operators.
+        $clean = preg_replace('/\b(SQLSTATE|SQL:|PDOException|Connection:|Stack trace)\b.*/i', '', $clean) ?? $clean;
+        $clean = trim($clean);
+
+        if ($clean === '') {
+            $clean = 'Automatic execution failed. Review the assignment and try again.';
+        }
+
+        return mb_substr($clean, 0, 1000);
     }
 }

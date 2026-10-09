@@ -594,6 +594,7 @@ export type CrewScheduledMovementCard = {
     status: string;
     status_label: string;
     scheduled_at: string | null;
+    scheduled_at_input?: string | null;
     scheduled_at_display: string | null;
     scheduled_timezone: string;
     expected_current_phase_code: string | null;

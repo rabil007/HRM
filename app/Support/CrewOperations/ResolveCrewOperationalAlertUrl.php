@@ -25,7 +25,8 @@ final class ResolveCrewOperationalAlertUrl
             return match ($alert->type) {
                 CrewOperationalAlertType::SignoffOverdue,
                 CrewOperationalAlertType::SignoffNoRelief,
-                CrewOperationalAlertType::ReliefNotReady => $this->assignmentOrCurrentCrew(
+                CrewOperationalAlertType::ReliefNotReady,
+                CrewOperationalAlertType::ScheduledMovementNeedsAttention => $this->assignmentOrCurrentCrew(
                     $user,
                     $alert,
                 ),

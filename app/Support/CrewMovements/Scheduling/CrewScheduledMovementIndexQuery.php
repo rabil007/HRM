@@ -33,7 +33,7 @@ final class CrewScheduledMovementIndexQuery
     public function paginate(int $companyId, ?User $viewer, array $filters = [], int $perPage = 20): array
     {
         $timezone = CompanyTimezone::forCompanyId($companyId);
-        $now = Carbon::now('UTC');
+        $nowSql = CrewScheduledMovementTimestamp::sqlUtc(CrewScheduledMovementTimestamp::nowUtc());
 
         $base = CrewScheduledMovementAccess::applyScope(
             CrewScheduledMovement::query(),
@@ -43,9 +43,9 @@ final class CrewScheduledMovementIndexQuery
 
         $counts = [
             'upcoming' => (clone $base)->where('status', CrewScheduledMovementStatus::Scheduled)
-                ->where('scheduled_at', '>', $now)->count(),
+                ->where('scheduled_at', '>', $nowSql)->count(),
             'due' => (clone $base)->where('status', CrewScheduledMovementStatus::Scheduled)
-                ->where('scheduled_at', '<=', $now)->count(),
+                ->where('scheduled_at', '<=', $nowSql)->count(),
             'needs_attention' => (clone $base)->where('status', CrewScheduledMovementStatus::NeedsAttention)->count(),
             'executed' => (clone $base)->where('status', CrewScheduledMovementStatus::Executed)->count(),
             'cancelled' => (clone $base)->where('status', CrewScheduledMovementStatus::Cancelled)->count(),
@@ -64,7 +64,7 @@ final class CrewScheduledMovementIndexQuery
             'canceller:id,name',
         ]);
 
-        $this->applyFilters($query, $filters, $timezone, $now);
+        $this->applyFilters($query, $filters, $timezone, $nowSql);
 
         /** @var LengthAwarePaginator<int, CrewScheduledMovement> $paginator */
         $paginator = $query
@@ -106,19 +106,19 @@ final class CrewScheduledMovementIndexQuery
      * @param  Builder<CrewScheduledMovement>  $query
      * @param  array<string, mixed>  $filters
      */
-    private function applyFilters(Builder $query, array $filters, string $timezone, Carbon $now): void
+    private function applyFilters(Builder $query, array $filters, string $timezone, string $nowSql): void
     {
         $tab = (string) ($filters['tab'] ?? 'upcoming');
 
         match ($tab) {
             'due' => $query->where('status', CrewScheduledMovementStatus::Scheduled)
-                ->where('scheduled_at', '<=', $now),
+                ->where('scheduled_at', '<=', $nowSql),
             'needs_attention' => $query->where('status', CrewScheduledMovementStatus::NeedsAttention),
             'executed' => $query->where('status', CrewScheduledMovementStatus::Executed),
             'cancelled' => $query->where('status', CrewScheduledMovementStatus::Cancelled),
             'all' => null,
             default => $query->where('status', CrewScheduledMovementStatus::Scheduled)
-                ->where('scheduled_at', '>', $now),
+                ->where('scheduled_at', '>', $nowSql),
         };
 
         if (! empty($filters['status'])) {
@@ -138,12 +138,16 @@ final class CrewScheduledMovementIndexQuery
         }
 
         if (! empty($filters['scheduled_from'])) {
-            $from = Carbon::parse((string) $filters['scheduled_from'], $timezone)->startOfDay()->utc();
+            $from = CrewScheduledMovementTimestamp::sqlUtc(
+                Carbon::parse((string) $filters['scheduled_from'], $timezone)->startOfDay()->utc(),
+            );
             $query->where('scheduled_at', '>=', $from);
         }
 
         if (! empty($filters['scheduled_to'])) {
-            $to = Carbon::parse((string) $filters['scheduled_to'], $timezone)->endOfDay()->utc();
+            $to = CrewScheduledMovementTimestamp::sqlUtc(
+                Carbon::parse((string) $filters['scheduled_to'], $timezone)->endOfDay()->utc(),
+            );
             $query->where('scheduled_at', '<=', $to);
         }
 

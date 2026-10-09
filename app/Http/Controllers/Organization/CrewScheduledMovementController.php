@@ -97,7 +97,7 @@ class CrewScheduledMovementController extends Controller
             $schedule = $updater->handle(
                 $companyId,
                 $scheduledMovement,
-                $request->validated(),
+                $request->updatePayload(),
                 $request->user(),
             );
         } catch (CrewMovementException $e) {
@@ -106,7 +106,10 @@ class CrewScheduledMovementController extends Controller
 
         return redirect()
             ->route('organization.crew-assignments.show', $schedule->crew_assignment_id)
-            ->with('success', 'Scheduled movement updated.');
+            ->with('success', sprintf(
+                'Scheduled movement updated for %s.',
+                $schedule->scheduled_at?->timezone($schedule->scheduled_timezone)->format('d M Y H:i'),
+            ));
     }
 
     public function cancel(

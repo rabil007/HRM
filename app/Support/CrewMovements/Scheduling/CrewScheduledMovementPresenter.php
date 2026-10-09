@@ -72,7 +72,23 @@ final class CrewScheduledMovementPresenter
         $timezone ??= $schedule->scheduled_timezone
             ?: CompanyTimezone::forCompanyId((int) $schedule->company_id);
 
-        $scheduledLocal = $schedule->scheduled_at?->clone()->timezone($timezone);
+        $scheduledLocal = $schedule->scheduled_at !== null
+            ? CrewScheduledMovementTimestamp::toCompanyLocalString($schedule->scheduled_at, $timezone)
+            : null;
+        $scheduledDisplay = $schedule->scheduled_at !== null
+            ? CrewScheduledMovementTimestamp::toCompanyLocalString($schedule->scheduled_at, $timezone, 'd M Y H:i')
+            : null;
+        $scheduledInput = $schedule->scheduled_at !== null
+            ? CrewScheduledMovementTimestamp::toCompanyLocalString($schedule->scheduled_at, $timezone, "Y-m-d\TH:i")
+            : null;
+
+        $formatLocal = function ($value) use ($timezone): ?string {
+            if ($value === null) {
+                return null;
+            }
+
+            return CrewScheduledMovementTimestamp::toCompanyLocalString($value, $timezone);
+        };
 
         return [
             'id' => $schedule->id,
@@ -82,8 +98,9 @@ final class CrewScheduledMovementPresenter
             'movement_action_label' => $schedule->movement_action->label(),
             'status' => $schedule->status->value,
             'status_label' => $schedule->status->label(),
-            'scheduled_at' => $scheduledLocal?->format('Y-m-d H:i:s'),
-            'scheduled_at_display' => $scheduledLocal?->format('d M Y H:i'),
+            'scheduled_at' => $scheduledLocal,
+            'scheduled_at_input' => $scheduledInput,
+            'scheduled_at_display' => $scheduledDisplay,
             'scheduled_timezone' => $timezone,
             'expected_current_phase_code' => $schedule->expected_current_phase_code,
             'expected_result_phase_code' => $schedule->expected_result_phase_code,
@@ -104,9 +121,9 @@ final class CrewScheduledMovementPresenter
                 'id' => $schedule->canceller->id,
                 'name' => $schedule->canceller->name,
             ] : null,
-            'executed_at' => $schedule->executed_at?->timezone($timezone)->format('Y-m-d H:i:s'),
-            'effective_occurred_at' => $schedule->effective_occurred_at?->timezone($timezone)->format('Y-m-d H:i:s'),
-            'cancelled_at' => $schedule->cancelled_at?->timezone($timezone)->format('Y-m-d H:i:s'),
+            'executed_at' => $formatLocal($schedule->executed_at),
+            'effective_occurred_at' => $formatLocal($schedule->effective_occurred_at),
+            'cancelled_at' => $formatLocal($schedule->cancelled_at),
             'execution_attempts' => $schedule->execution_attempts,
             'last_error_code' => $schedule->last_error_code,
             'last_error_message' => $schedule->last_error_message,

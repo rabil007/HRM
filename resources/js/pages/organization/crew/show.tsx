@@ -28,6 +28,8 @@ import type {
     CrewAssignmentFormOptions,
     CrewAssignmentPagePermissions,
     CrewCorrectionRequestContext,
+    CrewMovementAction,
+    CrewScheduledMovementCard,
     CrewScheduledMovementsSummary,
 } from '@/features/organization/crew/types';
 import {
@@ -179,6 +181,8 @@ export default function CrewAssignmentShow({
     const [cancelDismissed, setCancelDismissed] = useState(false);
     const [isVoidDialogOpen, setIsVoidDialogOpen] = useState(false);
     const [isApplyTourDialogOpen, setIsApplyTourDialogOpen] = useState(false);
+    const [editingSchedule, setEditingSchedule] =
+        useState<CrewScheduledMovementCard | null>(null);
 
     const requestedTransfer = useMemo(
         () =>
@@ -335,6 +339,7 @@ export default function CrewAssignmentShow({
                             {scheduled_movements?.active ? (
                                 <ScheduledMovementCard
                                     schedule={scheduled_movements.active}
+                                    onEditFields={setEditingSchedule}
                                 />
                             ) : null}
                             <CrewAssignmentOperationsCenter
@@ -430,6 +435,29 @@ export default function CrewAssignmentShow({
                 assignmentId={assignment.id}
                 movementContext={assignment.movement_context}
                 formOptions={form_options}
+            />
+
+            <MovementActionDialog
+                open={editingSchedule !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setEditingSchedule(null);
+                    }
+                }}
+                action={
+                    editingSchedule
+                        ? (editingSchedule.movement_action as CrewMovementAction)
+                        : null
+                }
+                assignmentId={assignment.id}
+                movementContext={assignment.movement_context}
+                formOptions={form_options}
+                editingSchedule={editingSchedule}
+                canSchedule={Boolean(scheduled_movements?.can_manage)}
+                hasActiveSchedule={false}
+                schedulableActions={
+                    scheduled_movements?.schedulable_actions ?? undefined
+                }
             />
         </>
     );

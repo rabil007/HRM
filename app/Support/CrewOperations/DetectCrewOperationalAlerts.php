@@ -7,8 +7,10 @@ use App\Enums\CrewOperationalAlertType;
 use App\Enums\CrewProjectedManningStatus;
 use App\Enums\CrewReliefRisk;
 use App\Enums\CrewReliefStatus;
+use App\Enums\CrewScheduledMovementStatus;
 use App\Enums\CrewTourStatus;
 use App\Models\CrewAssignment;
+use App\Models\CrewScheduledMovement;
 use App\Support\CrewMovements\CrewReliefStatusQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Settings\CompanyTimezone;
@@ -69,6 +71,10 @@ final class DetectCrewOperationalAlerts
 
         if ($enabled->has(CrewOperationalAlertType::ProjectedManningGap->value)) {
             $detected = array_merge($detected, $this->projectedManningGaps($companyId));
+        }
+
+        if ($enabled->has(CrewOperationalAlertType::ScheduledMovementNeedsAttention->value)) {
+            $detected = array_merge($detected, $this->scheduledMovementsNeedingAttention($companyId));
         }
 
         return $detected;
@@ -321,6 +327,65 @@ final class DetectCrewOperationalAlerts
                     'next_gap_date' => $item['next_gap_date'] ?? null,
                     'from' => $from,
                     'to' => $to,
+                ],
+            ];
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * @return list<DetectedAlert>
+     */
+    private function scheduledMovementsNeedingAttention(int $companyId): array
+    {
+        $schedules = CrewScheduledMovement::query()
+            ->where('company_id', $companyId)
+            ->where('status', CrewScheduledMovementStatus::NeedsAttention)
+            ->with(['assignment:id,assignment_no,vessel_id', 'assignment.vessel:id,name', 'employee:id,name,employee_no'])
+            ->orderBy('id')
+            ->get([
+                'id',
+                'crew_assignment_id',
+                'employee_id',
+                'movement_action',
+                'last_error_code',
+                'last_error_message',
+                'scheduled_at',
+                'scheduled_timezone',
+            ]);
+
+        $alerts = [];
+
+        foreach ($schedules as $schedule) {
+            $actionLabel = $schedule->movement_action->label();
+            $employeeName = $schedule->employee?->name ?? 'Crew member';
+            $errorCode = $schedule->last_error_code ?? 'needs_attention';
+            $safeMessage = filled($schedule->last_error_message)
+                ? mb_substr(trim((string) $schedule->last_error_message), 0, 240)
+                : 'Automatic execution needs operator review.';
+
+            $alerts[] = [
+                'type' => CrewOperationalAlertType::ScheduledMovementNeedsAttention,
+                'severity' => CrewOperationalAlertSeverity::Warning,
+                'dedupe_key' => 'scheduled_movement_needs_attention:schedule:'.$schedule->id,
+                'title' => 'Scheduled movement needs attention',
+                'message' => sprintf(
+                    '%s — %s requires review (%s). %s',
+                    $employeeName,
+                    $actionLabel,
+                    $errorCode,
+                    $safeMessage,
+                ),
+                'context' => [
+                    'schedule_id' => (int) $schedule->id,
+                    'assignment_id' => (int) $schedule->crew_assignment_id,
+                    'employee_id' => (int) $schedule->employee_id,
+                    'movement_action' => $schedule->movement_action->value,
+                    'movement_action_label' => $actionLabel,
+                    'last_error_code' => $errorCode,
+                    'vessel_name' => $schedule->assignment?->vessel?->name,
+                    'assignment_no' => $schedule->assignment?->assignment_no,
                 ],
             ];
         }

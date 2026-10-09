@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Enums\CrewScheduledMovementStatus;
 use App\Models\CrewScheduledMovement;
+use App\Support\CrewMovements\Scheduling\CrewScheduledMovementTimestamp;
 use App\Support\CrewMovements\Scheduling\ExecuteCrewScheduledMovement;
 use App\Support\CrewMovements\Scheduling\ProcessDueCrewScheduledMovements;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
 
 /**
@@ -28,7 +28,8 @@ class RecoverCrewScheduledMovementsCommand extends Command
         ExecuteCrewScheduledMovement $executor,
         ProcessDueCrewScheduledMovements $processor,
     ): int {
-        $now = Carbon::now('UTC');
+        $now = CrewScheduledMovementTimestamp::nowUtc();
+        $nowSql = CrewScheduledMovementTimestamp::sqlUtc($now);
         $companyId = $this->option('company');
         $staleSeconds = max(60, (int) $this->option('stale-seconds'));
 
@@ -36,11 +37,11 @@ class RecoverCrewScheduledMovementsCommand extends Command
         $this->info("Recovered {$recovered} stale processing row(s).");
 
         $query = CrewScheduledMovement::query()
-            ->where(function ($q) use ($now): void {
+            ->where(function ($q) use ($nowSql): void {
                 $q->where('status', CrewScheduledMovementStatus::NeedsAttention)
-                    ->orWhere(function ($due) use ($now): void {
+                    ->orWhere(function ($due) use ($nowSql): void {
                         $due->where('status', CrewScheduledMovementStatus::Scheduled)
-                            ->where('scheduled_at', '<=', $now);
+                            ->where('scheduled_at', '<=', $nowSql);
                     });
             })
             ->orderBy('scheduled_at');
@@ -69,7 +70,7 @@ class RecoverCrewScheduledMovementsCommand extends Command
                     $row->crew_assignment_id,
                     $row->movement_action->value,
                     $row->status->value,
-                    $row->scheduled_at?->toDateTimeString(),
+                    $row->scheduled_at?->utc()->toDateTimeString().'Z',
                     $row->last_error_code,
                 ])->all(),
             );

@@ -79,6 +79,10 @@ const ALERT_TYPE_FIELDS = [
         key: 'alert_projected_manning_gap' as const,
         label: 'Projected manning gap',
     },
+    {
+        key: 'alert_scheduled_movement_needs_attention' as const,
+        label: 'Scheduled movement needs attention',
+    },
 ];
 
 export default function CrewOperationsSettings({

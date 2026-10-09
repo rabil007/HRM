@@ -32,23 +32,51 @@ function statusClass(status: string): string {
     }
 }
 
+function toDateTimeLocalValue(value: string | null | undefined): string {
+    if (!value) {
+        return '';
+    }
+
+    if (value.includes('T')) {
+        return value.slice(0, 16);
+    }
+
+    return value.slice(0, 16).replace(' ', 'T');
+}
+
 export function ScheduledMovementCard({
     schedule,
     className,
+    onEditFields,
 }: {
     schedule: CrewScheduledMovementCard;
     className?: string;
+    onEditFields?: (schedule: CrewScheduledMovementCard) => void;
 }): ReactElement {
     const [editing, setEditing] = useState(false);
     const form = useForm({
-        scheduled_at: schedule.scheduled_at ?? '',
+        scheduled_at: toDateTimeLocalValue(
+            schedule.scheduled_at_input ?? schedule.scheduled_at,
+        ),
         remarks: '',
         reason: '',
     });
 
     const save = (): void => {
+        const scheduledAt = form.data.scheduled_at.includes('T')
+            ? form.data.scheduled_at.replace('T', ' ') +
+              (form.data.scheduled_at.length === 16 ? ':00' : '')
+            : form.data.scheduled_at;
+
+        form.transform(() => ({
+            scheduled_at: scheduledAt,
+            remarks: form.data.remarks || undefined,
+        }));
         form.put(updateScheduledMovement.url(schedule.id), {
             preserveScroll: true,
+            onFinish: () => {
+                form.transform((data) => data);
+            },
             onSuccess: () => setEditing(false),
         });
     };
@@ -102,6 +130,10 @@ export function ScheduledMovementCard({
                             {schedule.scheduled_at_display ??
                                 schedule.scheduled_at ??
                                 '—'}
+                        </span>
+                        <span className="text-muted-foreground">
+                            {' '}
+                            ({schedule.scheduled_timezone})
                         </span>
                     </div>
                     <div>
@@ -185,15 +217,35 @@ export function ScheduledMovementCard({
                 {(schedule.can_edit || schedule.can_cancel) && !editing ? (
                     <div className="flex flex-wrap gap-2">
                         {schedule.can_edit ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setEditing(true)}
-                            >
-                                <Pencil className="mr-1 size-3.5" />
-                                Edit / Reschedule
-                            </Button>
+                            <>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (onEditFields) {
+                                            onEditFields(schedule);
+
+                                            return;
+                                        }
+
+                                        setEditing(true);
+                                    }}
+                                >
+                                    <Pencil className="mr-1 size-3.5" />
+                                    Edit / Reschedule
+                                </Button>
+                                {onEditFields ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditing(true)}
+                                    >
+                                        Quick reschedule
+                                    </Button>
+                                ) : null}
+                            </>
                         ) : null}
                         {schedule.can_cancel ? (
                             <Button
@@ -203,14 +255,14 @@ export function ScheduledMovementCard({
                                 onClick={cancel}
                             >
                                 <X className="mr-1 size-3.5" />
-                                Cancel
+                                Cancel schedule
                             </Button>
                         ) : null}
                     </div>
                 ) : null}
 
-                {schedule.can_cancel && editing ? (
-                    <div className="space-y-2 border-t border-border/60 pt-3">
+                {schedule.can_cancel ? (
+                    <div className="space-y-2">
                         <Label htmlFor={`cancel-reason-${schedule.id}`}>
                             Cancel reason (optional)
                         </Label>

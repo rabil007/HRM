@@ -175,6 +175,7 @@ final class CrewOperationsSettings
      *     alert_relief_not_ready: bool,
      *     alert_current_manning_gap: bool,
      *     alert_projected_manning_gap: bool,
+     *     alert_scheduled_movement_needs_attention: bool,
      *     notification_email_delivery_mode: string,
      *     notification_email_digest_at: string,
      *     notification_email_critical_immediate: bool
@@ -192,6 +193,7 @@ final class CrewOperationsSettings
             'alert_relief_not_ready' => (bool) ($setting?->alert_relief_not_ready ?? true),
             'alert_current_manning_gap' => (bool) ($setting?->alert_current_manning_gap ?? true),
             'alert_projected_manning_gap' => (bool) ($setting?->alert_projected_manning_gap ?? true),
+            'alert_scheduled_movement_needs_attention' => (bool) ($setting?->alert_scheduled_movement_needs_attention ?? true),
             'notification_email_delivery_mode' => ($setting?->notification_email_delivery_mode instanceof CrewOperationalAlertEmailDeliveryMode
                 ? $setting->notification_email_delivery_mode->value
                 : ($setting?->notification_email_delivery_mode ?? CrewOperationalAlertEmailDeliveryMode::Scheduled->value)),
@@ -245,6 +247,7 @@ final class CrewOperationsSettings
      *     alert_relief_not_ready?: bool,
      *     alert_current_manning_gap?: bool,
      *     alert_projected_manning_gap?: bool,
+     *     alert_scheduled_movement_needs_attention?: bool,
      *     notification_email_delivery_mode?: CrewOperationalAlertEmailDeliveryMode|string,
      *     notification_email_digest_at?: string,
      *     notification_email_critical_immediate?: bool,
@@ -331,6 +334,9 @@ final class CrewOperationsSettings
                     'alert_projected_manning_gap' => array_key_exists('alert_projected_manning_gap', $actualOptions)
                         ? (bool) $actualOptions['alert_projected_manning_gap']
                         : (bool) ($existing?->alert_projected_manning_gap ?? true),
+                    'alert_scheduled_movement_needs_attention' => array_key_exists('alert_scheduled_movement_needs_attention', $actualOptions)
+                        ? (bool) $actualOptions['alert_scheduled_movement_needs_attention']
+                        : (bool) ($existing?->alert_scheduled_movement_needs_attention ?? true),
                     'notification_email_delivery_mode' => array_key_exists('notification_email_delivery_mode', $actualOptions)
                         ? ($actualOptions['notification_email_delivery_mode'] instanceof CrewOperationalAlertEmailDeliveryMode
                             ? $actualOptions['notification_email_delivery_mode']->value
