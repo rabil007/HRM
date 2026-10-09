@@ -475,3 +475,212 @@ test('http generation preview endpoint exposes future payable acknowledgment fie
 
     expect($response->json())->not->toHaveKey('ready_employee_ids');
 });
+
+function seedLegacyFlatOnsiteTimesheet(
+    PayrollPeriod $period,
+    int $companyId,
+    int $employeeId,
+    string $from,
+    string $to,
+    ?float $days = null,
+    CrewTimesheetSource $source = CrewTimesheetSource::Manual,
+): CrewTimesheet {
+    $fromDate = CarbonImmutable::parse($from);
+    $toDate = CarbonImmutable::parse($to);
+    $days ??= (float) ($fromDate->diffInDays($toDate) + 1);
+
+    return CrewTimesheet::factory()->create([
+        'company_id' => $companyId,
+        'employee_id' => $employeeId,
+        'period_id' => $period->id,
+        'source' => $source,
+        'onsite_from' => $from,
+        'onsite_to' => $to,
+        'onsite_days' => $days,
+        'sign_on_standby_from' => null,
+        'sign_on_standby_to' => null,
+        'sign_on_standby_days' => 0,
+        'sign_off_standby_from' => null,
+        'sign_off_standby_to' => null,
+        'sign_off_standby_days' => 0,
+    ]);
+}
+
+test('legacy flat-field timesheet with future onsite dates triggers acknowledgment', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    $timesheet = seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-15', '2026-10-20');
+
+    expect($timesheet->segments()->count())->toBe(0);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->readyCount)->toBe(1)
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeTrue()
+        ->and($preview->futurePayableDaysCount)->toBe(6)
+        ->and($preview->futurePayableEmployeeCount)->toBe(1)
+        ->and($preview->futurePayableFrom)->toBe('2026-10-15')
+        ->and($preview->futurePayableTo)->toBe('2026-10-20');
+});
+
+test('legacy flat-field generate without acknowledgment fails and with acknowledgment succeeds', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-15', '2026-10-20');
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($period, [], $user, false))
+        ->toThrow(ValidationException::class);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [],
+        ])
+        ->assertSessionHasErrors('acknowledge_future_payable_days');
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, true);
+
+    expect($result->generatedCount)->toBe(1)
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $employee->id)->exists())->toBeTrue();
+});
+
+test('direct http generate cannot bypass legacy flat-field future payable acknowledgment', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-15', '2026-10-20');
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period), [
+            'excluded_employee_ids' => [],
+            'acknowledge_future_payable_days' => true,
+        ])
+        ->assertRedirect(route('payroll.show', $period))
+        ->assertSessionHas('success');
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $employee->id)->exists())->toBeTrue();
+});
+
+test('past-only legacy flat-field timesheets do not require acknowledgment', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-01', '2026-10-08');
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->requiresFutureDaysAcknowledgment)->toBeFalse()
+        ->and($preview->futurePayableDaysCount)->toBe(0);
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, false);
+
+    expect($result->generatedCount)->toBe(1);
+});
+
+test('incomplete legacy flat-field date pairs do not create false future payable days', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_from' => '2026-10-15',
+        'onsite_to' => null,
+        'onsite_days' => 6,
+        'sign_on_standby_from' => null,
+        'sign_on_standby_to' => '2026-10-20',
+        'sign_on_standby_days' => 3,
+        'sign_off_standby_from' => null,
+        'sign_off_standby_to' => null,
+        'sign_off_standby_days' => 0,
+    ]);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->readyCount)->toBe(1)
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse()
+        ->and($preview->futurePayableDaysCount)->toBe(0);
+
+    $result = app(GenerateCrewPayroll::class)->handle($period, [], $user, false);
+
+    expect($result->generatedCount)->toBe(1);
+});
+
+test('legacy flat-field multiple future categories count distinct employee dates once', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'sign_on_standby_from' => '2026-10-11',
+        'sign_on_standby_to' => '2026-10-14',
+        'sign_on_standby_days' => 4,
+        'onsite_from' => '2026-10-15',
+        'onsite_to' => '2026-10-17',
+        'onsite_days' => 3,
+        'sign_off_standby_from' => '2026-10-18',
+        'sign_off_standby_to' => '2026-10-19',
+        'sign_off_standby_days' => 2,
+    ]);
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle($period, (int) $company->id, [], $user);
+
+    expect($preview->requiresFutureDaysAcknowledgment)->toBeTrue()
+        ->and($preview->futurePayableEmployeeCount)->toBe(1)
+        ->and($preview->futurePayableDaysCount)->toBe(9)
+        ->and($preview->futurePayableFrom)->toBe('2026-10-11')
+        ->and($preview->futurePayableTo)->toBe('2026-10-19');
+});
+
+test('excluded legacy flat-field employees do not trigger acknowledgment', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $futureEmployee] = makeOctoberCrewPayrollAckFixtures();
+    $pastEmployee = createCrewEmployeeWithContract($company, 'ACK-LEG-PAST', 100, 50, 25);
+
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $futureEmployee->id, '2026-10-15', '2026-10-20');
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $pastEmployee->id, '2026-10-01', '2026-10-05');
+
+    $preview = app(BuildCrewPayrollGenerationPreview::class)->handle(
+        $period,
+        (int) $company->id,
+        [(int) $futureEmployee->id],
+        $user,
+    );
+
+    expect($preview->readyCount)->toBe(1)
+        ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse()
+        ->and($preview->futurePayableDaysCount)->toBe(0);
+
+    $result = app(GenerateCrewPayroll::class)->handle(
+        $period,
+        [(int) $futureEmployee->id],
+        $user,
+        false,
+    );
+
+    expect($result->generatedCount)->toBe(1)
+        ->and(PayrollRecord::query()->where('employee_id', $pastEmployee->id)->exists())->toBeTrue()
+        ->and(PayrollRecord::query()->where('employee_id', $futureEmployee->id)->exists())->toBeFalse();
+});
+
+test('legacy flat-field cross-company generate remains blocked', function () {
+    ['user' => $user, 'company' => $company, 'period' => $period, 'employee' => $employee] = makeOctoberCrewPayrollAckFixtures();
+    seedLegacyFlatOnsiteTimesheet($period, (int) $company->id, (int) $employee->id, '2026-10-15', '2026-10-20');
+
+    $other = makePayrollFixtures();
+    $otherPeriod = PayrollPeriod::factory()->for($other['company'])->hybridTimesheets()->create([
+        'start_date' => '2026-10-01',
+        'end_date' => '2026-10-30',
+        'payment_date' => '2026-10-30',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $otherPeriod), [
+            'acknowledge_future_payable_days' => true,
+        ])
+        ->assertNotFound();
+});

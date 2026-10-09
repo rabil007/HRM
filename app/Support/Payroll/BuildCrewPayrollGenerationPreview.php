@@ -25,6 +25,7 @@ final class BuildCrewPayrollGenerationPreview
         private readonly ValidateCrewTimesheetOperationalIntegrity $validateIntegrity,
         private readonly CrewOperationsPayrollGenerationGuard $legacyGuard,
         private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
+        private readonly CollectFuturePayableCrewTimesheetDates $collectFuturePayableDates,
     ) {}
 
     /**
@@ -444,6 +445,12 @@ final class BuildCrewPayrollGenerationPreview
         $timesheet->loadMissing(['segments']);
 
         if ($timesheet->segments->isEmpty()) {
+            $this->recordFuturePayableDates(
+                (int) $timesheet->employee_id,
+                $this->collectFuturePayableDates->fromLegacyFlatFields($timesheet, $period, $today),
+                $futureDatesByEmployee,
+            );
+
             return false;
         }
 
@@ -462,10 +469,9 @@ final class BuildCrewPayrollGenerationPreview
         $this->appendAutomaticAdjustmentsFromPlan($employee, $plan, $automaticAdjustments);
 
         if ($plan['issues'] === []) {
-            $this->collectFuturePayableDatesFromPlan(
+            $this->recordFuturePayableDates(
                 (int) $timesheet->employee_id,
-                $plan,
-                $today,
+                $this->collectFuturePayableDates->fromAllocationDays($plan['days'], $today),
                 $futureDatesByEmployee,
             );
 
@@ -529,11 +535,18 @@ final class BuildCrewPayrollGenerationPreview
             ->pluck('id', 'employee_id');
 
         foreach ($timesheets as $timesheet) {
+            $employeeId = (int) $timesheet->employee_id;
+
             if ($timesheet->segments->isEmpty()) {
+                $this->recordFuturePayableDates(
+                    $employeeId,
+                    $this->collectFuturePayableDates->fromLegacyFlatFields($timesheet, $period, $today),
+                    $futureDatesByEmployee,
+                );
+
                 continue;
             }
 
-            $employeeId = (int) $timesheet->employee_id;
             $existingRecordId = $existingRecordIds->get($employeeId);
             $plan = $this->buildAllocationPlan->handle(
                 $period,
@@ -545,10 +558,9 @@ final class BuildCrewPayrollGenerationPreview
                 continue;
             }
 
-            $this->collectFuturePayableDatesFromPlan(
+            $this->recordFuturePayableDates(
                 $employeeId,
-                $plan,
-                $today,
+                $this->collectFuturePayableDates->fromAllocationDays($plan['days'], $today),
                 $futureDatesByEmployee,
             );
         }
@@ -557,26 +569,15 @@ final class BuildCrewPayrollGenerationPreview
     }
 
     /**
-     * @param  array{
-     *     days: list<array<string, mixed>>
-     * }  $plan
+     * @param  list<string>  $workDates
      * @param  array<int, array<string, true>>  $futureDatesByEmployee
      */
-    private function collectFuturePayableDatesFromPlan(
+    private function recordFuturePayableDates(
         int $employeeId,
-        array $plan,
-        CarbonImmutable $today,
+        array $workDates,
         array &$futureDatesByEmployee,
     ): void {
-        $todayDate = $today->toDateString();
-
-        foreach ($plan['days'] as $day) {
-            $workDate = isset($day['work_date']) ? (string) $day['work_date'] : '';
-
-            if ($workDate === '' || $workDate <= $todayDate) {
-                continue;
-            }
-
+        foreach ($workDates as $workDate) {
             $futureDatesByEmployee[$employeeId][$workDate] = true;
         }
     }
