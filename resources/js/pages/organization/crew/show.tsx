@@ -1,11 +1,8 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { CheckCircle2, FilePenLine, X } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ApplyTourOfDutyDialog } from '@/features/organization/crew/actions/apply-tour-of-duty-dialog';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
@@ -15,9 +12,8 @@ import { CrewAssignmentAccommodationCard } from '@/features/organization/crew/co
 import { CrewAssignmentIdentity } from '@/features/organization/crew/components/crew-assignment-identity';
 import { CrewAssignmentOperationalSummary } from '@/features/organization/crew/components/crew-assignment-operational-summary';
 import { CrewAssignmentOperationsCenter } from '@/features/organization/crew/components/crew-assignment-operations-center';
-import { CrewAssignmentPlanVsActual } from '@/features/organization/crew/components/crew-assignment-plan-vs-actual';
+import { CrewAssignmentPhaseTimeline } from '@/features/organization/crew/components/crew-assignment-phase-timeline';
 import { CrewAssignmentRelationships } from '@/features/organization/crew/components/crew-assignment-relationships';
-import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
@@ -29,15 +25,12 @@ import type {
     CrewAssignmentPagePermissions,
     CrewCorrectionRequestContext,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
 import {
     edit as editAssignment,
     show as showAssignment,
 } from '@/routes/organization/crew-assignments';
 import { cancel as cancelCorrection } from '@/routes/organization/crew-movement-corrections';
 import { index as crewPlanningIndex } from '@/routes/organization/crew-planning';
-import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
 
 function requestedTransferPrefill(
     canPerformMovement: boolean,
@@ -285,10 +278,7 @@ export default function CrewAssignmentShow({
                             </CardContent>
                         </Card>
 
-                        {/* B. Plan vs Actual */}
-                        <CrewAssignmentPlanVsActual assignment={assignment} />
-
-                        {/* C. Tour of Duty (analytical, on vessel) */}
+                        {/* B. Tour of Duty (analytical, on vessel) */}
                         {isOnVessel ? (
                             <Card className="border-border/80 dark:border-white/10">
                                 <CardHeader className="pb-3">
@@ -307,7 +297,7 @@ export default function CrewAssignmentShow({
                             </Card>
                         ) : null}
 
-                        {/* D. Accommodation */}
+                        {/* C. Accommodation */}
                         {assignment.accommodation &&
                         assignment.accommodation.length > 0 ? (
                             <CrewAssignmentAccommodationCard
@@ -315,222 +305,31 @@ export default function CrewAssignmentShow({
                             />
                         ) : null}
 
-                        {/* E. Phase Timeline */}
-                        <Card className="border-border/80 dark:border-white/10">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-base">
-                                    Phase Timeline
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {assignment.phase_timeline.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">
-                                        No phase timeline recorded yet.
-                                    </p>
-                                ) : (
-                                    <ol className="relative space-y-0 border-l border-border/70 pl-5">
-                                        {assignment.phase_timeline.map(
-                                            (phase, index) => {
-                                                const isCurrent =
-                                                    assignment.current_phase
-                                                        ?.id === phase.id;
+                        {/* D. Phase Timeline (includes Plan vs Actual) */}
+                        <CrewAssignmentPhaseTimeline
+                            assignment={assignment}
+                            can={can}
+                            correctablePhaseIds={correctablePhaseIds}
+                            onCorrect={(phaseId) => {
+                                setCorrectionDialogMode('override');
+                                setCorrectionInitialPhaseId(phaseId);
+                                setIsCorrectionDialogOpen(true);
+                            }}
+                            onCancelPending={handleCancelPendingCorrection}
+                        />
 
-                                                return (
-                                                    <li
-                                                        key={phase.id}
-                                                        className="relative pb-6 last:pb-0"
-                                                    >
-                                                        <span
-                                                            className={cn(
-                                                                'absolute top-1.5 -left-[1.4rem] size-2.5 rounded-full border-2 border-background',
-                                                                isCurrent
-                                                                    ? 'bg-primary'
-                                                                    : phase.status ===
-                                                                        'completed'
-                                                                      ? 'bg-emerald-500'
-                                                                      : 'bg-muted-foreground/40',
-                                                            )}
-                                                            aria-hidden
-                                                        />
-                                                        <div className="flex flex-wrap items-start justify-between gap-3">
-                                                            <div className="space-y-1">
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <CrewPhaseBadge
-                                                                        code={
-                                                                            phase.phase_code
-                                                                        }
-                                                                        label={
-                                                                            phase.phase_label
-                                                                        }
-                                                                        status={
-                                                                            phase.status
-                                                                        }
-                                                                    />
-                                                                    {isCurrent ? (
-                                                                        <Badge variant="outline">
-                                                                            Current
-                                                                        </Badge>
-                                                                    ) : null}
-                                                                    {(can.view_corrections ||
-                                                                        can.request_correction ||
-                                                                        can.override_corrections) &&
-                                                                    phase.has_pending_correction ? (
-                                                                        <Badge variant="warning">
-                                                                            Pending
-                                                                            Correction
-                                                                        </Badge>
-                                                                    ) : can.view_corrections &&
-                                                                      phase.has_approved_correction ? (
-                                                                        <Badge variant="secondary">
-                                                                            Corrected
-                                                                        </Badge>
-                                                                    ) : null}
-                                                                    {can.override_corrections &&
-                                                                    !phase.has_pending_correction &&
-                                                                    correctablePhaseIds.has(
-                                                                        phase.id,
-                                                                    ) ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-6 px-2 text-xs font-medium text-amber-600 hover:bg-amber-500/10 hover:text-amber-700 dark:text-amber-400"
-                                                                            onClick={() => {
-                                                                                setCorrectionDialogMode(
-                                                                                    'override',
-                                                                                );
-                                                                                setCorrectionInitialPhaseId(
-                                                                                    phase.id,
-                                                                                );
-                                                                                setIsCorrectionDialogOpen(
-                                                                                    true,
-                                                                                );
-                                                                            }}
-                                                                        >
-                                                                            <FilePenLine className="mr-1 size-3" />
-                                                                            Correct
-                                                                        </Button>
-                                                                    ) : null}
-                                                                    {phase.can_cancel_pending &&
-                                                                    phase.own_pending_correction_id ? (
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-6 px-2 text-xs font-medium text-destructive hover:bg-destructive/10"
-                                                                            onClick={() => {
-                                                                                if (
-                                                                                    phase.own_pending_correction_id
-                                                                                ) {
-                                                                                    handleCancelPendingCorrection(
-                                                                                        phase.own_pending_correction_id,
-                                                                                    );
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            <X className="mr-1 size-3" />
-                                                                            Cancel
-                                                                            Request
-                                                                        </Button>
-                                                                    ) : null}
-                                                                    {phase.phase_code ===
-                                                                        'p2b' &&
-                                                                    phase.employee_training_id ? (
-                                                                        can.view_training &&
-                                                                        assignment
-                                                                            .employee
-                                                                            ?.id ? (
-                                                                            <Link
-                                                                                href={showEmployeeTraining.url(
-                                                                                    {
-                                                                                        employee:
-                                                                                            assignment
-                                                                                                .employee
-                                                                                                .id,
-                                                                                        training:
-                                                                                            phase.employee_training_id,
-                                                                                    },
-                                                                                )}
-                                                                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300"
-                                                                            >
-                                                                                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
-                                                                                Added
-                                                                                to
-                                                                                Employee
-                                                                                Training
-                                                                            </Link>
-                                                                        ) : (
-                                                                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                                                                                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
-                                                                                Added
-                                                                                to
-                                                                                Employee
-                                                                                Training
-                                                                            </span>
-                                                                        )
-                                                                    ) : null}
-                                                                </div>
-                                                                <p className="text-sm text-muted-foreground">
-                                                                    {
-                                                                        phase.status_label
-                                                                    }
-                                                                    {index === 0
-                                                                        ? ' · Sequence start'
-                                                                        : ''}
-                                                                    {phase.phase_code ===
-                                                                        'p2b' &&
-                                                                    phase
-                                                                        .details
-                                                                        ?.course
-                                                                        ? ` · ${String(phase.details.course)}`
-                                                                        : ''}
-                                                                </p>
-                                                            </div>
-                                                            <div className="text-right text-xs text-muted-foreground">
-                                                                <div>
-                                                                    Actual:{' '}
-                                                                    {formatDisplayDate(
-                                                                        phase.actual_start_at,
-                                                                    )}
-                                                                    {phase.actual_end_at
-                                                                        ? ` → ${formatDisplayDate(phase.actual_end_at)}`
-                                                                        : ''}
-                                                                </div>
-                                                                {(phase.planned_start_at ||
-                                                                    phase.planned_end_at) && (
-                                                                    <div className="mt-1">
-                                                                        Planned:{' '}
-                                                                        {formatDisplayDate(
-                                                                            phase.planned_start_at,
-                                                                        )}
-                                                                        {phase.planned_end_at
-                                                                            ? ` → ${formatDisplayDate(phase.planned_end_at)}`
-                                                                            : ''}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </li>
-                                                );
-                                            },
-                                        )}
-                                    </ol>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {/* F. Assignment Relationships */}
+                        {/* E. Assignment Relationships */}
                         <CrewAssignmentRelationships
                             assignment={assignment}
                             canViewPlanning={can.view_planning}
                         />
 
-                        {/* G. Correction History */}
+                        {/* F. Correction History */}
                         {can.view_corrections && corrections ? (
                             <CorrectionHistoryCard corrections={corrections} />
                         ) : null}
 
-                        {/* H. Remarks */}
+                        {/* G. Remarks */}
                         {assignment.remarks ? (
                             <Card className="border-border/80 dark:border-white/10">
                                 <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
@@ -546,7 +345,7 @@ export default function CrewAssignmentShow({
                             </Card>
                         ) : null}
 
-                        {/* I. Audit History */}
+                        {/* H. Audit History */}
                         {can.view_audit ? (
                             recent_activity.length > 0 ? (
                                 <RecentActivityCard
