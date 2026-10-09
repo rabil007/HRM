@@ -226,7 +226,13 @@ final class CandidateWorkflowAuthorization
         ?string $expectedStage,
         ?string $expectedOutcome,
     ): void {
-        if ($expectedLockVersion !== null && (int) $candidate->lock_version !== $expectedLockVersion) {
+        if ($expectedLockVersion === null) {
+            throw ValidationException::withMessages([
+                'lock_version' => 'A lock version is required. Refresh and try again.',
+            ]);
+        }
+
+        if ((int) $candidate->lock_version !== $expectedLockVersion) {
             throw ValidationException::withMessages([
                 'lock_version' => 'This candidate was updated by someone else. Refresh and try again.',
             ]);
@@ -249,6 +255,63 @@ final class CandidateWorkflowAuthorization
                 ]);
             }
         }
+    }
+
+    /**
+     * Lock requirement → line → candidate to match requirement reassignment/status lock order.
+     *
+     * @return array{candidate: RecruitmentCandidate, requirement: ?RecruitmentRequirement, line: ?RecruitmentRequirementLine}
+     */
+    public static function lockCandidateGraph(RecruitmentCandidate $candidate): array
+    {
+        $requirementId = $candidate->recruitment_requirement_id;
+        $lineId = $candidate->recruitment_requirement_line_id;
+
+        $requirement = $requirementId !== null
+            ? RecruitmentRequirement::query()->whereKey($requirementId)->lockForUpdate()->first()
+            : null;
+
+        $line = $lineId !== null
+            ? RecruitmentRequirementLine::query()->whereKey($lineId)->lockForUpdate()->first()
+            : null;
+
+        /** @var RecruitmentCandidate $locked */
+        $locked = RecruitmentCandidate::query()
+            ->whereKey($candidate->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $locked->setRelation('requirement', $requirement);
+        $locked->setRelation('line', $line);
+
+        return [
+            'candidate' => $locked,
+            'requirement' => $requirement,
+            'line' => $line,
+        ];
+    }
+
+    /**
+     * @return array{requirement: RecruitmentRequirement, line: RecruitmentRequirementLine}
+     */
+    public static function lockParentsForCreate(int $requirementId, int $lineId): array
+    {
+        /** @var RecruitmentRequirement $requirement */
+        $requirement = RecruitmentRequirement::query()
+            ->whereKey($requirementId)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        /** @var RecruitmentRequirementLine $line */
+        $line = RecruitmentRequirementLine::query()
+            ->whereKey($lineId)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        return [
+            'requirement' => $requirement,
+            'line' => $line,
+        ];
     }
 
     public static function canSelect(RecruitmentCandidate $candidate): bool

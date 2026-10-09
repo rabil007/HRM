@@ -158,6 +158,25 @@ export type CandidateKanbanColumn = {
     to: number | null;
 };
 
+export type CandidateBrowseOptions = {
+    requirements: Array<{
+        id: number;
+        requirement_number: string;
+        status?: string;
+        status_label?: string;
+        client_name: string | null;
+        assigned_to: number | null;
+        assigned_to_name: string | null;
+        lines: Array<{
+            id: number;
+            position_id: number;
+            position_title: string;
+            status?: string;
+            status_label?: string;
+        }>;
+    }>;
+};
+
 export type CandidateIndexProps = {
     candidates: {
         data: CandidateIndexRow[];
@@ -173,6 +192,7 @@ export type CandidateIndexProps = {
     filters: CandidateFilters;
     search: string;
     options: CandidateFormOptions;
+    browse_options: CandidateBrowseOptions;
     can: CandidatePagePermissions;
     timezone: string;
 };

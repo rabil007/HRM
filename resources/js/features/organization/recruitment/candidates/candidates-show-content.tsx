@@ -101,6 +101,12 @@ export function CandidatesShowContent({
         );
     };
 
+    const interviewErrors = interviewForm.errors as Record<string, string>;
+    const interviewGeneralError =
+        interviewErrors.lock_version ||
+        interviewErrors.candidate ||
+        interviewErrors.stage;
+
     return (
         <Main>
             <RecruitmentBreadcrumbs
@@ -261,6 +267,11 @@ export function CandidatesShowContent({
                             </Button>
                         ) : null}
                     </div>
+                    {interviewGeneralError ? (
+                        <p className="mb-3 text-sm text-destructive">
+                            {interviewGeneralError}
+                        </p>
+                    ) : null}
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                             <Label>Scheduled at</Label>
@@ -277,6 +288,14 @@ export function CandidatesShowContent({
                                     )
                                 }
                             />
+                            {interviewForm.errors.interview_scheduled_at ? (
+                                <p className="text-xs text-destructive">
+                                    {
+                                        interviewForm.errors
+                                            .interview_scheduled_at
+                                    }
+                                </p>
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <Label>Mode</Label>
@@ -304,6 +323,11 @@ export function CandidatesShowContent({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
+                            {interviewForm.errors.interview_mode ? (
+                                <p className="text-xs text-destructive">
+                                    {interviewForm.errors.interview_mode}
+                                </p>
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <Label>Internal interviewer</Label>
@@ -330,6 +354,11 @@ export function CandidatesShowContent({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
+                            {interviewForm.errors.interviewer_user_id ? (
+                                <p className="text-xs text-destructive">
+                                    {interviewForm.errors.interviewer_user_id}
+                                </p>
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <Label>External interviewer name</Label>
@@ -375,45 +404,48 @@ export function CandidatesShowContent({
                     </div>
                 </section>
 
-                <section className="rounded-xl border border-border/60 p-5 lg:col-span-2">
-                    <h2 className="mb-3 text-sm font-semibold tracking-wide uppercase">
-                        Movement history
-                    </h2>
-                    {can.view_audit || candidate.movement_history.length > 0 ? (
-                        <ul className="space-y-3">
-                            {candidate.movement_history.map((event) => (
-                                <li
-                                    key={event.id}
-                                    className="border-b border-border/40 pb-3 text-sm last:border-0"
-                                >
-                                    <div className="font-medium">
-                                        {event.action_label}
-                                    </div>
-                                    <div className="text-muted-foreground">
-                                        {event.from_stage_label || '—'} →{' '}
-                                        {event.to_stage_label}
-                                        {event.to_outcome_label
-                                            ? ` (${event.to_outcome_label})`
-                                            : ''}
-                                    </div>
-                                    {event.reason ? (
-                                        <div className="mt-1">
-                                            {event.reason}
+                {can.view_audit || can_view_audit ? (
+                    <section className="rounded-xl border border-border/60 p-5 lg:col-span-2">
+                        <h2 className="mb-3 text-sm font-semibold tracking-wide uppercase">
+                            Movement history
+                        </h2>
+                        {candidate.movement_history.length > 0 ? (
+                            <ul className="space-y-3">
+                                {candidate.movement_history.map((event) => (
+                                    <li
+                                        key={event.id}
+                                        className="border-b border-border/40 pb-3 text-sm last:border-0"
+                                    >
+                                        <div className="font-medium">
+                                            {event.action_label}
                                         </div>
-                                    ) : null}
-                                    <div className="mt-1 text-xs text-muted-foreground">
-                                        {event.performed_by_name || 'System'} ·{' '}
-                                        {event.created_at}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            No movement history yet.
-                        </p>
-                    )}
-                </section>
+                                        <div className="text-muted-foreground">
+                                            {event.from_stage_label || '—'} →{' '}
+                                            {event.to_stage_label}
+                                            {event.to_outcome_label
+                                                ? ` (${event.to_outcome_label})`
+                                                : ''}
+                                        </div>
+                                        {event.reason ? (
+                                            <div className="mt-1">
+                                                {event.reason}
+                                            </div>
+                                        ) : null}
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                            {event.performed_by_name ||
+                                                'System'}{' '}
+                                            · {event.created_at}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                No movement history yet.
+                            </p>
+                        )}
+                    </section>
+                ) : null}
             </div>
 
             {can_view_audit ? (

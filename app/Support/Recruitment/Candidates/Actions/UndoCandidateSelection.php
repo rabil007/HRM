@@ -20,18 +20,16 @@ final class UndoCandidateSelection
     public function handle(User $actor, RecruitmentCandidate $candidate, array $guard = []): RecruitmentCandidate
     {
         CandidateWorkflowAuthorization::assertCanMove($actor, $candidate);
-        CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($candidate, (int) $candidate->company_id);
 
         return DB::transaction(function () use ($actor, $candidate, $guard): RecruitmentCandidate {
-            /** @var RecruitmentCandidate $locked */
-            $locked = RecruitmentCandidate::query()
-                ->whereKey($candidate->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+            $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+            $locked = $graph['candidate'];
 
+            CandidateWorkflowAuthorization::assertCanMove($actor, $locked);
+            CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($locked, (int) $locked->company_id);
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
-                isset($guard['lock_version']) ? (int) $guard['lock_version'] : null,
+                array_key_exists('lock_version', $guard) ? (int) $guard['lock_version'] : null,
                 $guard['expected_stage'] ?? CandidateStage::Interview->value,
                 $guard['expected_outcome'] ?? CandidateInterviewOutcome::Selected->value,
             );

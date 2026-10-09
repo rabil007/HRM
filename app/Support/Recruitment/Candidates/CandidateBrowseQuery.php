@@ -32,6 +32,7 @@ final class CandidateBrowseQuery
         $lineId = self::nullableInt($request->input('requirement_line_id'));
 
         $base = self::baseQuery($companyId, $search, $requirementId, $positionId, $lineId, $outcome);
+        $stageFilter = $stage !== null && CandidateStage::tryFrom($stage) !== null ? $stage : null;
 
         $stageTotals = [];
         foreach (CandidateStage::kanbanColumns() as $column) {
@@ -40,7 +41,16 @@ final class CandidateBrowseQuery
 
         if ($mode === 'kanban') {
             $kanban = [];
-            foreach (CandidateStage::kanbanColumns() as $column) {
+            $columns = CandidateStage::kanbanColumns();
+
+            if ($stageFilter !== null) {
+                $columns = array_values(array_filter(
+                    $columns,
+                    fn (CandidateStage $column): bool => $column->value === $stageFilter,
+                ));
+            }
+
+            foreach ($columns as $column) {
                 $pageKey = 'page_'.$column->value;
                 $page = max(1, (int) $request->input($pageKey, 1));
                 $columnQuery = (clone $base)->where('stage', $column->value);
@@ -66,7 +76,7 @@ final class CandidateBrowseQuery
                     'requirement_id' => $requirementId,
                     'requirement_line_id' => $lineId,
                     'position_id' => $positionId,
-                    'stage' => $stage,
+                    'stage' => $stageFilter,
                     'outcome' => $outcome,
                 ],
                 'search' => $search,
@@ -74,8 +84,8 @@ final class CandidateBrowseQuery
         }
 
         $tableQuery = clone $base;
-        if ($stage !== null && CandidateStage::tryFrom($stage) !== null) {
-            $tableQuery->where('stage', $stage);
+        if ($stageFilter !== null) {
+            $tableQuery->where('stage', $stageFilter);
         }
 
         $paginator = $tableQuery
@@ -96,7 +106,7 @@ final class CandidateBrowseQuery
                 'requirement_id' => $requirementId,
                 'requirement_line_id' => $lineId,
                 'position_id' => $positionId,
-                'stage' => $stage,
+                'stage' => $stageFilter,
                 'outcome' => $outcome,
             ],
             'search' => $search,

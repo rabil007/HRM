@@ -24,7 +24,6 @@ final class RejectCandidate
         array $guard = [],
     ): RecruitmentCandidate {
         CandidateWorkflowAuthorization::assertCanMove($actor, $candidate);
-        CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($candidate, (int) $candidate->company_id);
 
         $reason = trim($reason);
 
@@ -35,15 +34,14 @@ final class RejectCandidate
         }
 
         return DB::transaction(function () use ($actor, $candidate, $reason, $guard): RecruitmentCandidate {
-            /** @var RecruitmentCandidate $locked */
-            $locked = RecruitmentCandidate::query()
-                ->whereKey($candidate->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+            $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+            $locked = $graph['candidate'];
 
+            CandidateWorkflowAuthorization::assertCanMove($actor, $locked);
+            CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($locked, (int) $locked->company_id);
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
-                isset($guard['lock_version']) ? (int) $guard['lock_version'] : null,
+                array_key_exists('lock_version', $guard) ? (int) $guard['lock_version'] : null,
                 $guard['expected_stage'] ?? null,
                 $guard['expected_outcome'] ?? null,
             );
@@ -51,12 +49,6 @@ final class RejectCandidate
             if (! $locked->stage->allowsRejection()) {
                 throw ValidationException::withMessages([
                     'stage' => 'This candidate cannot be rejected from the current stage.',
-                ]);
-            }
-
-            if ($locked->interview_outcome === CandidateInterviewOutcome::Selected) {
-                throw ValidationException::withMessages([
-                    'interview_outcome' => 'Undo selection before rejecting this candidate.',
                 ]);
             }
 

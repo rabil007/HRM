@@ -11,6 +11,7 @@ use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class UpdateCandidateProfile
 {
@@ -30,12 +31,6 @@ final class UpdateCandidateProfile
     public function handle(User $actor, RecruitmentCandidate $candidate, array $data): RecruitmentCandidate
     {
         CandidateWorkflowAuthorization::assertCanUpdate($actor, $candidate);
-        CandidateWorkflowAuthorization::assertExpectedLock(
-            $candidate,
-            isset($data['lock_version']) ? (int) $data['lock_version'] : null,
-            null,
-            null,
-        );
 
         $email = array_key_exists('email', $data)
             ? (trim((string) ($data['email'] ?? '')) ?: null)
@@ -50,60 +45,94 @@ final class UpdateCandidateProfile
             ]);
         }
 
-        return DB::transaction(function () use ($actor, $candidate, $data, $email, $phone): RecruitmentCandidate {
-            /** @var RecruitmentCandidate $locked */
-            $locked = RecruitmentCandidate::query()
-                ->whereKey($candidate->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+        $storage = new CandidateCvStorage;
+        $newCvPath = null;
+        $companyId = (int) $candidate->company_id;
+        $candidateId = (int) $candidate->id;
 
-            CandidateWorkflowAuthorization::assertExpectedLock(
-                $locked,
-                isset($data['lock_version']) ? (int) $data['lock_version'] : null,
-                null,
-                null,
-            );
+        try {
+            return DB::transaction(function () use (
+                $actor,
+                $candidate,
+                $data,
+                $email,
+                $phone,
+                $storage,
+                &$newCvPath,
+                &$companyId,
+                &$candidateId,
+            ): RecruitmentCandidate {
+                $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+                $locked = $graph['candidate'];
+                $companyId = (int) $locked->company_id;
+                $candidateId = (int) $locked->id;
 
-            $locked->fill([
-                'name' => trim((string) $data['name']),
-                'email' => $email,
-                'phone' => $phone,
-                'email_normalized' => CandidateContactNormalizer::email($email),
-                'phone_normalized' => CandidateContactNormalizer::phone($phone),
-                'nationality_id' => $data['nationality_id'] ?? null,
-                'source' => isset($data['source']) && $data['source'] !== '' && $data['source'] !== null
-                    ? CandidateSource::from((string) $data['source'])
-                    : null,
-                'notes' => isset($data['notes']) && trim((string) $data['notes']) !== ''
-                    ? trim((string) $data['notes'])
-                    : null,
-                'updated_by' => $actor->id,
-                'lock_version' => (int) $locked->lock_version + 1,
-            ]);
-            $locked->save();
+                CandidateWorkflowAuthorization::assertCanUpdate($actor, $locked);
+                CandidateWorkflowAuthorization::assertExpectedLock(
+                    $locked,
+                    array_key_exists('lock_version', $data) ? (int) $data['lock_version'] : null,
+                    null,
+                    null,
+                );
 
-            $storage = new CandidateCvStorage;
-            $removeCv = (bool) ($data['remove_cv'] ?? false);
+                $locked->fill([
+                    'name' => trim((string) $data['name']),
+                    'email' => $email,
+                    'phone' => $phone,
+                    'email_normalized' => CandidateContactNormalizer::email($email),
+                    'phone_normalized' => CandidateContactNormalizer::phone($phone),
+                    'nationality_id' => $data['nationality_id'] ?? null,
+                    'source' => isset($data['source']) && $data['source'] !== '' && $data['source'] !== null
+                        ? CandidateSource::from((string) $data['source'])
+                        : null,
+                    'notes' => isset($data['notes']) && trim((string) $data['notes']) !== ''
+                        ? trim((string) $data['notes'])
+                        : null,
+                    'updated_by' => $actor->id,
+                    'lock_version' => (int) $locked->lock_version + 1,
+                ]);
+                $locked->save();
 
-            if ($removeCv && $locked->cv_path) {
-                $storage->deleteStored($locked->cv_path, (int) $locked->company_id, (int) $locked->id);
-                $locked->forceFill([
-                    'cv_path' => null,
-                    'cv_original_file_name' => null,
-                    'cv_mime_type' => null,
-                    'cv_file_size_bytes' => null,
-                    'cv_file_checksum' => null,
-                ])->save();
-            }
+                $removeCv = (bool) ($data['remove_cv'] ?? false);
+                $hasNewCv = ($data['cv'] ?? null) instanceof UploadedFile;
+                $previousCvPath = $locked->cv_path;
+                $pathToDeleteAfterCommit = null;
 
-            if (($data['cv'] ?? null) instanceof UploadedFile) {
-                if ($locked->cv_path) {
-                    $storage->deleteStored($locked->cv_path, (int) $locked->company_id, (int) $locked->id);
+                if ($hasNewCv) {
+                    $meta = $storage->store($locked, $data['cv']);
+                    $newCvPath = $meta['cv_path'];
+                    $locked->forceFill($meta)->save();
+
+                    if (is_string($previousCvPath) && $previousCvPath !== '') {
+                        $pathToDeleteAfterCommit = $previousCvPath;
+                    }
+                } elseif ($removeCv && is_string($previousCvPath) && $previousCvPath !== '') {
+                    $locked->forceFill([
+                        'cv_path' => null,
+                        'cv_original_file_name' => null,
+                        'cv_mime_type' => null,
+                        'cv_file_size_bytes' => null,
+                        'cv_file_checksum' => null,
+                    ])->save();
+                    $pathToDeleteAfterCommit = $previousCvPath;
                 }
-                $locked->forceFill($storage->store($locked, $data['cv']))->save();
+
+                if (is_string($pathToDeleteAfterCommit) && $pathToDeleteAfterCommit !== '') {
+                    $deleteCompanyId = (int) $locked->company_id;
+                    $deleteCandidateId = (int) $locked->id;
+                    DB::afterCommit(function () use ($storage, $pathToDeleteAfterCommit, $deleteCompanyId, $deleteCandidateId): void {
+                        $storage->deleteStored($pathToDeleteAfterCommit, $deleteCompanyId, $deleteCandidateId);
+                    });
+                }
+
+                return $locked->refresh();
+            });
+        } catch (Throwable $exception) {
+            if (is_string($newCvPath) && $newCvPath !== '') {
+                $storage->deleteStored($newCvPath, $companyId, $candidateId);
             }
 
-            return $locked->refresh();
-        });
+            throw $exception;
+        }
     }
 }

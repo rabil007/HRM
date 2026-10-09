@@ -47,6 +47,8 @@ export function CandidateFormSheet({
     const lines = selectedRequirement?.lines ?? [];
     const requirementLocked = lockedRequirementId != null;
     const lineLocked = lockedLineId != null;
+    const formErrors = form.errors as Record<string, string>;
+    const generalFormError = formErrors.candidate || formErrors.lock_version;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -318,6 +320,12 @@ export function CandidateFormSheet({
                             </label>
                         ) : null}
                     </div>
+
+                    {generalFormError ? (
+                        <p className="text-sm text-destructive">
+                            {generalFormError}
+                        </p>
+                    ) : null}
 
                     {duplicateMessage ||
                     (form.errors as Record<string, string>)

@@ -23,9 +23,11 @@ export function CandidateMovementActions({
     const [reasonAction, setReasonAction] = useState<ReasonAction>(null);
     const [reason, setReason] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const post = (url: string, data: Record<string, unknown> = {}) => {
         setProcessing(true);
+        setErrors({});
         router.post(
             url,
             {
@@ -36,14 +38,27 @@ export function CandidateMovementActions({
             },
             {
                 preserveScroll: true,
-                onFinish: () => {
-                    setProcessing(false);
+                onSuccess: () => {
                     setReasonAction(null);
                     setReason('');
+                    setErrors({});
+                },
+                onError: (pageErrors) => {
+                    setErrors(pageErrors as Record<string, string>);
+                },
+                onFinish: () => {
+                    setProcessing(false);
                 },
             },
         );
     };
+
+    const generalError =
+        errors.candidate ||
+        errors.lock_version ||
+        errors.stage ||
+        errors.interview_outcome ||
+        errors.reason;
 
     return (
         <>
@@ -96,7 +111,10 @@ export function CandidateMovementActions({
                         size="sm"
                         variant="destructive"
                         disabled={processing}
-                        onClick={() => setReasonAction('reject')}
+                        onClick={() => {
+                            setErrors({});
+                            setReasonAction('reject');
+                        }}
                     >
                         Reject
                     </Button>
@@ -106,19 +124,26 @@ export function CandidateMovementActions({
                         size="sm"
                         variant="outline"
                         disabled={processing}
-                        onClick={() => setReasonAction('reopen')}
+                        onClick={() => {
+                            setErrors({});
+                            setReasonAction('reopen');
+                        }}
                     >
                         Reopen
                     </Button>
                 ) : null}
             </div>
 
+            {reasonAction === null && generalError ? (
+                <p className="mt-2 text-xs text-destructive">{generalError}</p>
+            ) : null}
+
             <Dialog
                 open={reasonAction !== null}
                 onOpenChange={(open) => {
                     if (!open) {
                         setReasonAction(null);
-                        setReason('');
+                        // Preserve reason text on dismiss so a failed submit can stay visible next open.
                     }
                 }}
             >
@@ -141,6 +166,22 @@ export function CandidateMovementActions({
                             value={reason}
                             onChange={(event) => setReason(event.target.value)}
                         />
+                        {errors.reason ? (
+                            <p className="text-xs text-destructive">
+                                {errors.reason}
+                            </p>
+                        ) : null}
+                        {errors.lock_version ||
+                        errors.candidate ||
+                        errors.stage ||
+                        errors.interview_outcome ? (
+                            <p className="text-xs text-destructive">
+                                {errors.lock_version ||
+                                    errors.candidate ||
+                                    errors.stage ||
+                                    errors.interview_outcome}
+                            </p>
+                        ) : null}
                     </div>
                     <DialogFooter>
                         <Button

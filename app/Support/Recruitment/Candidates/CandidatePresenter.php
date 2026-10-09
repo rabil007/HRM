@@ -65,18 +65,26 @@ final class CandidatePresenter
     /**
      * @return array<string, mixed>
      */
-    public static function toShowArray(RecruitmentCandidate $candidate, User $user, string $timezone): array
-    {
+    public static function toShowArray(
+        RecruitmentCandidate $candidate,
+        User $user,
+        string $timezone,
+        bool $includeMovementHistory = false,
+    ): array {
         $row = self::toIndexRow($candidate, $user, $timezone);
         $requirement = $candidate->requirement;
         $line = $candidate->line;
 
         $interviewerInternal = $candidate->interviewerUser;
-        $transitions = $candidate->stageTransitions
-            ->sortBy('created_at')
-            ->values()
-            ->map(fn (RecruitmentCandidateStageTransition $t): array => self::transitionToArray($t, $timezone))
-            ->all();
+        $transitions = [];
+
+        if ($includeMovementHistory) {
+            $transitions = $candidate->stageTransitions
+                ->sortBy('created_at')
+                ->values()
+                ->map(fn (RecruitmentCandidateStageTransition $t): array => self::transitionToArray($t, $timezone))
+                ->all();
+        }
 
         return array_merge($row, [
             'notes' => $candidate->notes,

@@ -145,6 +145,11 @@ const baseSidebarData: SidebarData = {
                     url: '/organization/recruitment/requirements',
                     icon: ClipboardList,
                 },
+                {
+                    title: 'Candidates',
+                    url: '/organization/recruitment/candidates',
+                    icon: Users,
+                },
             ],
         },
         {

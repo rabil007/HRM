@@ -17,7 +17,7 @@ class MoveCandidateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'lock_version' => ['nullable', 'integer', 'min:0'],
+            'lock_version' => ['required', 'integer', 'min:0'],
             'expected_stage' => ['nullable', 'string', 'max:30'],
             'expected_outcome' => ['nullable', 'string', 'max:30'],
             'reason' => ['nullable', 'string', 'max:2000'],

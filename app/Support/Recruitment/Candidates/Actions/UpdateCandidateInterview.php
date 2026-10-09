@@ -31,18 +31,16 @@ final class UpdateCandidateInterview
     public function handle(User $actor, RecruitmentCandidate $candidate, array $data): RecruitmentCandidate
     {
         CandidateWorkflowAuthorization::assertCanUpdate($actor, $candidate);
-        CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($candidate, (int) $candidate->company_id);
 
         return DB::transaction(function () use ($actor, $candidate, $data): RecruitmentCandidate {
-            /** @var RecruitmentCandidate $locked */
-            $locked = RecruitmentCandidate::query()
-                ->whereKey($candidate->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+            $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+            $locked = $graph['candidate'];
 
+            CandidateWorkflowAuthorization::assertCanUpdate($actor, $locked);
+            CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($locked, (int) $locked->company_id);
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
-                isset($data['lock_version']) ? (int) $data['lock_version'] : null,
+                array_key_exists('lock_version', $data) ? (int) $data['lock_version'] : null,
                 $data['expected_stage'] ?? null,
                 null,
             );

@@ -16,6 +16,7 @@ use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class CreateCandidate
 {
@@ -51,51 +52,91 @@ final class CreateCandidate
             ]);
         }
 
-        $line->loadMissing('position:id,title');
-        $positionTitle = (string) ($line->position?->title ?? 'Unknown position');
+        $storage = new CandidateCvStorage;
+        $newCvPath = null;
+        $createdCandidateId = null;
 
-        return DB::transaction(function () use ($actor, $companyId, $requirement, $line, $data, $email, $phone, $positionTitle): RecruitmentCandidate {
-            $candidate = RecruitmentCandidate::query()->create([
-                'company_id' => $companyId,
-                'recruitment_requirement_id' => $requirement->id,
-                'recruitment_requirement_line_id' => $line->id,
-                'requirement_number_snapshot' => (string) $requirement->requirement_number,
-                'position_title_snapshot' => $positionTitle,
-                'name' => trim((string) $data['name']),
-                'email' => $email,
-                'phone' => $phone,
-                'email_normalized' => CandidateContactNormalizer::email($email),
-                'phone_normalized' => CandidateContactNormalizer::phone($phone),
-                'nationality_id' => $data['nationality_id'] ?? null,
-                'source' => isset($data['source']) && $data['source'] !== ''
-                    ? CandidateSource::from((string) $data['source'])
-                    : null,
-                'notes' => isset($data['notes']) && trim((string) $data['notes']) !== ''
-                    ? trim((string) $data['notes'])
-                    : null,
-                'stage' => CandidateStage::Applied,
-                'interview_outcome' => null,
-                'lock_version' => 0,
-                'created_by' => $actor->id,
-                'updated_by' => $actor->id,
-            ]);
+        try {
+            return DB::transaction(function () use (
+                $actor,
+                $companyId,
+                $requirement,
+                $line,
+                $data,
+                $email,
+                $phone,
+                $storage,
+                &$newCvPath,
+                &$createdCandidateId,
+            ): RecruitmentCandidate {
+                $parents = CandidateWorkflowAuthorization::lockParentsForCreate(
+                    (int) $requirement->id,
+                    (int) $line->id,
+                );
+                $lockedRequirement = $parents['requirement'];
+                $lockedLine = $parents['line'];
 
-            if (($data['cv'] ?? null) instanceof UploadedFile) {
-                $storage = new CandidateCvStorage;
-                $candidate->forceFill($storage->store($candidate, $data['cv']))->save();
+                CandidateWorkflowAuthorization::assertCanCreate($actor, $lockedRequirement);
+                CandidateWorkflowAuthorization::assertParentsAllowCreate(
+                    $lockedRequirement,
+                    $lockedLine,
+                    $companyId,
+                );
+
+                $lockedLine->loadMissing('position:id,title');
+                $positionTitle = (string) ($lockedLine->position?->title ?? 'Unknown position');
+
+                $candidate = RecruitmentCandidate::query()->create([
+                    'company_id' => $companyId,
+                    'recruitment_requirement_id' => $lockedRequirement->id,
+                    'recruitment_requirement_line_id' => $lockedLine->id,
+                    'requirement_number_snapshot' => (string) $lockedRequirement->requirement_number,
+                    'position_title_snapshot' => $positionTitle,
+                    'name' => trim((string) $data['name']),
+                    'email' => $email,
+                    'phone' => $phone,
+                    'email_normalized' => CandidateContactNormalizer::email($email),
+                    'phone_normalized' => CandidateContactNormalizer::phone($phone),
+                    'nationality_id' => $data['nationality_id'] ?? null,
+                    'source' => isset($data['source']) && $data['source'] !== ''
+                        ? CandidateSource::from((string) $data['source'])
+                        : null,
+                    'notes' => isset($data['notes']) && trim((string) $data['notes']) !== ''
+                        ? trim((string) $data['notes'])
+                        : null,
+                    'stage' => CandidateStage::Applied,
+                    'interview_outcome' => null,
+                    'lock_version' => 0,
+                    'created_by' => $actor->id,
+                    'updated_by' => $actor->id,
+                ]);
+
+                $createdCandidateId = (int) $candidate->id;
+
+                if (($data['cv'] ?? null) instanceof UploadedFile) {
+                    $meta = $storage->store($candidate, $data['cv']);
+                    $newCvPath = $meta['cv_path'];
+                    $candidate->forceFill($meta)->save();
+                }
+
+                RecordCandidateStageTransition::handle(
+                    $candidate,
+                    CandidateTransitionAction::Created,
+                    null,
+                    CandidateStage::Applied,
+                    null,
+                    null,
+                    (int) $actor->id,
+                );
+
+                return $candidate->refresh();
+            });
+        } catch (Throwable $exception) {
+            if (is_string($newCvPath) && $newCvPath !== '' && $createdCandidateId !== null) {
+                $storage->deleteStored($newCvPath, $companyId, $createdCandidateId);
             }
 
-            RecordCandidateStageTransition::handle(
-                $candidate,
-                CandidateTransitionAction::Created,
-                null,
-                CandidateStage::Applied,
-                null,
-                null,
-                (int) $actor->id,
-            );
-
-            return $candidate->refresh();
-        });
+            throw $exception;
+        }
     }
 }

@@ -19,7 +19,7 @@ class ReopenCandidateRequest extends FormRequest
     {
         return [
             'reason' => ['required', 'string', 'max:2000'],
-            'lock_version' => ['nullable', 'integer', 'min:0'],
+            'lock_version' => ['required', 'integer', 'min:0'],
             'expected_stage' => ['nullable', 'string', 'max:30'],
         ];
     }

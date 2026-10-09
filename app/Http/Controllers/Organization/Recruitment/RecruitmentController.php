@@ -21,6 +21,10 @@ class RecruitmentController extends Controller
             return redirect()->route('organization.recruitment.requirements.index');
         }
 
+        if ($user !== null && $user->can('recruitment.candidates.view')) {
+            return redirect()->route('organization.recruitment.candidates.index');
+        }
+
         abort(403, 'Unauthorized module access.');
     }
 }

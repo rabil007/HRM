@@ -13,6 +13,7 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\Recruitment\Candidates\Actions\CreateCandidate;
 use App\Support\Recruitment\Candidates\Actions\UpdateCandidateInterview;
 use App\Support\Recruitment\Candidates\Actions\UpdateCandidateProfile;
+use App\Support\Recruitment\Candidates\CandidateBrowseOptionsQuery;
 use App\Support\Recruitment\Candidates\CandidateBrowseQuery;
 use App\Support\Recruitment\Candidates\CandidateDuplicateDetector;
 use App\Support\Recruitment\Candidates\CandidateFormOptionsQuery;
@@ -78,6 +79,7 @@ class CandidateController extends Controller
             'filters' => $browse['filters'],
             'search' => $browse['search'],
             'options' => CandidateFormOptionsQuery::forCompany($companyId, $user),
+            'browse_options' => CandidateBrowseOptionsQuery::forCompany($companyId),
             'can' => CandidatePagePermissions::for($user),
             'timezone' => $timezone,
         ]);
@@ -90,21 +92,27 @@ class CandidateController extends Controller
         abort_unless($user !== null, 403);
         abort_unless((int) $candidate->company_id === $companyId, 404);
 
-        $candidate->load([
+        $canViewAudit = (bool) $user->can('audit.view');
+
+        $with = [
             'nationality:id,name',
             'requirement.client:id,name',
             'requirement.project:id,title',
             'requirement.assignedRecruiter:id,name',
             'line.position:id,title',
             'interviewerUser:id,name,email',
-            'stageTransitions.performer:id,name',
-        ]);
+        ];
+
+        if ($canViewAudit) {
+            $with[] = 'stageTransitions.performer:id,name';
+        }
+
+        $candidate->load($with);
 
         $timezone = CompanyTimezone::forCompany($companyId);
-        $canViewAudit = (bool) $user->can('audit.view');
 
         return Inertia::render('organization/recruitment/candidates/show', [
-            'candidate' => CandidatePresenter::toShowArray($candidate, $user, $timezone),
+            'candidate' => CandidatePresenter::toShowArray($candidate, $user, $timezone, $canViewAudit),
             'options' => CandidateFormOptionsQuery::forCompany($companyId, $user),
             'can' => CandidatePagePermissions::for($user),
             'recent_activity' => $canViewAudit

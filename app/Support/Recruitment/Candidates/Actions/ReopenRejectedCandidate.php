@@ -23,7 +23,6 @@ final class ReopenRejectedCandidate
         array $guard = [],
     ): RecruitmentCandidate {
         CandidateWorkflowAuthorization::assertCanReopenRejected($actor, $candidate);
-        CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($candidate, (int) $candidate->company_id);
 
         $reason = trim($reason);
 
@@ -34,15 +33,15 @@ final class ReopenRejectedCandidate
         }
 
         return DB::transaction(function () use ($actor, $candidate, $reason, $guard): RecruitmentCandidate {
-            /** @var RecruitmentCandidate $locked */
-            $locked = RecruitmentCandidate::query()
-                ->whereKey($candidate->id)
-                ->lockForUpdate()
-                ->firstOrFail();
+            $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+            $locked = $graph['candidate'];
+            $previousRejectionReason = $locked->rejection_reason;
 
+            CandidateWorkflowAuthorization::assertCanReopenRejected($actor, $locked);
+            CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($locked, (int) $locked->company_id);
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
-                isset($guard['lock_version']) ? (int) $guard['lock_version'] : null,
+                array_key_exists('lock_version', $guard) ? (int) $guard['lock_version'] : null,
                 $guard['expected_stage'] ?? CandidateStage::Rejected->value,
                 null,
             );
@@ -82,7 +81,7 @@ final class ReopenRejectedCandidate
                 (int) $actor->id,
                 $reason,
                 [
-                    'previous_rejection_reason' => $candidate->rejection_reason,
+                    'previous_rejection_reason' => $previousRejectionReason,
                     'previous_outcome' => $fromOutcome?->value,
                     'restored_stage' => $restoreStage->value,
                 ],

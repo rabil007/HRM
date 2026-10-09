@@ -1,4 +1,4 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -32,13 +32,19 @@ import {
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
 import { emptyCandidateForm } from './lib/candidate-form';
+import {
+    candidateKanbanFilterKey,
+    mergeKanbanBoard,
+    visibleKanbanStages,
+} from './lib/kanban-accumulate';
 import type {
     CandidateFormData,
     CandidateIndexProps,
     CandidateIndexRow,
+    CandidateKanbanColumn,
     CandidateStage,
 } from './types';
-import { CANDIDATE_KANBAN_STAGES, CANDIDATE_STAGE_LABELS } from './types';
+import { CANDIDATE_STAGE_LABELS } from './types';
 
 export function CandidatesContent({
     candidates,
@@ -47,6 +53,7 @@ export function CandidatesContent({
     filters,
     search,
     options,
+    browse_options,
     can,
 }: CandidateIndexProps) {
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -54,6 +61,29 @@ export function CandidatesContent({
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
     );
+    const filterKey = candidateKanbanFilterKey(filters, search);
+    const [kanbanFilterKey, setKanbanFilterKey] = useState(filterKey);
+    const [pendingAppendStage, setPendingAppendStage] =
+        useState<CandidateStage | null>(null);
+    const [accumulatedKanban, setAccumulatedKanban] = useState<Record<
+        string,
+        CandidateKanbanColumn
+    > | null>(() => mergeKanbanBoard(null, kanban, null));
+    const [syncedKanban, setSyncedKanban] = useState(kanban);
+
+    // Adjust accumulated pages when filters change or Inertia returns a fresh board.
+    if (filterKey !== kanbanFilterKey) {
+        setKanbanFilterKey(filterKey);
+        setSyncedKanban(kanban);
+        setPendingAppendStage(null);
+        setAccumulatedKanban(mergeKanbanBoard(null, kanban, null));
+    } else if (kanban !== syncedKanban) {
+        setSyncedKanban(kanban);
+        setAccumulatedKanban((previous) =>
+            mergeKanbanBoard(previous, kanban, pendingAppendStage),
+        );
+        setPendingAppendStage(null);
+    }
 
     const pagination = candidates
         ? {
@@ -160,17 +190,47 @@ export function CandidatesContent({
     });
 
     const setView = (view: 'table' | 'kanban') => {
+        setPendingAppendStage(null);
         list.visit({ view, page: null });
     };
 
     const loadMoreKanban = (stage: CandidateStage, page: number) => {
-        list.visit({
+        setPendingAppendStage(stage);
+        const params: Record<string, string | number | null> = {
             view: 'kanban',
+            search,
+            per_page: filters.per_page,
+            requirement_id: filters.requirement_id,
+            requirement_line_id: filters.requirement_line_id,
+            position_id: filters.position_id,
+            stage: filters.stage,
+            outcome: filters.outcome,
             [`page_${stage}`]: page,
+        };
+
+        // Preserve other column page cursors so the server does not reset them.
+        for (const columnStage of visibleKanbanStages(filters.stage)) {
+            if (columnStage === stage) {
+                continue;
+            }
+
+            const column = accumulatedKanban?.[columnStage];
+
+            if (column && column.current_page > 1) {
+                params[`page_${columnStage}`] = column.current_page;
+            }
+        }
+
+        router.get('/organization/recruitment/candidates', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['kanban', 'stage_totals', 'filters'],
         });
     };
 
     const rows = candidates?.data ?? [];
+    const kanbanStages = visibleKanbanStages(filters.stage);
     const activeFilterCount = useMemo(
         () =>
             [
@@ -181,6 +241,8 @@ export function CandidatesContent({
             ].filter(Boolean).length,
         [filters],
     );
+
+    const filterRequirements = browse_options.requirements;
 
     return (
         <Main>
@@ -256,12 +318,15 @@ export function CandidatesContent({
                     placeholder="Requirement"
                 >
                     <AppSelectItem value="all">All requirements</AppSelectItem>
-                    {options.requirements.map((requirement) => (
+                    {filterRequirements.map((requirement) => (
                         <AppSelectItem
                             key={requirement.id}
                             value={String(requirement.id)}
                         >
                             {requirement.requirement_number}
+                            {requirement.status_label
+                                ? ` (${requirement.status_label})`
+                                : ''}
                         </AppSelectItem>
                     ))}
                 </AppSelect>
@@ -282,7 +347,7 @@ export function CandidatesContent({
                     <AppSelectItem value="all">All positions</AppSelectItem>
                     {Array.from(
                         new Map(
-                            options.requirements
+                            filterRequirements
                                 .flatMap((requirement) => requirement.lines)
                                 .map((line) => [
                                     line.position_id,
@@ -309,7 +374,14 @@ export function CandidatesContent({
                     placeholder="Stage"
                 >
                     <AppSelectItem value="all">All stages</AppSelectItem>
-                    {CANDIDATE_KANBAN_STAGES.map((stage) => (
+                    {(
+                        [
+                            'applied',
+                            'screening',
+                            'interview',
+                            'rejected',
+                        ] as CandidateStage[]
+                    ).map((stage) => (
                         <AppSelectItem key={stage} value={stage}>
                             {CANDIDATE_STAGE_LABELS[stage]}
                         </AppSelectItem>
@@ -335,7 +407,14 @@ export function CandidatesContent({
             </div>
 
             <div className="mb-4 flex flex-wrap gap-2">
-                {CANDIDATE_KANBAN_STAGES.map((stage) => (
+                {(
+                    [
+                        'applied',
+                        'screening',
+                        'interview',
+                        'rejected',
+                    ] as CandidateStage[]
+                ).map((stage) => (
                     <Badge key={stage} variant="outline">
                         {CANDIDATE_STAGE_LABELS[stage]}:{' '}
                         {stage_totals[stage] ?? 0}
@@ -343,10 +422,12 @@ export function CandidatesContent({
                 ))}
             </div>
 
-            {filters.view === 'kanban' && kanban ? (
-                <div className="grid gap-4 lg:grid-cols-4">
-                    {CANDIDATE_KANBAN_STAGES.map((stage) => {
-                        const column = kanban[stage];
+            {filters.view === 'kanban' && accumulatedKanban ? (
+                <div
+                    className={`grid gap-4 ${kanbanStages.length === 1 ? 'lg:grid-cols-1' : 'lg:grid-cols-4'}`}
+                >
+                    {kanbanStages.map((stage) => {
+                        const column = accumulatedKanban[stage];
 
                         return (
                             <div
@@ -358,7 +439,9 @@ export function CandidatesContent({
                                         {CANDIDATE_STAGE_LABELS[stage]}
                                     </h3>
                                     <Badge variant="secondary">
-                                        {column?.total ?? 0}
+                                        {column?.total ??
+                                            stage_totals[stage] ??
+                                            0}
                                     </Badge>
                                 </div>
                                 <div className="space-y-2">

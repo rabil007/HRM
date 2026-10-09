@@ -653,6 +653,20 @@ describe('Recruitment navigation', () => {
     const RECRUITMENT_PARENT_URL = '/organization/recruitment';
     const RECRUITMENT_REQUIREMENTS_URL =
         '/organization/recruitment/requirements';
+    const RECRUITMENT_CANDIDATES_URL = '/organization/recruitment/candidates';
+
+    /**
+     * Mirrors `getSidebarData()` Recruitment filtering: only URLs registered in
+     * `sidebar-data.ts` / active recruitment submodules that pass
+     * `isSidebarUrlVisible` appear.
+     */
+    function recruitmentSidebarTitles(permissions: string[]): string[] {
+        return getActiveRecruitmentSubmodules()
+            .filter((submodule) =>
+                isSidebarUrlVisible(submodule.href, permissions),
+            )
+            .map((submodule) => submodule.title);
+    }
 
     it('shows Recruitment parent and requirements when user has recruitment.requirements.view', () => {
         assert.equal(
@@ -677,10 +691,42 @@ describe('Recruitment navigation', () => {
         );
     });
 
-    it('hides Recruitment parent and requirements when user lacks recruitment.requirements.view', () => {
+    it('shows Recruitment parent and candidates when user has recruitment.candidates.view only', () => {
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_CANDIDATES_URL, [
+                'recruitment.candidates.view',
+            ]),
+            true,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_REQUIREMENTS_URL, [
+                'recruitment.candidates.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_PARENT_URL, [
+                'recruitment.candidates.view',
+            ]),
+            true,
+        );
+        assert.equal(canViewRecruitment(['recruitment.candidates.view']), true);
+        assert.equal(
+            recruitmentHref(['recruitment.candidates.view']),
+            RECRUITMENT_CANDIDATES_URL,
+        );
+    });
+
+    it('hides Recruitment parent when user lacks requirements and candidates view', () => {
         assert.equal(
             isSidebarUrlVisible(RECRUITMENT_REQUIREMENTS_URL, [
                 'recruitment.requirements.create',
+            ]),
+            false,
+        );
+        assert.equal(
+            isSidebarUrlVisible(RECRUITMENT_CANDIDATES_URL, [
+                'recruitment.candidates.create',
             ]),
             false,
         );
@@ -710,16 +756,46 @@ describe('Recruitment navigation', () => {
     it('filters group URLs retaining requirements only when permitted', () => {
         assert.deepEqual(
             visibleGroupUrls(
-                [RECRUITMENT_REQUIREMENTS_URL],
+                [RECRUITMENT_REQUIREMENTS_URL, RECRUITMENT_CANDIDATES_URL],
                 ['recruitment.requirements.view'],
             ),
             [RECRUITMENT_REQUIREMENTS_URL],
         );
         assert.deepEqual(
             visibleGroupUrls(
-                [RECRUITMENT_REQUIREMENTS_URL],
+                [RECRUITMENT_REQUIREMENTS_URL, RECRUITMENT_CANDIDATES_URL],
+                ['recruitment.candidates.view'],
+            ),
+            [RECRUITMENT_CANDIDATES_URL],
+        );
+        assert.deepEqual(
+            visibleGroupUrls(
+                [RECRUITMENT_REQUIREMENTS_URL, RECRUITMENT_CANDIDATES_URL],
                 ['recruitment.requirements.create'],
             ),
+            [],
+        );
+    });
+
+    it('renders actual sidebar items for candidates-only, requirements-only, both, and neither', () => {
+        assert.deepEqual(
+            recruitmentSidebarTitles(['recruitment.candidates.view']),
+            ['Candidates'],
+        );
+        assert.deepEqual(
+            recruitmentSidebarTitles(['recruitment.requirements.view']),
+            ['Requirements'],
+        );
+        assert.deepEqual(
+            recruitmentSidebarTitles([
+                'recruitment.requirements.view',
+                'recruitment.candidates.view',
+            ]),
+            ['Requirements', 'Candidates'],
+        );
+        assert.deepEqual(recruitmentSidebarTitles([]), []);
+        assert.deepEqual(
+            recruitmentSidebarTitles(['recruitment.candidates.create']),
             [],
         );
     });

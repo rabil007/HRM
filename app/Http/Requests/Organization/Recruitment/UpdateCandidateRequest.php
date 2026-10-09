@@ -33,7 +33,7 @@ class UpdateCandidateRequest extends FormRequest
                 'mimes:'.implode(',', CandidateCvStorage::ALLOWED_MIMES),
             ],
             'remove_cv' => ['sometimes', 'boolean'],
-            'lock_version' => ['nullable', 'integer', 'min:0'],
+            'lock_version' => ['required', 'integer', 'min:0'],
             'ignore_duplicate_warning' => ['sometimes', 'boolean'],
         ];
     }
