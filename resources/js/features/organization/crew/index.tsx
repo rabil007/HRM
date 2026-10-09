@@ -105,6 +105,13 @@ function listEmptyStateCopy(
         };
     }
 
+    if (view === 'crew_on_site') {
+        return {
+            title: 'No crew on site',
+            description: 'No active crew are currently onboard.',
+        };
+    }
+
     if (view === 'post_signoff_hotel') {
         return {
             title: 'No crew in post-sign-off hotel',

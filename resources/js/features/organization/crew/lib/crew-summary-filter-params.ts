@@ -25,6 +25,7 @@ export type CrewIndexCompatibleParams = {
 export function isOperationalLocationView(view: CurrentCrewView): boolean {
     return (
         view === 'pre_join_hotel' ||
+        view === 'crew_on_site' ||
         view === 'vessel' ||
         view === 'post_signoff_hotel' ||
         view === 'on_home'
@@ -55,7 +56,7 @@ export function resolveActiveSummaryFilter(
         return 'pre_join_hotel';
     }
 
-    if (view === 'vessel') {
+    if (view === 'crew_on_site' || view === 'vessel') {
         return 'crew_on_site';
     }
 
@@ -85,9 +86,16 @@ export function queueSectionCopy(
         };
     }
 
-    if (view === 'vessel') {
+    if (view === 'crew_on_site') {
         return {
             title: 'Crew On-Site',
+            description: 'Active crew currently onboard (P4).',
+        };
+    }
+
+    if (view === 'vessel') {
+        return {
+            title: 'Crew On-Site by vessel',
             description: 'Vessel-grouped roster of active P4 onboard crew.',
         };
     }
@@ -140,7 +148,7 @@ export function buildCrewSummaryFilterParams(
     } else if (filter === 'pre_join_hotel') {
         next.view = 'pre_join_hotel';
     } else if (filter === 'crew_on_site') {
-        next.view = 'vessel';
+        next.view = 'crew_on_site';
     } else if (filter === 'post_signoff_hotel') {
         next.view = 'post_signoff_hotel';
     } else if (filter === 'on_home') {

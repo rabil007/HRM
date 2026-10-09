@@ -10,6 +10,8 @@ final class CurrentCrewRequestFilters
 
     public const VIEW_VESSEL = 'vessel';
 
+    public const VIEW_CREW_ON_SITE = 'crew_on_site';
+
     public const VIEW_PRE_JOIN_HOTEL = 'pre_join_hotel';
 
     public const VIEW_POST_SIGNOFF_HOTEL = 'post_signoff_hotel';
@@ -104,6 +106,7 @@ final class CurrentCrewRequestFilters
     {
         return match ($view) {
             self::VIEW_VESSEL,
+            self::VIEW_CREW_ON_SITE,
             self::VIEW_PRE_JOIN_HOTEL,
             self::VIEW_POST_SIGNOFF_HOTEL,
             self::VIEW_ON_HOME => $view,
@@ -115,6 +118,7 @@ final class CurrentCrewRequestFilters
     {
         return in_array($view, [
             self::VIEW_VESSEL,
+            self::VIEW_CREW_ON_SITE,
             self::VIEW_PRE_JOIN_HOTEL,
             self::VIEW_POST_SIGNOFF_HOTEL,
             self::VIEW_ON_HOME,
@@ -124,6 +128,7 @@ final class CurrentCrewRequestFilters
     public static function isOperationalListView(string $view): bool
     {
         return in_array($view, [
+            self::VIEW_CREW_ON_SITE,
             self::VIEW_PRE_JOIN_HOTEL,
             self::VIEW_POST_SIGNOFF_HOTEL,
             self::VIEW_ON_HOME,

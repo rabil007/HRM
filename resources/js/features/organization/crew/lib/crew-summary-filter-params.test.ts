@@ -73,9 +73,10 @@ describe('buildCrewSummaryFilterParams', () => {
     it('clears completed status for Crew On-Site', () => {
         const params = buildCrewSummaryFilterParams('crew_on_site', base);
 
-        assert.equal(params.view, 'vessel');
+        assert.equal(params.view, 'crew_on_site');
         assert.equal(params.status, undefined);
         assert.equal(params.include_completed, undefined);
+        assert.equal(params.phase, undefined);
     });
 
     it('clears conflicting filters for Post-Sign-Off Hotel', () => {
@@ -112,8 +113,15 @@ describe('resolveActiveSummaryFilter', () => {
         assert.equal(
             resolveActiveSummaryFilter(
                 { ...emptyFilters, movement_attention: true },
-                'vessel',
+                'crew_on_site',
             ),
+            'crew_on_site',
+        );
+    });
+
+    it('keeps Crew On-Site active on the legacy vessel board view', () => {
+        assert.equal(
+            resolveActiveSummaryFilter(emptyFilters, 'vessel'),
             'crew_on_site',
         );
     });
@@ -161,6 +169,14 @@ describe('queueSectionCopy', () => {
         assert.match(copy.description, /active pre-join crew/i);
         assert.doesNotMatch(copy.description, /ready to join/i);
         assert.doesNotMatch(copy.description, /join standby or training/i);
+    });
+
+    it('uses assignment list copy for Crew On-Site', () => {
+        const copy = queueSectionCopy('crew_on_site', emptyFilters);
+
+        assert.equal(copy.title, 'Crew On-Site');
+        assert.match(copy.description, /onboard/i);
+        assert.doesNotMatch(copy.description, /vessel-grouped/i);
     });
 
     it('keeps Pre-Join Hotel heading when Needs Attention is also enabled', () => {
