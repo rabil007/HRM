@@ -271,7 +271,7 @@ test('http rejects future actual movements when testing override is disabled', f
         ])
         ->assertRedirect(route('organization.crew-assignments.show', $assignment))
         ->assertSessionHasErrors([
-            'occurred_at' => 'Actual movement events cannot be recorded in the future.',
+            'occurred_at' => 'Actual movement events cannot be recorded in the future. Use Schedule for Later for future movements.',
         ]);
 
     Carbon::setTestNow();
