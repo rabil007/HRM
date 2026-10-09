@@ -1,6 +1,7 @@
 import { Link, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     dataTableBodyRowClass,
     dataTableCellClass,
@@ -145,6 +146,19 @@ export function CandidatesContent({
         );
     };
 
+    const listFiltersForApply = () => ({
+        view: filters.view,
+        requirement_id: filters.requirement_id
+            ? String(filters.requirement_id)
+            : '',
+        position_id: filters.position_id ? String(filters.position_id) : '',
+        stage: filters.stage ?? '',
+        outcome: filters.outcome ?? '',
+        requirement_line_id: filters.requirement_line_id
+            ? String(filters.requirement_line_id)
+            : '',
+    });
+
     const setView = (view: 'table' | 'kanban') => {
         list.visit({ view, page: null });
     };
@@ -223,6 +237,101 @@ export function CandidatesContent({
                         </Badge>
                     ) : null}
                 </div>
+            </div>
+
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <AppSelect
+                    value={
+                        filters.requirement_id
+                            ? String(filters.requirement_id)
+                            : 'all'
+                    }
+                    onValueChange={(value) =>
+                        list.applyFilters({
+                            ...listFiltersForApply(),
+                            requirement_id: value === 'all' ? '' : value,
+                            requirement_line_id: '',
+                        })
+                    }
+                    placeholder="Requirement"
+                >
+                    <AppSelectItem value="all">All requirements</AppSelectItem>
+                    {options.requirements.map((requirement) => (
+                        <AppSelectItem
+                            key={requirement.id}
+                            value={String(requirement.id)}
+                        >
+                            {requirement.requirement_number}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+                <AppSelect
+                    value={
+                        filters.position_id
+                            ? String(filters.position_id)
+                            : 'all'
+                    }
+                    onValueChange={(value) =>
+                        list.applyFilters({
+                            ...listFiltersForApply(),
+                            position_id: value === 'all' ? '' : value,
+                        })
+                    }
+                    placeholder="Position"
+                >
+                    <AppSelectItem value="all">All positions</AppSelectItem>
+                    {Array.from(
+                        new Map(
+                            options.requirements
+                                .flatMap((requirement) => requirement.lines)
+                                .map((line) => [
+                                    line.position_id,
+                                    line.position_title,
+                                ]),
+                        ).entries(),
+                    ).map(([positionId, title]) => (
+                        <AppSelectItem
+                            key={positionId}
+                            value={String(positionId)}
+                        >
+                            {title}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+                <AppSelect
+                    value={filters.stage ?? 'all'}
+                    onValueChange={(value) =>
+                        list.applyFilters({
+                            ...listFiltersForApply(),
+                            stage: value === 'all' ? '' : value,
+                        })
+                    }
+                    placeholder="Stage"
+                >
+                    <AppSelectItem value="all">All stages</AppSelectItem>
+                    {CANDIDATE_KANBAN_STAGES.map((stage) => (
+                        <AppSelectItem key={stage} value={stage}>
+                            {CANDIDATE_STAGE_LABELS[stage]}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+                <AppSelect
+                    value={filters.outcome ?? 'all'}
+                    onValueChange={(value) =>
+                        list.applyFilters({
+                            ...listFiltersForApply(),
+                            outcome: value === 'all' ? '' : value,
+                        })
+                    }
+                    placeholder="Outcome"
+                >
+                    <AppSelectItem value="all">All outcomes</AppSelectItem>
+                    <AppSelectItem value="pending">Pending</AppSelectItem>
+                    <AppSelectItem value="selected">Selected</AppSelectItem>
+                    <AppSelectItem value="not_selected">
+                        Not Selected
+                    </AppSelectItem>
+                </AppSelect>
             </div>
 
             <div className="mb-4 flex flex-wrap gap-2">
