@@ -106,7 +106,7 @@ Canonical enforcement: `App\Support\Employees\EmployeeVisibilityScope` (`apply`,
 | Hikvision                                                | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage`                                                                                                                                                                                                                                                                                                                                                                             |
 | Employee profile templates                               | `employee_profile_templates.view|create|update|delete`                                                                                                                                                                                                                                                                                                                                                     |
 | Settings                                                 | `settings.security.*`, `settings.appearance.view`, `settings.application.*`, integration/template permissions, and `settings.master-data.{resource}.*`                                                                                                                                                                                                                                                                                                                     |
-| Recruitment                                              | `recruitment.requirements.view|create|update|submit|approve|close|cancel|reopen|attachments.download|request_deadline_extension|request_headcount_revision|transfer_ownership`, `recruitment.candidates.view|create|update|move|manage|cv.download`                                                                                                                                                                                                                                                          |
+| Recruitment                                              | `recruitment.requirements.view|create|update|submit|approve|close|cancel|reopen|attachments.download|request_deadline_extension|request_headcount_revision|transfer_ownership`, `recruitment.candidates.view|create|update|move|manage|cv.download`, `recruitment.candidates.offer.prepare|update|send|decide|revise|download`                                                                                                                                                                                                                                                          |
 | Audit                                                    | `audit.view`                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ### Recruitment requirement ownership (not role titles)
@@ -137,14 +137,15 @@ Rules:
 - Workflow timeline shows a dedicated **Recruiter reassigned** event (not Submitted/Resubmitted) when a Pending Approval requirement keeps the same status but records recruiter reassignment metadata on the transition, and an **Ownership transferred** event for the recovery transfer action.
 - Requirement Client/Project quick-create returns HTTP 422 for inactive or soft-deleted duplicates, reuses active duplicates safely (including unique-race recovery), and never returns inactive master-data rows as selectable options. Project quick-create requires a valid active selected Client and does not silently attach cross-client projects without update permission.
 
-### Recruitment candidate ownership (Phase 1)
+### Recruitment candidate ownership (Phase 1–2)
 
 Candidate actions use **permission + assigned-recruiter ownership** (or `recruitment.candidates.manage` override):
 
 - `view` is company-wide.
-- `create` / `update` / `move` require the matching permission and the user must be the requirement’s current `assigned_to`, unless they also hold `manage`.
+- `create` / `update` / `move` / `offer.*` require the matching permission and the user must be the requirement’s current `assigned_to`, unless they also hold `manage`.
 - `manage` overrides ownership only. It does not bypass company tenancy, missing action permissions, or workflow validation (Open requirement + Open line, allowed transitions, lock version).
-- `cv.download` requires `view` as well for downloads.
+- Offer revise additionally requires both `recruitment.candidates.offer.revise` and `manage`.
+- `cv.download` and `offer.download` require `view` as well for downloads.
 - Requirement CC recipients gain no candidate action rights.
 - Reopen Rejected requires both `move` and `manage`.
 

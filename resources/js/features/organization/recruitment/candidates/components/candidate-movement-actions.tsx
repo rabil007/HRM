@@ -92,6 +92,15 @@ export function CandidateMovementActions({
                         Mark Selected
                     </Button>
                 ) : null}
+                {candidate.can_prepare_offer ? (
+                    <Button size="sm" variant="outline" asChild>
+                        <a
+                            href={`/organization/recruitment/candidates/${candidate.id}#offer-jol`}
+                        >
+                            Prepare Offer
+                        </a>
+                    </Button>
+                ) : null}
                 {candidate.can_undo_selected ? (
                     <Button
                         size="sm"

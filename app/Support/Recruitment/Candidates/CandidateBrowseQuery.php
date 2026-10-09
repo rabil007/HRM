@@ -159,8 +159,9 @@ final class CandidateBrowseQuery
             ->with([
                 'nationality:id,name',
                 'requirement:id,company_id,assigned_to,status,requirement_number',
-                'line:id,recruitment_requirement_id,position_id,status',
+                'line:id,recruitment_requirement_id,position_id,status,salary_min,salary_max,salary_currency_code',
                 'line.position:id,title',
+                'currentOffer',
             ]);
 
         if ($requirementId !== null) {

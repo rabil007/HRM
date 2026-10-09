@@ -101,10 +101,14 @@ class CandidateController extends Controller
             'requirement.assignedRecruiter:id,name',
             'line.position:id,title',
             'interviewerUser:id,name,email',
+            'currentOffer.sender:id,name',
+            'currentOffer.acceptor:id,name',
+            'currentOffer.rejector:id,name',
         ];
 
         if ($canViewAudit) {
             $with[] = 'stageTransitions.performer:id,name';
+            $with[] = 'offers';
         }
 
         $candidate->load($with);

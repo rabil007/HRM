@@ -24,6 +24,13 @@ final class CandidatePresenter
         $canDownload = $user->can('recruitment.candidates.view')
             && $user->can('recruitment.candidates.cv.download')
             && $candidate->hasCv();
+        $currentOffer = $candidate->relationLoaded('currentOffer')
+            ? $candidate->currentOffer
+            : $candidate->currentOffer()->first();
+        $canPrepareOffer = $canOwn
+            && $parentsValid
+            && $user->can('recruitment.candidates.offer.prepare')
+            && CandidateWorkflowAuthorization::canPrepareOffer($candidate);
 
         return [
             'id' => (int) $candidate->id,
@@ -36,6 +43,9 @@ final class CandidatePresenter
             'interview_outcome' => $candidate->interview_outcome?->value,
             'interview_outcome_label' => $candidate->interview_outcome?->label(),
             'interview_outcome_badge' => $candidate->interview_outcome?->badgeVariant(),
+            'offer_status' => $currentOffer?->status->value,
+            'offer_status_label' => $currentOffer?->status->label(),
+            'offer_status_badge' => $currentOffer?->status->badgeVariant(),
             'requirement_id' => $candidate->recruitment_requirement_id,
             'requirement_number' => (string) $candidate->requirement_number_snapshot,
             'requirement_line_id' => $candidate->recruitment_requirement_line_id,
@@ -54,6 +64,7 @@ final class CandidatePresenter
             'can_reject' => $canMove && CandidateWorkflowAuthorization::canReject($candidate),
             'can_select' => $canMove && CandidateWorkflowAuthorization::canSelect($candidate),
             'can_undo_selected' => $canMove && CandidateWorkflowAuthorization::canUndoSelected($candidate),
+            'can_prepare_offer' => $canPrepareOffer,
             'can_reopen' => $canMove
                 && $canManage
                 && $candidate->stage === CandidateStage::Rejected
@@ -119,7 +130,21 @@ final class CandidatePresenter
                 'position_title' => (string) ($line->position?->title ?? $candidate->position_title_snapshot),
                 'status' => $line->status->value,
                 'status_label' => $line->status->label(),
+                'salary_min' => $line->salary_min !== null ? (string) $line->salary_min : null,
+                'salary_max' => $line->salary_max !== null ? (string) $line->salary_max : null,
+                'salary_currency_code' => $line->salary_currency_code,
             ],
+            'current_offer' => CandidateOfferPresenter::detail(
+                $candidate->relationLoaded('currentOffer')
+                    ? $candidate->currentOffer
+                    : $candidate->currentOffer()->with(['sender:id,name', 'acceptor:id,name', 'rejector:id,name'])->first(),
+                $candidate,
+                $user,
+                $timezone,
+            ),
+            'offer_history' => $includeMovementHistory && $candidate->relationLoaded('offers')
+                ? CandidateOfferPresenter::history($candidate, $timezone)
+                : [],
             'movement_history' => $transitions,
             'timezone' => $timezone,
         ]);

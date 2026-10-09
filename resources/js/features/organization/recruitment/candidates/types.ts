@@ -1,6 +1,14 @@
-export type CandidateStage = 'applied' | 'screening' | 'interview' | 'rejected';
+export type CandidateStage =
+    | 'applied'
+    | 'screening'
+    | 'interview'
+    | 'offer_jol'
+    | 'joining'
+    | 'rejected';
 
 export type CandidateInterviewOutcome = 'selected' | 'not_selected' | null;
+
+export type CandidateOfferStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
 
 export type CandidateIndexRow = {
     id: number;
@@ -13,6 +21,9 @@ export type CandidateIndexRow = {
     interview_outcome: CandidateInterviewOutcome;
     interview_outcome_label: string | null;
     interview_outcome_badge: string | null;
+    offer_status: CandidateOfferStatus | null;
+    offer_status_label: string | null;
+    offer_status_badge: string | null;
     requirement_id: number | null;
     requirement_number: string;
     requirement_line_id: number | null;
@@ -31,6 +42,7 @@ export type CandidateIndexRow = {
     can_reject: boolean;
     can_select: boolean;
     can_undo_selected: boolean;
+    can_prepare_offer: boolean;
     can_reopen: boolean;
     can_download_cv: boolean;
 };
@@ -51,6 +63,54 @@ export type CandidateMovementEvent = {
     context: Record<string, unknown> | null;
     performed_by: number | null;
     performed_by_name: string | null;
+    created_at: string | null;
+};
+
+export type CandidateOfferDetail = {
+    id: number;
+    revision_number: number;
+    is_current: boolean;
+    supersedes_offer_id: number | null;
+    status: CandidateOfferStatus;
+    status_label: string;
+    status_badge: string;
+    salary_amount: string;
+    salary_currency_code: string;
+    proposed_joining_date: string | null;
+    offer_date: string | null;
+    expiry_date: string | null;
+    notes: string | null;
+    sent_at: string | null;
+    sent_by_name: string | null;
+    accepted_at: string | null;
+    accepted_by_name: string | null;
+    rejected_at: string | null;
+    rejected_by_name: string | null;
+    rejection_reason: string | null;
+    revision_reason: string | null;
+    lock_version: number;
+    has_offer_document: boolean;
+    offer_document_original_file_name: string | null;
+    has_acceptance_document: boolean;
+    acceptance_document_original_file_name: string | null;
+    can_update: boolean;
+    can_send: boolean;
+    can_accept: boolean;
+    can_reject: boolean;
+    can_revise: boolean;
+    can_download_offer_document: boolean;
+    can_download_acceptance_document: boolean;
+};
+
+export type CandidateOfferHistoryItem = {
+    id: number;
+    revision_number: number;
+    is_current: boolean;
+    status: CandidateOfferStatus;
+    status_label: string;
+    salary_amount: string;
+    salary_currency_code: string;
+    revision_reason: string | null;
     created_at: string | null;
 };
 
@@ -87,7 +147,12 @@ export type CandidateDetail = CandidateIndexRow & {
         position_title: string;
         status: string;
         status_label: string;
+        salary_min: string | null;
+        salary_max: string | null;
+        salary_currency_code: string | null;
     } | null;
+    current_offer: CandidateOfferDetail | null;
+    offer_history: CandidateOfferHistoryItem[];
     movement_history: CandidateMovementEvent[];
     timezone: string;
 };
@@ -103,9 +168,14 @@ export type CandidateFormOptions = {
             id: number;
             position_id: number;
             position_title: string;
+            salary_min?: string | null;
+            salary_max?: string | null;
+            salary_currency_code?: string | null;
         }>;
     }>;
     nationalities: Array<{ id: number; name: string }>;
+    currencies: Array<{ code: string; name: string; symbol: string }>;
+    default_currency_code: string | null;
     sources: Array<{ value: string; label: string }>;
     interview_modes: Array<{ value: string; label: string }>;
     interviewers: Array<{ id: number; name: string; email: string }>;
@@ -118,6 +188,12 @@ export type CandidatePagePermissions = {
     move: boolean;
     manage: boolean;
     download_cv: boolean;
+    offer_prepare: boolean;
+    offer_update: boolean;
+    offer_send: boolean;
+    offer_decide: boolean;
+    offer_revise: boolean;
+    offer_download: boolean;
     view_audit: boolean;
 };
 
@@ -222,6 +298,8 @@ export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
     'applied',
     'screening',
     'interview',
+    'offer_jol',
+    'joining',
     'rejected',
 ];
 
@@ -229,5 +307,17 @@ export const CANDIDATE_STAGE_LABELS: Record<CandidateStage, string> = {
     applied: 'Applied',
     screening: 'Screening',
     interview: 'Interview',
+    offer_jol: 'Offer/JOL',
+    joining: 'Joining',
+    rejected: 'Rejected',
+};
+
+export const CANDIDATE_OFFER_STATUS_LABELS: Record<
+    CandidateOfferStatus,
+    string
+> = {
+    draft: 'Draft',
+    sent: 'Sent',
+    accepted: 'Accepted',
     rejected: 'Rejected',
 };

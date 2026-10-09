@@ -1,5 +1,9 @@
 import { Badge } from '@/components/ui/badge';
-import type { CandidateInterviewOutcome, CandidateStage } from '../types';
+import type {
+    CandidateInterviewOutcome,
+    CandidateOfferStatus,
+    CandidateStage,
+} from '../types';
 
 const stageVariant: Record<
     CandidateStage,
@@ -8,6 +12,8 @@ const stageVariant: Record<
     applied: 'secondary',
     screening: 'outline',
     interview: 'default',
+    offer_jol: 'outline',
+    joining: 'default',
     rejected: 'destructive',
 };
 
@@ -42,6 +48,37 @@ export function CandidateOutcomeBadge({
             }
         >
             {label}
+        </Badge>
+    );
+}
+
+export function CandidateOfferStatusBadge({
+    status,
+    label,
+}: {
+    status: CandidateOfferStatus | null | undefined;
+    label: string | null | undefined;
+}) {
+    if (!status || !label) {
+        return null;
+    }
+
+    return (
+        <Badge
+            variant={
+                status === 'accepted'
+                    ? 'default'
+                    : status === 'rejected'
+                      ? 'destructive'
+                      : 'secondary'
+            }
+            className={
+                status === 'accepted'
+                    ? 'bg-emerald-600 hover:bg-emerald-600'
+                    : undefined
+            }
+        >
+            Offer: {label}
         </Badge>
     );
 }

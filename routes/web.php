@@ -190,6 +190,8 @@ use App\Http\Controllers\Organization\Recruitment\CandidateCheckDuplicatesContro
 use App\Http\Controllers\Organization\Recruitment\CandidateController;
 use App\Http\Controllers\Organization\Recruitment\CandidateCvDownloadController;
 use App\Http\Controllers\Organization\Recruitment\CandidateMoveController;
+use App\Http\Controllers\Organization\Recruitment\CandidateOfferController;
+use App\Http\Controllers\Organization\Recruitment\CandidateOfferDocumentDownloadController;
 use App\Http\Controllers\Organization\Recruitment\CandidateRejectController;
 use App\Http\Controllers\Organization\Recruitment\CandidateReopenController;
 use App\Http\Controllers\Organization\Recruitment\CandidateSelectController;
@@ -645,6 +647,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/recruitment/candidates/{candidate}/cv', CandidateCvDownloadController::class)
         ->middleware('can:recruitment.candidates.cv.download')
         ->name('organization.recruitment.candidates.cv.download');
+    Route::post('organization/recruitment/candidates/{candidate}/offers', [CandidateOfferController::class, 'prepare'])
+        ->middleware('can:recruitment.candidates.offer.prepare')
+        ->name('organization.recruitment.candidates.offers.prepare');
+    Route::post('organization/recruitment/candidates/{candidate}/offers/{offer}', [CandidateOfferController::class, 'update'])
+        ->middleware('can:recruitment.candidates.offer.update')
+        ->name('organization.recruitment.candidates.offers.update');
+    Route::post('organization/recruitment/candidates/{candidate}/offers/{offer}/send', [CandidateOfferController::class, 'send'])
+        ->middleware('can:recruitment.candidates.offer.send')
+        ->name('organization.recruitment.candidates.offers.send');
+    Route::post('organization/recruitment/candidates/{candidate}/offers/{offer}/accept', [CandidateOfferController::class, 'accept'])
+        ->middleware('can:recruitment.candidates.offer.decide')
+        ->name('organization.recruitment.candidates.offers.accept');
+    Route::post('organization/recruitment/candidates/{candidate}/offers/{offer}/reject', [CandidateOfferController::class, 'reject'])
+        ->middleware('can:recruitment.candidates.offer.decide')
+        ->name('organization.recruitment.candidates.offers.reject');
+    Route::post('organization/recruitment/candidates/{candidate}/offers/{offer}/revise', [CandidateOfferController::class, 'revise'])
+        ->middleware('can:recruitment.candidates.offer.revise')
+        ->name('organization.recruitment.candidates.offers.revise');
+    Route::get('organization/recruitment/candidates/{candidate}/offers/{offer}/documents/{kind}', CandidateOfferDocumentDownloadController::class)
+        ->middleware('can:recruitment.candidates.offer.download')
+        ->whereIn('kind', ['offer', 'acceptance'])
+        ->name('organization.recruitment.candidates.offers.documents.download');
 
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');

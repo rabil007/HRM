@@ -7,6 +7,8 @@ enum CandidateStage: string
     case Applied = 'applied';
     case Screening = 'screening';
     case Interview = 'interview';
+    case OfferJol = 'offer_jol';
+    case Joining = 'joining';
     case Rejected = 'rejected';
 
     public function label(): string
@@ -15,6 +17,8 @@ enum CandidateStage: string
             self::Applied => 'Applied',
             self::Screening => 'Screening',
             self::Interview => 'Interview',
+            self::OfferJol => 'Offer/JOL',
+            self::Joining => 'Joining',
             self::Rejected => 'Rejected',
         };
     }
@@ -25,12 +29,14 @@ enum CandidateStage: string
             self::Applied => 'secondary',
             self::Screening => 'warning',
             self::Interview => 'default',
+            self::OfferJol => 'warning',
+            self::Joining => 'success',
             self::Rejected => 'destructive',
         };
     }
 
     /**
-     * Stages shown as independent Kanban columns in Phase 1.
+     * Stages shown as independent Kanban columns.
      *
      * @return list<self>
      */
@@ -40,6 +46,8 @@ enum CandidateStage: string
             self::Applied,
             self::Screening,
             self::Interview,
+            self::OfferJol,
+            self::Joining,
             self::Rejected,
         ];
     }
@@ -58,6 +66,10 @@ enum CandidateStage: string
         };
     }
 
+    /**
+     * Interview-path rejection (sets interview_outcome when from Interview).
+     * Offer decline uses the offer decide action instead.
+     */
     public function allowsRejection(): bool
     {
         return in_array($this, [self::Applied, self::Screening, self::Interview], true);
@@ -66,5 +78,10 @@ enum CandidateStage: string
     public function allowsSelection(): bool
     {
         return $this === self::Interview;
+    }
+
+    public function isOfferWorkflowStage(): bool
+    {
+        return in_array($this, [self::OfferJol, self::Joining], true);
     }
 }

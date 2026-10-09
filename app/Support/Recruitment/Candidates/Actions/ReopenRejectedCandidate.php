@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment\Candidates\Actions;
 
+use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
@@ -59,11 +60,19 @@ final class ReopenRejectedCandidate
                 $restoreStage = CandidateStage::Applied;
             }
 
+            // Offer/JOL reopen must not clear Selected outcome or invent a Joining state.
+            if ($restoreStage === CandidateStage::Joining) {
+                $restoreStage = CandidateStage::OfferJol;
+            }
+
             $fromOutcome = $locked->interview_outcome;
+            $restoreOutcome = $restoreStage->isOfferWorkflowStage()
+                ? CandidateInterviewOutcome::Selected
+                : null;
 
             $locked->fill([
                 'stage' => $restoreStage,
-                'interview_outcome' => null,
+                'interview_outcome' => $restoreOutcome,
                 'rejection_reason' => null,
                 'pre_rejection_stage' => null,
                 'updated_by' => $actor->id,
@@ -77,13 +86,15 @@ final class ReopenRejectedCandidate
                 CandidateStage::Rejected,
                 $restoreStage,
                 $fromOutcome,
-                null,
+                $restoreOutcome,
                 (int) $actor->id,
                 $reason,
                 [
                     'previous_rejection_reason' => $previousRejectionReason,
                     'previous_outcome' => $fromOutcome?->value,
                     'restored_stage' => $restoreStage->value,
+                    'restored_outcome' => $restoreOutcome?->value,
+                    'offer_workflow' => $restoreStage->isOfferWorkflowStage(),
                 ],
             );
 

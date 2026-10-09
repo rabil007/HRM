@@ -2004,19 +2004,55 @@ final class ApplicationPermissionDefinitions
             340 => [
                 'name' => 'recruitment.candidates.move',
                 'label' => 'Move Recruitment Candidates',
-                'description' => 'Allows the assigned recruiter (or a user with management override) to move candidates between Applied, Screening, and Interview, and to record selection or rejection outcomes.',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to move candidates between Applied, Screening, and Interview, and to record interview selection or interview-path rejection outcomes. Offer/JOL actions use separate offer permissions.',
                 'group' => 'Recruitment',
             ],
             341 => [
                 'name' => 'recruitment.candidates.manage',
                 'label' => 'Manage Recruitment Candidates',
-                'description' => 'Allows authorized users to override assigned-recruiter ownership for candidate create, update, and movement actions. Does not bypass company scope, action permissions, or workflow validation.',
+                'description' => 'Allows authorized users to override assigned-recruiter ownership for candidate create, update, movement, and offer actions. Does not bypass company scope, action permissions, or workflow validation. Required together with offer revise for corrections to sent/accepted/rejected offers.',
                 'group' => 'Recruitment',
             ],
             342 => [
                 'name' => 'recruitment.candidates.cv.download',
                 'label' => 'Download Candidate CVs',
                 'description' => 'Allows the user to download private candidate CV files for candidates they are authorized to view in the active company.',
+                'group' => 'Recruitment',
+            ],
+            346 => [
+                'name' => 'recruitment.candidates.offer.prepare',
+                'label' => 'Prepare Candidate Offers',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to prepare a Draft Offer/JOL for a Selected Interview candidate on an Open requirement and Open position line.',
+                'group' => 'Recruitment',
+            ],
+            347 => [
+                'name' => 'recruitment.candidates.offer.update',
+                'label' => 'Update Candidate Offers',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to edit Draft Offer/JOL details and private offer documents.',
+                'group' => 'Recruitment',
+            ],
+            348 => [
+                'name' => 'recruitment.candidates.offer.send',
+                'label' => 'Mark Candidate Offers Sent',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to record that an Offer/JOL was sent outside the system. Does not send email.',
+                'group' => 'Recruitment',
+            ],
+            349 => [
+                'name' => 'recruitment.candidates.offer.decide',
+                'label' => 'Decide Candidate Offers',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to record Offer/JOL acceptance (move to Joining) or rejection (move to Rejected) for Sent offers.',
+                'group' => 'Recruitment',
+            ],
+            350 => [
+                'name' => 'recruitment.candidates.offer.revise',
+                'label' => 'Revise Candidate Offers',
+                'description' => 'Allows authorized users with management override to create an audited Draft revision of a Sent, Accepted, or Rejected Offer/JOL. Requires recruitment.candidates.manage.',
+                'group' => 'Recruitment',
+            ],
+            351 => [
+                'name' => 'recruitment.candidates.offer.download',
+                'label' => 'Download Candidate Offer Documents',
+                'description' => 'Allows the user to download private Offer/JOL and signed-acceptance documents for candidates they are authorized to view in the active company.',
                 'group' => 'Recruitment',
             ],
             343 => [

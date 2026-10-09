@@ -14,7 +14,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
+import { CandidateOfferPanel } from './components/candidate-offer-panel';
 import {
+    CandidateOfferStatusBadge,
     CandidateOutcomeBadge,
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
@@ -162,6 +164,10 @@ export function CandidatesShowContent({
                     outcome={candidate.interview_outcome}
                     label={candidate.interview_outcome_label}
                 />
+                <CandidateOfferStatusBadge
+                    status={candidate.offer_status}
+                    label={candidate.offer_status_label}
+                />
                 {!candidate.parents_valid ? (
                     <span className="text-sm text-amber-700 dark:text-amber-300">
                         Linked requirement/line is missing or not Open —
@@ -260,6 +266,8 @@ export function CandidatesShowContent({
                         </div>
                     </dl>
                 </section>
+
+                <CandidateOfferPanel candidate={candidate} options={options} />
 
                 <section className="rounded-xl border border-border/60 p-5 lg:col-span-2">
                     <div className="mb-3 flex items-center justify-between">

@@ -7,9 +7,11 @@ use App\Enums\Recruitment\CandidateSource;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Country;
+use App\Models\Currency;
 use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
+use App\Support\Settings\CompanyCurrency;
 
 final class CandidateFormOptionsQuery
 {
@@ -49,6 +51,9 @@ final class CandidateFormOptionsQuery
                     'id' => (int) $line->id,
                     'position_id' => (int) $line->position_id,
                     'position_title' => (string) ($line->position?->title ?? 'Position'),
+                    'salary_min' => $line->salary_min !== null ? (string) $line->salary_min : null,
+                    'salary_max' => $line->salary_max !== null ? (string) $line->salary_max : null,
+                    'salary_currency_code' => $line->salary_currency_code,
                 ])->values()->all(),
             ];
         })->values()->all();
@@ -63,9 +68,22 @@ final class CandidateFormOptionsQuery
             ])
             ->all();
 
+        $currencies = Currency::query()
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['code', 'name', 'symbol'])
+            ->map(fn (Currency $currency): array => [
+                'code' => (string) $currency->code,
+                'name' => (string) $currency->name,
+                'symbol' => (string) ($currency->symbol ?? ''),
+            ])
+            ->all();
+
         return [
             'requirements' => $requirements,
             'nationalities' => $nationalities,
+            'currencies' => $currencies,
+            'default_currency_code' => CompanyCurrency::codeForCompany($companyId),
             'sources' => array_map(
                 fn (CandidateSource $s): array => ['value' => $s->value, 'label' => $s->label()],
                 CandidateSource::cases(),

@@ -12,6 +12,12 @@ enum CandidateTransitionAction: string
     case UndoSelected = 'undo_selected';
     case ReopenRejected = 'reopen_rejected';
     case InterviewUpdated = 'interview_updated';
+    case OfferPrepared = 'offer_prepared';
+    case OfferUpdated = 'offer_updated';
+    case OfferSent = 'offer_sent';
+    case OfferAccepted = 'offer_accepted';
+    case OfferRejected = 'offer_rejected';
+    case OfferRevised = 'offer_revised';
 
     public function label(): string
     {
@@ -24,6 +30,12 @@ enum CandidateTransitionAction: string
             self::UndoSelected => 'Undo Selected',
             self::ReopenRejected => 'Reopened',
             self::InterviewUpdated => 'Interview updated',
+            self::OfferPrepared => 'Offer prepared',
+            self::OfferUpdated => 'Offer updated',
+            self::OfferSent => 'Offer marked sent',
+            self::OfferAccepted => 'Offer accepted',
+            self::OfferRejected => 'Offer rejected',
+            self::OfferRevised => 'Offer revised',
         };
     }
 }

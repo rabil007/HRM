@@ -28,6 +28,9 @@ function row(
         interview_outcome: null,
         interview_outcome_label: null,
         interview_outcome_badge: null,
+        offer_status: null,
+        offer_status_label: null,
+        offer_status_badge: null,
         requirement_id: 1,
         requirement_number: 'REQ-1',
         requirement_line_id: 1,
@@ -46,6 +49,7 @@ function row(
         can_reject: true,
         can_select: false,
         can_undo_selected: false,
+        can_prepare_offer: false,
         can_reopen: false,
         can_download_cv: false,
     };
@@ -152,6 +156,8 @@ describe('kanban accumulate helpers', () => {
             'applied',
             'screening',
             'interview',
+            'offer_jol',
+            'joining',
             'rejected',
         ]);
     });
@@ -180,7 +186,14 @@ describe('kanban accumulate helpers', () => {
             incoming: redirectIncoming,
             appendStage: null,
             isThroughRefresh: false,
-            stages: ['applied', 'screening', 'interview', 'rejected'],
+            stages: [
+                'applied',
+                'screening',
+                'interview',
+                'offer_jol',
+                'joining',
+                'rejected',
+            ],
         });
 
         assert.equal(afterRedirect.needsThroughRefresh, true);
@@ -195,6 +208,8 @@ describe('kanban accumulate helpers', () => {
                 'applied',
                 'screening',
                 'interview',
+                'offer_jol',
+                'joining',
                 'rejected',
             ]),
             { through_page_applied: 2 },
@@ -221,7 +236,14 @@ describe('kanban accumulate helpers', () => {
             incoming: throughPayload,
             appendStage: null,
             isThroughRefresh: true,
-            stages: ['applied', 'screening', 'interview', 'rejected'],
+            stages: [
+                'applied',
+                'screening',
+                'interview',
+                'offer_jol',
+                'joining',
+                'rejected',
+            ],
         });
 
         assert.equal(afterRefresh.needsThroughRefresh, false);
@@ -250,7 +272,14 @@ describe('kanban accumulate helpers', () => {
             },
             appendStage: 'applied',
             isThroughRefresh: false,
-            stages: ['applied', 'screening', 'interview', 'rejected'],
+            stages: [
+                'applied',
+                'screening',
+                'interview',
+                'offer_jol',
+                'joining',
+                'rejected',
+            ],
         });
 
         const appliedIds = afterLoadMore.next?.applied.data.map(

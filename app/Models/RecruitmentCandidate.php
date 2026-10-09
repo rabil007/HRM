@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Support\LogOptions;
 
 class RecruitmentCandidate extends Model
@@ -136,6 +137,18 @@ class RecruitmentCandidate extends Model
     public function stageTransitions(): HasMany
     {
         return $this->hasMany(RecruitmentCandidateStageTransition::class, 'recruitment_candidate_id');
+    }
+
+    public function offers(): HasMany
+    {
+        return $this->hasMany(RecruitmentCandidateOffer::class, 'recruitment_candidate_id');
+    }
+
+    public function currentOffer(): HasOne
+    {
+        return $this->hasOne(RecruitmentCandidateOffer::class, 'recruitment_candidate_id')
+            ->where('is_current', true)
+            ->latestOfMany('id');
     }
 
     public function scopeForCompany(Builder $query, int $companyId): Builder

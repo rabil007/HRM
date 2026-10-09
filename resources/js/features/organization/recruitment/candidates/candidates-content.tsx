@@ -28,6 +28,7 @@ import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
 import {
+    CandidateOfferStatusBadge,
     CandidateOutcomeBadge,
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
@@ -450,6 +451,8 @@ export function CandidatesContent({
                             'applied',
                             'screening',
                             'interview',
+                            'offer_jol',
+                            'joining',
                             'rejected',
                         ] as CandidateStage[]
                     ).map((stage) => (
@@ -483,6 +486,8 @@ export function CandidatesContent({
                         'applied',
                         'screening',
                         'interview',
+                        'offer_jol',
+                        'joining',
                         'rejected',
                     ] as CandidateStage[]
                 ).map((stage) => (
@@ -495,7 +500,7 @@ export function CandidatesContent({
 
             {filters.view === 'kanban' && accumulatedKanban ? (
                 <div
-                    className={`grid gap-4 ${kanbanStages.length === 1 ? 'lg:grid-cols-1' : 'lg:grid-cols-4'}`}
+                    className={`grid gap-4 ${kanbanStages.length === 1 ? 'lg:grid-cols-1' : kanbanStages.length <= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3 xl:grid-cols-6'}`}
                 >
                     {kanbanStages.map((stage) => {
                         const column = accumulatedKanban[stage];
@@ -538,6 +543,14 @@ export function CandidatesContent({
                                                     }
                                                     label={
                                                         candidate.interview_outcome_label
+                                                    }
+                                                />
+                                                <CandidateOfferStatusBadge
+                                                    status={
+                                                        candidate.offer_status
+                                                    }
+                                                    label={
+                                                        candidate.offer_status_label
                                                     }
                                                 />
                                             </div>
@@ -631,14 +644,22 @@ export function CandidatesContent({
                                         />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <CandidateOutcomeBadge
-                                            outcome={
-                                                candidate.interview_outcome
-                                            }
-                                            label={
-                                                candidate.interview_outcome_label
-                                            }
-                                        />
+                                        <div className="flex flex-wrap gap-1">
+                                            <CandidateOutcomeBadge
+                                                outcome={
+                                                    candidate.interview_outcome
+                                                }
+                                                label={
+                                                    candidate.interview_outcome_label
+                                                }
+                                            />
+                                            <CandidateOfferStatusBadge
+                                                status={candidate.offer_status}
+                                                label={
+                                                    candidate.offer_status_label
+                                                }
+                                            />
+                                        </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         <CandidateMovementActions

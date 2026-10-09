@@ -3,10 +3,12 @@
 namespace App\Support\Recruitment\Candidates;
 
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentCandidate;
+use App\Models\RecruitmentCandidateOffer;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
@@ -66,6 +68,143 @@ final class CandidateWorkflowAuthorization
         return $user->can('recruitment.candidates.view')
             && $user->can('recruitment.candidates.cv.download')
             && (int) $candidate->company_id > 0;
+    }
+
+    public static function canDownloadOfferDocuments(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.view')
+            && $user->can('recruitment.candidates.offer.download')
+            && (int) $candidate->company_id > 0;
+    }
+
+    public static function assertCanPrepareOffer(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.offer.prepare')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to prepare offers.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can prepare an offer for this candidate.',
+            ]);
+        }
+    }
+
+    public static function assertCanUpdateOffer(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.offer.update')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to update offers.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can update this offer.',
+            ]);
+        }
+    }
+
+    public static function assertCanSendOffer(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.offer.send')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to mark offers as sent.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can mark this offer as sent.',
+            ]);
+        }
+    }
+
+    public static function assertCanDecideOffer(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.offer.decide')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to record offer decisions.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can decide this offer.',
+            ]);
+        }
+    }
+
+    public static function assertCanReviseOffer(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.offer.revise') || ! $user->can('recruitment.candidates.manage')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Revising a sent, accepted, or rejected offer requires revise permission and management override.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can revise this offer.',
+            ]);
+        }
+    }
+
+    public static function assertOfferExpectedLock(
+        RecruitmentCandidateOffer $offer,
+        ?int $expectedLockVersion,
+        ?string $expectedStatus = null,
+    ): void {
+        if ($expectedLockVersion === null) {
+            throw ValidationException::withMessages([
+                'offer_lock_version' => 'An offer lock version is required. Refresh and try again.',
+            ]);
+        }
+
+        if ((int) $offer->lock_version !== $expectedLockVersion) {
+            throw ValidationException::withMessages([
+                'offer_lock_version' => 'This offer was updated by someone else. Refresh and try again.',
+            ]);
+        }
+
+        if ($expectedStatus !== null && $offer->status->value !== $expectedStatus) {
+            throw ValidationException::withMessages([
+                'offer_status' => 'This offer is no longer in the expected status. Refresh and try again.',
+            ]);
+        }
+    }
+
+    /**
+     * Lock requirement → line → candidate → current offer (when present).
+     *
+     * @return array{
+     *     candidate: RecruitmentCandidate,
+     *     requirement: ?RecruitmentRequirement,
+     *     line: ?RecruitmentRequirementLine,
+     *     offer: ?RecruitmentCandidateOffer
+     * }
+     */
+    public static function lockCandidateOfferGraph(RecruitmentCandidate $candidate): array
+    {
+        $graph = self::lockCandidateGraph($candidate);
+        $locked = $graph['candidate'];
+
+        $offer = RecruitmentCandidateOffer::query()
+            ->where('recruitment_candidate_id', $locked->id)
+            ->where('is_current', true)
+            ->lockForUpdate()
+            ->first();
+
+        $locked->setRelation('currentOffer', $offer);
+
+        return [
+            'candidate' => $locked,
+            'requirement' => $graph['requirement'],
+            'line' => $graph['line'],
+            'offer' => $offer,
+        ];
     }
 
     public static function assertCanCreate(User $user, RecruitmentRequirement $requirement): void
@@ -318,17 +457,65 @@ final class CandidateWorkflowAuthorization
     {
         return $candidate->stage === CandidateStage::Interview
             && $candidate->interview_outcome !== CandidateInterviewOutcome::Selected
-            && $candidate->interview_outcome !== CandidateInterviewOutcome::NotSelected;
+            && $candidate->interview_outcome !== CandidateInterviewOutcome::NotSelected
+            && $candidate->currentOffer === null;
     }
 
     public static function canUndoSelected(RecruitmentCandidate $candidate): bool
     {
         return $candidate->stage === CandidateStage::Interview
-            && $candidate->interview_outcome === CandidateInterviewOutcome::Selected;
+            && $candidate->interview_outcome === CandidateInterviewOutcome::Selected
+            && $candidate->currentOffer === null;
     }
 
     public static function canReject(RecruitmentCandidate $candidate): bool
     {
         return $candidate->stage->allowsRejection();
+    }
+
+    public static function canPrepareOffer(RecruitmentCandidate $candidate): bool
+    {
+        return $candidate->stage === CandidateStage::Interview
+            && $candidate->interview_outcome === CandidateInterviewOutcome::Selected
+            && $candidate->currentOffer === null;
+    }
+
+    public static function canUpdateOffer(?RecruitmentCandidateOffer $offer): bool
+    {
+        return $offer !== null && $offer->is_current && $offer->status === CandidateOfferStatus::Draft;
+    }
+
+    public static function canSendOffer(?RecruitmentCandidateOffer $offer): bool
+    {
+        return $offer !== null && $offer->is_current && $offer->status === CandidateOfferStatus::Draft;
+    }
+
+    public static function canDecideOffer(?RecruitmentCandidateOffer $offer, RecruitmentCandidate $candidate): bool
+    {
+        return $offer !== null
+            && $offer->is_current
+            && $offer->status === CandidateOfferStatus::Sent
+            && $candidate->stage === CandidateStage::OfferJol;
+    }
+
+    public static function canReviseOffer(?RecruitmentCandidateOffer $offer, RecruitmentCandidate $candidate): bool
+    {
+        if ($offer === null || ! $offer->is_current) {
+            return false;
+        }
+
+        if ($offer->status === CandidateOfferStatus::Draft) {
+            return false;
+        }
+
+        if ($candidate->stage === CandidateStage::Rejected) {
+            return false;
+        }
+
+        return in_array($offer->status, [
+            CandidateOfferStatus::Sent,
+            CandidateOfferStatus::Accepted,
+            CandidateOfferStatus::Rejected,
+        ], true);
     }
 }

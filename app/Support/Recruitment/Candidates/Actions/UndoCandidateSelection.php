@@ -22,7 +22,7 @@ final class UndoCandidateSelection
         CandidateWorkflowAuthorization::assertCanMove($actor, $candidate);
 
         return DB::transaction(function () use ($actor, $candidate, $guard): RecruitmentCandidate {
-            $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
+            $graph = CandidateWorkflowAuthorization::lockCandidateOfferGraph($candidate);
             $locked = $graph['candidate'];
 
             CandidateWorkflowAuthorization::assertCanMove($actor, $locked);
@@ -39,6 +39,12 @@ final class UndoCandidateSelection
             ) {
                 throw ValidationException::withMessages([
                     'interview_outcome' => 'Only selected Interview candidates can have selection undone.',
+                ]);
+            }
+
+            if ($graph['offer'] !== null) {
+                throw ValidationException::withMessages([
+                    'candidate' => 'Selection cannot be undone after an Offer/JOL has been prepared. Revise or manage the offer instead.',
                 ]);
             }
 
