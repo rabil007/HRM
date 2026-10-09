@@ -286,7 +286,7 @@ test('completed june-august p4 with september planned sign-off yields zero septe
         ->and($payload['summary']['total_onsite_days'])->toBe('0.00');
 });
 
-test('active actual p4 is clipped to company-local today not planned sign-off', function () {
+test('active actual p4 is clipped to period end not planned sign-off', function () {
     freezeCrewTimelineSeptember();
 
     $fixtures = makeSeptemberCrewTimelineFixtures();
@@ -320,8 +320,8 @@ test('active actual p4 is clipped to company-local today not planned sign-off', 
         ->firstOrFail();
 
     expect($onsite->from_date->toDateString())->toBe('2026-09-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-09-15')
-        ->and((float) $onsite->days)->toBe(15.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-09-30')
+        ->and((float) $onsite->days)->toBe(30.0);
 
     $payload = crewTimelineDateProvenancePayload($fixtures, $preparation);
     $employee = $payload['employees'][0];
@@ -331,12 +331,12 @@ test('active actual p4 is clipped to company-local today not planned sign-off', 
         ->and($phaseCard)->not->toHaveKey('planned_end')
         ->and($phaseCard)->not->toHaveKey('has_planned_schedule')
         ->and($employee['onsite_from'])->toBe('2026-09-01')
-        ->and($employee['onsite_to'])->toBe('2026-09-15')
-        ->and($employee['onsite_days'])->toBe(15.0)
+        ->and($employee['onsite_to'])->toBe('2026-09-30')
+        ->and($employee['onsite_days'])->toBe(30.0)
         ->and($phaseCard['actual_start'])->toBe('2026-08-20')
         ->and($phaseCard['actual_end'])->toBeNull()
         ->and($phaseCard['payroll_from'])->toBe('2026-09-01')
-        ->and($phaseCard['payroll_to'])->toBe('2026-09-15')
+        ->and($phaseCard['payroll_to'])->toBe('2026-09-30')
         ->and($phaseCard['payroll_lines'])->not->toBeEmpty();
 });
 

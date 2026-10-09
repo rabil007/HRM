@@ -16,8 +16,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Determines whether an open crew phase can affect automatic Daily Crew payable
- * allocation. Used to avoid false overnight staleness when only Monthly Crew or
- * excluded phases remain open.
+ * allocation. Used when resolving the preparation effective cutoff so Monthly
+ * Crew or excluded open phases do not force a period-end cutoff.
  */
 final class DailyCrewPayablePhaseEligibility
 {

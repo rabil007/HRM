@@ -358,7 +358,7 @@ test('apply rejects stale preparation after crew movement completes open phase p
     })->toThrow(ValidationException::class);
 });
 
-test('applied preparation reports live timeline advanced without ordinary stale presentation', function () {
+test('applied open-phase preparation remains fresh overnight without live timeline advanced notice', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
 
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -410,11 +410,11 @@ test('applied preparation reports live timeline advanced without ordinary stale 
 
     expect($payload['is_fresh'])->toBeTrue()
         ->and($payload['is_stale'])->toBeFalse()
-        ->and($payload['live_timeline_advanced'])->toBeTrue()
-        ->and($payload['snapshot_notice'])->toBe(CrewTimelineFreshnessChecker::APPLIED_LIVE_TIMELINE_ADVANCED_MESSAGE);
+        ->and($payload['live_timeline_advanced'])->toBeFalse()
+        ->and($payload['snapshot_notice'])->toBeNull();
 });
 
-test('open phase overnight makes previous unapplied preparation stale and new preparation includes newly eligible day', function () {
+test('open phase preparation allocates through period end and stays fresh overnight', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
 
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -446,7 +446,7 @@ test('open phase overnight makes previous unapplied preparation stale and new pr
     );
 
     expect($checker->isFresh($v1, $fixtures['period']))->toBeTrue()
-        ->and($v1->effective_cutoff_date?->toDateString())->toBe('2026-09-17');
+        ->and($v1->effective_cutoff_date?->toDateString())->toBe('2026-09-30');
 
     $onsiteV1 = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $v1->id)
@@ -454,17 +454,15 @@ test('open phase overnight makes previous unapplied preparation stale and new pr
         ->firstOrFail();
 
     expect($onsiteV1->from_date->toDateString())->toBe('2026-09-15')
-        ->and($onsiteV1->to_date->toDateString())->toBe('2026-09-17')
-        ->and((float) $onsiteV1->days)->toBe(3.0);
+        ->and($onsiteV1->to_date->toDateString())->toBe('2026-09-30')
+        ->and((float) $onsiteV1->days)->toBe(16.0);
 
     // Advance clock to 18 Sep without changing any database records
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 10:00:00', 'Asia/Dubai'));
 
-    // V1 must now be stale
-    expect($checker->isFresh($v1, $fixtures['period']))->toBeFalse()
-        ->and($checker->staleReason($v1, $fixtures['period']))->toBe(CrewTimelineFreshnessChecker::TIMELINE_ADVANCED_MESSAGE);
+    expect($checker->isFresh($v1, $fixtures['period']))->toBeTrue()
+        ->and($checker->staleReason($v1, $fixtures['period']))->toBeNull();
 
-    // Generating a fresh preparation on 18 Sep allocates through 18 Sep
     $v2 = $prepareService->handle(
         $fixtures['period'],
         (int) $fixtures['company']->id,
@@ -472,7 +470,7 @@ test('open phase overnight makes previous unapplied preparation stale and new pr
     );
 
     expect($v2->version)->toBe(2)
-        ->and($v2->effective_cutoff_date?->toDateString())->toBe('2026-09-18')
+        ->and($v2->effective_cutoff_date?->toDateString())->toBe('2026-09-30')
         ->and($checker->isFresh($v2, $fixtures['period']))->toBeTrue();
 
     $onsiteV2 = CrewTimesheetPreparationLine::query()
@@ -481,8 +479,8 @@ test('open phase overnight makes previous unapplied preparation stale and new pr
         ->firstOrFail();
 
     expect($onsiteV2->from_date->toDateString())->toBe('2026-09-15')
-        ->and($onsiteV2->to_date->toDateString())->toBe('2026-09-18')
-        ->and((float) $onsiteV2->days)->toBe(4.0);
+        ->and($onsiteV2->to_date->toDateString())->toBe('2026-09-30')
+        ->and((float) $onsiteV2->days)->toBe(16.0);
 });
 
 test('completed historical timeline does not become stale when date advances', function () {
@@ -599,7 +597,7 @@ test('payroll period end cutoff remains deterministic when active phase continue
     expect($checker->isFresh($preparation, $fixtures['period']))->toBeTrue();
 });
 
-test('company timezone midnight boundary resolves company-local today correctly', function () {
+test('company timezone midnight boundary still resolves open phases through period end', function () {
     // UTC 2026-09-17 20:05:00 is 2026-09-18 00:05:00 in Asia/Dubai (UTC+4)
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 20:05:00', 'UTC'));
 
@@ -626,16 +624,15 @@ test('company timezone midnight boundary resolves company-local today correctly'
         (int) $fixtures['user']->id,
     );
 
-    // Effective cutoff must be 18 Sep in Dubai, not 17 Sep in UTC
-    expect($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-18');
+    expect($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-30');
 
     $onsite = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $preparation->id)
         ->where('pay_category', CrewTimesheetPayCategory::Onsite)
         ->firstOrFail();
 
-    expect($onsite->to_date->toDateString())->toBe('2026-09-18')
-        ->and((float) $onsite->days)->toBe(4.0);
+    expect($onsite->to_date->toDateString())->toBe('2026-09-30')
+        ->and((float) $onsite->days)->toBe(16.0);
 });
 
 test('movement correction invalidates existing preparation', function () {
@@ -732,7 +729,7 @@ test('approved but stale preparation cannot be applied', function () {
         'payment_date' => '2026-09-30',
     ]);
 
-    addTimelinePhase(
+    $phase = addTimelinePhase(
         $fixtures['assignment'],
         CrewPhaseCode::OnVessel,
         1,
@@ -764,8 +761,10 @@ test('approved but stale preparation cannot be applied', function () {
 
     expect($preparation->fresh()->status)->toBe(CrewTimesheetPreparationStatus::Approved);
 
-    // Advance clock to 18 Sep: open timeline has advanced
-    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
+    // Movement fact changes after approval — source hash diverges
+    $phase->update([
+        'actual_start_at' => CarbonImmutable::parse('2026-09-11 08:00:00', 'Asia/Dubai'),
+    ]);
 
     // Attempt to apply must fail with validation exception
     expect(function () use ($fixtures, $preparation) {
@@ -838,16 +837,16 @@ test('applied preparation snapshot remains immutable when time advances', functi
         ->where('employee_id', $fixtures['employee']->id)
         ->firstOrFail();
 
-    expect((float) $timesheet->onsite_days)->toBe(8.0) // 10 to 17 Sep = 8 days
-        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-17');
+    expect((float) $timesheet->onsite_days)->toBe(21.0) // 10 to 30 Sep = 21 days
+        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-30');
 
     // Advance clock to 18 Sep
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-18 12:00:00', 'Asia/Dubai'));
 
     // Applied timesheet must remain unmodified
     $timesheet->refresh();
-    expect((float) $timesheet->onsite_days)->toBe(8.0)
-        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-17');
+    expect((float) $timesheet->onsite_days)->toBe(21.0)
+        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-30');
 
     // Re-applying must be idempotent and not mutate the snapshot
     $idempotentResult = app(ApplyCrewTimesheetPreparation::class)->handle(
@@ -859,8 +858,8 @@ test('applied preparation snapshot remains immutable when time advances', functi
 
     expect($idempotentResult->idempotent)->toBeTrue();
     $timesheet->refresh();
-    expect((float) $timesheet->onsite_days)->toBe(8.0)
-        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-17');
+    expect((float) $timesheet->onsite_days)->toBe(21.0)
+        ->and($timesheet->onsite_to->toDateString())->toBe('2026-09-30');
 });
 
 test('exact movement handoff preserves half-open semantics without duplicate dates or overlap warning', function () {

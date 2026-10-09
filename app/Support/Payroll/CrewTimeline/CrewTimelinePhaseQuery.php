@@ -166,20 +166,21 @@ final class CrewTimelinePhaseQuery
     }
 
     /**
-     * Safe payroll allocation end: the earliest of payroll period end,
-     * company-local today, and an explicit cutoff when supplied.
+     * Safe payroll allocation end: the earliest of payroll period end and an
+     * explicit cutoff when supplied.
      *
-     * Future payable days are never generated. A user cutoff after today
-     * cannot authorize dates that have not occurred.
+     * Populate / Refresh intentionally does not clip to company-local today.
+     * Recorded actual movement dates overlapping the payroll period are
+     * synchronized even when those dates are after today. Open phases still
+     * bound at period end or an earlier explicit cutoff without inventing an
+     * actual end timestamp.
      */
     public function effectiveEndDate(
         PayrollPeriod $period,
         ?CarbonInterface $cutoffDate,
     ): CarbonImmutable {
         $timezone = CompanyTimezone::forCompanyId((int) $period->company_id);
-        $periodEnd = CarbonImmutable::parse($period->end_date->toDateString(), $timezone)->startOfDay();
-        $today = CarbonImmutable::now($timezone)->startOfDay();
-        $effectiveEnd = $periodEnd->lt($today) ? $periodEnd : $today;
+        $effectiveEnd = CarbonImmutable::parse($period->end_date->toDateString(), $timezone)->startOfDay();
 
         if ($cutoffDate !== null) {
             $cutoff = CarbonImmutable::parse($cutoffDate->toDateString(), $timezone)->startOfDay();
@@ -196,12 +197,13 @@ final class CrewTimelinePhaseQuery
      * Resolves the effective preparation cutoff ("as-of") date.
      *
      * For open Daily Crew payable phases overlapping the period, the effective
-     * cutoff advances with company-local today up to period end or explicit cutoff
-     * ($effectiveEnd). Monthly Crew and excluded phases do not advance the cutoff.
+     * cutoff is the allocation bound ($effectiveEnd): payroll period end, or an
+     * earlier explicit user cutoff. Monthly Crew and excluded phases do not
+     * force the cutoff to period end when no payable Daily open phase exists.
      *
      * For completed historical phases, the effective cutoff is bounded by the
      * latest actual movement date of the closed timeline, avoiding unnecessary
-     * daily invalidation when wall-clock time advances.
+     * invalidation when wall-clock time advances.
      *
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      */

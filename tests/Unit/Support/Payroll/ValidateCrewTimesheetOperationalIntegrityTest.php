@@ -215,3 +215,59 @@ test('warning and blocking issues can appear together on flat fields', function 
         ->and($result->warnings[0]['code'])->toBe('incomplete_movement_range')
         ->and($result->blocking[0]['code'])->toBe('invalid_movement_range');
 });
+
+test('payable legacy flat range after period end is blocking when period is supplied', function () {
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $this->company->id,
+        'employee_id' => $this->employee->id,
+        'period_id' => $this->period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_from' => '2026-08-01',
+        'onsite_to' => '2026-08-06',
+        'onsite_days' => 6,
+    ]);
+
+    $withoutPeriod = $this->validator->handle($timesheet, $this->employee->fresh());
+    $withPeriod = $this->validator->handle($timesheet, $this->employee->fresh(), $this->period);
+
+    expect($withoutPeriod->hasBlocking())->toBeFalse()
+        ->and($withPeriod->hasBlocking())->toBeTrue()
+        ->and($withPeriod->blocking[0]['code'])->toBe('legacy_movement_outside_payroll_period')
+        ->and($withPeriod->blocking[0]['pay_category'])->toBe('onsite')
+        ->and($withPeriod->blocking[0]['message'])->toContain('01 Aug – 06 Aug 2026')
+        ->and($withPeriod->blocking[0]['message'])->toContain('01 Jul – 31 Jul 2026');
+});
+
+test('payable legacy flat range starting before period remains allowed when period end is respected', function () {
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $this->company->id,
+        'employee_id' => $this->employee->id,
+        'period_id' => $this->period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_from' => '2026-06-25',
+        'onsite_to' => '2026-07-05',
+        'onsite_days' => 11,
+    ]);
+
+    $result = $this->validator->handle($timesheet, $this->employee->fresh(), $this->period);
+
+    expect($result->hasBlocking())->toBeFalse();
+});
+
+test('incomplete legacy flat pairs are not period-boundary blockers', function () {
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $this->company->id,
+        'employee_id' => $this->employee->id,
+        'period_id' => $this->period->id,
+        'source' => CrewTimesheetSource::Manual,
+        'onsite_from' => '2026-08-01',
+        'onsite_to' => null,
+        'onsite_days' => 6,
+    ]);
+
+    $result = $this->validator->handle($timesheet, $this->employee->fresh(), $this->period);
+
+    expect($result->hasBlocking())->toBeFalse()
+        ->and($result->warnings)->toHaveCount(1)
+        ->and($result->warnings[0]['code'])->toBe('incomplete_movement_range');
+});

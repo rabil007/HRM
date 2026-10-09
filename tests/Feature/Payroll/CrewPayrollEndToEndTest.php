@@ -304,7 +304,7 @@ test('month boundary allocates august and september payroll separately', functio
         ->and((float) $septemberRecord->calculation_breakdown['sign_on_standby_days'])->toBe(0.0);
 });
 
-test('open onboard employee is capped at company local current date', function () {
+test('open onboard employee is capped at payroll period end not company local today', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-09-17 12:00:00', 'Asia/Dubai'));
 
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -316,8 +316,8 @@ test('open onboard employee is capped at company local current date', function (
 
     ['preparation' => $preparation, 'record' => $record] = runDailyCrewPayrollPipeline($fixtures);
 
-    expect($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-17')
-        ->and((float) $record->calculation_breakdown['onsite_days'])->toBe(8.0);
+    expect($preparation->effective_cutoff_date?->toDateString())->toBe('2026-09-30')
+        ->and((float) $record->calculation_breakdown['onsite_days'])->toBe(21.0);
 
     assertPayrollReconciles($record);
 });
@@ -550,7 +550,7 @@ test('applied payroll snapshot remains unchanged when live crew movement advance
     $timesheet->refresh();
     $record->refresh();
 
-    expect((float) $timesheet->onsite_days)->toBe(8.0)
+    expect((float) $timesheet->onsite_days)->toBe(21.0)
         ->and($timesheet->movement_source_hash)->toBe($originalHash)
         ->and((float) $record->gross_salary)->toBe($originalGross);
 });

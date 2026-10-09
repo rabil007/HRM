@@ -11,6 +11,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { groupCrewPayrollBlockingIssues } from '../lib/group-crew-payroll-blocking-issues';
 import type { CrewPayrollBlockingIssueGroup } from '../lib/group-crew-payroll-blocking-issues';
 import { payrollGenerateReviewCanConfirm } from '../lib/payroll-generate-review';
@@ -60,7 +62,9 @@ export function PayrollGenerateDialog({
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirm: () => void;
+    onConfirm: (options?: {
+        acknowledge_future_payable_days?: boolean;
+    }) => void;
     processing: boolean;
     payrollCategory: PayrollCategory;
     periodId: number;
@@ -80,6 +84,7 @@ export function PayrollGenerateDialog({
     );
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
+    const [acknowledgeFutureDays, setAcknowledgeFutureDays] = useState(false);
 
     const blockingGroups = useMemo(
         () => groupCrewPayrollBlockingIssues(preview?.blocking_issues ?? []),
@@ -110,12 +115,14 @@ export function PayrollGenerateDialog({
         setLoadingPreview(true);
         setPreviewError(null);
         setPreview(null);
+        setAcknowledgeFutureDays(false);
         http.setData({ excluded_employee_ids: excludedEmployeeIds });
 
         http.post(CrewPayrollGenerationPreviewController.url(periodId))
             .then((res) => {
                 if (!cancelled) {
                     setPreview(res);
+                    setAcknowledgeFutureDays(false);
                 }
             })
             .catch(() => {
@@ -139,11 +146,18 @@ export function PayrollGenerateDialog({
         ? 'Base salary will be refreshed from contracts and all salary input lines will be re-applied to gross and net pay.'
         : 'Payroll will use full monthly salary for all office employees on this run. Any salary input lines will be applied to gross and net pay.';
 
-    const canConfirmCrew = payrollGenerateReviewCanConfirm(preview);
+    const requiresFutureDaysAcknowledgment = Boolean(
+        preview?.requires_future_days_acknowledgment,
+    );
+    const canConfirmCrew =
+        payrollGenerateReviewCanConfirm(preview) &&
+        (!requiresFutureDaysAcknowledgment || acknowledgeFutureDays);
     const skippedCount =
         (preview?.skipped_count ?? 0) ||
         (preview?.missing_timesheet_count ?? 0) +
             (preview?.excluded_count ?? 0);
+    const futureDaysCount = preview?.future_payable_days_count ?? 0;
+    const futureEmployeeCount = preview?.future_payable_employee_count ?? 0;
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -187,6 +201,81 @@ export function PayrollGenerateDialog({
                                                 <PreviewIssueList
                                                     groups={blockingGroups}
                                                 />
+                                            </div>
+                                        ) : null}
+
+                                        {requiresFutureDaysAcknowledgment ? (
+                                            <div className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-950 dark:text-amber-100">
+                                                <div className="space-y-1">
+                                                    <p className="text-sm font-semibold text-amber-950 dark:text-amber-50">
+                                                        Future payable dates
+                                                        detected
+                                                    </p>
+                                                    <p className="text-[11px] leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+                                                        This payroll includes{' '}
+                                                        <strong>
+                                                            {futureDaysCount}{' '}
+                                                            payable{' '}
+                                                            {futureDaysCount ===
+                                                            1
+                                                                ? 'day'
+                                                                : 'days'}
+                                                        </strong>{' '}
+                                                        after today&apos;s date
+                                                        across{' '}
+                                                        <strong>
+                                                            {
+                                                                futureEmployeeCount
+                                                            }{' '}
+                                                            {futureEmployeeCount ===
+                                                            1
+                                                                ? 'employee'
+                                                                : 'employees'}
+                                                        </strong>
+                                                        .
+                                                        {preview.future_payable_from &&
+                                                        preview.future_payable_to
+                                                            ? ` Affected dates: ${preview.future_payable_from} – ${preview.future_payable_to}.`
+                                                            : null}
+                                                    </p>
+                                                    <p className="text-[11px] leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+                                                        These dates were
+                                                        synchronized from
+                                                        recorded timesheets.
+                                                        Generating payroll will
+                                                        include them in salary
+                                                        calculations even though
+                                                        the calendar dates have
+                                                        not yet occurred.
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-background/50 p-2.5">
+                                                    <Checkbox
+                                                        id="acknowledge-future-payable-days"
+                                                        checked={
+                                                            acknowledgeFutureDays
+                                                        }
+                                                        onCheckedChange={(
+                                                            checked,
+                                                        ) =>
+                                                            setAcknowledgeFutureDays(
+                                                                checked ===
+                                                                    true,
+                                                            )
+                                                        }
+                                                        className="mt-0.5"
+                                                    />
+                                                    <Label
+                                                        htmlFor="acknowledge-future-payable-days"
+                                                        className="cursor-pointer text-[11px] leading-relaxed font-normal text-amber-950 dark:text-amber-50"
+                                                    >
+                                                        I understand that this
+                                                        payroll includes future
+                                                        payable dates and
+                                                        confirm that I want to
+                                                        proceed.
+                                                    </Label>
+                                                </div>
                                             </div>
                                         ) : null}
 
@@ -324,7 +413,13 @@ export function PayrollGenerateDialog({
                         }
                         onClick={(event) => {
                             event.preventDefault();
-                            onConfirm();
+                            onConfirm(
+                                requiresFutureDaysAcknowledgment
+                                    ? {
+                                          acknowledge_future_payable_days: true,
+                                      }
+                                    : undefined,
+                            );
                         }}
                     >
                         {processing

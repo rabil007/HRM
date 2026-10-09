@@ -35,6 +35,8 @@ use Illuminate\Validation\ValidationException;
 
 final class GenerateCrewPayroll
 {
+    public const FUTURE_PAYABLE_DAYS_ACKNOWLEDGMENT_REQUIRED_MESSAGE = 'This payroll includes payable dates after today. Confirm that you want to include future payable dates before generating payroll.';
+
     public function __construct(
         private readonly CrewPayrollCalculator $calculator,
         private readonly CrewMonthlyPayrollCalculator $monthlyCalculator,
@@ -47,8 +49,12 @@ final class GenerateCrewPayroll
         private readonly AssertCrewPayrollCalculationFreshness $calculationFreshness,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], ?User $user = null): GeneratePayrollResult
-    {
+    public function handle(
+        PayrollPeriod $period,
+        array $excludedEmployeeIds = [],
+        ?User $user = null,
+        bool $acknowledgeFuturePayableDays = false,
+    ): GeneratePayrollResult {
         abort_unless($period->isCrew(), 404);
 
         if (! $period->canGenerateCrewPayroll()) {
@@ -77,6 +83,8 @@ final class GenerateCrewPayroll
         $skippedMissing = 0;
         $skippedAwaiting = 0;
         $previewArray = null;
+        $futurePayableDaysCount = 0;
+        $acknowledgedFuturePayableDays = false;
         $workingDaysInPeriod = $period->calendarDayCount();
 
         DB::transaction(function () use (
@@ -85,6 +93,7 @@ final class GenerateCrewPayroll
             $enforceableExcludedEmployeeIds,
             $workingDaysInPeriod,
             $user,
+            $acknowledgeFuturePayableDays,
             &$generatedCount,
             &$generatedEmployeeIds,
             &$skippedEmployees,
@@ -92,6 +101,8 @@ final class GenerateCrewPayroll
             &$skippedMissing,
             &$skippedAwaiting,
             &$previewArray,
+            &$futurePayableDaysCount,
+            &$acknowledgedFuturePayableDays,
         ): void {
             $lockedPeriod = PayrollPeriod::query()
                 ->whereKey($period->id)
@@ -114,6 +125,7 @@ final class GenerateCrewPayroll
                 $user,
             );
             $previewArray = $preview->toArray();
+            $futurePayableDaysCount = $preview->futurePayableDaysCount;
 
             if ($preview->blockingCount > 0) {
                 throw ValidationException::withMessages([
@@ -127,6 +139,15 @@ final class GenerateCrewPayroll
                     'period_id' => 'No employees are ready for payroll.',
                 ]);
             }
+
+            if ($preview->requiresFutureDaysAcknowledgment && ! $acknowledgeFuturePayableDays) {
+                throw ValidationException::withMessages([
+                    'acknowledge_future_payable_days' => self::FUTURE_PAYABLE_DAYS_ACKNOWLEDGMENT_REQUIRED_MESSAGE,
+                ]);
+            }
+
+            $acknowledgedFuturePayableDays = $preview->requiresFutureDaysAcknowledgment
+                && $acknowledgeFuturePayableDays;
 
             $readyIds = $preview->readyEmployeeIds;
             $skippedMissing = $preview->missingTimesheetCount;
@@ -340,17 +361,27 @@ final class GenerateCrewPayroll
             ];
         }, $skippedEmployees);
 
+        $activityProperties = [
+            'event' => 'crew_payroll_generated',
+            'company_id' => $period->company_id,
+            'payroll_period_id' => $period->id,
+            'generated_count' => $generatedCount,
+            'skipped_missing_timesheet_count' => $skippedMissing,
+            'skipped_awaiting_approval_count' => $skippedAwaiting,
+            'skipped_excluded_count' => count($excludedEmployeeIds),
+        ];
+
+        if ($acknowledgedFuturePayableDays) {
+            $activityProperties['future_payable_days_acknowledged'] = true;
+            $activityProperties['future_payable_days_count'] = $futurePayableDaysCount;
+            $activityProperties['acknowledged_by'] = $user?->id;
+            $activityProperties['acknowledged_at'] = now()->toIso8601String();
+        }
+
         activity()
             ->performedOn($period)
-            ->withProperties([
-                'event' => 'crew_payroll_generated',
-                'company_id' => $period->company_id,
-                'payroll_period_id' => $period->id,
-                'generated_count' => $generatedCount,
-                'skipped_missing_timesheet_count' => $skippedMissing,
-                'skipped_awaiting_approval_count' => $skippedAwaiting,
-                'skipped_excluded_count' => count($excludedEmployeeIds),
-            ])
+            ->causedBy($user)
+            ->withProperties($activityProperties)
             ->log('Crew payroll generated');
 
         return new GeneratePayrollResult(

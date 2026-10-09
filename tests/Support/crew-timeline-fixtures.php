@@ -179,7 +179,13 @@ function runDailyCrewPayrollPipeline(
         $timesheet->update($financial);
     }
 
-    app(GenerateCrewPayroll::class)->handle($fixtures['period']->fresh());
+    // Open phases allocate through period end; acknowledge future payable days when present.
+    app(GenerateCrewPayroll::class)->handle(
+        $fixtures['period']->fresh(),
+        [],
+        $approver,
+        true,
+    );
 
     $record = PayrollRecord::query()
         ->where('period_id', $fixtures['period']->id)

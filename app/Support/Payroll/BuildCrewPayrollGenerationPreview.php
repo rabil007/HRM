@@ -14,6 +14,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -24,6 +25,7 @@ final class BuildCrewPayrollGenerationPreview
         private readonly ValidateCrewTimesheetOperationalIntegrity $validateIntegrity,
         private readonly CrewOperationsPayrollGenerationGuard $legacyGuard,
         private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
+        private readonly CollectFuturePayableCrewTimesheetDates $collectFuturePayableDates,
     ) {}
 
     /**
@@ -103,6 +105,11 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         $readyIds = $employees->pluck('id')->map(intval(...))->values()->all();
+        $futureSummary = $this->summarizeFuturePayableDaysForEmployees(
+            $period,
+            $companyId,
+            $readyIds,
+        );
 
         return new CrewPayrollGenerationPreview(
             ready: true,
@@ -121,6 +128,11 @@ final class BuildCrewPayrollGenerationPreview
             appliedPreparationVersion: $legacy['applied_preparation_version'],
             skippedIssues: $skippedIssues,
             skippedCount: count($skippedIssues),
+            futurePayableDaysCount: $futureSummary['days_count'],
+            futurePayableEmployeeCount: $futureSummary['employee_count'],
+            futurePayableFrom: $futureSummary['from'],
+            futurePayableTo: $futureSummary['to'],
+            requiresFutureDaysAcknowledgment: $futureSummary['days_count'] > 0,
         );
     }
 
@@ -175,6 +187,9 @@ final class BuildCrewPayrollGenerationPreview
         $readyIds = [];
         $missingIds = [];
         $awaitingIds = [];
+        /** @var array<int, array<string, true>> $futureDatesByEmployee */
+        $futureDatesByEmployee = [];
+        $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->startOfDay();
 
         if ($applied->count() > 1) {
             $blockingIssues[] = [
@@ -264,6 +279,7 @@ final class BuildCrewPayrollGenerationPreview
                 if ($this->appendIntegrityFindings(
                     $timesheet,
                     $employee,
+                    $period,
                     $blockingIssues,
                     $warningIssues,
                 )) {
@@ -276,6 +292,8 @@ final class BuildCrewPayrollGenerationPreview
                     $employee,
                     $blockingIssues,
                     $automaticAdjustments,
+                    $futureDatesByEmployee,
+                    $today,
                 )) {
                     continue;
                 }
@@ -300,6 +318,7 @@ final class BuildCrewPayrollGenerationPreview
             if ($this->appendIntegrityFindings(
                 $timesheet,
                 $employee,
+                $period,
                 $blockingIssues,
                 $warningIssues,
             )) {
@@ -312,6 +331,8 @@ final class BuildCrewPayrollGenerationPreview
                 $employee,
                 $blockingIssues,
                 $automaticAdjustments,
+                $futureDatesByEmployee,
+                $today,
             )) {
                 continue;
             }
@@ -323,6 +344,7 @@ final class BuildCrewPayrollGenerationPreview
         $warningCount = count($warningIssues);
         $readyCount = count($readyIds);
         $periodBlocking = null;
+        $futureSummary = $this->summarizeCollectedFutureDates($futureDatesByEmployee, $readyIds);
 
         if ($blockingCount > 0 && ($blockingIssues[0]['employee_id'] ?? null) === null) {
             $periodBlocking = $blockingIssues[0]['message'];
@@ -352,6 +374,11 @@ final class BuildCrewPayrollGenerationPreview
             skippedCount: count($skippedIssues),
             automaticAdjustments: $automaticAdjustments,
             automaticAdjustmentCount: count($automaticAdjustments),
+            futurePayableDaysCount: $futureSummary['days_count'],
+            futurePayableEmployeeCount: $futureSummary['employee_count'],
+            futurePayableFrom: $futureSummary['from'],
+            futurePayableTo: $futureSummary['to'],
+            requiresFutureDaysAcknowledgment: $futureSummary['days_count'] > 0,
         );
     }
 
@@ -364,10 +391,11 @@ final class BuildCrewPayrollGenerationPreview
     private function appendIntegrityFindings(
         CrewTimesheet $timesheet,
         Employee $employee,
+        PayrollPeriod $period,
         array &$blockingIssues,
         array &$warningIssues,
     ): bool {
-        $integrity = $this->validateIntegrity->handle($timesheet, $employee);
+        $integrity = $this->validateIntegrity->handle($timesheet, $employee, $period);
 
         foreach ($integrity->warnings as $warning) {
             $warningIssues[] = [
@@ -405,6 +433,7 @@ final class BuildCrewPayrollGenerationPreview
      *
      * @param  list<array<string, mixed>>  $blockingIssues
      * @param  list<array<string, mixed>>  $automaticAdjustments
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
      * @return bool True when blocking allocation issues were found
      */
     private function appendDailyAllocationPlan(
@@ -413,10 +442,18 @@ final class BuildCrewPayrollGenerationPreview
         Employee $employee,
         array &$blockingIssues,
         array &$automaticAdjustments,
+        array &$futureDatesByEmployee,
+        CarbonImmutable $today,
     ): bool {
         $timesheet->loadMissing(['segments']);
 
         if ($timesheet->segments->isEmpty()) {
+            $this->recordFuturePayableDates(
+                (int) $timesheet->employee_id,
+                $this->collectFuturePayableDates->fromLegacyFlatFields($timesheet, $period, $today),
+                $futureDatesByEmployee,
+            );
+
             return false;
         }
 
@@ -435,6 +472,12 @@ final class BuildCrewPayrollGenerationPreview
         $this->appendAutomaticAdjustmentsFromPlan($employee, $plan, $automaticAdjustments);
 
         if ($plan['issues'] === []) {
+            $this->recordFuturePayableDates(
+                (int) $timesheet->employee_id,
+                $this->collectFuturePayableDates->fromAllocationDays($plan['days'], $today),
+                $futureDatesByEmployee,
+            );
+
             return false;
         }
 
@@ -457,6 +500,132 @@ final class BuildCrewPayrollGenerationPreview
         }
 
         return true;
+    }
+
+    /**
+     * @param  list<int>  $employeeIds
+     * @return array{days_count: int, employee_count: int, from: ?string, to: ?string}
+     */
+    private function summarizeFuturePayableDaysForEmployees(
+        PayrollPeriod $period,
+        int $companyId,
+        array $employeeIds,
+    ): array {
+        if ($employeeIds === []) {
+            return [
+                'days_count' => 0,
+                'employee_count' => 0,
+                'from' => null,
+                'to' => null,
+            ];
+        }
+
+        $today = CarbonImmutable::now(CompanyTimezone::forCompanyId($companyId))->startOfDay();
+        /** @var array<int, array<string, true>> $futureDatesByEmployee */
+        $futureDatesByEmployee = [];
+
+        $timesheets = CrewTimesheet::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->with(['segments', 'employee'])
+            ->get();
+
+        $existingRecordIds = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $period->id)
+            ->whereIn('employee_id', $employeeIds)
+            ->pluck('id', 'employee_id');
+
+        foreach ($timesheets as $timesheet) {
+            $employeeId = (int) $timesheet->employee_id;
+
+            if ($timesheet->segments->isEmpty()) {
+                $this->recordFuturePayableDates(
+                    $employeeId,
+                    $this->collectFuturePayableDates->fromLegacyFlatFields($timesheet, $period, $today),
+                    $futureDatesByEmployee,
+                );
+
+                continue;
+            }
+
+            $existingRecordId = $existingRecordIds->get($employeeId);
+            $plan = $this->buildAllocationPlan->handle(
+                $period,
+                $timesheet,
+                $existingRecordId !== null ? (int) $existingRecordId : null,
+            );
+
+            if ($plan['issues'] !== []) {
+                continue;
+            }
+
+            $this->recordFuturePayableDates(
+                $employeeId,
+                $this->collectFuturePayableDates->fromAllocationDays($plan['days'], $today),
+                $futureDatesByEmployee,
+            );
+        }
+
+        return $this->summarizeCollectedFutureDates($futureDatesByEmployee, $employeeIds);
+    }
+
+    /**
+     * @param  list<string>  $workDates
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
+     */
+    private function recordFuturePayableDates(
+        int $employeeId,
+        array $workDates,
+        array &$futureDatesByEmployee,
+    ): void {
+        foreach ($workDates as $workDate) {
+            $futureDatesByEmployee[$employeeId][$workDate] = true;
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, true>>  $futureDatesByEmployee
+     * @param  list<int>  $readyEmployeeIds
+     * @return array{days_count: int, employee_count: int, from: ?string, to: ?string}
+     */
+    private function summarizeCollectedFutureDates(
+        array $futureDatesByEmployee,
+        array $readyEmployeeIds,
+    ): array {
+        $readyLookup = array_fill_keys($readyEmployeeIds, true);
+        $daysCount = 0;
+        $employeeCount = 0;
+        $allDates = [];
+
+        foreach ($futureDatesByEmployee as $employeeId => $dates) {
+            if (! isset($readyLookup[$employeeId]) || $dates === []) {
+                continue;
+            }
+
+            $employeeCount++;
+            $daysCount += count($dates);
+            $allDates = [...$allDates, ...array_keys($dates)];
+        }
+
+        if ($allDates === []) {
+            return [
+                'days_count' => 0,
+                'employee_count' => 0,
+                'from' => null,
+                'to' => null,
+            ];
+        }
+
+        sort($allDates);
+
+        return [
+            'days_count' => $daysCount,
+            'employee_count' => $employeeCount,
+            'from' => $allDates[0],
+            'to' => $allDates[count($allDates) - 1],
+        ];
     }
 
     /**
@@ -626,6 +795,7 @@ final class BuildCrewPayrollGenerationPreview
             'reserved_conflict' => 'Remove these dates from this timesheet or resolve the competing open payroll that already reserved them.',
             'invalid_timesheet_source', 'invalid_source_for_monthly' => 'Correct the timesheet source for this employee’s salary structure.',
             'incomplete_movement_range' => 'Complete the Sign-On / Onsite / Sign-Off movement dates if this employee should be paid for a full voyage.',
+            'legacy_movement_outside_payroll_period' => 'Correct the legacy flat-field movement dates so they do not extend past this payroll period end, or generate in the matching period.',
             default => null,
         };
     }

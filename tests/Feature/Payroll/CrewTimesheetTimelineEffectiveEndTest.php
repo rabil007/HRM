@@ -70,7 +70,7 @@ function assertCrewTimelineNoPayableDatesAfter(CrewTimesheetPreparation $prepara
     }
 }
 
-test('ongoing p4 in the current month stops at company-local today not period end', function () {
+test('ongoing p4 in the current month allocates through period end not company-local today', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -92,13 +92,14 @@ test('ongoing p4 in the current month stops at company-local today not period en
     $onsite = crewTimelinePayableLine($preparation, CrewTimesheetPayCategory::Onsite);
 
     expect($onsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(17.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(31.0)
+        ->and($preparation->effective_cutoff_date?->toDateString())->toBe('2026-08-31');
 
-    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-17');
+    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-31');
 });
 
-test('p4 that starts after month start is clipped to company-local today', function () {
+test('p4 that starts after month start allocates through period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -120,11 +121,11 @@ test('p4 that starts after month start is clipped to company-local today', funct
     $onsite = crewTimelinePayableLine($preparation, CrewTimesheetPayCategory::Onsite);
 
     expect($onsite->from_date->toDateString())->toBe('2026-08-05')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(13.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(27.0);
 });
 
-test('standby then active p4 counts the handoff date once and stops at today', function () {
+test('standby then active p4 counts the handoff date once and continues through period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -151,11 +152,11 @@ test('standby then active p4 counts the handoff date once and stops at today', f
         ->and($standby->to_date->toDateString())->toBe('2026-08-04')
         ->and((float) $standby->days)->toBe(3.0)
         ->and($onsite->from_date->toDateString())->toBe('2026-08-05')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(13.0)
-        ->and((float) $standby->days + (float) $onsite->days)->toBe(16.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(27.0)
+        ->and((float) $standby->days + (float) $onsite->days)->toBe(30.0);
 
-    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-17');
+    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-31');
 });
 
 test('previous-month standby does not create august sign-on days when p4 starts on the first', function () {
@@ -182,11 +183,11 @@ test('previous-month standby does not create august sign-on days when p4 starts 
 
     expect(crewTimelinePayableDays($preparation, CrewTimesheetPayCategory::SignOnStandby))->toBe(0.0)
         ->and($onsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(17.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(31.0);
 });
 
-test('earlier explicit cutoff clips active p4 before company-local today', function () {
+test('earlier explicit cutoff clips active p4 before period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -214,7 +215,7 @@ test('earlier explicit cutoff clips active p4 before company-local today', funct
         ->and($preparation->cutoff_date?->toDateString())->toBe('2026-08-10');
 });
 
-test('future explicit cutoff cannot create payable days after company-local today', function () {
+test('explicit cutoff after today still authorizes payable days through that cutoff', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -237,11 +238,11 @@ test('future explicit cutoff cannot create payable days after company-local toda
     $onsite = crewTimelinePayableLine($preparation, CrewTimesheetPayCategory::Onsite);
 
     expect($onsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(17.0)
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-20')
+        ->and((float) $onsite->days)->toBe(20.0)
         ->and($preparation->cutoff_date?->toDateString())->toBe('2026-08-20');
 
-    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-17');
+    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-20');
 });
 
 test('completed historical period still allocates through its period end', function () {
@@ -272,7 +273,7 @@ test('completed historical period still allocates through its period end', funct
         ->and((float) $onsite->days)->toBe(31.0);
 });
 
-test('effective end uses company-local date rather than utc or app timezone', function () {
+test('effective end uses company-local period end rather than utc or app timezone', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-17 02:00:00', 'UTC'));
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -299,13 +300,13 @@ test('effective end uses company-local date rather than utc or app timezone', fu
     expect(CarbonImmutable::now('UTC')->toDateString())->toBe('2026-08-17')
         ->and(CarbonImmutable::now('Asia/Dubai')->toDateString())->toBe('2026-08-17')
         ->and(CarbonImmutable::now('America/New_York')->toDateString())->toBe('2026-08-16')
-        ->and($effectiveEnd->toDateString())->toBe('2026-08-16')
+        ->and($effectiveEnd->toDateString())->toBe('2026-08-31')
         ->and($onsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-16')
-        ->and((float) $onsite->days)->toBe(16.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(31.0);
 });
 
-test('planned sign-off does not generate future actual payroll days', function () {
+test('planned sign-off does not generate payable days; open actual p4 continues to period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -335,13 +336,13 @@ test('planned sign-off does not generate future actual payroll days', function (
     $onsite = crewTimelinePayableLine($preparation, CrewTimesheetPayCategory::Onsite);
 
     expect($onsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $onsite->days)->toBe(17.0);
+        ->and($onsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $onsite->days)->toBe(31.0);
 
-    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-17');
+    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-31');
 });
 
-test('active sign-off standby also stops at company-local today', function () {
+test('active sign-off standby also continues through period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -367,13 +368,13 @@ test('active sign-off standby also stops at company-local today', function () {
     expect($onsite->from_date->toDateString())->toBe('2026-08-01')
         ->and($onsite->to_date->toDateString())->toBe('2026-08-10')
         ->and($signOff->from_date->toDateString())->toBe('2026-08-11')
-        ->and($signOff->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $signOff->days)->toBe(7.0);
+        ->and($signOff->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $signOff->days)->toBe(21.0);
 
-    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-17');
+    assertCrewTimelineNoPayableDatesAfter($preparation, '2026-08-31');
 });
 
-test('future payroll periods prepare with no payable operational days', function () {
+test('future payroll periods allocate open actual phases through their own period end', function () {
     freezeCrewTimelineDubai('2026-08-17 12:00:00');
 
     $fixtures = makeAugustCrewTimelineEffectiveEndFixtures();
@@ -404,13 +405,12 @@ test('future payroll periods prepare with no payable operational days', function
         (int) $fixtures['user']->id,
     );
 
-    expect($effectiveEnd->toDateString())->toBe('2026-08-17')
-        ->and(
-            CrewTimesheetPreparationLine::query()
-                ->where('crew_timesheet_preparation_id', $preparation->id)
-                ->where('days', '>', 0)
-                ->count()
-        )->toBe(0);
+    $onsite = crewTimelinePayableLine($preparation, CrewTimesheetPayCategory::Onsite);
+
+    expect($effectiveEnd->toDateString())->toBe('2026-09-30')
+        ->and($onsite->from_date->toDateString())->toBe('2026-09-01')
+        ->and($onsite->to_date->toDateString())->toBe('2026-09-30')
+        ->and((float) $onsite->days)->toBe(30.0);
 });
 
 test('preparing a new version leaves previous snapshot lines unchanged', function () {
@@ -450,11 +450,11 @@ test('preparing a new version leaves previous snapshot lines unchanged', functio
         ->and($second->version)->toBe(2)
         ->and($firstOnsite->id)->toBe($firstLineId)
         ->and($firstOnsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($firstOnsite->to_date->toDateString())->toBe('2026-08-17')
-        ->and((float) $firstOnsite->days)->toBe(17.0)
+        ->and($firstOnsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $firstOnsite->days)->toBe(31.0)
         ->and($secondOnsite->from_date->toDateString())->toBe('2026-08-01')
-        ->and($secondOnsite->to_date->toDateString())->toBe('2026-08-18')
-        ->and((float) $secondOnsite->days)->toBe(18.0);
+        ->and($secondOnsite->to_date->toDateString())->toBe('2026-08-31')
+        ->and((float) $secondOnsite->days)->toBe(31.0);
 });
 
 test('effective-end clipping remains company isolated', function () {

@@ -92,36 +92,37 @@ No separate phase start/end inputs are required for normal movement actions; exp
 When `actual_end_at` is null on an active phase, the effective end is the earliest of:
 
 - payroll period end
-- selected cutoff date
-- company-local current date
+- selected cutoff date (when earlier than period end)
 
-`CrewTimelinePhaseQuery::effectiveEndDate()` is the single authority for that bound. Company-local today comes from `CompanyTimezone`, never the server UTC date. A cutoff after today cannot authorize future payable days.
+`CrewTimelinePhaseQuery::effectiveEndDate()` is the single authority for that bound. Populate / Refresh does **not** automatically clip to company-local today: recorded actual movement dates overlapping the payroll period are synchronized even when those dates are after today. Period dates and cutoffs are still resolved in the company timezone via `CompanyTimezone`.
 
-The same bound clips **all** payable allocation, including completed phases whose `actual_end_at` is later. Historical payroll periods still allocate through their period end because that date is earlier than today. Periods that have not started yet produce no payable operational days.
+The same bound clips **all** payable allocation, including completed phases whose `actual_end_at` is later than the period end or cutoff. Open phases never invent an actual end timestamp; they allocate through the effective end only.
 
-Future payable days are never generated. Existing preparation versions remain immutable snapshots; a new Prepare from Crew Assignments creates a new version through the current effective end.
+Informational `future_actual_date` warnings may still surface when recorded actuals are after company-local today. Those warnings do not block Populate / Refresh. Existing preparation versions remain immutable snapshots; a new Prepare / Refresh creates a new version through the current effective end.
+
+Generate Payroll is separate: when payable movement segments include work dates after company-local today, the generation preview sets `requires_future_days_acknowledgment` and the backend requires `acknowledge_future_payable_days` before salary calculation proceeds. That confirmation is an auditable safety gate, not a reintroduction of the Populate today-clip.
 
 ### Effective preparation cutoff ("as-of" date)
 
 Each preparation persists an explicit `effective_cutoff_date` (`CrewTimesheetPreparation.effective_cutoff_date`), resolved by `CrewTimelinePhaseQuery::resolveEffectiveCutoffDate()`:
 
 1. **Open Daily Crew payable timelines**:
-   - The effective cutoff advances with company-local today only when an **open phase can affect automatic Daily Crew payable allocation** (`DailyCrewPayablePhaseEligibility`): actual-started, Daily Crew contract (not Monthly), and a payable Crew Timesheet category (not P0/P1/P6 excluded phases).
-   - Monthly Crew open phases and excluded open phases (for example P6 Home / Redeployment) do **not** advance the cutoff overnight when the Daily Crew payable result cannot change.
-   - When an eligible open Daily payable phase exists, `effectiveEnd` advances with wall-clock date and unapplied preparations become **stale** so a new version includes the newly eligible day.
+   - When an **open phase can affect automatic Daily Crew payable allocation** (`DailyCrewPayablePhaseEligibility`: actual-started, Daily Crew contract, payable category), the effective cutoff equals `$effectiveEnd` (period end or earlier explicit cutoff).
+   - Monthly Crew open phases and excluded open phases (for example P6 Home / Redeployment) do **not** force the cutoff to period end when the Daily Crew payable result cannot change.
+   - Because allocation is bounded by period end / explicit cutoff rather than wall-clock today, advancing the calendar alone does not invalidate an open-phase preparation.
 
 2. **Closed historical timelines**:
    - When all overlapping phases in the period are completed (`actual_end_at <= effectiveEnd`), the preparation's effective cutoff is bounded by the latest actual movement date of the closed timeline (`min(effectiveEnd, max(latestClosedActualDate, periodStart))`).
    - Advancing the wall-clock calendar date does not change the closed timeline's effective cutoff date or payable days.
-   - This prevents unnecessary daily invalidation for historical or closed periods where no underlying movement facts changed.
+   - This prevents unnecessary invalidation for historical or closed periods where no underlying movement facts changed.
 
 3. **Explicit user cutoff**:
    - When a user explicitly selects a cutoff date within the pay period (e.g. 17 Sep), `effectiveEnd` is capped at 17 Sep.
    - Advancing current days (18 Sep, 19 Sep, ...) preserves `effective_cutoff_date = 17 Sep` and leaves the hash stable and deterministic.
 
 4. **Payroll period end**:
-   - For completed historical payroll periods (e.g. August when current month is September), `periodEnd` (31 Aug) caps `effectiveEnd`.
-   - The preparation result remains fixed at 31 Aug and does not alter as subsequent months advance.
+   - `periodEnd` always caps `effectiveEnd` when no earlier explicit cutoff is supplied.
+   - Historical periods (e.g. August when current month is September) remain fixed at their period end.
 
 ## Phase 1A schema
 
@@ -575,7 +576,7 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 | P4 → P5 → P6 | Onsite / sign-off / excluded classification |
 | Movement correction | Unapplied preparation invalidated; rebuilt payroll uses corrected timeline |
 | Month boundary | Each period receives only its legitimate dates |
-| Open onboard / historical period cap | Allocation capped at company today or period end |
+| Open onboard / historical period cap | Allocation capped at period end or explicit cutoff (not company today) |
 | Contract rate boundary | Per work-date contract resolution in payroll |
 | Additions / deductions | Financial fields preserved through Apply into net salary |
 | Monthly Crew | No Daily automatic preparation lines |

@@ -157,6 +157,7 @@ Daily Crew payroll automatically pays unpaid work that falls **before** the paym
 - Original movement ranges are stored as `crew_timesheet_segments` (not physically split).
 - Payroll generation expands segments day-by-day into `payroll_work_allocations`.
 - Dates after the payroll period end remain rejected.
+- Legacy flat-field timesheets (no segments) are **not** part of this arrears workflow; see [Legacy flat-field payroll period boundaries](#legacy-flat-field-payroll-period-boundaries) for the separate generation-time end-boundary guard.
 - Crew Timesheet apply still clips phases to the current period and does **not** invent arrears from earlier periods.
 
 **Historical rate resolution**
@@ -223,6 +224,7 @@ Authorization:
 `POST /payroll/{payrollPeriod}/crew-timeline/prepare`:
 
 - Derives payable days from eligible actual Crew Assignment phases (same allocation engine as before).
+- Allocates through the payroll period end (or an earlier explicit cutoff). Does **not** clip synchronization to company-local today, so recorded future actual movement dates inside the period are included.
 - Creates a versioned `CrewTimesheetPreparation` snapshot (tables retained for history / possible future reuse).
 - Immediately writes payable operational days onto `crew_timesheets` / `crew_timesheet_segments`.
 - Redirects back to `/payroll/{payrollPeriod}` (not a separate review page).
@@ -247,6 +249,14 @@ Monetary salary rates and Generate / Approve / Mark Paid remain gated by payroll
 Generate Payroll uses the Crew Timesheet records on the period directly. It does **not** require submit, Crew Manager approve, or apply of a preparation.
 
 Generation still refuses genuine blockers (missing/overlapping contracts, missing historical salary revision, malformed segments, reserved work-allocation conflicts, and other existing payroll blockers).
+
+When the generation preview finds payable Sign-On Standby / Onsite / Sign-Off Standby work dates after company-local today, the Generate Payroll dialog shows a **Future payable dates detected** warning and requires an explicit `acknowledge_future_payable_days` confirmation. Detection covers both segment-based movement rows and legacy flat-field Crew Timesheets (`sign_on_standby_*` / `onsite_*` / `sign_off_standby_*` without `crew_timesheet_segments`), using the same incomplete-pair rules as payroll calculation. Populate / Refresh does **not** require this acknowledgment. Past-only runs are unchanged. The backend re-evaluates future payable days under the generation lock and rejects requests that omit acknowledgment. Successful acknowledgments are recorded on the existing `crew_payroll_generated` activity entry (`future_payable_days_acknowledged`, count, actor, timestamp).
+
+#### Legacy flat-field payroll period boundaries
+
+Daily Crew timesheets **without** `crew_timesheet_segments` still calculate from stored flat `*_days` values. Because that path does not clip payable days to the payroll period the way segments do, generation preview and Generate Payroll **block** complete payable Sign-On Standby / Onsite / Sign-Off Standby flat ranges when `from` or `to` falls after the selected payroll period end (same end-boundary rule as segment allocation). Incomplete flat-field pairs remain non-payable warnings and are not period blockers. Future-payable acknowledgment cannot override this boundary check.
+
+This is separate from **segment-based prior-period arrears**: movement segments may still start before the payment period start and pay unpaid historical days through `payroll_work_allocations`. Legacy flat fields do not participate in that arrears allocation workflow; they only receive the period-end boundary guard so out-of-period dates (for example November onsite dates in an October payroll) cannot generate salary.
 
 Dormant preparation tables and historical preparation rows are retained. Retired approval routes and permissions are removed from the active surface; do not rely on hidden UI for security.
 
