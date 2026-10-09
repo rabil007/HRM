@@ -11,6 +11,7 @@ use App\Models\CrewAssignment;
 use App\Models\RoomType;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewAssignmentAccess;
+use App\Support\CrewMovements\CrewInitialArrivalBackdateGuard;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -416,14 +417,25 @@ class PerformCrewMovementActionRequest extends FormRequest
                 : null;
             $currentStart = $assignment->currentPhase?->actual_start_at;
 
-            if ($occurredAt !== null && $currentStart !== null && $occurredAt->lt($currentStart)) {
+            // An operator may record the first arrival after the assignment was created.
+            // Only the initial, active P0 phase can be reconciled backwards; subsequent
+            // movement phases retain strict chronological validation.
+            $isInitialArrival = $action === CrewMovementAction::RecordArrival->value
+                && CrewInitialArrivalBackdateGuard::isEligible($assignment, $assignment->currentPhase);
+
+            if ($occurredAt !== null && $currentStart !== null && $occurredAt->lt($currentStart) && ! $isInitialArrival) {
                 $validator->errors()->add(
                     'occurred_at',
                     'This date cannot be before the current phase started.',
                 );
             }
 
-            if ($occurredAt !== null && $this->actionRequiresActualTimestamp($action)) {
+            // The movement engine already honors this company-scoped demo/testing
+            // override. Keep HTTP validation in sync without removing the production
+            // protection for companies that leave the override disabled.
+            if ($occurredAt !== null
+                && $this->actionRequiresActualTimestamp($action)
+                && ! CrewOperationsSettings::allowFutureActualMovementDates($companyId)) {
                 $now = Carbon::now($timezone);
 
                 if ($occurredAt->gt($now)) {
