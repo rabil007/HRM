@@ -31,7 +31,7 @@ Table: `crew_scheduled_movements`
 - One unresolved schedule per assignment (`scheduled` / `processing` / `needs_attention`) via generated unique `unresolved_assignment_id`
 - Statuses: `scheduled`, `processing`, `executed`, `needs_attention`, `cancelled`
 - Snapshots: expected current phase id/code/sequence, vessel id, result phase
-- `action_payload` stores validated movement fields only (unknown nested keys rejected on update)
+- `action_payload` stores validated, allowlisted movement fields only (unknown nested keys rejected on update; training `planned_start_at` / `planned_end_at` / `sync_training_to_employee_training` and redeploy `planned_arrival_at` are permitted where the action uses them)
 
 ## Schedulable actions
 
@@ -45,8 +45,11 @@ Not scheduled: Plan Sign-off, Cancel Assignment, Correct Movement, Void.
 
 - Manage permission required
 - Update reuses the same Form Request action-field rules as create
+- Edit / Reschedule UI submits only action-relevant allowlisted `action_fields` (not the full generic movement form)
 - Existing payload fields are preserved when omitted; auto-synced hotel checkout dates follow the new schedule; manual overrides stay
+- Persistence uses normalized validated fields, not raw nested input
 - Assignment eligibility and one-unresolved uniqueness are rechecked on update
+- Edit / reschedule never changes actual crew phases or payroll/sea-service data before execution
 
 ## Automatic execution
 

@@ -23,6 +23,7 @@ import {
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
+import { buildScheduledMovementEditPayload } from '@/features/organization/crew/lib/scheduled-movement-edit-payload';
 import {
     defaultDestinationTourSignoffChoice,
     findPositionTourOption,
@@ -592,24 +593,10 @@ export function MovementActionDialog({
                         payload.occurred_at.slice(0, 10);
 
                 if (isEditingSchedule && editingSchedule) {
-                    const actionFields = { ...payload };
-                    delete (actionFields as { action?: string }).action;
-                    delete (actionFields as { occurred_at?: string })
-                        .occurred_at;
-                    delete (actionFields as { mode?: string }).mode;
-
-                    return {
-                        scheduled_at: payload.occurred_at,
-                        action_fields: {
-                            ...actionFields,
-                            check_out_date_auto_synced: checkOutAutoSynced,
-                            source_check_out_date_auto_synced:
-                                sourceCheckOutAutoSynced,
-                        },
-                        check_out_date_auto_synced: checkOutAutoSynced,
-                        source_check_out_date_auto_synced:
-                            sourceCheckOutAutoSynced,
-                    };
+                    return buildScheduledMovementEditPayload(action, payload, {
+                        checkOutDateAutoSynced: checkOutAutoSynced,
+                        sourceCheckOutDateAutoSynced: sourceCheckOutAutoSynced,
+                    });
                 }
 
                 return {

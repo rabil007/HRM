@@ -81,6 +81,38 @@ function advanceJoinStandbyAssignment(array $fixtures, ?object $vessel = null): 
     return $assignment->fresh(['currentPhase']);
 }
 
+function advanceOnVesselAssignment(array $fixtures, ?object $vessel = null): CrewAssignment
+{
+    $assignment = advanceJoinStandbyAssignment($fixtures, $vessel);
+    $service = app(CrewMovementService::class);
+
+    // Clock is frozen at 2027-01-15 — keep actual occurred_at in the past.
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2027-01-12 09:00:00',
+        'vessel_id' => $assignment->vessel_id,
+        'position_id' => $assignment->position_id,
+        'planned_signoff_choice' => 'manual_override',
+        'planned_signoff_at' => '2027-03-20',
+        'planned_signoff_override_reason' => 'Fixture signoff',
+    ], $fixtures['user']->id);
+
+    return $assignment->fresh(['currentPhase']);
+}
+
+function advanceDemobStandbyAssignment(array $fixtures, ?object $vessel = null): CrewAssignment
+{
+    $assignment = advanceOnVesselAssignment($fixtures, $vessel);
+    $service = app(CrewMovementService::class);
+
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2027-01-14 09:00:00',
+        'next_phase' => CrewPhaseCode::DemobStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $fixtures['user']->id);
+
+    return $assignment->fresh(['currentPhase']);
+}
+
 test('scheduling join vessel does not change actual phase or sea service', function () {
     $fixtures = makeCrewScheduledMovementFixtures();
     $assignment = advanceJoinStandbyAssignment($fixtures);
@@ -1065,4 +1097,290 @@ test('dst nonexistent and ambiguous local walls are rejected', function () {
         '2026-11-01 01:30:00',
         'America/New_York',
     ))->toThrow(CrewMovementException::class);
+});
+
+test('edit join vessel schedule persists only permitted fields and leaves phase and sea service unchanged', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+    $phaseBefore = $assignment->currentPhase?->phase_code;
+    $seaBefore = EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count();
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Original',
+            'check_out_date' => '2027-01-19',
+            'check_out_date_auto_synced' => false,
+        ],
+        $fixtures['user'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-22 11:00:00',
+            'action_fields' => [
+                'vessel_id' => $assignment->vessel_id,
+                'position_id' => $assignment->position_id,
+                'client_id' => null,
+                'planned_signoff_choice' => 'manual_override',
+                'planned_signoff_at' => '2027-04-01',
+                'planned_signoff_override_reason' => 'Rescheduled join',
+                'check_out_date' => '2027-01-19',
+                'check_out_date_auto_synced' => false,
+                'remarks' => 'Updated via edit dialog',
+            ],
+            'check_out_date_auto_synced' => false,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+    $payload = $schedule->action_payload;
+
+    expect($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and(EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count())->toBe($seaBefore)
+        ->and($schedule->status)->toBe(CrewScheduledMovementStatus::Scheduled)
+        ->and($payload['planned_signoff_at'] ?? null)->toBe('2027-04-01')
+        ->and($payload['check_out_date'] ?? null)->toBe('2027-01-19')
+        ->and($payload['check_out_date_auto_synced'] ?? null)->toBeFalse()
+        ->and($payload)->not->toHaveKey('provider')
+        ->and($payload)->not->toHaveKey('planned_start_at')
+        ->and($payload)->not->toHaveKey('reason')
+        ->and($payload)->not->toHaveKey('accommodation_status')
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-01-22 07:00:00');
+});
+
+test('edit send to training schedule allows planned dates and does not advance phase', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+    $phaseBefore = $assignment->currentPhase?->phase_code;
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::SendToTraining,
+        [
+            'action' => CrewMovementAction::SendToTraining->value,
+            'scheduled_at' => '2027-01-18 09:00:00',
+            'provider' => 'Academy',
+            'course' => 'STCW',
+            'planned_start_at' => '2027-01-18 09:00:00',
+            'planned_end_at' => '2027-01-25',
+        ],
+        $fixtures['user'],
+    );
+
+    expect($schedule->action_payload['planned_start_at'] ?? null)->toBe('2027-01-18 09:00:00')
+        ->and($schedule->action_payload['planned_end_at'] ?? null)->toBe('2027-01-25');
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-19 10:00:00',
+            'action_fields' => [
+                'provider' => 'Updated Academy',
+                'course' => 'Advanced STCW',
+                'planned_start_at' => '2027-01-19 10:00:00',
+                'planned_end_at' => '2027-01-28',
+                'remarks' => 'Training window moved',
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($schedule->action_payload['provider'] ?? null)->toBe('Updated Academy')
+        ->and($schedule->action_payload['course'] ?? null)->toBe('Advanced STCW')
+        ->and($schedule->action_payload['planned_start_at'] ?? null)->toBe('2027-01-19 10:00:00')
+        ->and($schedule->action_payload['planned_end_at'] ?? null)->toBe('2027-01-28')
+        ->and($schedule->action_payload)->not->toHaveKey('vessel_id')
+        ->and($schedule->action_payload)->not->toHaveKey('check_out_date');
+});
+
+test('edit confirm disembarkation schedule preserves phase until execution', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceOnVesselAssignment($fixtures);
+    $phaseBefore = $assignment->currentPhase?->phase_code;
+    $seaBefore = EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count();
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::ConfirmDisembarkation,
+        [
+            'action' => CrewMovementAction::ConfirmDisembarkation->value,
+            'scheduled_at' => '2027-01-30 09:00:00',
+            'next_phase' => CrewPhaseCode::DemobStandby->value,
+            'accommodation_status' => 'no_accommodation',
+        ],
+        $fixtures['user'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-31 08:00:00',
+            'action_fields' => [
+                'next_phase' => CrewPhaseCode::DemobStandby->value,
+                'accommodation_status' => 'no_accommodation',
+                'remarks' => 'Disembark moved one day',
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count())->toBe($seaBefore)
+        ->and($schedule->action_payload['next_phase'] ?? null)->toBe(CrewPhaseCode::DemobStandby->value)
+        ->and($schedule->action_payload['remarks'] ?? null)->toBe('Disembark moved one day')
+        ->and($schedule->action_payload)->not->toHaveKey('completion_intent')
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-01-31 04:00:00');
+});
+
+test('edit return home schedule keeps demob standby and completion intent', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceDemobStandbyAssignment($fixtures);
+    $phaseBefore = $assignment->currentPhase?->phase_code;
+    $statusBefore = $assignment->status;
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::TravelHome,
+        [
+            'action' => CrewMovementAction::TravelHome->value,
+            'scheduled_at' => '2027-02-02 09:00:00',
+            'completion_intent' => 'close',
+        ],
+        $fixtures['user'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-02-03 10:00:00',
+            'action_fields' => [
+                'completion_intent' => 'close',
+                'remarks' => 'Return home rescheduled',
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($assignment->status)->toBe($statusBefore)
+        ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->closed_at)->toBeNull()
+        ->and($schedule->action_payload['completion_intent'] ?? null)->toBe('close')
+        ->and($schedule->action_payload['remarks'] ?? null)->toBe('Return home rescheduled')
+        ->and($schedule->action_payload)->not->toHaveKey('planned_travel_at')
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-02-03 06:00:00');
+});
+
+test('reschedule without action_fields preserves existing payload including hotel override', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Keep payload',
+            'check_out_date' => '2027-01-18',
+            'check_out_date_auto_synced' => false,
+            'remarks' => 'Original remarks',
+        ],
+        $fixtures['user'],
+    );
+
+    $payloadBefore = $schedule->action_payload;
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-23 09:00:00',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $schedule->refresh();
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($schedule->action_payload['check_out_date'] ?? null)->toBe('2027-01-18')
+        ->and($schedule->action_payload['check_out_date_auto_synced'] ?? null)->toBeFalse()
+        ->and($schedule->action_payload['remarks'] ?? null)->toBe('Original remarks')
+        ->and($schedule->action_payload['planned_signoff_at'] ?? null)->toBe($payloadBefore['planned_signoff_at'] ?? null)
+        ->and($schedule->scheduled_at?->timezone('UTC')->format('Y-m-d H:i:s'))->toBe('2027-01-23 05:00:00');
+});
+
+test('update rejects generic form fields that are not allowlisted', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceJoinStandbyAssignment($fixtures);
+
+    $schedule = app(ScheduleCrewMovement::class)->handle(
+        $fixtures['company']->id,
+        $assignment,
+        CrewMovementAction::JoinVessel,
+        [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'scheduled_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Reject junk',
+        ],
+        $fixtures['user'],
+    );
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-21 09:00:00',
+            'action_fields' => [
+                'vessel_id' => $assignment->vessel_id,
+                'position_id' => $assignment->position_id,
+                'planned_signoff_choice' => 'manual_override',
+                'planned_signoff_at' => '2027-03-20',
+                'planned_signoff_override_reason' => 'Reject junk',
+                'reason' => 'cancel-only field',
+                'planned_travel_at' => '2027-02-01',
+                'mode' => 'schedule_later',
+            ],
+        ])
+        ->assertSessionHasErrors('action_fields');
+
+    expect($schedule->fresh()->action_payload)->not->toHaveKey('reason')
+        ->and($schedule->fresh()->action_payload)->not->toHaveKey('planned_travel_at');
 });

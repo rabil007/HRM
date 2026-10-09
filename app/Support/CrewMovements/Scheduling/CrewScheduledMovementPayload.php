@@ -53,7 +53,19 @@ final class CrewScheduledMovementPayload
         'remarks',
         'check_out_date_auto_synced',
         'source_check_out_date_auto_synced',
+        'planned_start_at',
+        'planned_end_at',
+        'sync_training_to_employee_training',
+        'planned_arrival_at',
     ];
+
+    /**
+     * @return list<string>
+     */
+    public static function allowedActionFieldKeys(): array
+    {
+        return self::ALLOWED_ACTION_FIELD_KEYS;
+    }
 
     /**
      * @param  array<string, mixed>  $fields
@@ -62,6 +74,17 @@ final class CrewScheduledMovementPayload
     public static function unknownActionFieldKeys(array $fields): array
     {
         return array_values(array_diff(array_keys($fields), self::ALLOWED_ACTION_FIELD_KEYS));
+    }
+
+    /**
+     * Keep only allowlisted movement field keys (drops meta / unknown / nested junk).
+     *
+     * @param  array<string, mixed>  $fields
+     * @return array<string, mixed>
+     */
+    public static function onlyAllowedActionFields(array $fields): array
+    {
+        return array_intersect_key($fields, array_flip(self::ALLOWED_ACTION_FIELD_KEYS));
     }
 
     /**
@@ -76,6 +99,8 @@ final class CrewScheduledMovementPayload
 
         // Scheduled movements apply occurred_at only at execution time.
         unset($payload['occurred_at']);
+
+        $payload = self::onlyAllowedActionFields($payload);
 
         if (array_key_exists('check_out_date_auto_synced', $validated)) {
             $payload['check_out_date_auto_synced'] = (bool) $validated['check_out_date_auto_synced'];

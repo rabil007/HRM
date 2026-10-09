@@ -111,17 +111,15 @@ class UpdateCrewScheduledMovementRequest extends StoreCrewScheduledMovementReque
 
         $existing = is_array($schedule->action_payload) ? $schedule->action_payload : [];
         unset($existing['_action']);
+        $existing = CrewScheduledMovementPayload::onlyAllowedActionFields($existing);
+
+        // Prefer normalized validated values over raw nested action_fields input.
+        // prepareForValidation already merged existing + incoming into the request.
+        $validatedFields = CrewScheduledMovementPayload::onlyAllowedActionFields($validated);
 
         $actionFields = array_key_exists('action_fields', $this->all())
-            ? array_merge($existing, is_array($this->input('action_fields')) ? $this->input('action_fields') : [])
+            ? array_merge($existing, $validatedFields)
             : $existing;
-
-        // Strip meta / unknown before persistence helper runs.
-        foreach (array_keys($actionFields) as $key) {
-            if ($key === '_action') {
-                unset($actionFields[$key]);
-            }
-        }
 
         return [
             'scheduled_at' => (string) ($validated['scheduled_at'] ?? ''),
