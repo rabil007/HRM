@@ -1308,7 +1308,7 @@ Data sources (unchanged storage):
 
 ### Assignment detail layout (show page)
 
-`organization/crew/{id}` keeps a compact identity header (employee, assignment context, status/phase/tenure) and a two-card operational summary (**Next Milestone** + **Operational Attention**). Edit/Void live only in the Operations Center sidebar (Recommended Next Action → Needs Attention / Readiness → Other Actions). Tour of Duty remains a distinct analytical card when on vessel. Supporting records (relationships, accommodation, corrections, remarks, audit) sit under **Assignment Records & History** below the Phase Timeline.
+`organization/crew/{id}` keeps a compact identity header (employee, assignment context, status/phase/tenure) and a two-card operational summary (**Next Milestone** + **Operational Attention**). Edit/Void live only in the Operations Center sidebar (Recommended Next Action → Needs Attention / Readiness → Other Actions). Left-column order is **Phase Timeline** → **Tour of Duty** (on vessel only) → **Assignment Records & History**. Supporting records are independently collapsible (relationships, accommodation, corrections, remarks, audit), with operationally important sections (open accommodation stays, pending corrections) expanded by default. Phase Timeline **Actual Only** never shows planned overdue or planned windows.
 
 ### Operational timestamps and company timezone UX
 

@@ -4,6 +4,7 @@ import {
     formatCompanyTimezoneLabel,
     formatDisplayDateTime12hInTimezone,
     isCompanyTimeInFuture,
+    msUntilNextCompanyMidnight,
     nowInCompanyDate,
     nowInCompanyTime,
     safeCompanyTimezone,
@@ -164,6 +165,20 @@ describe('company-timezone helper', () => {
                 toCompanyDateLocal('2026-09-17T20:05:00Z', 'Asia/Dubai'),
                 '2026-09-18',
             );
+        });
+
+        it('schedules the next company-local midnight without treating today as an end date', () => {
+            // 17 Sep 23:55 Dubai → next midnight is ~5 minutes away
+            const delay = msUntilNextCompanyMidnight(
+                'Asia/Dubai',
+                beforeMidnight,
+            );
+
+            assert.ok(delay > 4 * 60 * 1000);
+            assert.ok(delay < 6 * 60 * 1000);
+
+            const rolled = new Date(beforeMidnight.getTime() + delay);
+            assert.equal(nowInCompanyDate('Asia/Dubai', rolled), '2026-09-18');
         });
     });
 

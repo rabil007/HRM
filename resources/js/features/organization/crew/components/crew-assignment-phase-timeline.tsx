@@ -15,16 +15,11 @@ import {
     normalProgressSkippedStagesNote,
     resolveActiveLegacyPhaseContext,
 } from '@/features/organization/crew/lib/crew-phase-visibility';
+import { buildPhaseDateLineSummary } from '@/features/organization/crew/lib/phase-timeline-display';
 import type { PhaseTimelineDisplayMode } from '@/features/organization/crew/lib/phase-timeline-math';
 import {
     PHASE_TIMELINE_DISPLAY_MODES,
     calendarDatesDiffer,
-    daysPastPlannedEnd,
-    daysUntilPlannedStart,
-    elapsedWholeCalendarDays,
-    formatDayCount,
-    formatElapsedDayPhrase,
-    phaseHasPlannedDates,
     phasesHavePlannedDates,
 } from '@/features/organization/crew/lib/phase-timeline-math';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
@@ -34,7 +29,8 @@ import type {
     CrewAssignmentPagePermissions,
     PhaseTimelineItem,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate, nowInCompanyDate } from '@/lib/format-date';
+import { useCompanyLocalDate } from '@/hooks/use-company-local-date';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
 
@@ -95,19 +91,6 @@ function varianceToneClass(tone: PhaseVarianceTone): string {
         default:
             return 'text-muted-foreground';
     }
-}
-
-function formatDateOrFallback(
-    value: string | null | undefined,
-    fallback: string,
-): string {
-    if (!value) {
-        return fallback;
-    }
-
-    const formatted = formatDisplayDate(value);
-
-    return formatted === '—' ? fallback : formatted;
 }
 
 function AssignmentMilestones({
@@ -190,84 +173,25 @@ function PhaseDateLines({
     today: string;
     timeZone?: string | null;
 }): ReactElement {
+    const lines = buildPhaseDateLineSummary(phase, mode, today, {
+        timeZone,
+        formatDate: formatDisplayDate,
+    });
     const variance = summarizePhaseVariance(phase, timeZone);
-    const showPlanned = mode !== 'actual_only';
-    const showActual = mode !== 'planned_only';
-    const hasPlanned = phaseHasPlannedDates(phase);
-
-    const plannedStart = formatDateOrFallback(
-        phase.planned_start_at,
-        'Not recorded',
-    );
-    const plannedEnd = phase.planned_end_at
-        ? formatDisplayDate(phase.planned_end_at)
-        : hasPlanned
-          ? '—'
-          : null;
-
-    const actualStart = formatDateOrFallback(
-        phase.actual_start_at,
-        variance.isNotStarted ? 'Not started' : 'Not recorded',
-    );
-    const actualEnd = variance.hasConfirmedActualEnd
-        ? formatDisplayDate(phase.actual_end_at)
-        : variance.isInProgress
-          ? 'In progress'
-          : null;
-
-    const elapsedDays = variance.isInProgress
-        ? elapsedWholeCalendarDays(phase.actual_start_at, today, timeZone)
-        : null;
-    const untilStart =
-        showPlanned && variance.isNotStarted && phase.planned_start_at
-            ? daysUntilPlannedStart(phase.planned_start_at, today, timeZone)
-            : null;
-    const pastPlannedEnd =
-        variance.isInProgress && phase.planned_end_at
-            ? daysPastPlannedEnd(phase.planned_end_at, today, timeZone)
-            : null;
-
-    const durationParts: string[] = [];
-
-    if (showPlanned && variance.plannedDurationDays !== null) {
-        durationParts.push(
-            `Planned ${formatDayCount(variance.plannedDurationDays)}`,
-        );
-    }
-
-    if (showActual && variance.hasConfirmedActualEnd) {
-        durationParts.push(
-            `${formatDayCount(variance.actualDurationDays)} completed`,
-        );
-    } else if (showActual && variance.isInProgress) {
-        const elapsed = formatElapsedDayPhrase(elapsedDays);
-
-        if (elapsed) {
-            durationParts.push(elapsed);
-        }
-    }
-
-    if (untilStart !== null) {
-        durationParts.push(`${formatDayCount(untilStart)} until planned start`);
-    }
-
-    if (pastPlannedEnd !== null) {
-        durationParts.push(
-            `${formatDayCount(pastPlannedEnd)} past planned end`,
-        );
-    }
 
     return (
         <div className="space-y-1 text-xs text-muted-foreground">
-            {showPlanned ? (
+            {lines.showPlanned ? (
                 <p>
                     <span className="font-medium text-foreground/70">
                         Planned:{' '}
                     </span>
-                    {hasPlanned ? (
+                    {lines.hasPlanned ? (
                         <>
-                            {plannedStart}
-                            {plannedEnd ? ` → ${plannedEnd}` : ''}
+                            {lines.plannedStartLabel}
+                            {lines.plannedEndLabel
+                                ? ` → ${lines.plannedEndLabel}`
+                                : ''}
                         </>
                     ) : (
                         <span className="text-muted-foreground/70">
@@ -276,29 +200,31 @@ function PhaseDateLines({
                     )}
                 </p>
             ) : null}
-            {showActual ? (
+            {lines.showActual ? (
                 <p>
                     <span className="font-medium text-foreground/70">
                         Actual:{' '}
                     </span>
                     {phase.actual_start_at || variance.isInProgress ? (
                         <>
-                            {actualStart}
-                            {actualEnd ? ` → ${actualEnd}` : ''}
+                            {lines.actualStartLabel}
+                            {lines.actualEndLabel
+                                ? ` → ${lines.actualEndLabel}`
+                                : ''}
                         </>
                     ) : (
                         <span className="text-muted-foreground/70">
-                            {actualStart}
+                            {lines.actualStartLabel}
                         </span>
                     )}
                 </p>
             ) : null}
-            {durationParts.length > 0 ? (
+            {lines.durationParts.length > 0 ? (
                 <p>
                     <span className="font-medium text-foreground/70">
                         Duration:{' '}
                     </span>
-                    {durationParts.join(' · ')}
+                    {lines.durationParts.join(' · ')}
                 </p>
             ) : null}
         </div>
@@ -337,14 +263,19 @@ function PhaseTimelineRow({
     onCancelPending: (correctionId: number) => void;
 }): ReactElement {
     const variance = summarizePhaseVariance(phase, timeZone);
+    const lines = buildPhaseDateLineSummary(phase, mode, today, {
+        timeZone,
+        formatDate: formatDisplayDate,
+    });
     const [detailsOpen, setDetailsOpen] = useState(false);
 
     const hasExpandableDetails = Boolean(
         phase.remarks ||
         (phase.details && Object.keys(phase.details).length > 0) ||
-        variance.details.length > 1 ||
-        variance.plannedDurationDays !== null ||
-        variance.actualDurationDays !== null,
+        (lines.showVariance && variance.details.length > 1) ||
+        (lines.showPlanned && variance.plannedDurationDays !== null) ||
+        (lines.showActual &&
+            (variance.actualDurationDays !== null || variance.isInProgress)),
     );
 
     return (
@@ -446,7 +377,7 @@ function PhaseTimelineRow({
                                 ? ` · ${String(phase.details.course)}`
                                 : ''}
                         </p>
-                        {mode === 'plan_vs_actual' ? (
+                        {lines.showVariance ? (
                             <p
                                 className={cn(
                                     'text-xs font-medium',
@@ -476,7 +407,7 @@ function PhaseTimelineRow({
                             <ChevronDown className="size-3 transition-transform group-data-[state=open]:rotate-180" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-2 space-y-2 rounded-md border border-border/40 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
-                            {mode === 'plan_vs_actual' &&
+                            {lines.showVariance &&
                             variance.details.length > 0 ? (
                                 <ul className="list-disc space-y-0.5 pl-4">
                                     {variance.details.map((detail) => (
@@ -484,24 +415,29 @@ function PhaseTimelineRow({
                                     ))}
                                 </ul>
                             ) : null}
-                            <div className="grid gap-1 sm:grid-cols-2">
-                                <p>
-                                    Planned duration:{' '}
-                                    {formatDayCount(
-                                        variance.plannedDurationDays,
+                            {lines.showPlanned || lines.showActual ? (
+                                <div
+                                    className={cn(
+                                        'grid gap-1',
+                                        lines.showPlanned && lines.showActual
+                                            ? 'sm:grid-cols-2'
+                                            : undefined,
                                     )}
-                                </p>
-                                <p>
-                                    Actual duration:{' '}
-                                    {variance.hasConfirmedActualEnd
-                                        ? formatDayCount(
-                                              variance.actualDurationDays,
-                                          )
-                                        : variance.isInProgress
-                                          ? 'In progress'
-                                          : '—'}
-                                </p>
-                            </div>
+                                >
+                                    {lines.showPlanned ? (
+                                        <p>
+                                            Planned duration:{' '}
+                                            {lines.plannedDurationLabel}
+                                        </p>
+                                    ) : null}
+                                    {lines.showActual ? (
+                                        <p>
+                                            Actual duration:{' '}
+                                            {lines.actualDurationLabel}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
                             {phase.remarks ? (
                                 <p className="whitespace-pre-wrap">
                                     Remarks: {phase.remarks}
@@ -551,8 +487,7 @@ export function CrewAssignmentPhaseTimeline({
     const [mode, setMode] =
         useState<PhaseTimelineDisplayMode>('plan_vs_actual');
     const timeZone = assignment.company_timezone;
-
-    const today = useMemo(() => nowInCompanyDate(timeZone), [timeZone]);
+    const today = useCompanyLocalDate(timeZone);
 
     const milestones: AssignmentMilestone[] = useMemo(
         () => [
