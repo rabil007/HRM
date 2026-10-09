@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use App\Support\AppRefresh\AuthorizationRevision;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -61,12 +62,14 @@ test('shared inertia sidebar props are cached per user and company', function ()
             ->where('current_company_id', $company->id)
         );
 
-    expect(Cache::has("inertia:shared:{$user->id}:companies"))->toBeTrue();
+    expect(Cache::has(AuthorizationRevision::companiesCacheKey($user->id)))->toBeTrue();
 
-    $cached = Cache::get("inertia:shared:{$user->id}:companies");
+    $cached = Cache::get(AuthorizationRevision::companiesCacheKey($user->id));
     expect($cached)->toBeArray()
         ->and($cached[0])->toBeArray()
         ->and($cached[0])->toMatchArray(['id' => $company->id, 'name' => 'Acme', 'logo_url' => null]);
-    expect(Cache::has("inertia:shared:{$user->id}:company:{$company->id}:permissions"))->toBeTrue();
-    expect(Cache::has("inertia:shared:{$user->id}:company:{$company->id}:roles"))->toBeTrue();
+
+    $revision = AuthorizationRevision::current($user->fresh(), $company->id);
+    expect(Cache::has(AuthorizationRevision::permissionsCacheKey($user->id, $company->id, $revision)))->toBeTrue();
+    expect(Cache::has(AuthorizationRevision::rolesCacheKey($user->id, $company->id, $revision)))->toBeTrue();
 });

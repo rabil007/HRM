@@ -78,6 +78,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | HTTP / browser security headers | [security-headers.md](./security-headers.md) |
 | Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention) |
 | CI / quality gates | [ci.md](./ci.md) |
+| Application refresh / deploy update sync / permission live sync | [app-refresh.md](./app-refresh.md) |
 | Broad architecture / cross-domain analysis | [architecture/project-analysis.md](./architecture/project-analysis.md), then [architecture/domains.md](./architecture/domains.md) only as needed |
 
 ## Crew and Payroll terminology

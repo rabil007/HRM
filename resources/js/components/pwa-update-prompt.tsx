@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { appRefreshController } from '@/lib/app-refresh/app-refresh-controller';
 import { ensureAppServiceWorker } from '@/lib/register-app-service-worker';
 
 /**
- * Register the root-scoped service worker and prompt when an update is waiting.
+ * Register the root-scoped service worker and route waiting updates through
+ * the shared app-refresh update dialog.
  */
 export function PwaUpdatePrompt() {
     useEffect(() => {
@@ -21,6 +22,13 @@ export function PwaUpdatePrompt() {
                     return;
                 }
 
+                if (
+                    registration.waiting &&
+                    navigator.serviceWorker.controller
+                ) {
+                    appRefreshController.setPwaUpdateWaiting(true);
+                }
+
                 registration.addEventListener('updatefound', () => {
                     const worker = registration.installing;
 
@@ -33,20 +41,7 @@ export function PwaUpdatePrompt() {
                             worker.state === 'installed' &&
                             navigator.serviceWorker.controller
                         ) {
-                            toast('A new version is available', {
-                                description:
-                                    'Reload to get the latest updates.',
-                                duration: Infinity,
-                                action: {
-                                    label: 'Reload',
-                                    onClick: () => {
-                                        worker.postMessage({
-                                            type: 'SKIP_WAITING',
-                                        });
-                                        window.location.reload();
-                                    },
-                                },
-                            });
+                            appRefreshController.setPwaUpdateWaiting(true);
                         }
                     });
                 });

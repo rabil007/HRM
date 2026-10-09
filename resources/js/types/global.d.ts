@@ -59,6 +59,10 @@ declare module '@inertiajs/core' {
                 };
             };
             auth: Auth;
+            app_refresh: {
+                version: string;
+                authorization_revision: string | null;
+            };
             web_push: {
                 vapid_public_key: string;
                 enabled: boolean;

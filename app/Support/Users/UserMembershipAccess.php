@@ -4,6 +4,7 @@ namespace App\Support\Users;
 
 use App\Models\Company;
 use App\Models\User;
+use App\Support\AppRefresh\AuthorizationRevision;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Spatie\Permission\PermissionRegistrar;
@@ -53,14 +54,30 @@ final class UserMembershipAccess
                 'status' => 'active',
             ],
         ]);
+
+        AuthorizationRevision::bumpUser($user);
     }
 
     public static function syncRole(User $user, int $companyId, ?int $roleId): void
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
 
+        $previousRoleIds = $user->roles()
+            ->where('spatie_roles.company_id', $companyId)
+            ->pluck('spatie_roles.id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
         if ($roleId === null) {
             $user->syncRoles([]);
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+
+            if ($previousRoleIds !== []) {
+                AuthorizationRevision::bumpUser($user);
+            }
 
             return;
         }
@@ -73,6 +90,12 @@ final class UserMembershipAccess
         abort_unless($role !== null, 404);
 
         $user->syncRoles([$role]);
+        $user->unsetRelation('roles');
+        $user->unsetRelation('permissions');
+
+        if ($previousRoleIds !== [(int) $role->id]) {
+            AuthorizationRevision::bumpUser($user);
+        }
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\AppRefresh\AuthorizationRevision;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\UpdateOrganizationUser;
 use App\Support\Users\GlobalIdentityAccessGuard;
@@ -440,6 +441,9 @@ class UserController extends Controller
             UserMembershipAccess::syncRole($user, $companyId, $roleId);
         }
 
+        // Membership creation always changes company access for this user.
+        AuthorizationRevision::bumpUser($user);
+
         UserMembershipAccess::log($request, $user, $companyId, 'added company membership', [
             'status' => $status,
             'role_id' => $roleId,
@@ -477,11 +481,21 @@ class UserController extends Controller
                     }
                 }
 
+                $previousStatus = (string) ($user->companies()
+                    ->whereKey($companyId)
+                    ->first()
+                    ?->pivot
+                    ?->status ?? '');
+
                 $user->companies()->updateExistingPivot($companyId, [
                     'status' => $status,
                 ]);
 
                 UserMembershipAccess::syncRole($user, $companyId, $roleId);
+
+                if ($previousStatus !== $status) {
+                    AuthorizationRevision::bumpUser($user);
+                }
 
                 UserMembershipAccess::log($request, $user, $companyId, 'updated company membership', [
                     'status' => $status,
@@ -513,6 +527,7 @@ class UserController extends Controller
                 $user->companies()->detach($companyId);
 
                 UserMembershipAccess::syncRole($user, $companyId, null);
+                AuthorizationRevision::bumpUser($user);
 
                 UserMembershipAccess::log($request, $user, $companyId, 'removed company membership');
             });

@@ -42,6 +42,7 @@ Current code, routes, migrations, tests, and `database/seeders/PermissionsSeeder
 | [Hikvision integration](./hikvision-integration.md) | Admins, developers | Company settings, webhooks, scheduled syncs |
 | [AI settings](./ai-settings.md) | Admins, developers | AI providers and AI features (Smart Employee Search, Document AI) |
 | [CI quality gates](./ci.md) | Developers | Change classifier, Pint, frontend static/build, sharded Pest, quality-gate aggregation |
+| [Application refresh & update sync](./app-refresh.md) | Developers / operators | Header Refresh App, deploy version checks, PWA update dialog, permission revision sync |
 
 ## Architecture and agent navigation
 

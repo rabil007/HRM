@@ -2,6 +2,7 @@ import { useForm } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
+import { useRegisterUnsavedWork } from '@/hooks/use-register-unsaved-work';
 import { toast } from '@/lib/toast';
 import { isOfficialEmployeeNumberMissing } from '@/pages/organization/_lib/draft-employee-number';
 import {
@@ -226,6 +227,8 @@ export function useEmployeeProfileForm(
 
         return () => window.removeEventListener('beforeunload', handler);
     }, [canUpdate, isDirty]);
+
+    useRegisterUnsavedWork(canUpdate && isDirty);
 
     const submitProfileUpdate = useCallback(
         (

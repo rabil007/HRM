@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useRegisterUnsavedWork } from '@/hooks/use-register-unsaved-work';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { Auth } from '@/types/auth';
@@ -436,6 +437,8 @@ export function RequirementFormSheet({
 
         return () => window.removeEventListener('beforeunload', handler);
     }, [open, isDirty]);
+
+    useRegisterUnsavedWork(open && isDirty);
 
     const focusFirstInvalidField = (
         nextErrors: Record<string, string | undefined>,

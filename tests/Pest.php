@@ -65,6 +65,7 @@ require __DIR__.'/Support/historical-crew-import.php';
 require __DIR__.'/Support/user-email-identity.php';
 require __DIR__.'/Support/announcement-whatsapp-templates.php';
 require __DIR__.'/Support/document-expiry-alert-fixtures.php';
+require __DIR__.'/Support/app-refresh.php';
 
 /*
 |--------------------------------------------------------------------------
