@@ -5,7 +5,11 @@ import {
     calendarDatesDiffer,
     calendarDatesEqual,
     collectTimelineDates,
+    daysPastPlannedEnd,
+    daysUntilPlannedStart,
+    elapsedWholeCalendarDays,
     formatDayCount,
+    formatElapsedDayPhrase,
     formatSignedDayPhrase,
     inclusiveDurationDays,
     normalizeCalendarDate,
@@ -282,5 +286,28 @@ describe('phrase helpers', () => {
         assert.equal(formatSignedDayPhrase(0, 'early', 'late'), 'on time');
         assert.equal(formatSignedDayPhrase(2, 'early', 'late'), '2 days late');
         assert.equal(formatSignedDayPhrase(-1, 'early', 'late'), '1 day early');
+    });
+});
+
+describe('elapsed and deadline day helpers', () => {
+    it('counts whole elapsed days without inventing a confirmed end', () => {
+        assert.equal(elapsedWholeCalendarDays('2026-09-23', '2026-10-09'), 16);
+        assert.equal(elapsedWholeCalendarDays('2026-10-09', '2026-10-09'), 0);
+        assert.equal(elapsedWholeCalendarDays(null, '2026-10-09'), null);
+        assert.equal(formatElapsedDayPhrase(0), 'Started today');
+        assert.equal(formatElapsedDayPhrase(16), '16 days elapsed');
+    });
+
+    it('reports future planned starts and days past planned end only when meaningful', () => {
+        assert.equal(daysUntilPlannedStart('2026-10-15', '2026-10-09'), 6);
+        assert.equal(daysUntilPlannedStart('2026-10-09', '2026-10-09'), null);
+        assert.equal(daysUntilPlannedStart('2026-10-01', '2026-10-09'), null);
+        assert.equal(daysPastPlannedEnd('2026-10-01', '2026-10-09'), 8);
+        assert.equal(daysPastPlannedEnd('2026-10-09', '2026-10-09'), null);
+        assert.equal(daysPastPlannedEnd('2026-10-15', '2026-10-09'), null);
+    });
+
+    it('keeps single-day inclusive completed duration at 1 day', () => {
+        assert.equal(inclusiveDurationDays('2026-09-23', '2026-09-23'), 1);
     });
 });

@@ -607,7 +607,7 @@ Policy: `app/Policies/CrewAssignmentPolicy.php`.
 |------|------|
 | `pages/organization/crew/index.tsx` | Thin wrapper for Current Crew |
 | `features/organization/crew/index.tsx` | Crew / Vessel assignment board |
-| `pages/organization/crew/show.tsx` | Assignment detail, phases, movements, corrections |
+| `pages/organization/crew/show.tsx` | Assignment detail, Phase Timeline, Operations Center, records/history, movements, corrections |
 | `features/organization/crew/actions/movement-action-dialog.tsx` | P0–P6 movement Dialog + Wayfinder |
 | `pages/organization/crew-planning/index.tsx` | Planning Gantt / Onboard by Vessel |
 | `pages/organization/crew-operations/index.tsx` | Daily operations cockpit |

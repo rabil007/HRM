@@ -1,13 +1,6 @@
-import {
-    AlertTriangle,
-    CalendarClock,
-    CheckCircle2,
-    History,
-    MapPinned,
-} from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
     CorrectionsSummary,
     CrewAssignmentDetail,
@@ -133,7 +126,7 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
 
     return {
         label: 'Next action',
-        value: assignment.recommended_action?.label ?? 'No action queued',
+        value: assignment.recommended_action?.label ?? 'No milestone queued',
         detail:
             assignment.recommended_action?.reason ??
             'No operational milestone currently scheduled',
@@ -148,12 +141,6 @@ export function CrewAssignmentOperationalSummary({
     assignment: CrewAssignmentDetail;
     corrections?: CorrectionsSummary | null;
 }): ReactElement {
-    const completedPhases = assignment.phase_timeline.filter(
-        (phase) => phase.status === 'completed',
-    ).length;
-    const actualMovementDates = assignment.phase_timeline.filter(
-        (phase) => phase.actual_start_at || phase.actual_end_at,
-    ).length;
     const readinessProblems =
         assignment.mobilisation_readiness?.problems.length ?? 0;
     const attentionSignals =
@@ -161,43 +148,10 @@ export function CrewAssignmentOperationalSummary({
         readinessProblems +
         (corrections?.pending_count ?? 0);
     const milestone = nextMilestone(assignment);
-    const phaseAge = assignment.days_in_phase;
 
     return (
         <section aria-label="Assignment operational summary">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <SummaryCard
-                    label="Current station"
-                    value={assignment.vessel?.name ?? 'No vessel assigned'}
-                    detail={
-                        [assignment.position?.name, assignment.client?.name]
-                            .filter(Boolean)
-                            .join(' · ') || 'Position details are not assigned'
-                    }
-                    icon={MapPinned}
-                />
-                <SummaryCard
-                    label="Phase tenure"
-                    value={
-                        phaseAge === null
-                            ? 'Not started'
-                            : `${phaseAge} day${phaseAge === 1 ? '' : 's'}`
-                    }
-                    detail={
-                        assignment.current_phase
-                            ? (crewPhaseDescription(
-                                  assignment.current_phase.code,
-                              ) ??
-                              `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`)
-                            : 'No current phase recorded'
-                    }
-                    icon={History}
-                    tone={
-                        phaseAge !== null && phaseAge > 90
-                            ? 'warning'
-                            : 'neutral'
-                    }
-                />
+            <div className="grid gap-3 sm:grid-cols-2">
                 <SummaryCard
                     label={milestone.label}
                     value={milestone.value}
@@ -210,16 +164,16 @@ export function CrewAssignmentOperationalSummary({
                     value={
                         attentionSignals === 0
                             ? 'Clear'
-                            : `${attentionSignals} signals`
+                            : `${attentionSignals} signal${attentionSignals === 1 ? '' : 's'}`
                     }
                     detail={
                         attentionSignals === 0
-                            ? `${completedPhases} completed phase${completedPhases === 1 ? '' : 's'} · ${actualMovementDates} actual movement record${actualMovementDates === 1 ? '' : 's'}`
+                            ? 'No warnings, readiness issues, or pending corrections'
                             : [
                                   `${assignment.warnings.length} warning${assignment.warnings.length === 1 ? '' : 's'}`,
                                   `${readinessProblems} readiness`,
                                   corrections
-                                      ? `${corrections.pending_count} correction`
+                                      ? `${corrections.pending_count} correction${corrections.pending_count === 1 ? '' : 's'}`
                                       : null,
                               ]
                                   .filter(Boolean)

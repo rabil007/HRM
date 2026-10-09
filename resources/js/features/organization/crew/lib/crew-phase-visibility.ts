@@ -267,6 +267,28 @@ export function normalProgressStepDetail(
     return 'Not reached yet';
 }
 
+/**
+ * Compact note listing normal-path stages that were passed without a recorded
+ * phase entry. Does not invent phase records — presentation only.
+ */
+export function normalProgressSkippedStagesNote(
+    currentPhaseCode: string | null,
+    phaseTimeline: PhaseTimelineItem[] = [],
+): string | null {
+    const states = normalProgressStepStates(currentPhaseCode, phaseTimeline);
+    const skipped = NORMAL_PHASE_PROGRESS_STEPS.filter(
+        (_step, index) => states[index] === 'skipped',
+    );
+
+    if (skipped.length === 0) {
+        return null;
+    }
+
+    const labels = skipped.map((step) => `${step.code} ${step.label}`);
+
+    return `Passed without recorded phase: ${labels.join(', ')}`;
+}
+
 export function normalProgressSummary(
     currentPhaseCode: string | null,
     phaseTimeline: PhaseTimelineItem[] = [],

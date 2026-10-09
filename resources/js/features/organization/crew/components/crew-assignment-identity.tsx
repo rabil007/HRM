@@ -1,8 +1,7 @@
-import { ArrowUpRight, Pencil, Trash2, User } from 'lucide-react';
+import { ArrowUpRight, User } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
 import type {
@@ -16,13 +15,9 @@ import { index as crewAssignmentsIndex } from '@/routes/organization/crew-assign
 export function CrewAssignmentIdentity({
     assignment,
     can,
-    onEdit,
-    onVoid,
 }: {
     assignment: CrewAssignmentDetail;
     can: CrewAssignmentPagePermissions;
-    onEdit: () => void;
-    onVoid?: () => void;
 }): ReactElement {
     const employee = assignment.employee;
     const canViewEmployee = can.view_employee;
@@ -32,13 +27,13 @@ export function CrewAssignmentIdentity({
             <EmployeeProfileLink
                 employeeId={employee.id}
                 aria-label={`View ${employee.name}'s profile`}
-                className="shrink-0 rounded-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:rounded-2xl"
+                className="shrink-0 rounded-lg focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:rounded-xl"
             >
                 <EmployeeAvatar
                     name={employee.name}
                     image={employee.image}
                     size="md"
-                    className="size-12 rounded-xl text-lg font-bold shadow-sm ring-1 ring-border/50 transition-transform hover:scale-[1.02] md:size-16 md:rounded-2xl md:text-xl"
+                    className="size-11 rounded-lg text-base font-bold shadow-sm ring-1 ring-border/50 transition-transform hover:scale-[1.02] md:size-14 md:rounded-xl md:text-lg"
                 />
             </EmployeeProfileLink>
         ) : (
@@ -47,16 +42,16 @@ export function CrewAssignmentIdentity({
                     name={employee.name}
                     image={employee.image}
                     size="md"
-                    className="size-12 rounded-xl text-lg font-bold shadow-sm ring-1 ring-border/50 md:size-16 md:rounded-2xl md:text-xl"
+                    className="size-11 rounded-lg text-base font-bold shadow-sm ring-1 ring-border/50 md:size-14 md:rounded-xl md:text-lg"
                 />
             </div>
         )
     ) : (
         <div
-            className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border/50 md:size-16 md:rounded-2xl"
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground ring-1 ring-border/50 md:size-14 md:rounded-xl"
             aria-hidden="true"
         >
-            <User className="size-6 md:size-8" />
+            <User className="size-5 md:size-7" />
         </div>
     );
 
@@ -65,18 +60,18 @@ export function CrewAssignmentIdentity({
             <EmployeeProfileLink
                 employeeId={employee.id}
                 aria-label={`View ${employee.name}'s profile`}
-                className="group inline-flex items-center gap-1.5 rounded-sm font-extrabold text-foreground transition-colors hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
+                className="group inline-flex items-center gap-1.5 rounded-sm font-bold text-foreground transition-colors hover:text-foreground/85 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
             >
                 <span className="tracking-tight underline-offset-4 group-hover:underline">
                     {employee.name}
                 </span>
                 <ArrowUpRight
-                    className="size-5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground md:size-6"
+                    className="size-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-foreground md:size-5"
                     aria-hidden="true"
                 />
             </EmployeeProfileLink>
         ) : (
-            <span className="font-extrabold tracking-tight text-foreground">
+            <span className="font-bold tracking-tight text-foreground">
                 {employee.name}
             </span>
         )
@@ -85,8 +80,8 @@ export function CrewAssignmentIdentity({
     );
 
     const descriptionNode = (
-        <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 font-mono text-xs text-muted-foreground">
+        <div className="space-y-0.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-[11px] text-muted-foreground md:text-xs">
                 {employee?.employee_no ? (
                     <span>#{employee.employee_no}</span>
                 ) : null}
@@ -95,7 +90,7 @@ export function CrewAssignmentIdentity({
                     {assignment.assignment_no}
                 </span>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 text-xs font-medium text-muted-foreground/90 md:text-sm">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs font-medium text-muted-foreground/90">
                 <span>
                     {assignment.position?.name ?? 'Position Unassigned'}
                 </span>
@@ -149,40 +144,11 @@ export function CrewAssignmentIdentity({
             className="md:items-start"
             avatar={avatarNode}
             title={titleNode}
-            titleClassName="text-3xl font-extrabold tracking-tight md:text-4xl text-foreground bg-none"
+            titleClassName="text-xl font-bold tracking-tight text-foreground bg-none md:text-2xl"
             description={descriptionNode}
             badges={badgesNode}
             backHref={crewAssignmentsIndex.url()}
             backLabel="Back to Crew Assignments"
-            actions={
-                (can.update && assignment.is_editable) ||
-                (can.void && onVoid) ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                        {can.update && assignment.is_editable ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="h-10 rounded-lg px-4"
-                                onClick={onEdit}
-                            >
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit Assignment
-                            </Button>
-                        ) : null}
-                        {can.void && onVoid ? (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="h-10 rounded-lg border-destructive/30 px-4 text-destructive hover:bg-destructive/10 hover:text-destructive dark:border-destructive/40 dark:hover:bg-destructive/20"
-                                onClick={onVoid}
-                            >
-                                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-                                Void Assignment
-                            </Button>
-                        ) : null}
-                    </div>
-                ) : null
-            }
         />
     );
 }

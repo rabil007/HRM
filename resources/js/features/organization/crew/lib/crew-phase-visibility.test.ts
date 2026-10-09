@@ -6,6 +6,7 @@ import {
     legacyPhaseContextLabel,
     NORMAL_PHASE_PROGRESS_STEPS,
     NORMAL_VISIBLE_CREW_PHASES,
+    normalProgressSkippedStagesNote,
     normalProgressStepState,
     normalVisiblePhaseFilterOptions,
     resolveActiveLegacyPhaseContext,
@@ -159,11 +160,12 @@ describe('crew phase visibility', () => {
     });
 
     it('marks earlier path stages as skipped when crew advanced without recorded phases', () => {
+        const timeline = [
+            timelineItem('p0', 'completed'),
+            timelineItem('p4', 'completed'),
+        ];
         const p6WithPartialHistory = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
-            normalProgressStepState(step, 'p6', [
-                timelineItem('p0', 'completed'),
-                timelineItem('p4', 'completed'),
-            ]),
+            normalProgressStepState(step, 'p6', timeline),
         );
 
         assert.deepEqual(p6WithPartialHistory, [
@@ -173,6 +175,11 @@ describe('crew phase visibility', () => {
             'skipped',
             'current',
         ]);
+        assert.equal(
+            normalProgressSkippedStagesNote('p6', timeline),
+            'Passed without recorded phase: P2 Standby / training, P5 Demobilisation',
+        );
+        assert.equal(normalProgressSkippedStagesNote('p0', []), null);
     });
 
     it('surfaces active legacy phases from the timeline when needed', () => {

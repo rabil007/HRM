@@ -1285,20 +1285,30 @@ The edit sidebar answers “what can I safely change on this existing mobilisati
 
 ### Phase Timeline (Plan vs Actual)
 
-The Crew Assignment show page presents a single **Phase Timeline** as the operator-facing source for planned and actual movements (`CrewAssignmentPhaseTimeline`).
+The Crew Assignment show page presents a single **Phase Timeline** as the operator-facing source for planned and actual movements (`CrewAssignmentPhaseTimeline`). The separate **Assignment Journey** progress strip is no longer shown on the detail page; legacy P1/P3 context and skipped normal-path stages appear as compact status notes on the Phase Timeline instead (without inventing phase records).
 
 | Mode | Meaning |
 |------|---------|
-| **Plan vs Actual** (default) | Dual bars (planned + actual) on one shared calendar scale, with start/end/duration variance copy |
-| **Actual Only** | Existing actual movement history presentation |
+| **Plan vs Actual** (default) | Compact date rows for planned and actual windows, with start/end/duration variance copy |
+| **Actual Only** | Actual movement dates and elapsed/completed duration only |
 | **Planned Only** | Planned phase schedule only |
+
+Display conventions:
+
+- Each recorded phase shows planned start/end, actual start/end, planned duration, and either confirmed completed duration or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Active phases never treat “today” as a confirmed actual end.
+- Missing dates use “Not recorded”, “Not started”, or “In progress” as appropriate. Variance is omitted when planned/actual data is insufficient.
+- Graphical planned/actual date-range bars are not used; presentation is date-and-duration text along a subtle vertical timeline.
 
 Data sources (unchanged storage):
 
 - Per-phase planned/actual windows come from `crew_assignment_phases.planned_start_at` / `planned_end_at` / `actual_start_at` / `actual_end_at` (presented as company-local date strings by `CrewAssignmentPresenter`).
 - Assignment-level forecast milestones (Arrival, Vessel Join, Travel, Sign-Off, Started, Closed) remain on `CrewAssignment` and appear as an expandable **Assignment milestones** strip inside the same card — not a separate Plan vs Actual card.
 - Variance is presentation-only. Active phases without `actual_end_at` never treat “today” as a confirmed completion for end/duration variance. Planned and actual values stay independent; movement workflows, corrections, overrides, transfers, timesheets, and sea service are unchanged.
-- Shared calendar scale uses planned/actual dates only for completed historical assignments. “Today” is included only when an open-ended active actual phase needs a visual end. Milestone comparisons normalize calendar dates in the company timezone before highlighting variance.
+- Milestone comparisons normalize calendar dates in the company timezone before highlighting variance.
+
+### Assignment detail layout (show page)
+
+`organization/crew/{id}` keeps a compact identity header (employee, assignment context, status/phase/tenure) and a two-card operational summary (**Next Milestone** + **Operational Attention**). Edit/Void live only in the Operations Center sidebar (Recommended Next Action → Needs Attention / Readiness → Other Actions). Tour of Duty remains a distinct analytical card when on vessel. Supporting records (relationships, accommodation, corrections, remarks, audit) sit under **Assignment Records & History** below the Phase Timeline.
 
 ### Operational timestamps and company timezone UX
 
