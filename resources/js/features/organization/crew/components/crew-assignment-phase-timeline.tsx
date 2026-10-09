@@ -279,7 +279,7 @@ function PhaseTimelineRow({
             : { display: 'none' as const };
 
     const actualTone =
-        variance.tone === 'warning'
+        mode === 'plan_vs_actual' && variance.tone === 'warning'
             ? 'actual-warning'
             : variance.isInProgress || variance.isNotStarted
               ? 'actual-pending'
