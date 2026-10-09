@@ -8,6 +8,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewPlanningAssignment;
 use App\Support\CrewMovements\Historical\HistoricalAssignmentIntervalOverlap;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
@@ -22,6 +23,10 @@ use Illuminate\Support\Collection;
  */
 final class CrewInitialArrivalBackdateGuard
 {
+    public function __construct(
+        private readonly CrewAssignmentOverlapDetector $overlapDetector = new CrewAssignmentOverlapDetector,
+    ) {}
+
     public static function isEligible(CrewAssignment $assignment, ?CrewAssignmentPhase $current = null): bool
     {
         $current ??= $assignment->currentPhase;
@@ -72,6 +77,7 @@ final class CrewInitialArrivalBackdateGuard
         $previousStart = $current->actual_start_at->copy();
 
         $this->assertDoesNotOverlapOtherAssignments($assignment, $occurredAt, $previousStart);
+        $this->assertDoesNotOverlapCrewPlanning($assignment, $occurredAt, $previousStart);
 
         $preservedStartedAt = $assignment->started_at?->toDateTimeString();
         $preservedCreatedAt = $assignment->created_at?->toDateTimeString();
@@ -171,6 +177,59 @@ final class CrewInitialArrivalBackdateGuard
                     $hEnd,
                 ),
                 'backdated_arrival_assignment_overlap',
+            );
+        }
+    }
+
+    /**
+     * The backdated prefix is occupancy that Start Assignment never conflict-checked.
+     * Only calendar days strictly before the original phase start are new; the
+     * original start date was already reserved when the assignment was started.
+     */
+    private function assertDoesNotOverlapCrewPlanning(
+        CrewAssignment $assignment,
+        CarbonInterface $occurredAt,
+        CarbonInterface $previousPhaseStart,
+    ): void {
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $prefixStart = $occurredAt->copy()->timezone($timezone)->startOfDay();
+        $originalStartDay = $previousPhaseStart->copy()->timezone($timezone)->startOfDay();
+
+        if ($prefixStart->gte($originalStartDay)) {
+            return;
+        }
+
+        $prefixStartDate = $prefixStart->toDateString();
+        $prefixEndDate = $originalStartDay->copy()->subDay()->toDateString();
+
+        $plans = CrewPlanningAssignment::query()
+            ->where('company_id', $assignment->company_id)
+            ->where('employee_id', $assignment->employee_id)
+            ->whereNull('crew_assignment_id')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get([
+                'id',
+                'planned_arrival_date',
+                'planned_join_date',
+                'planned_leave_date',
+            ]);
+
+        foreach ($plans as $plan) {
+            if (! $this->overlapDetector->overlapsPlannedPlanningAssignment($prefixStartDate, $prefixEndDate, $plan)) {
+                continue;
+            }
+
+            $planStart = ($plan->planned_arrival_date ?? $plan->planned_join_date)?->toDateString() ?? 'unknown';
+            $planEnd = $plan->planned_leave_date?->toDateString() ?? $planStart;
+
+            throw CrewMovementException::make(
+                sprintf(
+                    'This arrival date overlaps crew planning (%s – %s). Adjust the arrival date or update the planning reservation first.',
+                    $planStart,
+                    $planEnd,
+                ),
+                'backdated_arrival_planning_overlap',
             );
         }
     }

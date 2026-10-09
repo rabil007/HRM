@@ -13,7 +13,6 @@ use App\Models\Vessel;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
-use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 final class CrewAssignmentConflictEvaluator
@@ -261,7 +260,7 @@ final class CrewAssignmentConflictEvaluator
                         'status' => $activeAssignment->status->value,
                         'current_phase_code' => $currentPhaseCode,
                         'current_phase_name' => $currentPhaseName,
-                        'start_date' => $activeAssignment->started_at?->copy()->timezone($timezone)->toDateString(),
+                        'start_date' => $this->overlapDetector->operationalStartDate($activeAssignment, $timezone),
                         'end_date' => $activeAssignment->planned_signoff_at?->copy()->timezone($timezone)->toDateString(),
                     ],
                     newAssignment: $newAssignmentData,
@@ -328,8 +327,7 @@ final class CrewAssignmentConflictEvaluator
             $active = $activeQuery->first();
 
             if ($active !== null) {
-                $activeStart = ($active->started_at ?? $active->planned_join_at)?->copy()->timezone($timezone)->toDateString()
-                    ?? CarbonImmutable::now($timezone)->toDateString();
+                $activeStart = $this->overlapDetector->operationalStartDate($active, $timezone);
                 $activeEnd = $active->planned_signoff_at?->copy()->timezone($timezone)->toDateString();
 
                 // If active assignment has no signoff, it is actively ongoing; any plan unconditionally conflicts.

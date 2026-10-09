@@ -9,11 +9,14 @@ use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
 use App\Models\Position;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentConflictContext;
+use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\CrewMovements\CrewInitialArrivalBackdateGuard;
 use App\Support\CrewMovements\CrewMovementService;
 use Carbon\Carbon;
@@ -618,4 +621,143 @@ test('rejected overlapping backdated arrival leaves prior sea service payroll so
         ->and($seaService->end_date?->toDateString())->toBe('2026-10-07')
         ->and($seaService->total_days)->toBe(6)
         ->and($seaService->updated_at?->equalTo($updatedAt))->toBeTrue();
+});
+
+test('backdated arrival overlapping an unlinked crew planning reservation is rejected', function () {
+    [
+        'company' => $company,
+        'employee' => $employee,
+        'rank' => $rank,
+        'user' => $user,
+        'service' => $service,
+        'assignment' => $assignment,
+    ] = makeBackdatedArrivalFixtures();
+
+    $vessel = makeCrewMovementVessel('Reserved Planning Vessel', $company);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_arrival_date' => '2026-10-01',
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-10-07',
+    ]);
+
+    $originalStart = $assignment->currentPhase?->actual_start_at?->copy();
+
+    expect(fn () => $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-10-07 09:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id))->toThrow(CrewMovementException::class, 'overlaps crew planning');
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->actual_start_at?->equalTo($originalStart))->toBeTrue();
+});
+
+test('backdated arrival is allowed when crew planning ends before the new arrival date', function () {
+    [
+        'company' => $company,
+        'employee' => $employee,
+        'rank' => $rank,
+        'user' => $user,
+        'service' => $service,
+        'assignment' => $assignment,
+    ] = makeBackdatedArrivalFixtures();
+
+    $vessel = makeCrewMovementVessel('Earlier Planning Vessel', $company);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_arrival_date' => '2026-09-01',
+        'planned_join_date' => '2026-09-01',
+        'planned_leave_date' => '2026-10-06',
+    ]);
+
+    $result = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-10-07 09:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id);
+
+    expect($result->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+});
+
+test('crew planning already linked to the assignment does not block its own backdated arrival', function () {
+    [
+        'company' => $company,
+        'employee' => $employee,
+        'rank' => $rank,
+        'user' => $user,
+        'service' => $service,
+        'assignment' => $assignment,
+    ] = makeBackdatedArrivalFixtures();
+
+    $vessel = makeCrewMovementVessel('Linked Planning Vessel', $company);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'crew_assignment_id' => $assignment->id,
+        'planned_arrival_date' => '2026-10-01',
+        'planned_join_date' => '2026-10-07',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $result = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-10-07 09:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id);
+
+    expect($result->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+});
+
+test('planning after a backdated arrival cannot occupy the reconciled prefix before lifecycle started_at', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+
+    $service = app(CrewMovementService::class);
+    $assignment = $service->startAssignment($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'stage_started_at' => '2026-10-08 10:00:00',
+        'planned_signoff_at' => '2026-12-31 18:00:00',
+    ], $user->id);
+
+    $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-10-05 09:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id);
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $overlapping = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $company->id,
+        employeeId: $employee->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-06', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-07', 'Asia/Dubai'),
+    ));
+
+    $beforeArrival = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $company->id,
+        employeeId: $employee->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-01', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-04', 'Asia/Dubai'),
+    ));
+
+    expect($overlapping->blocking)->toBeTrue()
+        ->and($overlapping->code)->toBe('active_planned_overlap')
+        ->and($overlapping->existingAssignment['start_date'] ?? null)->toBe('2026-10-05')
+        ->and($beforeArrival->blocking)->toBeFalse();
 });
