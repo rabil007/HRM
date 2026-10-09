@@ -1,6 +1,12 @@
 import { router } from '@inertiajs/react';
 import { fetchAppVersion } from '@/lib/app-refresh/fetch-app-version';
 import { hasUnsavedWork } from '@/lib/app-refresh/has-unsaved-work';
+import {
+    resolveInertiaVisitAction,
+    shouldAdvanceAuthorizationRevision,
+    shouldReportManualRefreshSuccess,
+} from '@/lib/app-refresh/inertia-visit-outcome';
+import type { InertiaVisitEvent } from '@/lib/app-refresh/inertia-visit-outcome';
 import { reloadApplication } from '@/lib/app-refresh/reload-application';
 import type {
     AppRefreshListener,
@@ -134,8 +140,9 @@ class AppRefreshController {
     }
 
     /**
-     * Sync authorization revision from Inertia. Never replaces loadedVersion.
-     * Server version in shared props is treated as a hint only.
+     * Apply version/auth hints from a successful Inertia page payload.
+     * Never replaces loadedVersion. Does not invent success for failed visits —
+     * callers only invoke this when page props actually updated.
      */
     syncFromInertiaProps(
         serverVersion: string,
@@ -169,6 +176,14 @@ class AppRefreshController {
             return;
         }
 
+        if (this.inFlight) {
+            try {
+                await this.inFlight;
+            } catch {
+                // Prior poll failure should not block a manual refresh.
+            }
+        }
+
         this.refreshing = true;
         this.lastError = null;
         this.emit();
@@ -185,7 +200,6 @@ class AppRefreshController {
             );
 
             if (this.updateAvailable) {
-                // Manual refresh reopens the dialog even after Later.
                 this.openUpdateDialog({ force: true });
 
                 return;
@@ -193,9 +207,16 @@ class AppRefreshController {
 
             await this.reloadSharedAndPage();
             toast.success('App refreshed.');
-        } catch {
-            this.lastError = 'Could not refresh the app. Please try again.';
-            toast.error(this.lastError);
+        } catch (error) {
+            if (
+                error instanceof Error &&
+                error.message === 'Refresh cancelled'
+            ) {
+                this.lastError = null;
+            } else {
+                this.lastError = 'Could not refresh the app. Please try again.';
+                toast.error(this.lastError);
+            }
         } finally {
             this.refreshing = false;
             this.emit();
@@ -406,51 +427,118 @@ class AppRefreshController {
         await this.reloadAuthorization(nextRevision);
     }
 
-    private reloadAuthorization(nextRevision: string): Promise<void> {
+    private reloadAuthorization(expectedRevision: string): Promise<void> {
         return new Promise((resolve) => {
             let settled = false;
+            let revisionFromSuccess: string | null = null;
 
-            const finish = () => {
-                if (settled) {
+            const cleanup = () => {
+                removeHttpException();
+                this.removingHttpException = null;
+            };
+
+            const settle = (event: InertiaVisitEvent) => {
+                const action = resolveInertiaVisitAction(event, settled);
+
+                if (action === 'ignore') {
                     return;
                 }
 
                 settled = true;
-                removeHttpException();
-                this.removingHttpException = null;
-                this.authorizationRevision = nextRevision;
-                this.emit();
+                cleanup();
+
+                if (shouldAdvanceAuthorizationRevision(action)) {
+                    this.authorizationRevision =
+                        revisionFromSuccess ?? expectedRevision;
+                    this.emit();
+                }
+
+                if (action === 'login') {
+                    window.location.assign('/login');
+                    resolve();
+
+                    return;
+                }
+
+                if (action === 'forbidden') {
+                    let redirected = false;
+                    router.visit('/dashboard', {
+                        replace: true,
+                        onSuccess: () => {
+                            redirected = true;
+                            resolve();
+                        },
+                        onError: () => {
+                            redirected = true;
+                            resolve();
+                        },
+                        onCancel: () => {
+                            redirected = true;
+                            resolve();
+                        },
+                        onFinish: () => {
+                            window.setTimeout(() => {
+                                if (!redirected) {
+                                    resolve();
+                                }
+                            }, 0);
+                        },
+                    });
+
+                    return;
+                }
+
+                // succeed or fail — keep old revision on fail so the next poll retries.
                 resolve();
             };
 
             const removeHttpException = router.on('httpException', (event) => {
                 const status = httpExceptionStatus(event);
 
-                if (status === 401 || status === 419) {
-                    finish();
-                    window.location.assign('/login');
+                if (status === 401) {
+                    settle('http_401');
+
+                    return;
+                }
+
+                if (status === 419) {
+                    settle('http_419');
 
                     return;
                 }
 
                 if (status === 403) {
-                    finish();
-                    router.visit('/dashboard', { replace: true });
+                    settle('http_403');
                 }
             });
 
             this.removingHttpException = removeHttpException;
 
-            // Full reload refreshes shared auth and page-level `can` props.
-            // Auth-only then page-only would leave stale page authorization.
             router.reload({
-                onSuccess: () => finish(),
-                onError: () => finish(),
+                onSuccess: (page) => {
+                    const pageRevision = (
+                        page?.props as {
+                            app_refresh?: {
+                                authorization_revision?: string | null;
+                            };
+                        }
+                    )?.app_refresh?.authorization_revision;
+
+                    if (
+                        typeof pageRevision === 'string' &&
+                        pageRevision !== ''
+                    ) {
+                        revisionFromSuccess = pageRevision;
+                    }
+
+                    settle('success');
+                },
+                onError: () => settle('error'),
+                onCancel: () => settle('cancel'),
                 onFinish: () => {
                     window.setTimeout(() => {
-                        if (!settled) {
-                            finish();
-                        }
+                        // Unsettled finish is failure — do not advance revision.
+                        settle('finish');
                     }, 0);
                 },
             });
@@ -460,68 +548,103 @@ class AppRefreshController {
     private reloadSharedAndPage(): Promise<void> {
         return new Promise((resolve, reject) => {
             let settled = false;
-            let sawAuthFailure = false;
 
-            const removeHttpException = router.on('httpException', (event) => {
-                const status = httpExceptionStatus(event);
+            const cleanup = () => {
+                removeHttpException();
+            };
 
-                if (status === 401 || status === 419) {
-                    sawAuthFailure = true;
-                    settled = true;
-                    removeHttpException();
+            const settle = (event: InertiaVisitEvent) => {
+                const action = resolveInertiaVisitAction(event, settled);
+
+                if (action === 'ignore') {
+                    return;
+                }
+
+                settled = true;
+                cleanup();
+
+                if (action === 'login') {
                     window.location.assign('/login');
+                    reject(new Error('Session expired'));
+
+                    return;
+                }
+
+                if (action === 'forbidden') {
+                    let redirected = false;
+                    router.visit('/dashboard', {
+                        replace: true,
+                        onSuccess: () => {
+                            redirected = true;
+                            resolve();
+                        },
+                        onError: () => {
+                            redirected = true;
+                            reject(new Error('Refresh failed after redirect'));
+                        },
+                        onCancel: () => {
+                            redirected = true;
+                            reject(new Error('Refresh cancelled'));
+                        },
+                        onFinish: () => {
+                            window.setTimeout(() => {
+                                if (!redirected) {
+                                    reject(
+                                        new Error(
+                                            'Refresh failed after redirect',
+                                        ),
+                                    );
+                                }
+                            }, 0);
+                        },
+                    });
+
+                    return;
+                }
+
+                if (shouldReportManualRefreshSuccess(action)) {
                     resolve();
 
                     return;
                 }
 
+                if (event === 'cancel') {
+                    reject(new Error('Refresh cancelled'));
+
+                    return;
+                }
+
+                reject(new Error('Refresh failed'));
+            };
+
+            const removeHttpException = router.on('httpException', (event) => {
+                const status = httpExceptionStatus(event);
+
+                if (status === 401) {
+                    settle('http_401');
+
+                    return;
+                }
+
+                if (status === 419) {
+                    settle('http_419');
+
+                    return;
+                }
+
                 if (status === 403) {
-                    sawAuthFailure = true;
-                    settled = true;
-                    removeHttpException();
-                    router.visit('/dashboard', {
-                        replace: true,
-                        onFinish: () => resolve(),
-                    });
+                    settle('http_403');
                 }
             });
 
             router.reload({
-                onSuccess: () => {
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-                    removeHttpException();
-                    resolve();
-                },
-                onError: () => {
-                    if (settled || sawAuthFailure) {
-                        return;
-                    }
-
-                    settled = true;
-                    removeHttpException();
-                    reject(new Error('Refresh failed'));
-                },
-                onCancel: () => {
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-                    removeHttpException();
-                    reject(new Error('Refresh cancelled'));
-                },
+                onSuccess: () => settle('success'),
+                onError: () => settle('error'),
+                onCancel: () => settle('cancel'),
                 onFinish: () => {
                     window.setTimeout(() => {
-                        if (!settled && !sawAuthFailure) {
-                            settled = true;
-                            removeHttpException();
-                            // Network errors: resolve without dashboard redirect.
-                            resolve();
-                        }
+                        // Unsettled finish is failure — never report success.
+                        settle('finish');
                     }, 0);
                 },
             });

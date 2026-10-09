@@ -38,9 +38,9 @@ Authenticated JSON response:
 
 ```json
 {
-  "version": "deployment-release-id",
-  "update_available": false,
-  "authorization_revision": "1.3"
+    "version": "deployment-release-id",
+    "update_available": false,
+    "authorization_revision": "1.3"
 }
 ```
 
@@ -50,7 +50,7 @@ Responses use `Cache-Control: no-store`. The endpoint does not expose environmen
 
 ## Update notification
 
-When a newer version is detected (90s poll while visible, on tab focus, on reconnect, or via manual refresh):
+When a newer version is detected (30s poll while visible, on tab focus, on reconnect, or via manual refresh):
 
 - **Title:** Update Available
 - **Later** dismisses the dialog for that version but keeps a subtle amber indicator on the refresh icon; clicking Refresh App reopens the dialog
@@ -58,11 +58,27 @@ When a newer version is detected (90s poll while visible, on tab focus, on recon
 
 A successful deploy must never silently interrupt an active workflow with unsaved changes.
 
+Manual **App refreshed** toasts appear only after a successful Inertia reload. Cancelled visits and unsettled `onFinish` callbacks are treated as failures (or silent cancels), not success.
+
+### Unsaved-work coverage
+
+Protected today via `useRegisterUnsavedWork` and/or existing `beforeunload` guards:
+
+- Employee profile editing
+- Crew assignment edit
+- Recruitment requirement form sheets
+
+Also detected: `data-unsaved-changes="true"` and `data-upload-in-progress="true"` markers.
+
+**Not universally protected:** payroll crew-timesheet per-cell drafts, leave policy sheets, and other forms that only track local `isDirty` without a beforeunload/registry hook. Those workflows can still lose in-progress edits on a confirmed hard reload.
+
 ## PWA / service worker
 
 OMS-HRM registers the Laravel-served push worker at `/sw.js` (`public/service-worker.js`). VitePWA may emit a build worker, but the app does **not** register it.
 
-`PwaUpdatePrompt` routes waiting worker installs into the same update dialog used for deploy-version updates. Full offline-first asset caching is intentionally out of scope for this feature; deploy detection + hard reload is the supported path.
+`PwaUpdatePrompt` routes waiting worker installs into the same update dialog used for deploy-version updates. Reload asks a waiting worker to `SKIP_WAITING` and prefers waiting for `controllerchange`. If that event times out, the app still hard-reloads as a best-effort asset refresh — the timeout is **not** treated as confirmed activation. When no service worker exists, reload proceeds normally. Offline manual refresh shows a connectivity warning and does not reload.
+
+Full offline-first asset caching is intentionally out of scope; deploy detection + hard reload is the supported path.
 
 Cache Storage is not wiped indiscriminately. Authentication sessions, IndexedDB data, and unrelated browser caches are left alone.
 
@@ -72,25 +88,27 @@ Frontend permission lists come from Inertia shared props (`auth.permissions`, `a
 
 Revision tokens:
 
-| Component | When it bumps |
-| --- | --- |
-| `users.authorization_revision` | Membership add/update/remove, role assignment via `UserMembershipAccess::syncRole` |
-| `companies.authorization_revision` | Role permission sync/create/duplicate/delete, company Owner bootstrap |
+| Component                          | When it bumps                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------- |
+| `users.authorization_revision`     | Membership add/update/remove, role assignment via `UserMembershipAccess::syncRole` |
+| `companies.authorization_revision` | Role permission sync/create/duplicate/delete, company Owner bootstrap              |
 
 Combined token: `{userRevision}.{companyRevision}` shared as `app_refresh.authorization_revision`.
 
 Inertia permission/role cache keys include the revision, so a bump naturally misses the previous 60s cache entry. Company switcher cache is forgotten on user membership bumps.
 
-Client polling uses a **single 30-second** interval against `GET /app/version` while the tab is visible, plus checks on focus/reconnect/manual refresh. The browser keeps the **loaded** frontend version from the initial document load and never replaces it with a newer Inertia shared-prop version until a hard reload. When the authorization revision changes, the client reloads the current page props. Session expiry redirects to login; revoked page access redirects to the dashboard. Temporary network errors do not force a dashboard redirect.
+Client polling uses a **single 30-second** interval against `GET /app/version` while the tab is visible, plus checks on focus/reconnect/manual refresh. The browser keeps the **loaded** frontend version from the initial document load and never replaces it with a newer Inertia shared-prop version until a hard reload.
+
+When the polled authorization revision changes, the client reloads the current page. The local revision advances **only after a successful Inertia response** (preferably using `app_refresh.authorization_revision` from that response). Network failures, cancellations, and unsettled finishes leave the old revision in place so the next poll retries. Session expiry redirects to login; revoked page access redirects to the dashboard without treating the failed page reload as a successful sync. Temporary network errors do not force a dashboard redirect. Backend `can:` / policies remain authoritative regardless of poll success.
 
 ## Cache invalidation boundaries
 
-| Action | Effect |
-| --- | --- |
-| Refresh App | Client Inertia reload / optional hard reload |
-| Deploy stamp change | Client update dialog |
-| Role/membership mutation | Revision bump + new Inertia auth cache key |
-| Refresh App | Does **not** run `optimize:clear`, wipe Cache Storage, or flush Spatie permission cache globally |
+| Action                   | Effect                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| Refresh App              | Client Inertia reload / optional hard reload                                                     |
+| Deploy stamp change      | Client update dialog                                                                             |
+| Role/membership mutation | Revision bump + new Inertia auth cache key                                                       |
+| Refresh App              | Does **not** run `optimize:clear`, wipe Cache Storage, or flush Spatie permission cache globally |
 
 Spatie still flushes its own permission cache when it mutates roles/permissions.
 

@@ -1,13 +1,19 @@
 import { markIntentionalUnload } from '@/lib/app-refresh/has-unsaved-work';
+import { activateWaitingServiceWorker } from '@/lib/app-refresh/service-worker-activation';
 import { ensureAppServiceWorker } from '@/lib/register-app-service-worker';
 
-const CONTROLLER_CHANGE_TIMEOUT_MS = 3_000;
+export {
+    activateWaitingServiceWorker,
+    CONTROLLER_CHANGE_TIMEOUT_MS,
+} from '@/lib/app-refresh/service-worker-activation';
+export type { ServiceWorkerActivationResult } from '@/lib/app-refresh/service-worker-activation';
 
 let reloadInFlight = false;
 
 /**
- * Activate a waiting service worker (if any), wait for controllerchange when
- * possible, then hard-reload so the browser picks up deployed assets.
+ * Activate a waiting service worker when possible, then hard-reload.
+ * A controllerchange timeout still reloads as a best-effort asset refresh;
+ * it does not claim the new worker activated.
  */
 export async function reloadApplication(): Promise<void> {
     if (reloadInFlight) {
@@ -18,46 +24,18 @@ export async function reloadApplication(): Promise<void> {
     markIntentionalUnload();
 
     try {
-        const registration = await ensureAppServiceWorker();
-        const waiting = registration?.waiting ?? null;
-
-        if (waiting && 'serviceWorker' in navigator) {
-            await new Promise<void>((resolve) => {
-                let settled = false;
-
-                const finish = () => {
-                    if (settled) {
-                        return;
-                    }
-
-                    settled = true;
-                    window.clearTimeout(timeoutId);
-                    navigator.serviceWorker.removeEventListener(
-                        'controllerchange',
-                        onControllerChange,
-                    );
-                    resolve();
-                };
-
-                const onControllerChange = () => {
-                    finish();
-                };
-
-                const timeoutId = window.setTimeout(
-                    finish,
-                    CONTROLLER_CHANGE_TIMEOUT_MS,
-                );
-
-                navigator.serviceWorker.addEventListener(
-                    'controllerchange',
-                    onControllerChange,
-                );
-                waiting.postMessage({ type: 'SKIP_WAITING' });
-            });
+        if ('serviceWorker' in navigator) {
+            const registration = await ensureAppServiceWorker();
+            await activateWaitingServiceWorker({ registration });
         }
     } catch {
         // Reload still proceeds without SW coordination.
     }
 
     window.location.reload();
+}
+
+/** Test helper */
+export function resetReloadApplicationGuard(): void {
+    reloadInFlight = false;
 }
