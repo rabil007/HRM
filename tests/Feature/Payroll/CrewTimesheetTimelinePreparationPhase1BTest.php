@@ -277,7 +277,7 @@ test('prepare uses effective end for active p4 with null end date', function () 
     CarbonImmutable::setTestNow();
 });
 
-test('prepare clips recorded future actual days to company-local today and warns', function () {
+test('prepare includes recorded future actual days within the period and still warns', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-10 12:00:00', 'Asia/Dubai'));
 
     $fixtures = makeDailyCrewTimelineFixtures();
@@ -303,8 +303,8 @@ test('prepare clips recorded future actual days to company-local today and warns
         ->firstOrFail();
 
     expect($onsite->from_date->toDateString())->toBe('2026-07-01')
-        ->and($onsite->to_date->toDateString())->toBe('2026-07-10')
-        ->and((float) $onsite->days)->toBe(10.0)
+        ->and($onsite->to_date->toDateString())->toBe('2026-07-31')
+        ->and((float) $onsite->days)->toBe(31.0)
         ->and(
             CrewTimesheetPreparationLine::query()
                 ->where('crew_timesheet_preparation_id', $preparation->id)

@@ -223,6 +223,7 @@ Authorization:
 `POST /payroll/{payrollPeriod}/crew-timeline/prepare`:
 
 - Derives payable days from eligible actual Crew Assignment phases (same allocation engine as before).
+- Allocates through the payroll period end (or an earlier explicit cutoff). Does **not** clip synchronization to company-local today, so recorded future actual movement dates inside the period are included.
 - Creates a versioned `CrewTimesheetPreparation` snapshot (tables retained for history / possible future reuse).
 - Immediately writes payable operational days onto `crew_timesheets` / `crew_timesheet_segments`.
 - Redirects back to `/payroll/{payrollPeriod}` (not a separate review page).
