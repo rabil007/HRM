@@ -43,6 +43,16 @@ class CrewAssignmentPolicy
         return $user->can('crew_operations.movements.perform');
     }
 
+    public function scheduleMovement(User $user, CrewAssignment $assignment): bool
+    {
+        return $user->can('crew_operations.movements.schedule');
+    }
+
+    public function manageScheduledMovement(User $user, CrewAssignment $assignment): bool
+    {
+        return $user->can('crew_operations.movements.schedule.manage');
+    }
+
     public function cancel(User $user, CrewAssignment $assignment): bool
     {
         return $user->can('crew_operations.assignments.cancel');

@@ -13,6 +13,7 @@ export function TravelHomeForm({
     config,
     context,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const postSignoffAccommodation = context.post_signoff_accommodation;
 
@@ -126,6 +127,7 @@ export function TravelHomeForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={
                         postSignoffAccommodation?.status === 'open_hotel'
                             ? undefined

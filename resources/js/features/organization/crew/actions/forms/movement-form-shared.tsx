@@ -12,6 +12,7 @@ import {
 } from '@/lib/company-timezone';
 import {
     resolveMovementOccurredAtMax,
+    resolveMovementOccurredAtMin,
     shouldShowFutureMovementWarning,
 } from '../../lib/future-actual-movement-dates';
 import type {
@@ -27,6 +28,7 @@ export type MovementActionFormProps = {
     context: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
     firstFieldRef?: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+    schedulingMode?: boolean;
 };
 
 export function MovementOccurredAtField({
@@ -37,6 +39,7 @@ export function MovementOccurredAtField({
     min,
     timezone,
     allowFutureActualMovementDates = false,
+    schedulingMode = false,
     onValueChange,
 }: {
     form: InertiaFormProps<CrewMovementActionFormData>;
@@ -46,6 +49,7 @@ export function MovementOccurredAtField({
     min?: string;
     timezone?: string;
     allowFutureActualMovementDates?: boolean;
+    schedulingMode?: boolean;
     onValueChange?: (value: string) => void;
 }): ReactElement {
     const effectiveTimezone = useCompanyTimezone(timezone);
@@ -58,10 +62,14 @@ export function MovementOccurredAtField({
     const max = resolveMovementOccurredAtMax(
         companyNow,
         allowFutureActualMovementDates,
+        schedulingMode,
     );
+    const resolvedMin =
+        min ?? resolveMovementOccurredAtMin(companyNow, schedulingMode);
     const showFutureWarning = shouldShowFutureMovementWarning(
         isFuture,
         allowFutureActualMovementDates,
+        schedulingMode,
     );
 
     return (
@@ -74,7 +82,7 @@ export function MovementOccurredAtField({
                 ref={inputRef as RefObject<HTMLInputElement | null> | undefined}
                 type="datetime-local"
                 value={form.data.occurred_at}
-                min={min}
+                min={resolvedMin}
                 max={max}
                 onChange={(event) => {
                     const value = event.target.value;
@@ -85,7 +93,9 @@ export function MovementOccurredAtField({
                 aria-required="true"
             />
             <p className="text-xs text-muted-foreground">
-                Recorded in company time: {timezoneLabel}.
+                {schedulingMode
+                    ? `Scheduled in company time: ${timezoneLabel}.`
+                    : `Recorded in company time: ${timezoneLabel}.`}
             </p>
             {showFutureWarning ? (
                 <p className="text-xs text-destructive">
@@ -94,10 +104,16 @@ export function MovementOccurredAtField({
                         companyNow,
                         effectiveTimezone,
                     )}
-                    ).
+                    ). Use Schedule for Later instead.
                 </p>
             ) : null}
-            <InputError message={form.errors.occurred_at} />
+            <InputError
+                message={
+                    schedulingMode
+                        ? (form.errors.scheduled_at ?? form.errors.occurred_at)
+                        : form.errors.occurred_at
+                }
+            />
         </div>
     );
 }

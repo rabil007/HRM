@@ -43,6 +43,7 @@ class CrewOperationsSetting extends Model
             'alert_relief_not_ready' => 'boolean',
             'alert_current_manning_gap' => 'boolean',
             'alert_projected_manning_gap' => 'boolean',
+            'alert_scheduled_movement_needs_attention' => 'boolean',
             'notification_email_delivery_mode' => CrewOperationalAlertEmailDeliveryMode::class,
             'notification_email_digest_at' => 'string',
             'notification_email_critical_immediate' => 'boolean',

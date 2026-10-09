@@ -8,6 +8,7 @@ export function ApproveMobilisationForm({
     config,
     context,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const missing: string[] = [];
 
@@ -76,6 +77,7 @@ export function ApproveMobilisationForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

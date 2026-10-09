@@ -79,6 +79,10 @@ const ALERT_TYPE_FIELDS = [
         key: 'alert_projected_manning_gap' as const,
         label: 'Projected manning gap',
     },
+    {
+        key: 'alert_scheduled_movement_needs_attention' as const,
+        label: 'Scheduled movement needs attention',
+    },
 ];
 
 export default function CrewOperationsSettings({
@@ -91,8 +95,6 @@ export default function CrewOperationsSettings({
         ...crew_settings,
     });
     const [disableSyncDialogOpen, setDisableSyncDialogOpen] = useState(false);
-    const [enableFutureDatesDialogOpen, setEnableFutureDatesDialogOpen] =
-        useState(false);
 
     useEffect(() => {
         form.setData({ ...crew_settings });
@@ -606,60 +608,69 @@ export default function CrewOperationsSettings({
                                 </div>
                                 <div className="space-y-1">
                                     <CardTitle className="text-base font-bold tracking-tight">
-                                        Testing Override
+                                        Future movements
                                     </CardTitle>
                                     <CardDescription className="text-xs leading-relaxed">
-                                        Temporary company-scoped controls for
-                                        controlled operational testing. Keep
-                                        disabled in production use.
+                                        Use Schedule for Later on Crew
+                                        Assignment movements. The Phase 1
+                                        Testing Override for future actual dates
+                                        is retired for normal production use.
                                     </CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="space-y-1.5">
-                                    <Label
-                                        htmlFor="allow_future_actual_movement_dates"
-                                        className="text-sm font-semibold text-foreground"
-                                    >
-                                        Allow Future Actual Movement Dates
-                                    </Label>
-                                    <p className="text-xs leading-relaxed text-muted-foreground">
-                                        When enabled, actual crew movement
-                                        actions may be recorded with future
-                                        dates/times for testing. This
-                                        immediately changes operational crew
-                                        state even when the recorded movement
-                                        time is in the future.
-                                    </p>
-                                </div>
-                                <Switch
-                                    id="allow_future_actual_movement_dates"
-                                    checked={Boolean(
-                                        form.data
-                                            .allow_future_actual_movement_dates,
-                                    )}
-                                    onCheckedChange={(checked) => {
-                                        if (
-                                            checked &&
-                                            !form.data
-                                                .allow_future_actual_movement_dates
-                                        ) {
-                                            setEnableFutureDatesDialogOpen(
-                                                true,
-                                            );
-
-                                            return;
-                                        }
-
-                                        form.setData(
-                                            'allow_future_actual_movement_dates',
-                                            checked,
-                                        );
-                                    }}
-                                />
-                            </div>
+                            {form.data.allow_future_actual_movement_dates ? (
+                                <>
+                                    <Alert className="border-destructive/40 bg-destructive/10 text-destructive dark:text-red-200">
+                                        <AlertTriangle className="text-destructive" />
+                                        <AlertTitle>
+                                            Legacy testing override still on
+                                        </AlertTitle>
+                                        <AlertDescription>
+                                            Prefer Schedule for Later. You can
+                                            disable this legacy override now —
+                                            existing operational history is not
+                                            changed.
+                                        </AlertDescription>
+                                    </Alert>
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label
+                                                htmlFor="allow_future_actual_movement_dates"
+                                                className="text-sm font-semibold text-foreground"
+                                            >
+                                                Disable legacy Testing Override
+                                            </Label>
+                                            <p className="text-xs leading-relaxed text-muted-foreground">
+                                                Turning this off restores Record
+                                                Now to historical/current dates
+                                                only.
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            id="allow_future_actual_movement_dates"
+                                            checked={Boolean(
+                                                form.data
+                                                    .allow_future_actual_movement_dates,
+                                            )}
+                                            onCheckedChange={(checked) => {
+                                                form.setData(
+                                                    'allow_future_actual_movement_dates',
+                                                    checked,
+                                                );
+                                            }}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <p className="text-xs leading-relaxed text-muted-foreground">
+                                    Record Now accepts historical and current
+                                    times. Schedule for Later stores future
+                                    intentions without changing actual crew
+                                    status until automatic execution.
+                                </p>
+                            )}
                             {form.errors.allow_future_actual_movement_dates ? (
                                 <p className="text-xs font-medium text-destructive">
                                     {
@@ -667,21 +678,6 @@ export default function CrewOperationsSettings({
                                             .allow_future_actual_movement_dates
                                     }
                                 </p>
-                            ) : null}
-                            {form.data.allow_future_actual_movement_dates ? (
-                                <Alert className="border-destructive/40 bg-destructive/10 text-destructive dark:text-red-200">
-                                    <AlertTriangle className="text-destructive" />
-                                    <AlertTitle>
-                                        Testing override enabled
-                                    </AlertTitle>
-                                    <AlertDescription>
-                                        Future actual movement dates can affect
-                                        crew status, availability, Sea Service,
-                                        accommodation, alerts, and operational
-                                        reports. Disable this setting after
-                                        testing.
-                                    </AlertDescription>
-                                </Alert>
                             ) : null}
                         </CardContent>
                     </Card>
@@ -831,19 +827,6 @@ export default function CrewOperationsSettings({
                 onConfirm={() => {
                     form.setData('sync_sea_service', false);
                     setDisableSyncDialogOpen(false);
-                }}
-            />
-
-            <ConfirmDeleteDialog
-                open={enableFutureDatesDialogOpen}
-                onOpenChange={setEnableFutureDatesDialogOpen}
-                title="Enable future movement dates?"
-                description="This testing override allows future dates for actual crew movements. Movement actions are applied immediately and may affect operational records and reports. Use this only for controlled testing."
-                cancelText="Cancel"
-                confirmText="Enable Testing Override"
-                onConfirm={() => {
-                    form.setData('allow_future_actual_movement_dates', true);
-                    setEnableFutureDatesDialogOpen(false);
                 }}
             />
         </Main>

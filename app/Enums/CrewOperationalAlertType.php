@@ -9,6 +9,7 @@ enum CrewOperationalAlertType: string
     case ReliefNotReady = 'relief_not_ready';
     case CurrentManningGap = 'current_manning_gap';
     case ProjectedManningGap = 'projected_manning_gap';
+    case ScheduledMovementNeedsAttention = 'scheduled_movement_needs_attention';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum CrewOperationalAlertType: string
             self::ReliefNotReady => 'Relief not ready',
             self::CurrentManningGap => 'Current manning gap',
             self::ProjectedManningGap => 'Projected manning gap',
+            self::ScheduledMovementNeedsAttention => 'Scheduled movement needs attention',
         };
     }
 
@@ -29,6 +31,7 @@ enum CrewOperationalAlertType: string
             self::ReliefNotReady => 'alert_relief_not_ready',
             self::CurrentManningGap => 'alert_current_manning_gap',
             self::ProjectedManningGap => 'alert_projected_manning_gap',
+            self::ScheduledMovementNeedsAttention => 'alert_scheduled_movement_needs_attention',
         };
     }
 }

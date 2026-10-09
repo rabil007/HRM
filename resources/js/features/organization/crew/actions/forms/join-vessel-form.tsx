@@ -22,6 +22,7 @@ export function JoinVesselForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const joinDate = form.data.occurred_at.slice(0, 10);
     const preJoinAccommodation = context.pre_join_accommodation;
@@ -222,6 +223,7 @@ export function JoinVesselForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={
                         preJoinAccommodation?.status === 'open_hotel'
                             ? undefined

@@ -173,7 +173,8 @@ final class CrewOperationalAlertDigestPresenter
         $hasDetailPermission = match ($alert->type) {
             CrewOperationalAlertType::SignoffOverdue,
             CrewOperationalAlertType::SignoffNoRelief,
-            CrewOperationalAlertType::ReliefNotReady => $canViewAssignments,
+            CrewOperationalAlertType::ReliefNotReady,
+            CrewOperationalAlertType::ScheduledMovementNeedsAttention => $canViewAssignments,
             CrewOperationalAlertType::CurrentManningGap => $canViewManning || $canViewOverview,
             CrewOperationalAlertType::ProjectedManningGap => $canViewPlanning || $canViewManning || $canViewOverview,
         };
@@ -250,6 +251,10 @@ final class CrewOperationalAlertDigestPresenter
                     $daysText = is_numeric($days) ? "in {$days} days" : 'approaching';
                     $status = $context['relief_status'] ?? 'Not ready';
                     $statusLine = "<div style=\"color:#d97706;font-size:12px;margin-top:2px;\">Sign-off {$daysText} (Relief: ".e($status).')</div>';
+                } elseif ($alert->type === CrewOperationalAlertType::ScheduledMovementNeedsAttention) {
+                    $action = e((string) ($context['movement_action_label'] ?? $context['movement_action'] ?? 'Scheduled movement'));
+                    $code = e((string) ($context['last_error_code'] ?? 'needs_attention'));
+                    $statusLine = "<div style=\"color:#d97706;font-size:12px;margin-top:2px;\">{$action} · {$code}</div>";
                 }
 
                 return sprintf(

@@ -1,6 +1,7 @@
 import {
     Command,
     Building2,
+    CalendarClock,
     CalendarRange,
     ClipboardList,
     LayoutDashboard,
@@ -54,6 +55,7 @@ import {
     training,
 } from '@/routes/organization';
 import { index as crewMovementCorrections } from '@/routes/organization/crew-movement-corrections';
+import { index as crewScheduledMovements } from '@/routes/organization/crew-scheduled-movements';
 import {
     generate as documentsGenerate,
     library as documentsLibrary,
@@ -252,6 +254,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Movement Corrections',
                     url: crewMovementCorrections.url(),
                     icon: FilePenLine,
+                },
+                {
+                    title: 'Scheduled Movements',
+                    url: crewScheduledMovements.url(),
+                    icon: CalendarClock,
                 },
                 {
                     title: 'Crew Movement History',

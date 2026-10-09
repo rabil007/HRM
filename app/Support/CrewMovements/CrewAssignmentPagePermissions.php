@@ -30,6 +30,9 @@ class CrewAssignmentPagePermissions
      *     start: bool,
      *     update: bool,
      *     perform_movement: bool,
+     *     schedule_movement: bool,
+     *     manage_scheduled_movement: bool,
+     *     view_scheduled_movements: bool,
      *     cancel: bool,
      *     void: bool,
      *     view_audit: bool,
@@ -57,6 +60,9 @@ class CrewAssignmentPagePermissions
             'start' => $create && $performMovement,
             'update' => $user?->can('crew_operations.assignments.update') ?? false,
             'perform_movement' => $performMovement,
+            'schedule_movement' => $user?->can('crew_operations.movements.schedule') ?? false,
+            'manage_scheduled_movement' => $user?->can('crew_operations.movements.schedule.manage') ?? false,
+            'view_scheduled_movements' => $user?->can('crew_operations.movements.schedule.view') ?? false,
             'cancel' => $user?->can('crew_operations.assignments.cancel') ?? false,
             'void' => $user?->can('crew_operations.assignments.void') ?? false,
             'view_audit' => $user?->can('audit.view') ?? false,
@@ -83,6 +89,9 @@ class CrewAssignmentPagePermissions
      *     start: bool,
      *     update: bool,
      *     perform_movement: bool,
+     *     schedule_movement: bool,
+     *     manage_scheduled_movement: bool,
+     *     view_scheduled_movements: bool,
      *     cancel: bool,
      *     void: bool,
      *     view_audit: bool,
@@ -110,6 +119,8 @@ class CrewAssignmentPagePermissions
         $base['update'] = Gate::forUser($user)->allows('update', $assignment);
         $base['cancel'] = Gate::forUser($user)->allows('cancel', $assignment);
         $base['perform_movement'] = Gate::forUser($user)->allows('performMovement', $assignment);
+        $base['schedule_movement'] = Gate::forUser($user)->allows('scheduleMovement', $assignment);
+        $base['manage_scheduled_movement'] = Gate::forUser($user)->allows('manageScheduledMovement', $assignment);
         $base['void'] = Gate::forUser($user)->allows('void', $assignment);
 
         return $base;

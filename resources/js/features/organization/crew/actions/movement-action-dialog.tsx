@@ -16,11 +16,17 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
 import {
+    SCHEDULE_LATER_HELP,
     TESTING_OVERRIDE_BANNER_MESSAGE,
+    isSchedulableMovementAction,
     shouldShowTestingOverrideBanner,
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
+import {
+    applyScheduledMovementFormPrefill,
+    buildScheduledMovementEditPayload,
+} from '@/features/organization/crew/lib/scheduled-movement-edit-payload';
 import {
     defaultDestinationTourSignoffChoice,
     findPositionTourOption,
@@ -30,11 +36,14 @@ import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vesse
 import { nowInCompanyDate, nowInCompanyTime } from '@/lib/company-timezone';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
+import { store as storeScheduledMovement } from '@/routes/organization/crew-assignments/scheduled-movements';
+import { update as updateScheduledMovement } from '@/routes/organization/crew-scheduled-movements';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementAction,
     CrewMovementActionFormData,
     CrewMovementContext,
+    CrewScheduledMovementCard,
 } from '../types';
 import { ApproveMobilisationForm } from './forms/approve-mobilisation-form';
 import { CancelAssignmentForm } from './forms/cancel-assignment-form';
@@ -208,6 +217,7 @@ function ActionForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode = false,
 }: {
     action: CrewMovementAction;
     form: ReturnType<typeof useForm<CrewMovementActionFormData>>;
@@ -215,8 +225,16 @@ function ActionForm({
     context: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
     firstFieldRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
+    schedulingMode?: boolean;
 }): ReactElement | null {
-    const props = { form, config, context, formOptions, firstFieldRef };
+    const props = {
+        form,
+        config,
+        context,
+        formOptions,
+        firstFieldRef,
+        schedulingMode,
+    };
 
     switch (action) {
         case 'approve_mobilisation':
@@ -250,6 +268,19 @@ function ActionForm({
     }
 }
 
+const DEFAULT_SCHEDULABLE_ACTIONS = [
+    'approve_mobilisation',
+    'record_arrival',
+    'send_to_training',
+    'complete_training',
+    'join_vessel',
+    'confirm_disembarkation',
+    'travel_home',
+    'transfer_vessel',
+    'redeploy',
+    'close_assignment',
+];
+
 export function MovementActionDialog({
     open,
     onOpenChange,
@@ -258,6 +289,10 @@ export function MovementActionDialog({
     movementContext,
     formOptions,
     transferPrefill = null,
+    editingSchedule = null,
+    canSchedule,
+    hasActiveSchedule,
+    schedulableActions,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -266,17 +301,40 @@ export function MovementActionDialog({
     movementContext: CrewMovementContext;
     formOptions?: CrewAssignmentFormOptions;
     transferPrefill?: VesselTransferPrefill | null;
+    editingSchedule?: CrewScheduledMovementCard | null;
+    canSchedule?: boolean;
+    hasActiveSchedule?: boolean;
+    schedulableActions?: string[];
 }): ReactElement {
+    const isEditingSchedule = editingSchedule != null;
+    const resolvedCanSchedule = Boolean(
+        canSchedule ?? movementContext.can_schedule ?? isEditingSchedule,
+    );
+    const resolvedHasActiveSchedule = Boolean(
+        isEditingSchedule
+            ? false
+            : (hasActiveSchedule ?? movementContext.has_active_schedule),
+    );
+    const resolvedSchedulableActions =
+        schedulableActions ??
+        movementContext.schedulable_actions ??
+        DEFAULT_SCHEDULABLE_ACTIONS;
     const firstFieldRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(
         null,
     );
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
+    const [mode, setMode] = useState<'record_now' | 'schedule_later'>(
+        isEditingSchedule ? 'schedule_later' : 'record_now',
+    );
     const form = useForm<CrewMovementActionFormData>(
-        buildInitialForm(
-            action ?? 'approve_mobilisation',
-            movementContext,
-            formOptions,
-            transferPrefill,
+        applyScheduledMovementFormPrefill(
+            buildInitialForm(
+                action ?? 'approve_mobilisation',
+                movementContext,
+                formOptions,
+                transferPrefill,
+            ),
+            editingSchedule,
         ),
     );
 
@@ -287,15 +345,25 @@ export function MovementActionDialog({
 
         form.clearErrors();
         form.setData(
-            buildInitialForm(
-                action,
-                movementContext,
-                formOptions,
-                transferPrefill,
+            applyScheduledMovementFormPrefill(
+                buildInitialForm(
+                    action,
+                    movementContext,
+                    formOptions,
+                    transferPrefill,
+                ),
+                editingSchedule,
             ),
         );
+        setMode(isEditingSchedule ? 'schedule_later' : 'record_now');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for an action
-    }, [open, action, movementContext.assignment_id, transferPrefill]);
+    }, [
+        open,
+        action,
+        movementContext.assignment_id,
+        transferPrefill,
+        editingSchedule?.id,
+    ]);
 
     useEffect(() => {
         if (!open || !action) {
@@ -321,12 +389,19 @@ export function MovementActionDialog({
         action === 'join_vessel' &&
         recommendsVesselTransfer(currentOnVessel, form.data.vessel_id);
 
+    const schedulingMode =
+        isEditingSchedule ||
+        (mode === 'schedule_later' &&
+            action !== null &&
+            resolvedCanSchedule &&
+            isSchedulableMovementAction(action, resolvedSchedulableActions));
+
     const submit = (): void => {
         if (!action) {
             return;
         }
 
-        if (recommendsTransfer) {
+        if (recommendsTransfer && !schedulingMode) {
             setTransferPromptOpen(true);
 
             return;
@@ -483,10 +558,37 @@ export function MovementActionDialog({
                     .no_hotel_accommodation;
             }
 
+            if (schedulingMode) {
+                const checkOutAutoSynced =
+                    action === 'join_vessel' &&
+                    Boolean(payload.check_out_date) &&
+                    payload.check_out_date === payload.occurred_at.slice(0, 10);
+                const sourceCheckOutAutoSynced =
+                    action === 'redeploy' &&
+                    Boolean(payload.source_check_out_date) &&
+                    payload.source_check_out_date ===
+                        payload.occurred_at.slice(0, 10);
+
+                if (isEditingSchedule && editingSchedule) {
+                    return buildScheduledMovementEditPayload(action, payload, {
+                        checkOutDateAutoSynced: checkOutAutoSynced,
+                        sourceCheckOutDateAutoSynced: sourceCheckOutAutoSynced,
+                    });
+                }
+
+                return {
+                    ...payload,
+                    mode: 'schedule_later' as const,
+                    scheduled_at: payload.occurred_at,
+                    check_out_date_auto_synced: checkOutAutoSynced,
+                    source_check_out_date_auto_synced: sourceCheckOutAutoSynced,
+                };
+            }
+
             return payload;
         });
 
-        form.post(performAction.url(assignmentId), {
+        const finish = {
             preserveScroll: true,
             onFinish: () => {
                 form.transform((data) => data);
@@ -494,7 +596,19 @@ export function MovementActionDialog({
             onSuccess: () => {
                 onOpenChange(false);
             },
-        });
+        };
+
+        if (isEditingSchedule && editingSchedule) {
+            form.put(updateScheduledMovement.url(editingSchedule.id), finish);
+
+            return;
+        }
+
+        const url = schedulingMode
+            ? storeScheduledMovement.url(assignmentId)
+            : performAction.url(assignmentId);
+
+        form.post(url, finish);
     };
 
     if (!action) {
@@ -524,12 +638,29 @@ export function MovementActionDialog({
         action === 'transfer_vessel' ||
         action === 'redeploy';
     const cancelLabel = config.keepOpenLabel ?? 'Cancel';
-    const submitLabel =
-        action === 'travel_home'
+    const canOfferSchedule =
+        resolvedCanSchedule &&
+        isSchedulableMovementAction(action, resolvedSchedulableActions) &&
+        !isDestructive;
+    const scheduleBlocked = canOfferSchedule && resolvedHasActiveSchedule;
+    const submitLabel = isEditingSchedule
+        ? 'Save Changes'
+        : schedulingMode
+          ? 'Save Schedule'
+          : action === 'travel_home'
             ? form.data.completion_intent === 'redeploy'
                 ? 'Move to Home / Redeployment'
                 : 'Return Home & Close Assignment'
             : config.submitLabel;
+    const effectiveConfig = schedulingMode
+        ? {
+              ...config,
+              occurredAtLabel: config.occurredAtLabel
+                  ? `Scheduled ${config.occurredAtLabel.replace(/^Actual\s+/i, '')}`
+                  : 'Scheduled date and time',
+              description: `${config.description} Schedule for later — no operational side effects until automatic execution.`,
+          }
+        : config;
 
     return (
         <Fragment>
@@ -557,15 +688,76 @@ export function MovementActionDialog({
                             ) : null}
                         </div>
                         <DialogDescription>
-                            {config.description}
+                            {effectiveConfig.description}
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                        {canOfferSchedule && !isEditingSchedule ? (
+                            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 p-1">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        mode === 'record_now'
+                                            ? 'default'
+                                            : 'ghost'
+                                    }
+                                    onClick={() => setMode('record_now')}
+                                    disabled={form.processing}
+                                >
+                                    Record Now
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                        mode === 'schedule_later'
+                                            ? 'default'
+                                            : 'ghost'
+                                    }
+                                    onClick={() => setMode('schedule_later')}
+                                    disabled={
+                                        form.processing || scheduleBlocked
+                                    }
+                                >
+                                    Schedule for Later
+                                </Button>
+                            </div>
+                        ) : null}
+
+                        {isEditingSchedule ? (
+                            <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-950 dark:text-sky-100">
+                                Editing the pending schedule. Supported movement
+                                fields use the same validation as Schedule for
+                                Later. Unchanged hotel dates keep manual
+                                overrides.
+                            </div>
+                        ) : null}
+
+                        {scheduleBlocked ? (
+                            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                                This assignment already has a pending scheduled
+                                movement. Edit, reschedule, or cancel it before
+                                creating another.
+                            </div>
+                        ) : null}
+
+                        {schedulingMode ? (
+                            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                                {SCHEDULE_LATER_HELP} Expected next phase:{' '}
+                                {impactPreview?.title ??
+                                    effectiveConfig.nextPhaseLabel ??
+                                    'operational transition'}
+                                .
+                            </div>
+                        ) : null}
+
                         {shouldShowTestingOverrideBanner(
                             Boolean(
                                 movementContext.allow_future_actual_movement_dates,
                             ),
+                            schedulingMode,
                         ) ? (
                             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
                                 {TESTING_OVERRIDE_BANNER_MESSAGE}
@@ -577,14 +769,23 @@ export function MovementActionDialog({
                         <ActionForm
                             action={action}
                             form={form}
-                            config={config}
+                            config={effectiveConfig}
                             context={movementContext}
                             formOptions={formOptions}
                             firstFieldRef={firstFieldRef}
+                            schedulingMode={schedulingMode}
                         />
 
-                        {impactPreview ? (
+                        {impactPreview && !schedulingMode ? (
                             <ActionImpactPreview {...impactPreview} />
+                        ) : null}
+
+                        {schedulingMode && impactPreview ? (
+                            <ActionImpactPreview
+                                {...impactPreview}
+                                title="Scheduled outcome (at execution)"
+                                warning="These changes apply only when the schedule executes successfully."
+                            />
                         ) : null}
 
                         <InputError
@@ -597,6 +798,8 @@ export function MovementActionDialog({
                             }
                         />
                         <InputError message={form.errors.action} />
+                        <InputError message={form.errors.mode} />
+                        <InputError message={form.errors.scheduled_at} />
                     </div>
 
                     <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4 sm:justify-end">
@@ -610,9 +813,16 @@ export function MovementActionDialog({
                         </Button>
                         <Button
                             type="button"
-                            variant={isDestructive ? 'destructive' : 'default'}
+                            variant={
+                                isDestructive && !schedulingMode
+                                    ? 'destructive'
+                                    : 'default'
+                            }
                             onClick={submit}
-                            disabled={form.processing}
+                            disabled={
+                                form.processing ||
+                                (schedulingMode && scheduleBlocked)
+                            }
                         >
                             {form.processing ? (
                                 <Spinner className="mr-2" />

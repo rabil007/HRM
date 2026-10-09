@@ -30,6 +30,7 @@ export function CancelAssignmentForm({
     config,
     context,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const openAccommodation = resolveOpenHotelAccommodation(
         context.pre_join_accommodation,
@@ -172,6 +173,7 @@ export function CancelAssignmentForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={
                         openAccommodation !== null ? undefined : firstFieldRef
                     }

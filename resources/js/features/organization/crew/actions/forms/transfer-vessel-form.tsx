@@ -24,6 +24,7 @@ export function TransferVesselForm({
     context,
     formOptions,
     firstFieldRef,
+    schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const transferDate = form.data.occurred_at.slice(0, 10);
     const selectedPosition = findPositionTourOption(
@@ -135,6 +136,7 @@ export function TransferVesselForm({
                     allowFutureActualMovementDates={Boolean(
                         context.allow_future_actual_movement_dates,
                     )}
+                    schedulingMode={Boolean(schedulingMode)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

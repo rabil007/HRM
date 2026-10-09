@@ -63,6 +63,7 @@ function enableCrewNotificationsForUser(int $companyId, int $userId, array $over
             'alert_relief_not_ready' => true,
             'alert_current_manning_gap' => true,
             'alert_projected_manning_gap' => true,
+            'alert_scheduled_movement_needs_attention' => true,
         ], $overrides),
     );
 }
