@@ -276,22 +276,55 @@ final class ExecuteCrewScheduledMovement
         string $message,
     ): CrewScheduledMovement {
         return DB::transaction(function () use ($schedule, $code, $message): CrewScheduledMovement {
-            /** @var CrewScheduledMovement|null $locked */
-            $locked = CrewScheduledMovement::query()
-                ->whereKey($schedule->id)
+            $safeMessage = $this->sanitizeMessage($message);
+
+            // Query-builder update so corrupt casts cannot block Needs Attention recovery.
+            $row = DB::table('crew_scheduled_movements')
+                ->where('id', $schedule->id)
                 ->lockForUpdate()
                 ->first();
 
-            if ($locked === null) {
+            if ($row === null) {
                 return $schedule;
             }
 
-            if ($locked->status === CrewScheduledMovementStatus::Executed
-                || $locked->status === CrewScheduledMovementStatus::Cancelled) {
-                return $locked;
+            if (in_array((string) $row->status, [
+                CrewScheduledMovementStatus::Executed->value,
+                CrewScheduledMovementStatus::Cancelled->value,
+            ], true)) {
+                return $schedule;
             }
 
-            return $this->markNeedsAttentionLocked($locked, $code, $message);
+            DB::table('crew_scheduled_movements')
+                ->where('id', $schedule->id)
+                ->update([
+                    'status' => CrewScheduledMovementStatus::NeedsAttention->value,
+                    'last_error_code' => $code->value,
+                    'last_error_message' => $safeMessage,
+                    'processing_started_at' => null,
+                    'updated_at' => now(),
+                ]);
+
+            activity()
+                ->performedOn($schedule)
+                ->withProperties([
+                    'event' => 'crew_scheduled_movement_needs_attention',
+                    'company_id' => $row->company_id,
+                    'crew_assignment_id' => $row->crew_assignment_id,
+                    'movement_action' => $row->movement_action,
+                    'error_code' => $code->value,
+                    'executor' => 'system_automatic',
+                ])
+                ->log('Scheduled crew movement needs attention');
+
+            $schedule->forceFill([
+                'status' => CrewScheduledMovementStatus::NeedsAttention,
+                'last_error_code' => $code->value,
+                'last_error_message' => $safeMessage,
+                'processing_started_at' => null,
+            ]);
+
+            return $schedule;
         });
     }
 
@@ -300,10 +333,12 @@ final class ExecuteCrewScheduledMovement
         CrewScheduledMovementErrorCode $code,
         string $message,
     ): CrewScheduledMovement {
+        $safeMessage = $this->sanitizeMessage($message);
+
         $locked->update([
             'status' => CrewScheduledMovementStatus::NeedsAttention,
             'last_error_code' => $code->value,
-            'last_error_message' => $this->sanitizeMessage($message),
+            'last_error_message' => $safeMessage,
             'processing_started_at' => null,
         ]);
 

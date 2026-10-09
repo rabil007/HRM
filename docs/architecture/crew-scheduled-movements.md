@@ -22,7 +22,7 @@ There is **no manual confirmation mode** for due schedules. Execution is automat
 | `effective_occurred_at` | UTC `DATETIME` | Operational occurrence applied (company-local wall passed into `CrewMovementService`) |
 | `cancelled_at` | UTC `DATETIME` | When cancelled |
 
-Columns use MySQL/SQLite **DATETIME** (not TIMESTAMP) so session timezones cannot rewrite stored UTC walls. Eloquent uses `UtcDateTimeCast`. Due selection, lateness, stale recovery, and index filters all compare UTC instants. Presenters convert UTC → company-local for operators.
+Columns use MySQL/SQLite **DATETIME** (not TIMESTAMP) so session timezones cannot rewrite stored UTC walls. Eloquent uses `UtcDateTimeCast`. Due selection, lateness, stale recovery, and index filters all compare UTC instants. Presenters convert UTC → company-local for operators. Daylight-saving nonexistent and ambiguous local walls are rejected at schedule create/update. Legacy company-local rows (if any from early PR builds) must be cancelled/recreated or converted using `scheduled_timezone` — never silently reinterpreted as UTC (see runbook).
 
 ## Data model
 
