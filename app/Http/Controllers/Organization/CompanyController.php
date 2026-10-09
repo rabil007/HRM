@@ -12,6 +12,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\AppRefresh\AuthorizationRevision;
 use App\Support\Companies\CompanyRegistryAccess;
 use App\Support\CompanyDocuments\CompanyDocumentAccess;
 use App\Support\CompanyDocuments\CompanyDocumentQuery;
@@ -227,6 +228,8 @@ class CompanyController extends Controller
             $role->syncPermissions($permissions);
             app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
             $user->assignRole($role);
+            AuthorizationRevision::bumpCompany((int) $company->id);
+            AuthorizationRevision::bumpUser($user);
         }
 
         HandleInertiaRequests::forgetCompanySwitcherCacheForCompany($company);

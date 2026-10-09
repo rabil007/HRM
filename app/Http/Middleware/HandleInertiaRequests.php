@@ -6,6 +6,8 @@ use App\Models\Company;
 use App\Models\NavigationFavorite;
 use App\Models\User;
 use App\Services\Settings\SettingService;
+use App\Support\AppRefresh\AuthorizationRevision;
+use App\Support\AppRefresh\DeployedApplicationVersion;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Auth\UnrestrictedCompanyAccess;
@@ -102,6 +104,7 @@ class HandleInertiaRequests extends Middleware
         $permissions = [];
         $roleNames = [];
         $favoriteDestinationKeys = [];
+        $authorizationRevision = null;
 
         if ($user) {
             $accessibleCompanyIds = $companyAccess->accessibleCompanyIds($user);
@@ -134,7 +137,7 @@ class HandleInertiaRequests extends Middleware
                 app(PermissionRegistrar::class)->setPermissionsTeamId(null);
             }
 
-            $companiesCacheKey = "inertia:shared:{$user->id}:companies";
+            $companiesCacheKey = AuthorizationRevision::companiesCacheKey($user->id);
             $cachedCompanies = Cache::get($companiesCacheKey);
             $accessibleIdSet = array_fill_keys($accessibleCompanyIds, true);
 
@@ -153,16 +156,33 @@ class HandleInertiaRequests extends Middleware
                 });
             }
 
+            $authorizationRevision = AuthorizationRevision::current(
+                $user,
+                $currentCompanyId !== null ? (int) $currentCompanyId : null,
+            );
+
             if ($currentCompanyId === null) {
                 $permissions = [];
                 $roleNames = [];
             } else {
                 $companyKeyPart = (int) $currentCompanyId;
-                $permissionsCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:permissions";
-                $rolesCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:roles";
+                $permissionsCacheKey = AuthorizationRevision::permissionsCacheKey(
+                    $user->id,
+                    $companyKeyPart,
+                    $authorizationRevision,
+                );
+                $rolesCacheKey = AuthorizationRevision::rolesCacheKey(
+                    $user->id,
+                    $companyKeyPart,
+                    $authorizationRevision,
+                );
 
                 $permissions = Cache::remember($permissionsCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
                     app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+
+                    // Avoid serving stale Spatie relation caches after role/permission edits.
+                    $user->unsetRelation('roles');
+                    $user->unsetRelation('permissions');
 
                     if (UnrestrictedCompanyAccess::grants($user)) {
                         return UnrestrictedCompanyAccess::permissionNames();
@@ -173,6 +193,8 @@ class HandleInertiaRequests extends Middleware
 
                 $roleNames = Cache::remember($rolesCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
                     app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+
+                    $user->unsetRelation('roles');
 
                     return $user->getRoleNames()->all();
                 });
@@ -218,6 +240,10 @@ class HandleInertiaRequests extends Middleware
                 'leave_approvals_count' => ($user && $currentCompanyId !== null)
                     ? app(LeaveApprovalNeedsActionCounter::class)->count($user, (int) $currentCompanyId)
                     : 0,
+            ],
+            'app_refresh' => [
+                'version' => DeployedApplicationVersion::current(),
+                'authorization_revision' => $authorizationRevision,
             ],
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,

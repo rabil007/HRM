@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Permission;
 use App\Models\Role;
+use App\Support\AppRefresh\AuthorizationRevision;
 use App\Support\Authorization\ApplicationPermissionRegistry;
 use App\Support\Authorization\Presenters\PermissionOptionPresenter;
 use App\Support\Departments\BuildDepartmentTree;
@@ -118,6 +119,7 @@ class RoleController extends Controller
             ]);
 
             $role->syncPermissions($data['permissions'] ?? []);
+            AuthorizationRevision::bumpCompany($companyId);
 
             if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS && ! empty($data['department_ids'])) {
                 $syncData = [];
@@ -175,6 +177,7 @@ class RoleController extends Controller
 
             if ($request->exists('permissions')) {
                 $role->syncPermissions($data['permissions'] ?? []);
+                AuthorizationRevision::bumpCompany($companyId);
             }
 
             if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS && $request->has('department_ids')) {
@@ -234,6 +237,7 @@ class RoleController extends Controller
                 ->all();
 
             $newRole->syncPermissions($permissionNames);
+            AuthorizationRevision::bumpCompany($companyId);
 
             if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS) {
                 $departmentIds = $role->employeeVisibilityDepartments()
@@ -269,9 +273,10 @@ class RoleController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($role) {
+        DB::transaction(function () use ($role, $companyId) {
             $role->employeeVisibilityDepartments()->detach();
             $role->delete();
+            AuthorizationRevision::bumpCompany($companyId);
             EmployeeVisibilityScope::clearCache();
         });
 

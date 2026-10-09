@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import { AnnouncementNotificationBell } from '@/components/announcement-notification-bell';
+import { AppRefreshButton } from '@/components/app-refresh-button';
 import { ApplicationBrandingSync } from '@/components/application-branding-sync';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { ConfigDrawer } from '@/components/config-drawer';
@@ -44,6 +45,7 @@ export default function AppLayout({
                     <div className="ms-auto flex items-center gap-2 sm:gap-4">
                         <Search />
                         <AnnouncementNotificationBell />
+                        <AppRefreshButton />
                         <ThemeSwitch />
                         <ConfigDrawer />
                         <ProfileDropdown />

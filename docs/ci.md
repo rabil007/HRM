@@ -126,6 +126,7 @@ CI uses `contents: read`. Deploy uses `contents: read` plus `actions: read`.
 - If `frontend_build_required=false`, production keeps the existing gitignored `public/build` directory (`git reset --hard` does not delete it). No Vite, no rsync of frontend assets.
 - Production Node/Puppeteer: deploy selects Node.js and passes that same Node/npm pair explicitly to Browsershot, `npm ci`, install, and doctor checks. This prevents `.env` binary overrides from making Puppeteer install under one Node runtime and execute under another. Browsershot uses Puppeteer's pipe transport to avoid depending on a local DevTools WebSocket port, which shared hosts may refuse. Skip `npm ci` when `storage/app/deploy/npm-lock.sha256` matches `package-lock.json` and `browsershot:doctor` passes. Otherwise `npm ci --omit=dev` then a single Browsershot install, then write the stamp.
 - Deploy concurrency: `deploy-main`, `cancel-in-progress: false`.
+- After a successful release, deploy writes `storage/app/deploy/revision.sha`. Authenticated clients poll that identifier via `GET /app/version` for the in-app update notification (see [app-refresh.md](./app-refresh.md)). CI success alone does not notify users until this stamp is published.
 
 ## GitHub vs local
 

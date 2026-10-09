@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApplicationLogController;
+use App\Http\Controllers\AppVersionController;
 use App\Http\Controllers\Attendance\AttendanceCalendarController;
 use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\LeaveApprovalPolicyController;
@@ -357,6 +358,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
+    Route::get('app/version', AppVersionController::class)
+        ->middleware('throttle:60,1')
+        ->name('app.version');
     Route::post('notification-settings/push-subscription', StorePushSubscriptionController::class)
         ->middleware('throttle:20,1')
         ->name('notification-settings.push-subscription.store');

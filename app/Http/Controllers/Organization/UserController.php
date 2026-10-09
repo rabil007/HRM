@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\AppRefresh\AuthorizationRevision;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\UpdateOrganizationUser;
 use App\Support\Users\GlobalIdentityAccessGuard;
@@ -438,6 +439,8 @@ class UserController extends Controller
 
         if ($roleId !== null) {
             UserMembershipAccess::syncRole($user, $companyId, $roleId);
+        } else {
+            AuthorizationRevision::bumpUser($user);
         }
 
         UserMembershipAccess::log($request, $user, $companyId, 'added company membership', [

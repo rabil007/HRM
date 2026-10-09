@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deployed Application Version
+    |--------------------------------------------------------------------------
+    |
+    | Optional override for the release identifier exposed to authenticated
+    | clients for update checks. Production normally reads
+    | storage/app/deploy/revision.sha written by the Hostinger deploy workflow.
+    |
+    */
+
+    'deploy_version' => env('APP_DEPLOY_VERSION'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |
