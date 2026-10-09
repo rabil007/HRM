@@ -1283,6 +1283,22 @@ This is powered by `ActiveOnVesselAssignmentFinder` (`form_options.active_on_ves
 
 The edit sidebar answers “what can I safely change on this existing mobilisation?” via `assignment-edit-guidance.ts`: phase-aware copy, safe-to-update fields, destination-change notes (not Transfer Vessel before boarding), linked Planning change summary (Vessel/Rank/Expected Join), and proactive date advisories. Backend validation in `UpdateCrewAssignmentRequest` remains authoritative. Edit form options preserve inactive historical Vessel/Client options when unchanged.
 
+### Phase Timeline (Plan vs Actual)
+
+The Crew Assignment show page presents a single **Phase Timeline** as the operator-facing source for planned and actual movements (`CrewAssignmentPhaseTimeline`).
+
+| Mode | Meaning |
+|------|---------|
+| **Plan vs Actual** (default) | Dual bars (planned + actual) on one shared calendar scale, with start/end/duration variance copy |
+| **Actual Only** | Existing actual movement history presentation |
+| **Planned Only** | Planned phase schedule only |
+
+Data sources (unchanged storage):
+
+- Per-phase planned/actual windows come from `crew_assignment_phases.planned_start_at` / `planned_end_at` / `actual_start_at` / `actual_end_at` (presented as company-local date strings by `CrewAssignmentPresenter`).
+- Assignment-level forecast milestones (Arrival, Vessel Join, Travel, Sign-Off, Started, Closed) remain on `CrewAssignment` and appear as an expandable **Assignment milestones** strip inside the same card — not a separate Plan vs Actual card.
+- Variance is presentation-only. Active phases without `actual_end_at` never treat “today” as a confirmed completion for end/duration variance. Planned and actual values stay independent; movement workflows, corrections, overrides, transfers, timesheets, and sea service are unchanged.
+
 ### Operational timestamps and company timezone UX
 
 All crew movement forms, action dialogs, and correction interfaces operate in the **company timezone**, not the user device's local browser timezone.
