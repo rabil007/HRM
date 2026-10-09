@@ -62,6 +62,8 @@ class VoidCrewAssignmentRequest extends FormRequest
             'void_reason' => ['required', 'string', 'max:2000'],
             'delete_sea_service' => ['sometimes', 'boolean'],
             'delete_training' => ['sometimes', 'boolean'],
+            'delete_draft_timesheet' => ['sometimes', 'boolean'],
+            'delete_accommodation' => ['sometimes', 'boolean'],
         ];
     }
 

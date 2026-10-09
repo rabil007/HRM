@@ -26,6 +26,7 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use App\Support\CrewMovements\CurrentCrewRequestFilters;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 beforeEach(function (): void {
     freezeCrewMovementTestClock();
@@ -1760,7 +1761,7 @@ test('cancel rejects multiple open hotel stays without partial mutation', functi
     expect($assignment->fresh()->status)->toBe(CrewAssignmentStatus::Active);
 });
 
-test('void is blocked when pre join hotel stay exists', function () {
+test('void is blocked when pre join hotel stay exists without accommodation cleanup', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
     [$assignment, , $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
@@ -1778,7 +1779,37 @@ test('void is blocked when pre join hotel stay exists', function () {
         ->toContain('accommodation_history_exists');
 });
 
-test('void is blocked when post signoff hotel stay exists', function () {
+test('void with accommodation cleanup removes pre join hotel stay and audits snapshot', function () {
+    $fixtures = makeCrewMovementAccommodationFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
+    [$assignment, $hotel, $stay] = makeActiveP2AAssignmentWithPreJoinHotel($fixtures);
+    $stayId = $stay->id;
+
+    app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->id,
+        $fixtures['user'],
+        'Erroneous accommodation assignment',
+        deleteAccommodation: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewAccommodationStay::query()->whereKey($stayId)->exists())->toBeFalse()
+        ->and(Hotel::query()->whereKey($hotel->id)->exists())->toBeTrue();
+
+    $activity = Activity::query()
+        ->where('description', 'Crew assignment voided as erroneous')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->properties['delete_accommodation'])->toBeTrue()
+        ->and($activity->properties['accommodation_records_deleted'])->toBe(1)
+        ->and($activity->properties['accommodation_deleted_snapshot'][0]['id'])->toBe($stayId)
+        ->and($activity->properties['accommodation_deleted_snapshot'][0]['hotel_name'])->toBe($hotel->name);
+});
+
+test('void is blocked when post signoff hotel stay exists without accommodation cleanup', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
     [$assignment, , $stay] = makeActiveP5AssignmentWithPostSignoffHotel($fixtures);
@@ -1794,7 +1825,7 @@ test('void is blocked when post signoff hotel stay exists', function () {
         ->and($stay->fresh()->check_out_date)->toBeNull();
 });
 
-test('void is blocked when no accommodation record exists', function () {
+test('void is blocked when no accommodation record exists without cleanup', function () {
     $fixtures = makeCrewMovementAccommodationFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['crew_operations.assignments.void']);
     $assignment = startActivePreMobilisationAssignment($fixtures);
@@ -1810,6 +1841,17 @@ test('void is blocked when no accommodation record exists', function () {
         $fixtures['user'],
         'Should be blocked',
     ))->toThrow(ValidationException::class);
+
+    app(VoidCrewAssignment::class)->handle(
+        $fixtures['company']->id,
+        $assignment->fresh()->id,
+        $fixtures['user'],
+        'Cleanup no accommodation',
+        deleteAccommodation: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeFalse();
 });
 
 test('void without accommodation history remains allowed', function () {

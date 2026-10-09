@@ -3,10 +3,12 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewTimesheetPayCategory;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\CrewTimesheetSource;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\Company;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewOperationalAlert;
@@ -534,12 +536,14 @@ test('paid payroll period segment blocks void', function () {
         'source' => CrewTimesheetSource::CrewOperations,
     ]);
 
-    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+    $blockers = app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id);
+    $codes = collect($blockers)->pluck('code');
     expect($codes)->toContain('payroll_protected')
-        ->and($codes)->toContain('protected_dependency_exists');
+        ->and($codes)->not->toContain('draft_timesheet_exists')
+        ->and(collect($blockers)->firstWhere('code', 'payroll_protected')['message'])->toContain('protected payroll');
 });
 
-test('timesheet segment dependency blocks void', function () {
+test('draft timesheet segment blocks void without cleanup and allows with cleanup', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
@@ -548,6 +552,119 @@ test('timesheet segment dependency blocks void', function () {
     $period = PayrollPeriod::factory()->for($company)->create([
         'status' => PayrollPeriodStatus::Draft,
         'payroll_category' => 'crew',
+        'name' => 'Oct 2026 Crew Draft',
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::CrewOperations,
+        'onsite_days' => 5,
+        'additional_amount' => 25,
+    ]);
+
+    $segment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-01',
+        'to_date' => '2026-07-05',
+        'days' => 5,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'position_id' => $rank->id,
+        'status' => 'active',
+    ]);
+    $otherAssignment = app(CrewMovementService::class)->createDraft($company->id, $otherEmployee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $otherTimesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $otherEmployee->id,
+        'period_id' => $period->id,
+        'source' => CrewTimesheetSource::CrewOperations,
+        'onsite_days' => 3,
+    ]);
+
+    $otherSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $otherTimesheet->id,
+        'crew_assignment_id' => $otherAssignment->id,
+        'from_date' => '2026-07-06',
+        'to_date' => '2026-07-08',
+        'days' => 3,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    // Keep an unrelated segment on the same timesheet so parent totals stay consistent.
+    $siblingSegment = CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $otherAssignment->id,
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'from_date' => '2026-07-06',
+        'to_date' => '2026-07-08',
+        'days' => 3,
+        'source' => CrewTimesheetSource::CrewOperations,
+    ]);
+
+    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
+    expect($codes)->toContain('draft_timesheet_exists')
+        ->and($codes)->not->toContain('protected_dependency_exists');
+
+    expect(fn () => app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Draft without cleanup',
+    ))->toThrow(ValidationException::class);
+
+    expect(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeTrue();
+
+    app(VoidCrewAssignment::class)->handle(
+        $company->id,
+        $assignment->id,
+        $user,
+        'Draft with cleanup',
+        deleteDraftTimesheet: true,
+    );
+
+    expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($segment->id)->exists())->toBeFalse()
+        ->and(CrewTimesheetSegment::withTrashed()->findOrFail($segment->id)->trashed())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($otherSegment->id)->exists())->toBeTrue()
+        ->and(CrewTimesheetSegment::query()->whereKey($siblingSegment->id)->exists())->toBeTrue()
+        ->and((float) $timesheet->fresh()->additional_amount)->toBe(25.0)
+        ->and((float) $timesheet->fresh()->onsite_days)->toBe(3.0)
+        ->and(CrewAssignment::query()->whereKey($otherAssignment->id)->exists())->toBeTrue();
+
+    $activity = Activity::query()
+        ->where('description', 'Crew assignment voided as erroneous')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->properties['delete_draft_timesheet'])->toBeTrue()
+        ->and($activity->properties['draft_timesheet_segments_deleted'])->toBe(1);
+});
+
+test('processing payroll period segment remains a hard blocker', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'payroll_category' => 'crew',
+        'name' => 'Processing Period',
     ]);
 
     $timesheet = CrewTimesheet::factory()->create([
@@ -567,8 +684,86 @@ test('timesheet segment dependency blocks void', function () {
         'source' => CrewTimesheetSource::CrewOperations,
     ]);
 
-    $codes = collect(app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id))->pluck('code');
-    expect($codes)->toContain('protected_dependency_exists');
+    $blockers = app(CrewAssignmentVoidGuard::class)->blockers($assignment->fresh(), $company->id);
+    $codes = collect($blockers)->pluck('code');
+
+    expect($codes)->toContain('payroll_protected')
+        ->and(collect($blockers)->firstWhere('code', 'payroll_protected')['message'])->toContain('Processing Period')
+        ->and(fn () => app(VoidCrewAssignment::class)->handle(
+            $company->id,
+            $assignment->id,
+            $user,
+            'Should stay blocked',
+            deleteDraftTimesheet: true,
+        ))->toThrow(ValidationException::class);
+});
+
+test('linked transfer child blocker names the dependent assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $sourceVessel = makeCrewMovementVessel('Named Transfer Source');
+    $destinationVessel = makeCrewMovementVessel('Named Transfer Dest');
+    $source = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
+
+    app(CrewMovementService::class)->perform($company->id, $source->id, CrewMovementAction::TransferVessel, [
+        'occurred_at' => '2026-06-01 08:00:00',
+        'vessel_id' => $destinationVessel->id,
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $child = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->where('previous_assignment_id', $source->id)
+        ->firstOrFail();
+
+    $blocker = collect(app(CrewAssignmentVoidGuard::class)->blockers($source->fresh(), $company->id))
+        ->firstWhere('code', 'linked_assignment_exists');
+
+    expect($blocker)->not->toBeNull()
+        ->and($blocker['message'])->toContain($source->assignment_no)
+        ->and($blocker['message'])->toContain($child->assignment_no)
+        ->and($blocker['dependent_assignments'][0]['assignment_no'])->toBe($child->assignment_no);
+});
+
+test('void preview distinguishes protected blockers from cleanup-eligible dependencies', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();
+    $assignment = app(CrewMovementService::class)->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+    ], $user->id);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+        'payroll_category' => 'crew',
+    ]);
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+    ]);
+    CrewTimesheetSegment::factory()->create([
+        'company_id' => $company->id,
+        'crew_timesheet_id' => $timesheet->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+    CrewAccommodationStay::factory()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->postJson(route('organization.crew-assignments.void-preview'), [
+            'assignment_ids' => [$assignment->id],
+        ])
+        ->assertOk()
+        ->assertJsonPath('has_protected_blockers', false)
+        ->assertJsonPath('has_draft_timesheet', true)
+        ->assertJsonPath('has_accommodation', true)
+        ->assertJsonPath('can_delete_draft_timesheet', true)
+        ->assertJsonPath('can_delete_accommodation', true);
+
+    expect(collect($response->json('assignments.0.cleanup_blockers'))->pluck('code')->all())
+        ->toContain('draft_timesheet_exists', 'accommodation_history_exists')
+        ->and($response->json('assignments.0.protected_blockers'))->toBe([]);
 });
 
 test('normal cancel behavior remains unchanged', function () {

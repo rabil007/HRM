@@ -18,6 +18,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    accommodationSummaryLabel,
+    collectProtectedBlockers,
+    hasLinkedRecordsForCleanup,
+    unresolvedCleanupRequired,
+} from '../lib/void-impact-preview';
 import type {
     CrewAssignmentDetail,
     CrewAssignmentListItem,
@@ -85,11 +91,15 @@ export function VoidErroneousAssignmentDialog({
         void_reason: string;
         delete_sea_service: boolean;
         delete_training: boolean;
+        delete_draft_timesheet: boolean;
+        delete_accommodation: boolean;
     }>({
         assignment_ids: targetIds,
         void_reason: '',
         delete_sea_service: false,
         delete_training: false,
+        delete_draft_timesheet: false,
+        delete_accommodation: false,
     });
 
     const bagErrors = form.errors as Record<string, string | undefined>;
@@ -115,6 +125,8 @@ export function VoidErroneousAssignmentDialog({
             assignment_ids: targetIds,
             delete_sea_service: false,
             delete_training: false,
+            delete_draft_timesheet: false,
+            delete_accommodation: false,
         }));
 
         http.setData({ assignment_ids: targetIds });
@@ -156,13 +168,29 @@ export function VoidErroneousAssignmentDialog({
         preview?.can_delete_sea_service ?? can?.delete_sea_service ?? false;
     const canDeleteTraining =
         preview?.can_delete_training ?? can?.delete_training ?? false;
+    const canDeleteDraftTimesheet =
+        preview?.can_delete_draft_timesheet ?? can?.void ?? false;
+    const canDeleteAccommodation =
+        preview?.can_delete_accommodation ?? can?.void ?? false;
 
-    const hasSeaService = preview?.has_sea_service ?? false;
     const hasTraining = preview?.has_training ?? false;
+    const hasDraftTimesheet = preview?.has_draft_timesheet ?? false;
+    const hasAccommodation = preview?.has_accommodation ?? false;
     const hasProtectedBlockers = preview?.has_protected_blockers ?? false;
+    const protectedBlockerGroups = useMemo(
+        () => collectProtectedBlockers(preview),
+        [preview],
+    );
+    const showLinkedRecords = hasLinkedRecordsForCleanup(preview);
+    const accommodationLabel = preview
+        ? accommodationSummaryLabel(preview)
+        : null;
 
-    const isBlockedByMissingSeaServiceCleanup =
-        hasSeaService && !form.data.delete_sea_service;
+    const missingCleanup = unresolvedCleanupRequired(preview, {
+        delete_sea_service: form.data.delete_sea_service,
+        delete_draft_timesheet: form.data.delete_draft_timesheet,
+        delete_accommodation: form.data.delete_accommodation,
+    });
 
     const hasValidPreview =
         preview !== null &&
@@ -175,7 +203,7 @@ export function VoidErroneousAssignmentDialog({
         !hasValidPreview ||
         !form.data.void_reason.trim() ||
         hasProtectedBlockers ||
-        isBlockedByMissingSeaServiceCleanup;
+        missingCleanup;
 
     const submit = (): void => {
         if (isSubmitDisabled || !hasValidPreview || targets.length === 0) {
@@ -264,7 +292,6 @@ export function VoidErroneousAssignmentDialog({
                             'Audit history for the assignment remains retained.',
                             'Derived planning bars linked to this assignment are cleaned up according to existing void rules.',
                         ]}
-                        warning="This assignment cannot be voided if it has already affected protected payroll, sea service, or a linked assignment. Use the appropriate correction or reversal workflow instead."
                     />
                 ) : targets.length > 1 ? (
                     <ActionImpactPreview
@@ -274,7 +301,6 @@ export function VoidErroneousAssignmentDialog({
                             `${targets.length} assignments will be removed from active operational use while retaining audit history.`,
                             'Derived planning bars linked to these assignments are cleaned up according to existing void rules.',
                         ]}
-                        warning="Assignments that have affected protected payroll, sea service, or linked assignments cannot be deleted. Use the appropriate correction or reversal workflow instead."
                     />
                 ) : null}
 
@@ -301,33 +327,41 @@ export function VoidErroneousAssignmentDialog({
                     </div>
                 ) : null}
 
-                {hasProtectedBlockers && preview ? (
-                    <div className="space-y-1.5 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                {hasProtectedBlockers && protectedBlockerGroups.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
                         <div className="flex items-center gap-1.5 font-semibold">
                             <AlertTriangle className="h-4 w-4 shrink-0" />
                             <span>
                                 Cannot delete blocked assignment
-                                {preview.blocked_assignment_nos.length === 1
-                                    ? ''
-                                    : 's'}
+                                {protectedBlockerGroups.length === 1 ? '' : 's'}
                             </span>
                         </div>
-                        <p>
-                            {preview.blocked_assignment_nos.length === 1
-                                ? `Cannot delete ${preview.blocked_assignment_nos[0]}. This assignment has already affected protected payroll, accommodation history, or a linked assignment.`
-                                : `${preview.blocked_assignment_nos.join(', ')} have already affected protected payroll, accommodation history, or linked assignments.`}
-                        </p>
-                        <p className="text-[11px] opacity-90">
-                            Use the appropriate correction or reversal workflow
-                            instead.
-                        </p>
+                        <ul className="space-y-2">
+                            {protectedBlockerGroups.map((group) => (
+                                <li
+                                    key={group.assignment_no}
+                                    className="space-y-1"
+                                >
+                                    {!isSingle ? (
+                                        <div className="font-medium">
+                                            {group.assignment_no}
+                                        </div>
+                                    ) : null}
+                                    {group.blockers.map((blocker) => (
+                                        <p
+                                            key={`${group.assignment_no}-${blocker.code}`}
+                                            className="leading-relaxed"
+                                        >
+                                            {blocker.message}
+                                        </p>
+                                    ))}
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 ) : null}
 
-                {!loadingPreview &&
-                preview &&
-                (preview.total_sea_service_records > 0 ||
-                    preview.total_training_records > 0) ? (
+                {!loadingPreview && preview && showLinkedRecords ? (
                     <div className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-3 text-xs">
                         <div className="font-semibold text-foreground">
                             Linked records detected
@@ -363,6 +397,36 @@ export function VoidErroneousAssignmentDialog({
                                         {isSingle
                                             ? 'this assignment'
                                             : 'these assignments'}
+                                    </span>
+                                </div>
+                            ) : null}
+
+                            {hasDraftTimesheet ? (
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                    <span>Draft timesheet</span>
+                                    <span className="font-medium text-foreground">
+                                        {preview.total_draft_timesheet_segments}{' '}
+                                        segment
+                                        {preview.total_draft_timesheet_segments ===
+                                        1
+                                            ? ''
+                                            : 's'}{' '}
+                                        across{' '}
+                                        {preview.total_draft_timesheet_periods}{' '}
+                                        Draft period
+                                        {preview.total_draft_timesheet_periods ===
+                                        1
+                                            ? ''
+                                            : 's'}
+                                    </span>
+                                </div>
+                            ) : null}
+
+                            {hasAccommodation && accommodationLabel ? (
+                                <div className="flex items-center justify-between text-muted-foreground">
+                                    <span>Accommodation</span>
+                                    <span className="font-medium text-foreground">
+                                        {accommodationLabel}
                                     </span>
                                 </div>
                             ) : null}
@@ -447,6 +511,115 @@ export function VoidErroneousAssignmentDialog({
                                                 training qualifications will be
                                                 cleaned up. Uncheck to retain
                                                 qualifications.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {hasDraftTimesheet ? (
+                                <div className="flex items-start gap-2">
+                                    <Checkbox
+                                        id="delete_draft_timesheet"
+                                        checked={
+                                            form.data.delete_draft_timesheet
+                                        }
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'delete_draft_timesheet',
+                                                Boolean(checked),
+                                            )
+                                        }
+                                        disabled={!canDeleteDraftTimesheet}
+                                    />
+                                    <div className="grid gap-1 leading-none">
+                                        <Label
+                                            htmlFor="delete_draft_timesheet"
+                                            className="cursor-pointer text-xs font-medium text-foreground"
+                                        >
+                                            Remove linked Draft timesheet data
+                                        </Label>
+                                        {!canDeleteDraftTimesheet ? (
+                                            <p className="text-[11px] text-destructive">
+                                                You do not have permission to
+                                                clean up Draft timesheet data.
+                                            </p>
+                                        ) : !form.data
+                                              .delete_draft_timesheet ? (
+                                            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                                {preview.assignments
+                                                    .find(
+                                                        (item) =>
+                                                            item.has_draft_timesheet,
+                                                    )
+                                                    ?.blockers.find(
+                                                        (blocker) =>
+                                                            blocker.code ===
+                                                            'draft_timesheet_exists',
+                                                    )?.message ??
+                                                    'Select this option to remove assignment-linked Draft timesheet segments before deletion.'}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Only segments and draft
+                                                preparation lines for the
+                                                selected assignment(s) will be
+                                                removed. Unrelated employee
+                                                timesheet data and financial
+                                                adjustments stay intact.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {hasAccommodation ? (
+                                <div className="flex items-start gap-2">
+                                    <Checkbox
+                                        id="delete_accommodation"
+                                        checked={form.data.delete_accommodation}
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'delete_accommodation',
+                                                Boolean(checked),
+                                            )
+                                        }
+                                        disabled={!canDeleteAccommodation}
+                                    />
+                                    <div className="grid gap-1 leading-none">
+                                        <Label
+                                            htmlFor="delete_accommodation"
+                                            className="cursor-pointer text-xs font-medium text-foreground"
+                                        >
+                                            Delete linked accommodation records
+                                        </Label>
+                                        {!canDeleteAccommodation ? (
+                                            <p className="text-[11px] text-destructive">
+                                                You do not have permission to
+                                                delete accommodation records.
+                                            </p>
+                                        ) : !form.data.delete_accommodation ? (
+                                            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                                                {preview.assignments
+                                                    .find(
+                                                        (item) =>
+                                                            item.has_accommodation,
+                                                    )
+                                                    ?.blockers.find(
+                                                        (blocker) =>
+                                                            blocker.code ===
+                                                            'accommodation_history_exists',
+                                                    )?.message ??
+                                                    'Select this option to remove assignment-linked accommodation records before deletion.'}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Only accommodation stays for the
+                                                selected assignment(s) will be
+                                                removed. Hotel and room master
+                                                data remain untouched. A
+                                                snapshot is retained in the
+                                                assignment audit log.
                                             </p>
                                         )}
                                     </div>

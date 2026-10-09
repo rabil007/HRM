@@ -27,6 +27,8 @@ class BulkVoidCrewAssignmentsController extends Controller
             (string) $request->validated('void_reason'),
             $request->boolean('delete_sea_service'),
             $request->boolean('delete_training'),
+            $request->boolean('delete_draft_timesheet'),
+            $request->boolean('delete_accommodation'),
         );
 
         $count = $voided->count();
