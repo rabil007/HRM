@@ -15,6 +15,7 @@ import type {
     CrewAssignmentFormData,
     CrewAssignmentPagePermissions,
 } from '@/features/organization/crew/types';
+import { useRegisterUnsavedWork } from '@/hooks/use-register-unsaved-work';
 import {
     show as showAssignment,
     update as updateAssignment,
@@ -69,6 +70,8 @@ export default function CrewAssignmentEdit({
 
         return () => window.removeEventListener('beforeunload', handler);
     }, [form.isDirty]);
+
+    useRegisterUnsavedWork(form.isDirty);
 
     const handleSubmit = (event: React.FormEvent): void => {
         event.preventDefault();

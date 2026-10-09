@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
  * Lightweight authorization revision tokens for frontend permission sync.
  *
  * - User revision bumps on membership / role assignment changes for that user.
- * - Company revision bumps when role permissions change (affects all assignees).
+ * - Company revision bumps when role permissions or employee visibility change.
  *
  * Combined token is shared via Inertia and polled by the client. Backend
  * authorization remains authoritative on every protected request.
@@ -19,7 +19,11 @@ final class AuthorizationRevision
 {
     public static function current(User $user, ?int $companyId): string
     {
-        $userRevision = (int) ($user->authorization_revision ?? 1);
+        // Always read committed DB values — never trust a possibly stale in-memory model.
+        $userRevision = (int) (User::query()
+            ->whereKey($user->id)
+            ->value('authorization_revision') ?? 1);
+
         $companyRevision = 0;
 
         if ($companyId !== null && $companyId > 0) {
@@ -34,7 +38,15 @@ final class AuthorizationRevision
     public static function bumpUser(User $user): void
     {
         User::query()->whereKey($user->id)->increment('authorization_revision');
-        $user->refresh();
+
+        if ($user->exists) {
+            $user->setAttribute(
+                'authorization_revision',
+                (int) (User::query()->whereKey($user->id)->value('authorization_revision') ?? 1),
+            );
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+        }
 
         Cache::forget(self::companiesCacheKey($user->id));
     }

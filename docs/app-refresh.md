@@ -53,8 +53,8 @@ Responses use `Cache-Control: no-store`. The endpoint does not expose environmen
 When a newer version is detected (90s poll while visible, on tab focus, on reconnect, or via manual refresh):
 
 - **Title:** Update Available
-- **Later** dismisses the dialog for that version but keeps a subtle amber indicator on the refresh icon
-- **Reload Now** warns when unsaved work is detected (`beforeunload` guards or `data-unsaved-changes="true"`), coordinates with the waiting service worker (`SKIP_WAITING`), then hard-reloads
+- **Later** dismisses the dialog for that version but keeps a subtle amber indicator on the refresh icon; clicking Refresh App reopens the dialog
+- **Reload Now** warns when unsaved work is detected (dirty-checker registry, `beforeunload` guards, or `data-unsaved-changes="true"`), waits for service-worker `controllerchange` when a worker is waiting, then hard-reloads without a second native beforeunload prompt
 
 A successful deploy must never silently interrupt an active workflow with unsaved changes.
 
@@ -81,7 +81,7 @@ Combined token: `{userRevision}.{companyRevision}` shared as `app_refresh.author
 
 Inertia permission/role cache keys include the revision, so a bump naturally misses the previous 60s cache entry. Company switcher cache is forgotten on user membership bumps.
 
-Client polling interval for authorization revisions: **30 seconds** while the tab is visible, plus checks on focus/reconnect/manual refresh. When the revision changes, the client reloads shared auth/company props without discarding unrelated client state when possible. If the current page becomes unauthorized, the user is redirected to the dashboard.
+Client polling uses a **single 30-second** interval against `GET /app/version` while the tab is visible, plus checks on focus/reconnect/manual refresh. The browser keeps the **loaded** frontend version from the initial document load and never replaces it with a newer Inertia shared-prop version until a hard reload. When the authorization revision changes, the client reloads the current page props. Session expiry redirects to login; revoked page access redirects to the dashboard. Temporary network errors do not force a dashboard redirect.
 
 ## Cache invalidation boundaries
 

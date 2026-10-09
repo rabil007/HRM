@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Department;
 use App\Models\Role;
 use App\Models\User;
 use App\Support\AppRefresh\AuthorizationRevision;
@@ -12,7 +13,7 @@ test('role permission updates bump the company authorization revision', function
     $admin = User::factory()->create();
     $company = createAppRefreshCompany('Roles Co');
 
-    grantCompanyPermissions($admin, $company, ['roles.view', 'roles.update', 'employees.view']);
+    grantCompanyPermissions($admin, $company, ['roles.view', 'roles.update', 'employees.view', 'departments.view']);
 
     $before = (int) $company->fresh()->authorization_revision;
 
@@ -35,10 +36,100 @@ test('role permission updates bump the company authorization revision', function
     expect((int) $company->fresh()->authorization_revision)->toBe($before + 1);
 });
 
+test('role name-only updates do not bump the company authorization revision', function () {
+    $admin = User::factory()->create();
+    $company = createAppRefreshCompany('Name Only');
+
+    grantCompanyPermissions($admin, $company, ['roles.view', 'roles.update', 'employees.view']);
+
+    $before = (int) $company->fresh()->authorization_revision;
+
+    $role = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'test-role')
+        ->firstOrFail();
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.roles'))
+        ->put(route('organization.roles.update', $role), [
+            'name' => 'Renamed Role',
+            'permissions' => ['roles.view', 'roles.update', 'employees.view'],
+        ])
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
+
+    expect((int) $company->fresh()->authorization_revision)->toBe($before);
+});
+
+test('employee visibility scope changes bump the company authorization revision', function () {
+    $admin = User::factory()->create();
+    $company = createAppRefreshCompany('Visibility Co');
+
+    grantCompanyPermissions($admin, $company, ['roles.view', 'roles.update', 'employees.view']);
+
+    $before = (int) $company->fresh()->authorization_revision;
+
+    $role = Role::query()
+        ->where('company_id', $company->id)
+        ->where('name', 'test-role')
+        ->firstOrFail();
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.roles'))
+        ->put(route('organization.roles.update', $role), [
+            'name' => $role->name,
+            'permissions' => ['roles.view', 'roles.update', 'employees.view'],
+            'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+            'department_ids' => [$department->id],
+        ])
+        ->assertRedirect(route('organization.roles'))
+        ->assertSessionHasNoErrors();
+
+    expect((int) $company->fresh()->authorization_revision)->toBe($before + 1);
+});
+
 test('membership role changes bump the user authorization revision', function () {
     $admin = User::factory()->create();
     $member = User::factory()->create();
     $company = createAppRefreshCompany('Members Co');
+
+    grantCompanyPermissions($admin, $company, ['users.view', 'users.update', 'roles.view', 'roles.create']);
+    grantCompanyPermissions($member, $company, ['employees.view'], 'member-role');
+
+    $before = (int) $member->fresh()->authorization_revision;
+
+    $altRole = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'alt-member-role',
+        'guard_name' => 'web',
+        'employee_visibility_scope' => Role::SCOPE_ALL,
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('organization.users.memberships.update', [$member, $company]), [
+            'status' => 'active',
+            'role_id' => $altRole->id,
+        ])
+        ->assertRedirect();
+
+    expect((int) $member->fresh()->authorization_revision)->toBeGreaterThan($before);
+});
+
+test('membership status deactivation bumps the user authorization revision', function () {
+    $admin = User::factory()->create();
+    $member = User::factory()->create();
+    $company = createAppRefreshCompany('Status Co');
 
     grantCompanyPermissions($admin, $company, ['users.view', 'users.update']);
     grantCompanyPermissions($member, $company, ['employees.view'], 'member-role');
@@ -53,7 +144,7 @@ test('membership role changes bump the user authorization revision', function ()
     $this->actingAs($admin)
         ->withSession(['current_company_id' => $company->id])
         ->put(route('organization.users.memberships.update', [$member, $company]), [
-            'status' => 'active',
+            'status' => 'inactive',
             'role_id' => $memberRole->id,
         ])
         ->assertRedirect();

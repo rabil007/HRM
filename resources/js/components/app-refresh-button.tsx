@@ -17,6 +17,7 @@ export function AppRefreshButton() {
 
     const refreshing = snapshot?.refreshing ?? false;
     const updateAvailable = snapshot?.updateAvailable ?? false;
+    const updateDismissed = snapshot?.updateDismissed ?? false;
 
     return (
         <Tooltip>
@@ -25,7 +26,13 @@ export function AppRefreshButton() {
                     type="button"
                     size="icon"
                     variant="ghost"
-                    aria-label="Refresh App"
+                    aria-label={
+                        updateAvailable
+                            ? updateDismissed
+                                ? 'Update available. Refresh App to install.'
+                                : 'Update available. Refresh App'
+                            : 'Refresh App'
+                    }
                     disabled={refreshing}
                     className="relative rounded-full"
                     onClick={() => {
@@ -46,7 +53,9 @@ export function AppRefreshButton() {
             </TooltipTrigger>
             <TooltipContent>
                 {updateAvailable
-                    ? 'Update available — Refresh App'
+                    ? updateDismissed
+                        ? 'Update available — click to review'
+                        : 'Update available — Refresh App'
                     : 'Refresh App'}
             </TooltipContent>
         </Tooltip>

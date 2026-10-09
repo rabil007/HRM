@@ -166,19 +166,42 @@ class RoleController extends Controller
         }
 
         DB::transaction(function () use ($role, $companyId, $data, $request) {
+            $previousScope = $role->employee_visibility_scope ?? Role::SCOPE_ALL;
+            $previousPermissionNames = $role->permissions()
+                ->pluck('name')
+                ->sort()
+                ->values()
+                ->all();
+            $previousDepartmentIds = $role->employeeVisibilityDepartments()
+                ->pluck('departments.id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->sort()
+                ->values()
+                ->all();
+
             $scope = $request->has('employee_visibility_scope')
                 ? ($data['employee_visibility_scope'] ?? Role::SCOPE_ALL)
-                : ($role->employee_visibility_scope ?? Role::SCOPE_ALL);
+                : $previousScope;
 
             $role->update([
                 'name' => $data['name'],
                 'employee_visibility_scope' => $scope,
             ]);
 
+            $permissionsChanged = false;
+
             if ($request->exists('permissions')) {
                 $role->syncPermissions($data['permissions'] ?? []);
-                AuthorizationRevision::bumpCompany($companyId);
+                $nextPermissionNames = collect($data['permissions'] ?? [])
+                    ->map(static fn (mixed $name): string => (string) $name)
+                    ->sort()
+                    ->values()
+                    ->all();
+                $permissionsChanged = $previousPermissionNames !== $nextPermissionNames;
             }
+
+            $visibilityChanged = $request->has('employee_visibility_scope')
+                && $scope !== $previousScope;
 
             if ($scope === Role::SCOPE_SELECTED_DEPARTMENTS && $request->has('department_ids')) {
                 $syncData = [];
@@ -186,8 +209,20 @@ class RoleController extends Controller
                     $syncData[(int) $departmentId] = ['company_id' => $companyId];
                 }
                 $role->employeeVisibilityDepartments()->sync($syncData);
+
+                $nextDepartmentIds = collect(array_keys($syncData))
+                    ->map(static fn (mixed $id): int => (int) $id)
+                    ->sort()
+                    ->values()
+                    ->all();
+                $visibilityChanged = $visibilityChanged || $previousDepartmentIds !== $nextDepartmentIds;
             } elseif ($request->has('employee_visibility_scope') && $scope === Role::SCOPE_ALL) {
                 $role->employeeVisibilityDepartments()->detach();
+                $visibilityChanged = $visibilityChanged || $previousDepartmentIds !== [];
+            }
+
+            if ($permissionsChanged || $visibilityChanged) {
+                AuthorizationRevision::bumpCompany($companyId);
             }
 
             EmployeeVisibilityScope::clearCache();

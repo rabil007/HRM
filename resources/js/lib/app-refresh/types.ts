@@ -10,9 +10,15 @@ export type AppVersionResponse = {
 };
 
 export type AppRefreshSnapshot = {
-    clientVersion: string;
+    /** Version of the JS/HTML currently loaded in this browser tab. */
+    loadedVersion: string;
+    /** Newest version reported by the server, when different from loaded. */
+    pendingVersion: string | null;
     authorizationRevision: string | null;
+    /** True when a newer deploy or waiting SW is known (even if dialog was dismissed). */
     updateAvailable: boolean;
+    /** True when the user chose Later for the current pending version. */
+    updateDismissed: boolean;
     updateDismissedVersion: string | null;
     pwaUpdateWaiting: boolean;
     refreshing: boolean;

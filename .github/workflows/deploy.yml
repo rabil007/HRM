@@ -289,6 +289,9 @@ jobs:
             php artisan route:cache
             php artisan view:cache
 
+            # Publish the client-visible release identifier only after migrate,
+            # seeders, and config/route/view caches succeed. Failed deploys exit
+            # before this stamp, so clients are not notified of incomplete releases.
             mkdir -p "$STAMP_DIR"
             printf '%s\n' "$TARGET_SHA" > "${STAMP_DIR}/revision.sha.tmp"
             mv "${STAMP_DIR}/revision.sha.tmp" "${STAMP_DIR}/revision.sha"

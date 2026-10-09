@@ -6,23 +6,22 @@ import type {
     AppRefreshListener,
     AppRefreshSnapshot,
 } from '@/lib/app-refresh/types';
+import {
+    resolveUpdateAvailability,
+    shouldAutoOpenUpdateDialog,
+} from '@/lib/app-refresh/version-state';
 import { toast } from '@/lib/toast';
 
-const VERSION_POLL_MS = 90_000;
-const AUTH_POLL_MS = 30_000;
+/** Single poll covers auth (~30s) and deploy detection. */
+const SYNC_POLL_MS = 30_000;
 
-const AUTH_ONLY_PROPS = [
-    'auth',
-    'app_refresh',
-    'company_switcher_companies',
-    'current_company_id',
-    'favorite_destination_keys',
-    'settings',
-] as const;
+const DISMISS_STORAGE_KEY = 'oms-hrm:app-refresh:dismissed-version';
 
 type ControllerOptions = {
     versionUrl: string;
-    initialVersion: string;
+    userId: number;
+    /** Version baked into the currently loaded document/assets. */
+    loadedVersion: string;
     initialAuthorizationRevision: string | null;
 };
 
@@ -31,7 +30,10 @@ class AppRefreshController {
 
     private versionUrl = '';
 
-    private clientVersion = '';
+    private userId: number | null = null;
+
+    /** Never overwritten by later Inertia shared props. */
+    private loadedVersion = '';
 
     private pendingVersion: string | null = null;
 
@@ -47,9 +49,7 @@ class AppRefreshController {
 
     private lastError: string | null = null;
 
-    private versionTimer: number | null = null;
-
-    private authTimer: number | null = null;
+    private syncTimer: number | null = null;
 
     private inFlight: Promise<void> | null = null;
 
@@ -59,41 +59,49 @@ class AppRefreshController {
 
     private dialogOpenListeners = new Set<(open: boolean) => void>();
 
+    private removingHttpException: (() => void) | null = null;
+
     start(options: ControllerOptions): void {
-        this.versionUrl = options.versionUrl;
-        this.clientVersion = options.initialVersion;
-        this.authorizationRevision = options.initialAuthorizationRevision;
-
-        if (this.started || typeof window === 'undefined') {
-            this.emit();
-
+        if (typeof window === 'undefined') {
             return;
         }
 
-        this.started = true;
-        this.bindLifecycle();
-        this.schedulePolls();
-        void this.check({ reason: 'start' });
+        if (this.started && this.userId !== options.userId) {
+            this.resetForUserSwitch();
+        }
+
+        this.versionUrl = options.versionUrl;
+
+        if (!this.started) {
+            this.userId = options.userId;
+            this.loadedVersion = options.loadedVersion;
+            this.authorizationRevision = options.initialAuthorizationRevision;
+            this.updateDismissedVersion = this.readDismissedVersion();
+            this.started = true;
+            this.bindLifecycle();
+            this.schedulePoll();
+            void this.check({ reason: 'start', openDialog: true });
+        }
+
         this.emit();
     }
 
     stop(): void {
-        if (this.versionTimer !== null) {
-            window.clearInterval(this.versionTimer);
-            this.versionTimer = null;
-        }
-
-        if (this.authTimer !== null) {
-            window.clearInterval(this.authTimer);
-            this.authTimer = null;
-        }
-
-        window.removeEventListener('online', this.handleOnline);
-        document.removeEventListener(
-            'visibilitychange',
-            this.handleVisibilityChange,
-        );
+        this.clearTimersAndListeners();
         this.started = false;
+        this.userId = null;
+        this.loadedVersion = '';
+        this.pendingVersion = null;
+        this.authorizationRevision = null;
+        this.updateAvailable = false;
+        this.updateDismissedVersion = null;
+        this.pwaUpdateWaiting = false;
+        this.refreshing = false;
+        this.lastError = null;
+        this.dialogOpen = false;
+        this.inFlight = null;
+        this.emit();
+        this.setDialogOpen(false);
     }
 
     subscribe(listener: AppRefreshListener): () => void {
@@ -116,24 +124,35 @@ class AppRefreshController {
 
     setPwaUpdateWaiting(waiting: boolean): void {
         this.pwaUpdateWaiting = waiting;
+        this.recomputeUpdateAvailability(null);
 
         if (waiting) {
-            this.updateAvailable = true;
-            this.openUpdateDialog();
+            this.openUpdateDialog({ force: true });
         }
 
         this.emit();
     }
 
+    /**
+     * Sync authorization revision from Inertia. Never replaces loadedVersion.
+     * Server version in shared props is treated as a hint only.
+     */
     syncFromInertiaProps(
-        version: string,
+        serverVersion: string,
         authorizationRevision: string | null,
     ): void {
-        if (version) {
-            this.clientVersion = version;
+        if (!this.started) {
+            return;
         }
 
-        this.authorizationRevision = authorizationRevision;
+        if (authorizationRevision !== null) {
+            this.authorizationRevision = authorizationRevision;
+        }
+
+        if (serverVersion) {
+            this.recomputeUpdateAvailability(serverVersion);
+        }
+
         this.emit();
     }
 
@@ -156,22 +175,18 @@ class AppRefreshController {
 
         try {
             const payload = await fetchAppVersion(
-                this.clientVersion,
+                this.loadedVersion,
                 this.versionUrl,
             );
 
-            this.applyVersionPayload(payload);
+            this.recomputeUpdateAvailability(payload.version);
+            await this.syncAuthorizationIfNeeded(
+                payload.authorization_revision,
+            );
 
-            if (
-                payload.authorization_revision !== null &&
-                this.authorizationRevision !== null &&
-                payload.authorization_revision !== this.authorizationRevision
-            ) {
-                await this.reloadAuthorization(payload.authorization_revision);
-            }
-
-            if (this.updateAvailable || this.pwaUpdateWaiting) {
-                this.openUpdateDialog();
+            if (this.updateAvailable) {
+                // Manual refresh reopens the dialog even after Later.
+                this.openUpdateDialog({ force: true });
 
                 return;
             }
@@ -190,6 +205,7 @@ class AppRefreshController {
     dismissUpdate(): void {
         if (this.pendingVersion) {
             this.updateDismissedVersion = this.pendingVersion;
+            this.persistDismissedVersion(this.pendingVersion);
         }
 
         this.setDialogOpen(false);
@@ -212,16 +228,16 @@ class AppRefreshController {
     }
 
     private snapshot(): AppRefreshSnapshot {
-        const dismissedForPending =
+        const updateDismissed =
             this.pendingVersion !== null &&
             this.updateDismissedVersion === this.pendingVersion;
 
         return {
-            clientVersion: this.clientVersion,
+            loadedVersion: this.loadedVersion,
+            pendingVersion: this.pendingVersion,
             authorizationRevision: this.authorizationRevision,
-            updateAvailable:
-                (this.updateAvailable && !dismissedForPending) ||
-                this.pwaUpdateWaiting,
+            updateAvailable: this.updateAvailable,
+            updateDismissed,
             updateDismissedVersion: this.updateDismissedVersion,
             pwaUpdateWaiting: this.pwaUpdateWaiting,
             refreshing: this.refreshing,
@@ -245,11 +261,15 @@ class AppRefreshController {
         }
     }
 
-    private openUpdateDialog(): void {
+    private openUpdateDialog(options: { force?: boolean } = {}): void {
         if (
-            this.pendingVersion !== null &&
-            this.updateDismissedVersion === this.pendingVersion &&
-            !this.pwaUpdateWaiting
+            !shouldAutoOpenUpdateDialog({
+                updateAvailable: this.updateAvailable,
+                pendingVersion: this.pendingVersion,
+                dismissedVersion: this.updateDismissedVersion,
+                pwaUpdateWaiting: this.pwaUpdateWaiting,
+                force: Boolean(options.force),
+            })
         ) {
             this.emit();
 
@@ -259,22 +279,34 @@ class AppRefreshController {
         this.setDialogOpen(true);
     }
 
-    private schedulePolls(): void {
-        this.versionTimer = window.setInterval(() => {
+    private recomputeUpdateAvailability(serverVersion: string | null): void {
+        const resolved = resolveUpdateAvailability({
+            loadedVersion: this.loadedVersion,
+            serverVersion,
+            pwaUpdateWaiting: this.pwaUpdateWaiting,
+        });
+
+        this.pendingVersion = resolved.pendingVersion;
+        this.updateAvailable = resolved.updateAvailable;
+
+        if (
+            this.pendingVersion !== null &&
+            this.updateDismissedVersion !== null &&
+            this.updateDismissedVersion !== this.pendingVersion
+        ) {
+            this.updateDismissedVersion = null;
+            this.persistDismissedVersion(null);
+        }
+    }
+
+    private schedulePoll(): void {
+        this.syncTimer = window.setInterval(() => {
             if (document.hidden) {
                 return;
             }
 
-            void this.check({ reason: 'version-poll' });
-        }, VERSION_POLL_MS);
-
-        this.authTimer = window.setInterval(() => {
-            if (document.hidden) {
-                return;
-            }
-
-            void this.check({ reason: 'auth-poll' });
-        }, AUTH_POLL_MS);
+            void this.check({ reason: 'poll', openDialog: true });
+        }, SYNC_POLL_MS);
     }
 
     private bindLifecycle(): void {
@@ -285,18 +317,47 @@ class AppRefreshController {
         );
     }
 
+    private clearTimersAndListeners(): void {
+        if (this.syncTimer !== null) {
+            window.clearInterval(this.syncTimer);
+            this.syncTimer = null;
+        }
+
+        window.removeEventListener('online', this.handleOnline);
+        document.removeEventListener(
+            'visibilitychange',
+            this.handleVisibilityChange,
+        );
+        this.removingHttpException?.();
+        this.removingHttpException = null;
+    }
+
+    private resetForUserSwitch(): void {
+        this.clearTimersAndListeners();
+        this.started = false;
+        this.pendingVersion = null;
+        this.updateAvailable = false;
+        this.updateDismissedVersion = null;
+        this.pwaUpdateWaiting = false;
+        this.dialogOpen = false;
+        this.inFlight = null;
+    }
+
     private handleOnline = (): void => {
-        void this.check({ reason: 'online' });
+        void this.check({ reason: 'online', openDialog: true });
     };
 
     private handleVisibilityChange = (): void => {
         if (!document.hidden) {
-            void this.check({ reason: 'visible' });
+            void this.check({ reason: 'visible', openDialog: true });
         }
     };
 
-    private async check(options: { reason: string }): Promise<void> {
-        if (!navigator.onLine || this.refreshing) {
+    private async check(options: {
+        reason: string;
+        openDialog: boolean;
+    }): Promise<void> {
+        if (!navigator.onLine || this.refreshing || !this.started) {
             return;
         }
 
@@ -307,26 +368,20 @@ class AppRefreshController {
         this.inFlight = (async () => {
             try {
                 const payload = await fetchAppVersion(
-                    this.clientVersion,
+                    this.loadedVersion,
                     this.versionUrl,
                 );
 
-                this.applyVersionPayload(payload);
+                this.recomputeUpdateAvailability(payload.version);
+                await this.syncAuthorizationIfNeeded(
+                    payload.authorization_revision,
+                );
 
-                if (
-                    payload.authorization_revision !== null &&
-                    this.authorizationRevision !== null &&
-                    payload.authorization_revision !==
-                        this.authorizationRevision
-                ) {
-                    await this.reloadAuthorization(
-                        payload.authorization_revision,
-                    );
+                if (options.openDialog && this.updateAvailable) {
+                    this.openUpdateDialog({ force: false });
                 }
 
-                if (this.updateAvailable && options.reason !== 'auth-poll') {
-                    this.openUpdateDialog();
-                }
+                this.emit();
             } catch {
                 // Transient network failures are ignored for background polls.
             } finally {
@@ -337,49 +392,66 @@ class AppRefreshController {
         return this.inFlight;
     }
 
-    private applyVersionPayload(payload: {
-        version: string;
-        update_available: boolean;
-        authorization_revision: string | null;
-    }): void {
-        const remoteVersion = payload.version;
-
-        if (remoteVersion && remoteVersion !== this.clientVersion) {
-            this.pendingVersion = remoteVersion;
-            this.updateAvailable = true;
-
-            if (
-                this.updateDismissedVersion !== null &&
-                this.updateDismissedVersion !== remoteVersion
-            ) {
-                this.updateDismissedVersion = null;
-            }
-        } else {
-            this.pendingVersion = null;
-            this.updateAvailable = Boolean(payload.update_available);
+    private async syncAuthorizationIfNeeded(
+        nextRevision: string | null,
+    ): Promise<void> {
+        if (
+            nextRevision === null ||
+            this.authorizationRevision === null ||
+            nextRevision === this.authorizationRevision
+        ) {
+            return;
         }
 
-        this.emit();
+        await this.reloadAuthorization(nextRevision);
     }
 
     private reloadAuthorization(nextRevision: string): Promise<void> {
         return new Promise((resolve) => {
+            let settled = false;
+
+            const finish = () => {
+                if (settled) {
+                    return;
+                }
+
+                settled = true;
+                removeHttpException();
+                this.removingHttpException = null;
+                this.authorizationRevision = nextRevision;
+                this.emit();
+                resolve();
+            };
+
+            const removeHttpException = router.on('httpException', (event) => {
+                const status = httpExceptionStatus(event);
+
+                if (status === 401 || status === 419) {
+                    finish();
+                    window.location.assign('/login');
+
+                    return;
+                }
+
+                if (status === 403) {
+                    finish();
+                    router.visit('/dashboard', { replace: true });
+                }
+            });
+
+            this.removingHttpException = removeHttpException;
+
+            // Full reload refreshes shared auth and page-level `can` props.
+            // Auth-only then page-only would leave stale page authorization.
             router.reload({
-                only: [...AUTH_ONLY_PROPS],
-                onSuccess: () => {
-                    this.authorizationRevision = nextRevision;
-                    this.emit();
-                    resolve();
-                },
-                onError: () => {
-                    router.visit('/dashboard', {
-                        replace: true,
-                        onFinish: () => {
-                            this.authorizationRevision = nextRevision;
-                            this.emit();
-                            resolve();
-                        },
-                    });
+                onSuccess: () => finish(),
+                onError: () => finish(),
+                onFinish: () => {
+                    window.setTimeout(() => {
+                        if (!settled) {
+                            finish();
+                        }
+                    }, 0);
                 },
             });
         });
@@ -387,20 +459,111 @@ class AppRefreshController {
 
     private reloadSharedAndPage(): Promise<void> {
         return new Promise((resolve, reject) => {
-            router.reload({
-                onSuccess: () => resolve(),
-                onError: () => {
+            let settled = false;
+            let sawAuthFailure = false;
+
+            const removeHttpException = router.on('httpException', (event) => {
+                const status = httpExceptionStatus(event);
+
+                if (status === 401 || status === 419) {
+                    sawAuthFailure = true;
+                    settled = true;
+                    removeHttpException();
+                    window.location.assign('/login');
+                    resolve();
+
+                    return;
+                }
+
+                if (status === 403) {
+                    sawAuthFailure = true;
+                    settled = true;
+                    removeHttpException();
                     router.visit('/dashboard', {
                         replace: true,
-                        onSuccess: () => resolve(),
-                        onError: () =>
-                            reject(new Error('Refresh failed after redirect')),
+                        onFinish: () => resolve(),
                     });
+                }
+            });
+
+            router.reload({
+                onSuccess: () => {
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    removeHttpException();
+                    resolve();
                 },
-                onCancel: () => reject(new Error('Refresh cancelled')),
+                onError: () => {
+                    if (settled || sawAuthFailure) {
+                        return;
+                    }
+
+                    settled = true;
+                    removeHttpException();
+                    reject(new Error('Refresh failed'));
+                },
+                onCancel: () => {
+                    if (settled) {
+                        return;
+                    }
+
+                    settled = true;
+                    removeHttpException();
+                    reject(new Error('Refresh cancelled'));
+                },
+                onFinish: () => {
+                    window.setTimeout(() => {
+                        if (!settled && !sawAuthFailure) {
+                            settled = true;
+                            removeHttpException();
+                            // Network errors: resolve without dashboard redirect.
+                            resolve();
+                        }
+                    }, 0);
+                },
             });
         });
     }
+
+    private readDismissedVersion(): string | null {
+        try {
+            return sessionStorage.getItem(DISMISS_STORAGE_KEY);
+        } catch {
+            return null;
+        }
+    }
+
+    private persistDismissedVersion(version: string | null): void {
+        try {
+            if (version === null) {
+                sessionStorage.removeItem(DISMISS_STORAGE_KEY);
+            } else {
+                sessionStorage.setItem(DISMISS_STORAGE_KEY, version);
+            }
+        } catch {
+            // sessionStorage may be unavailable.
+        }
+    }
+}
+
+function httpExceptionStatus(event: unknown): number | undefined {
+    if (!event || typeof event !== 'object') {
+        return undefined;
+    }
+
+    const withStatus = event as { status?: number };
+
+    if (typeof withStatus.status === 'number') {
+        return withStatus.status;
+    }
+
+    const detail = (event as { detail?: { response?: { status?: number } } })
+        .detail;
+
+    return detail?.response?.status;
 }
 
 export const appRefreshController = new AppRefreshController();

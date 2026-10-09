@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { AppUpdateDialog } from '@/components/app-update-dialog';
 import { appRefreshController } from '@/lib/app-refresh/app-refresh-controller';
+import { captureLoadedAppVersion } from '@/lib/app-refresh/loaded-version';
 import type { AppRefreshShared } from '@/lib/app-refresh/types';
 
 type PageProps = {
@@ -10,8 +11,9 @@ type PageProps = {
 };
 
 /**
- * Boots the singleton app-refresh controller for authenticated sessions and
- * keeps its local revision/version in sync with Inertia shared props.
+ * Boots the singleton app-refresh controller for authenticated sessions.
+ * Loaded frontend version is captured once per document load and is never
+ * replaced by later Inertia shared-prop versions.
  */
 export function AppRefreshSync({ versionUrl }: { versionUrl: string }) {
     const page = usePage<PageProps>();
@@ -23,18 +25,29 @@ export function AppRefreshSync({ versionUrl }: { versionUrl: string }) {
 
     useEffect(() => {
         if (!userId || !sharedVersion) {
+            appRefreshController.stop();
+
             return;
         }
 
+        const loadedVersion = captureLoadedAppVersion(sharedVersion);
+
         appRefreshController.start({
             versionUrl,
-            initialVersion: sharedVersion,
+            userId,
+            loadedVersion,
             initialAuthorizationRevision: sharedAuthorizationRevision,
         });
     }, [userId, versionUrl, sharedVersion, sharedAuthorizationRevision]);
 
     useEffect(() => {
-        if (!userId || !sharedVersion) {
+        if (!userId) {
+            appRefreshController.stop();
+
+            return;
+        }
+
+        if (!sharedVersion) {
             return;
         }
 

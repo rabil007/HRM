@@ -62,9 +62,22 @@ final class UserMembershipAccess
     {
         app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
 
+        $previousRoleIds = $user->roles()
+            ->where('spatie_roles.company_id', $companyId)
+            ->pluck('spatie_roles.id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
         if ($roleId === null) {
             $user->syncRoles([]);
-            AuthorizationRevision::bumpUser($user);
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+
+            if ($previousRoleIds !== []) {
+                AuthorizationRevision::bumpUser($user);
+            }
 
             return;
         }
@@ -77,7 +90,12 @@ final class UserMembershipAccess
         abort_unless($role !== null, 404);
 
         $user->syncRoles([$role]);
-        AuthorizationRevision::bumpUser($user);
+        $user->unsetRelation('roles');
+        $user->unsetRelation('permissions');
+
+        if ($previousRoleIds !== [(int) $role->id]) {
+            AuthorizationRevision::bumpUser($user);
+        }
     }
 
     /**

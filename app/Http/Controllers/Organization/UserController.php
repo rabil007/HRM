@@ -439,9 +439,10 @@ class UserController extends Controller
 
         if ($roleId !== null) {
             UserMembershipAccess::syncRole($user, $companyId, $roleId);
-        } else {
-            AuthorizationRevision::bumpUser($user);
         }
+
+        // Membership creation always changes company access for this user.
+        AuthorizationRevision::bumpUser($user);
 
         UserMembershipAccess::log($request, $user, $companyId, 'added company membership', [
             'status' => $status,
@@ -480,11 +481,21 @@ class UserController extends Controller
                     }
                 }
 
+                $previousStatus = (string) ($user->companies()
+                    ->whereKey($companyId)
+                    ->first()
+                    ?->pivot
+                    ?->status ?? '');
+
                 $user->companies()->updateExistingPivot($companyId, [
                     'status' => $status,
                 ]);
 
                 UserMembershipAccess::syncRole($user, $companyId, $roleId);
+
+                if ($previousStatus !== $status) {
+                    AuthorizationRevision::bumpUser($user);
+                }
 
                 UserMembershipAccess::log($request, $user, $companyId, 'updated company membership', [
                     'status' => $status,
@@ -516,6 +527,7 @@ class UserController extends Controller
                 $user->companies()->detach($companyId);
 
                 UserMembershipAccess::syncRole($user, $companyId, null);
+                AuthorizationRevision::bumpUser($user);
 
                 UserMembershipAccess::log($request, $user, $companyId, 'removed company membership');
             });
