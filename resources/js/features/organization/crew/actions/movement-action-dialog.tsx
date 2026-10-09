@@ -23,7 +23,10 @@ import {
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
-import { buildScheduledMovementEditPayload } from '@/features/organization/crew/lib/scheduled-movement-edit-payload';
+import {
+    applyScheduledMovementFormPrefill,
+    buildScheduledMovementEditPayload,
+} from '@/features/organization/crew/lib/scheduled-movement-edit-payload';
 import {
     defaultDestinationTourSignoffChoice,
     findPositionTourOption,
@@ -278,32 +281,6 @@ const DEFAULT_SCHEDULABLE_ACTIONS = [
     'close_assignment',
 ];
 
-function applySchedulePrefill(
-    data: CrewMovementActionFormData,
-    schedule: CrewScheduledMovementCard | null | undefined,
-): CrewMovementActionFormData {
-    if (!schedule) {
-        return data;
-    }
-
-    const payload = schedule.action_payload ?? {};
-    const scheduledAt =
-        schedule.scheduled_at_input?.replace('T', ' ') ??
-        schedule.scheduled_at ??
-        data.occurred_at;
-
-    return {
-        ...data,
-        ...Object.fromEntries(
-            Object.entries(payload).filter(
-                ([key]) => key !== '_action' && key in data,
-            ),
-        ),
-        occurred_at: scheduledAt.slice(0, 16).replace('T', ' '),
-        action: schedule.movement_action as CrewMovementAction,
-    };
-}
-
 export function MovementActionDialog({
     open,
     onOpenChange,
@@ -350,7 +327,7 @@ export function MovementActionDialog({
         isEditingSchedule ? 'schedule_later' : 'record_now',
     );
     const form = useForm<CrewMovementActionFormData>(
-        applySchedulePrefill(
+        applyScheduledMovementFormPrefill(
             buildInitialForm(
                 action ?? 'approve_mobilisation',
                 movementContext,
@@ -368,7 +345,7 @@ export function MovementActionDialog({
 
         form.clearErrors();
         form.setData(
-            applySchedulePrefill(
+            applyScheduledMovementFormPrefill(
                 buildInitialForm(
                     action,
                     movementContext,

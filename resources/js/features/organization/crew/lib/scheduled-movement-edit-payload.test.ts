@@ -1,12 +1,58 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { CrewMovementActionFormData } from '../types.ts';
+import type { CrewScheduledMovementCard } from '../types.ts';
 import {
     ALLOWED_SCHEDULE_ACTION_FIELD_KEYS,
+    applyScheduledMovementFormPrefill,
     buildScheduledMovementEditActionFields,
     buildScheduledMovementEditPayload,
     isAllowedScheduleActionFieldKey,
 } from './scheduled-movement-edit-payload.ts';
+
+function scheduleCard(
+    overrides: Partial<CrewScheduledMovementCard> = {},
+): CrewScheduledMovementCard {
+    return {
+        id: 41,
+        crew_assignment_id: 9,
+        employee_id: 3,
+        movement_action: 'join_vessel',
+        movement_action_label: 'Join Vessel',
+        status: 'scheduled',
+        status_label: 'Scheduled',
+        scheduled_at: '2027-01-20 09:00:00',
+        scheduled_at_input: '2027-01-20T09:00',
+        scheduled_at_display: '20 Jan 2027 09:00',
+        scheduled_timezone: 'Asia/Dubai',
+        expected_current_phase_code: 'p2a',
+        expected_result_phase_code: 'p4',
+        expected_result_phase_label: 'On Vessel',
+        action_payload: {
+            _action: 'join_vessel',
+            vessel_id: 3,
+            position_id: 7,
+            planned_signoff_choice: 'manual_override',
+            planned_signoff_at: '2027-03-20',
+            planned_signoff_override_reason: 'Existing plan',
+            check_out_date: '2027-01-19',
+            check_out_date_auto_synced: false,
+            remarks: 'Prefill me',
+        },
+        created_by: null,
+        updated_by: null,
+        cancelled_by: null,
+        executed_at: null,
+        effective_occurred_at: null,
+        cancelled_at: null,
+        execution_attempts: 0,
+        last_error_code: null,
+        last_error_message: null,
+        can_edit: true,
+        can_cancel: true,
+        ...overrides,
+    };
+}
 
 function baseForm(
     overrides: Partial<CrewMovementActionFormData> = {},
@@ -220,5 +266,64 @@ describe('scheduled-movement-edit-payload', () => {
         assert.equal(Object.hasOwn(fields, 'check_out_date'), false);
         assert.equal(fields.check_out_date_auto_synced, false);
         assert.equal(fields.vessel_id, 3);
+    });
+
+    it('edit dialog prefill restores scheduled time and existing action payload values', () => {
+        const initial = baseForm({
+            action: 'join_vessel',
+            occurred_at: '2027-01-15 12:00',
+            vessel_id: null,
+            position_id: null,
+            planned_signoff_at: '',
+            remarks: '',
+            check_out_date: '',
+        });
+
+        const prefilled = applyScheduledMovementFormPrefill(
+            initial,
+            scheduleCard(),
+        );
+
+        assert.equal(prefilled.action, 'join_vessel');
+        assert.equal(prefilled.occurred_at, '2027-01-20 09:00');
+        assert.equal(prefilled.vessel_id, 3);
+        assert.equal(prefilled.position_id, 7);
+        assert.equal(prefilled.planned_signoff_at, '2027-03-20');
+        assert.equal(
+            prefilled.planned_signoff_override_reason,
+            'Existing plan',
+        );
+        assert.equal(prefilled.check_out_date, '2027-01-19');
+        assert.equal(prefilled.remarks, 'Prefill me');
+        assert.equal(Object.hasOwn(prefilled, '_action'), false);
+    });
+
+    it('send to training prefill restores planned dates from payload', () => {
+        const prefilled = applyScheduledMovementFormPrefill(
+            baseForm({
+                action: 'send_to_training',
+                planned_start_at: '',
+                planned_end_at: '',
+                provider: '',
+                course: '',
+            }),
+            scheduleCard({
+                movement_action: 'send_to_training',
+                movement_action_label: 'Send to Training',
+                action_payload: {
+                    _action: 'send_to_training',
+                    provider: 'Academy',
+                    course: 'STCW',
+                    planned_start_at: '2027-01-18 09:00:00',
+                    planned_end_at: '2027-01-25',
+                },
+            }),
+        );
+
+        assert.equal(prefilled.action, 'send_to_training');
+        assert.equal(prefilled.provider, 'Academy');
+        assert.equal(prefilled.course, 'STCW');
+        assert.equal(prefilled.planned_start_at, '2027-01-18 09:00:00');
+        assert.equal(prefilled.planned_end_at, '2027-01-25');
     });
 });

@@ -1,4 +1,8 @@
-import type { CrewMovementAction, CrewMovementActionFormData } from '../types';
+import type {
+    CrewMovementAction,
+    CrewMovementActionFormData,
+    CrewScheduledMovementCard,
+} from '../types';
 
 /**
  * Mirrors `CrewScheduledMovementPayload::ALLOWED_ACTION_FIELD_KEYS`.
@@ -180,6 +184,35 @@ export function buildScheduledMovementEditActionFields(
     }
 
     return fields;
+}
+
+/**
+ * Prefill the movement dialog form from an existing scheduled movement card.
+ */
+export function applyScheduledMovementFormPrefill(
+    data: CrewMovementActionFormData,
+    schedule: CrewScheduledMovementCard | null | undefined,
+): CrewMovementActionFormData {
+    if (!schedule) {
+        return data;
+    }
+
+    const payload = schedule.action_payload ?? {};
+    const scheduledAt =
+        schedule.scheduled_at_input?.replace('T', ' ') ??
+        schedule.scheduled_at ??
+        data.occurred_at;
+
+    return {
+        ...data,
+        ...Object.fromEntries(
+            Object.entries(payload).filter(
+                ([key]) => key !== '_action' && key in data,
+            ),
+        ),
+        occurred_at: scheduledAt.slice(0, 16).replace('T', ' '),
+        action: schedule.movement_action as CrewMovementAction,
+    };
 }
 
 export function buildScheduledMovementEditPayload(
