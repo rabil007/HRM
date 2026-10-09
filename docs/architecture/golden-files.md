@@ -58,7 +58,7 @@ Most complete modern show page: breadcrumbs, `DetailsHeader` with back navigatio
 - Any new entity detail page: header + cards + optional activity, with back context preserved in query params.
 - Do not fetch audit or versions client-side when they can be inlined in the show controller.
 
-**Also see:** `resources/js/pages/organization/crew/show.tsx` — Crew Assignment detail with Wayfinder, movement actions, and `RecentActivityCard` (fatter than the documents show page; copy documents/branch for thin-page structure).
+**Also see:** `resources/js/pages/organization/crew/show.tsx` — Crew Assignment detail with compact identity header, date-based Phase Timeline, Operations Center sidebar, Assignment Records & History, Wayfinder actions, and `RecentActivityCard` (fatter than the documents show page; copy documents/branch for thin-page structure).
 
 ---
 

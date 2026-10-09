@@ -13,8 +13,8 @@ import { CrewAssignmentIdentity } from '@/features/organization/crew/components/
 import { CrewAssignmentOperationalSummary } from '@/features/organization/crew/components/crew-assignment-operational-summary';
 import { CrewAssignmentOperationsCenter } from '@/features/organization/crew/components/crew-assignment-operations-center';
 import { CrewAssignmentPhaseTimeline } from '@/features/organization/crew/components/crew-assignment-phase-timeline';
+import { CrewAssignmentRecordsSection } from '@/features/organization/crew/components/crew-assignment-records-section';
 import { CrewAssignmentRelationships } from '@/features/organization/crew/components/crew-assignment-relationships';
-import { CrewPhaseProgress } from '@/features/organization/crew/components/crew-phase-progress';
 import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
 import { CorrectionHistoryCard } from '@/features/organization/crew/corrections/correction-history-card';
 import { RequestCorrectionDialog } from '@/features/organization/crew/corrections/request-correction-dialog';
@@ -234,51 +234,36 @@ export default function CrewAssignmentShow({
         }
     };
 
+    const hasLinkedAssignments =
+        Boolean(assignment.previous_assignment) ||
+        (assignment.next_assignments?.length ?? 0) > 0;
+    const hasRelationships =
+        hasLinkedAssignments ||
+        Boolean(assignment.relieves) ||
+        Boolean(assignment.planning_assignment_id);
+    const hasAccommodation =
+        Boolean(assignment.accommodation) &&
+        (assignment.accommodation?.length ?? 0) > 0;
+    const hasRecordsContent =
+        hasRelationships ||
+        hasAccommodation ||
+        (can.view_corrections && Boolean(corrections)) ||
+        Boolean(assignment.remarks) ||
+        can.view_audit;
+
     return (
         <>
             <Head title={`Assignment ${assignment.assignment_no}`} />
             <Main>
-                {/* ── TOP: Employee / Assignment Identity Section ── */}
-                <CrewAssignmentIdentity
-                    assignment={assignment}
-                    can={can}
-                    onEdit={() =>
-                        router.visit(editAssignment.url(assignment.id))
-                    }
-                    onVoid={() => setIsVoidDialogOpen(true)}
-                />
+                <CrewAssignmentIdentity assignment={assignment} can={can} />
 
-                {/* ── TOP: Operational Summary ── */}
                 <CrewAssignmentOperationalSummary
                     assignment={assignment}
                     corrections={corrections}
                 />
 
-                {/* ── MAIN CONTENT: Two-column layout ── */}
                 <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-                    {/* ── LEFT COLUMN: Assignment Record / History / Analytics ── */}
                     <div className="order-2 min-w-0 space-y-6 xl:order-1">
-                        {/* A. Assignment Journey */}
-                        <Card className="border-border/80 dark:border-white/10">
-                            <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
-                                <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                                    Assignment Journey
-                                </CardTitle>
-                                <p className="text-xs text-muted-foreground">
-                                    P0–P6 operating lifecycle
-                                </p>
-                            </CardHeader>
-                            <CardContent className="pt-4">
-                                <CrewPhaseProgress
-                                    currentPhaseCode={
-                                        assignment.current_phase?.code ?? null
-                                    }
-                                    phaseTimeline={assignment.phase_timeline}
-                                />
-                            </CardContent>
-                        </Card>
-
-                        {/* B. Tour of Duty (analytical, on vessel) */}
                         {isOnVessel ? (
                             <Card className="border-border/80 dark:border-white/10">
                                 <CardHeader className="pb-3">
@@ -297,15 +282,6 @@ export default function CrewAssignmentShow({
                             </Card>
                         ) : null}
 
-                        {/* C. Accommodation */}
-                        {assignment.accommodation &&
-                        assignment.accommodation.length > 0 ? (
-                            <CrewAssignmentAccommodationCard
-                                items={assignment.accommodation}
-                            />
-                        ) : null}
-
-                        {/* D. Phase Timeline (includes Plan vs Actual) */}
                         <CrewAssignmentPhaseTimeline
                             assignment={assignment}
                             can={can}
@@ -318,59 +294,62 @@ export default function CrewAssignmentShow({
                             onCancelPending={handleCancelPendingCorrection}
                         />
 
-                        {/* E. Assignment Relationships */}
-                        <CrewAssignmentRelationships
-                            assignment={assignment}
-                            canViewPlanning={can.view_planning}
-                        />
-
-                        {/* F. Correction History */}
-                        {can.view_corrections && corrections ? (
-                            <CorrectionHistoryCard corrections={corrections} />
-                        ) : null}
-
-                        {/* G. Remarks */}
-                        {assignment.remarks ? (
-                            <Card className="border-border/80 dark:border-white/10">
-                                <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
-                                    <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
-                                        Remarks
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="pt-4">
-                                    <p className="text-sm whitespace-pre-wrap text-muted-foreground">
-                                        {assignment.remarks}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        ) : null}
-
-                        {/* H. Audit History */}
-                        {can.view_audit ? (
-                            recent_activity.length > 0 ? (
-                                <RecentActivityCard
-                                    items={recent_activity}
-                                    description="Latest changes for this crew assignment."
+                        {hasRecordsContent ? (
+                            <CrewAssignmentRecordsSection>
+                                <CrewAssignmentRelationships
+                                    assignment={assignment}
+                                    canViewPlanning={can.view_planning}
                                 />
-                            ) : (
-                                <Card className="border-border/80 dark:border-white/10">
-                                    <CardHeader className="pb-2">
-                                        <CardTitle className="text-base">
-                                            Audit History
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <p className="text-sm text-muted-foreground">
-                                            No audit history recorded for this
-                                            assignment yet.
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            )
+                                {hasAccommodation ? (
+                                    <CrewAssignmentAccommodationCard
+                                        items={assignment.accommodation ?? []}
+                                    />
+                                ) : null}
+                                {can.view_corrections && corrections ? (
+                                    <CorrectionHistoryCard
+                                        corrections={corrections}
+                                    />
+                                ) : null}
+                                {assignment.remarks ? (
+                                    <Card className="border-border/80 dark:border-white/10">
+                                        <CardHeader className="border-b border-border/50 pb-3 dark:border-white/5">
+                                            <CardTitle className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+                                                Remarks
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-4">
+                                            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                                                {assignment.remarks}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
+                                ) : null}
+                                {can.view_audit ? (
+                                    recent_activity.length > 0 ? (
+                                        <RecentActivityCard
+                                            items={recent_activity}
+                                            description="Latest changes for this crew assignment."
+                                        />
+                                    ) : (
+                                        <Card className="border-border/80 dark:border-white/10">
+                                            <CardHeader className="pb-2">
+                                                <CardTitle className="text-base">
+                                                    Audit History
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <p className="text-sm text-muted-foreground">
+                                                    No audit history recorded
+                                                    for this assignment yet.
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                ) : null}
+                            </CrewAssignmentRecordsSection>
                         ) : null}
                     </div>
 
-                    {/* ── RIGHT COLUMN: Operations Center (sticky sidebar on desktop) ── */}
                     <div className="order-1 min-w-0 [scrollbar-width:thin] xl:sticky xl:top-4 xl:order-2 xl:max-h-[calc(100vh-2rem)] xl:self-start xl:overflow-y-auto xl:pr-1.5">
                         <CrewAssignmentOperationsCenter
                             assignment={assignment}

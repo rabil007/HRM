@@ -261,6 +261,95 @@ export function formatDayCount(days: number | null): string {
     return `${days} day${days === 1 ? '' : 's'}`;
 }
 
+/**
+ * Whole calendar days elapsed from an actual start up to company-local today.
+ * Same convention as backend `wholeDaysSince`: start day → today is exclusive
+ * of inventing a confirmed end (started today = 0 complete days).
+ */
+export function elapsedWholeCalendarDays(
+    start: string | null | undefined,
+    todayIso: string,
+    timeZone?: string | null,
+): number | null {
+    const startDate = normalizeCalendarDate(start, timeZone);
+    const todayDate = normalizeCalendarDate(todayIso, timeZone);
+
+    if (!startDate || !todayDate) {
+        return null;
+    }
+
+    const delta = Math.round(
+        (parseIsoToUtcMs(todayDate) - parseIsoToUtcMs(startDate)) / MS_PER_DAY,
+    );
+
+    if (delta < 0) {
+        return null;
+    }
+
+    return delta;
+}
+
+/**
+ * Days until a future planned start (positive), or null when missing / not future.
+ * Does not invent overdue labels for informational planned starts that have passed
+ * without an actual — callers decide presentation.
+ */
+export function daysUntilPlannedStart(
+    plannedStart: string | null | undefined,
+    todayIso: string,
+    timeZone?: string | null,
+): number | null {
+    const plannedDate = normalizeCalendarDate(plannedStart, timeZone);
+    const todayDate = normalizeCalendarDate(todayIso, timeZone);
+
+    if (!plannedDate || !todayDate) {
+        return null;
+    }
+
+    const delta = Math.round(
+        (parseIsoToUtcMs(plannedDate) - parseIsoToUtcMs(todayDate)) /
+            MS_PER_DAY,
+    );
+
+    return delta > 0 ? delta : null;
+}
+
+/**
+ * Days past a planned end while a phase is still open. Null when there is no
+ * planned end, or today is still on/before that deadline.
+ */
+export function daysPastPlannedEnd(
+    plannedEnd: string | null | undefined,
+    todayIso: string,
+    timeZone?: string | null,
+): number | null {
+    const plannedDate = normalizeCalendarDate(plannedEnd, timeZone);
+    const todayDate = normalizeCalendarDate(todayIso, timeZone);
+
+    if (!plannedDate || !todayDate) {
+        return null;
+    }
+
+    const delta = Math.round(
+        (parseIsoToUtcMs(todayDate) - parseIsoToUtcMs(plannedDate)) /
+            MS_PER_DAY,
+    );
+
+    return delta > 0 ? delta : null;
+}
+
+export function formatElapsedDayPhrase(days: number | null): string | null {
+    if (days === null) {
+        return null;
+    }
+
+    if (days === 0) {
+        return 'Started today';
+    }
+
+    return `${formatDayCount(days)} elapsed`;
+}
+
 export function formatSignedDayPhrase(
     days: number | null,
     earlyLabel: string,

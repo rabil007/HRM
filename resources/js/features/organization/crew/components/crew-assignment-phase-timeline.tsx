@@ -11,17 +11,21 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import {
+    normalProgressSkippedStagesNote,
+    resolveActiveLegacyPhaseContext,
+} from '@/features/organization/crew/lib/crew-phase-visibility';
 import type { PhaseTimelineDisplayMode } from '@/features/organization/crew/lib/phase-timeline-math';
 import {
     PHASE_TIMELINE_DISPLAY_MODES,
     calendarDatesDiffer,
-    collectTimelineDates,
+    daysPastPlannedEnd,
+    daysUntilPlannedStart,
+    elapsedWholeCalendarDays,
     formatDayCount,
-    phaseBarStyle,
+    formatElapsedDayPhrase,
     phaseHasPlannedDates,
     phasesHavePlannedDates,
-    resolveSharedTimelineRange,
-    shouldIncludeTodayInTimelineRange,
 } from '@/features/organization/crew/lib/phase-timeline-math';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
@@ -93,40 +97,17 @@ function varianceToneClass(tone: PhaseVarianceTone): string {
     }
 }
 
-function TimelineBarTrack({
-    label,
-    style,
-    tone,
-    openEnded = false,
-}: {
-    label: string;
-    style: { left: string; width: string };
-    tone: 'planned' | 'actual-success' | 'actual-warning' | 'actual-pending';
-    openEnded?: boolean;
-}): ReactElement {
-    return (
-        <div className="flex items-center gap-2">
-            <span className="w-14 shrink-0 text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-                {label}
-            </span>
-            <div className="relative h-2.5 flex-1 overflow-hidden rounded-full bg-muted/40">
-                <span
-                    className={cn(
-                        'absolute top-0 h-full rounded-full',
-                        tone === 'planned' &&
-                            'bg-slate-400/80 dark:bg-slate-500/80',
-                        tone === 'actual-success' && 'bg-emerald-500',
-                        tone === 'actual-warning' && 'bg-amber-500',
-                        tone === 'actual-pending' &&
-                            'bg-sky-500/80 dark:bg-sky-400/70',
-                        openEnded && 'rounded-r-none opacity-80',
-                    )}
-                    style={{ left: style.left, width: style.width }}
-                    title={`${label} period`}
-                />
-            </div>
-        </div>
-    );
+function formatDateOrFallback(
+    value: string | null | undefined,
+    fallback: string,
+): string {
+    if (!value) {
+        return fallback;
+    }
+
+    const formatted = formatDisplayDate(value);
+
+    return formatted === '—' ? fallback : formatted;
 }
 
 function AssignmentMilestones({
@@ -198,12 +179,137 @@ function AssignmentMilestones({
     );
 }
 
+function PhaseDateLines({
+    phase,
+    mode,
+    today,
+    timeZone,
+}: {
+    phase: PhaseTimelineItem;
+    mode: PhaseTimelineDisplayMode;
+    today: string;
+    timeZone?: string | null;
+}): ReactElement {
+    const variance = summarizePhaseVariance(phase, timeZone);
+    const showPlanned = mode !== 'actual_only';
+    const showActual = mode !== 'planned_only';
+    const hasPlanned = phaseHasPlannedDates(phase);
+
+    const plannedStart = formatDateOrFallback(
+        phase.planned_start_at,
+        'Not recorded',
+    );
+    const plannedEnd = phase.planned_end_at
+        ? formatDisplayDate(phase.planned_end_at)
+        : hasPlanned
+          ? '—'
+          : null;
+
+    const actualStart = formatDateOrFallback(
+        phase.actual_start_at,
+        variance.isNotStarted ? 'Not started' : 'Not recorded',
+    );
+    const actualEnd = variance.hasConfirmedActualEnd
+        ? formatDisplayDate(phase.actual_end_at)
+        : variance.isInProgress
+          ? 'In progress'
+          : null;
+
+    const elapsedDays = variance.isInProgress
+        ? elapsedWholeCalendarDays(phase.actual_start_at, today, timeZone)
+        : null;
+    const untilStart =
+        showPlanned && variance.isNotStarted && phase.planned_start_at
+            ? daysUntilPlannedStart(phase.planned_start_at, today, timeZone)
+            : null;
+    const pastPlannedEnd =
+        variance.isInProgress && phase.planned_end_at
+            ? daysPastPlannedEnd(phase.planned_end_at, today, timeZone)
+            : null;
+
+    const durationParts: string[] = [];
+
+    if (showPlanned && variance.plannedDurationDays !== null) {
+        durationParts.push(
+            `Planned ${formatDayCount(variance.plannedDurationDays)}`,
+        );
+    }
+
+    if (showActual && variance.hasConfirmedActualEnd) {
+        durationParts.push(
+            `${formatDayCount(variance.actualDurationDays)} completed`,
+        );
+    } else if (showActual && variance.isInProgress) {
+        const elapsed = formatElapsedDayPhrase(elapsedDays);
+
+        if (elapsed) {
+            durationParts.push(elapsed);
+        }
+    }
+
+    if (untilStart !== null) {
+        durationParts.push(`${formatDayCount(untilStart)} until planned start`);
+    }
+
+    if (pastPlannedEnd !== null) {
+        durationParts.push(
+            `${formatDayCount(pastPlannedEnd)} past planned end`,
+        );
+    }
+
+    return (
+        <div className="space-y-1 text-xs text-muted-foreground">
+            {showPlanned ? (
+                <p>
+                    <span className="font-medium text-foreground/70">
+                        Planned:{' '}
+                    </span>
+                    {hasPlanned ? (
+                        <>
+                            {plannedStart}
+                            {plannedEnd ? ` → ${plannedEnd}` : ''}
+                        </>
+                    ) : (
+                        <span className="text-muted-foreground/70">
+                            Not recorded
+                        </span>
+                    )}
+                </p>
+            ) : null}
+            {showActual ? (
+                <p>
+                    <span className="font-medium text-foreground/70">
+                        Actual:{' '}
+                    </span>
+                    {phase.actual_start_at || variance.isInProgress ? (
+                        <>
+                            {actualStart}
+                            {actualEnd ? ` → ${actualEnd}` : ''}
+                        </>
+                    ) : (
+                        <span className="text-muted-foreground/70">
+                            {actualStart}
+                        </span>
+                    )}
+                </p>
+            ) : null}
+            {durationParts.length > 0 ? (
+                <p>
+                    <span className="font-medium text-foreground/70">
+                        Duration:{' '}
+                    </span>
+                    {durationParts.join(' · ')}
+                </p>
+            ) : null}
+        </div>
+    );
+}
+
 function PhaseTimelineRow({
     phase,
     index,
     isCurrent,
     mode,
-    range,
     today,
     timeZone,
     can,
@@ -216,7 +322,6 @@ function PhaseTimelineRow({
     index: number;
     isCurrent: boolean;
     mode: PhaseTimelineDisplayMode;
-    range: { from: string; to: string } | null;
     today: string;
     timeZone?: string | null;
     can: Pick<
@@ -232,51 +337,7 @@ function PhaseTimelineRow({
     onCancelPending: (correctionId: number) => void;
 }): ReactElement {
     const variance = summarizePhaseVariance(phase, timeZone);
-    const showPlanned = mode !== 'actual_only';
-    const showActual = mode !== 'planned_only';
-    const hasPlanned = phaseHasPlannedDates(phase);
-    const hasActual = Boolean(phase.actual_start_at || phase.actual_end_at);
     const [detailsOpen, setDetailsOpen] = useState(false);
-
-    const plannedStyle =
-        range && showPlanned && hasPlanned
-            ? phaseBarStyle(
-                  phase.planned_start_at,
-                  phase.planned_end_at,
-                  range.from,
-                  range.to,
-                  { timeZone },
-              )
-            : null;
-
-    const actualStyle =
-        range && showActual && hasActual
-            ? phaseBarStyle(
-                  phase.actual_start_at,
-                  phase.actual_end_at,
-                  range.from,
-                  range.to,
-                  {
-                      openEndedVisualEnd: variance.isInProgress ? today : null,
-                      timeZone,
-                  },
-              )
-            : null;
-
-    const actualTone =
-        mode === 'plan_vs_actual' && variance.tone === 'warning'
-            ? 'actual-warning'
-            : variance.isInProgress || variance.isNotStarted
-              ? 'actual-pending'
-              : 'actual-success';
-
-    const showPlannedBar =
-        plannedStyle !== null && !('display' in plannedStyle);
-    const showActualBar = actualStyle !== null && !('display' in actualStyle);
-    const showMissingPlannedMessage = showPlanned && !hasPlanned;
-    const showBarPanel =
-        range !== null &&
-        (showPlannedBar || showActualBar || showMissingPlannedMessage);
 
     const hasExpandableDetails = Boolean(
         phase.remarks ||
@@ -287,7 +348,7 @@ function PhaseTimelineRow({
     );
 
     return (
-        <li className="relative pb-6 last:pb-0">
+        <li className="relative pb-5 last:pb-0">
             <span
                 className={cn(
                     'absolute top-1.5 -left-[1.4rem] size-2.5 rounded-full border-2 border-background',
@@ -300,9 +361,9 @@ function PhaseTimelineRow({
                 aria-hidden
             />
 
-            <div className="space-y-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1">
+            <div className="space-y-2.5 rounded-lg border border-border/40 bg-card/40 px-3 py-3 dark:bg-white/[0.02]">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                             <CrewPhaseBadge
                                 code={phase.phase_code}
@@ -396,74 +457,14 @@ function PhaseTimelineRow({
                             </p>
                         ) : null}
                     </div>
-
-                    <div className="min-w-[10rem] space-y-1 text-right text-xs text-muted-foreground">
-                        {showActual ? (
-                            <div>
-                                Actual:{' '}
-                                {formatDisplayDate(phase.actual_start_at)}
-                                {phase.actual_end_at
-                                    ? ` → ${formatDisplayDate(phase.actual_end_at)}`
-                                    : variance.isInProgress
-                                      ? ' → in progress'
-                                      : ''}
-                                {variance.actualDurationDays !== null
-                                    ? ` · ${formatDayCount(variance.actualDurationDays)}`
-                                    : ''}
-                            </div>
-                        ) : null}
-                        {showPlanned && hasPlanned ? (
-                            <div>
-                                Planned:{' '}
-                                {formatDisplayDate(phase.planned_start_at)}
-                                {phase.planned_end_at
-                                    ? ` → ${formatDisplayDate(phase.planned_end_at)}`
-                                    : ''}
-                                {variance.plannedDurationDays !== null
-                                    ? ` · ${formatDayCount(variance.plannedDurationDays)}`
-                                    : ''}
-                            </div>
-                        ) : null}
-                        {showMissingPlannedMessage ? (
-                            <div className="text-muted-foreground/60">
-                                No planned dates
-                            </div>
-                        ) : null}
-                    </div>
                 </div>
 
-                {showBarPanel && range ? (
-                    <div className="space-y-1.5 rounded-lg border border-border/40 bg-muted/10 px-3 py-2.5">
-                        {showMissingPlannedMessage ? (
-                            <p className="text-xs text-muted-foreground">
-                                {mode === 'planned_only'
-                                    ? 'No planned dates recorded for this phase.'
-                                    : 'No planned dates — variance cannot be calculated.'}
-                            </p>
-                        ) : null}
-                        {showPlannedBar && plannedStyle ? (
-                            <TimelineBarTrack
-                                label="Planned"
-                                style={plannedStyle}
-                                tone="planned"
-                            />
-                        ) : null}
-                        {showActualBar && actualStyle ? (
-                            <TimelineBarTrack
-                                label="Actual"
-                                style={actualStyle}
-                                tone={actualTone}
-                                openEnded={variance.isInProgress}
-                            />
-                        ) : null}
-                        {showPlannedBar || showActualBar ? (
-                            <div className="flex justify-between pt-0.5 text-[10px] text-muted-foreground/70">
-                                <span>{formatDisplayDate(range.from)}</span>
-                                <span>{formatDisplayDate(range.to)}</span>
-                            </div>
-                        ) : null}
-                    </div>
-                ) : null}
+                <PhaseDateLines
+                    phase={phase}
+                    mode={mode}
+                    today={today}
+                    timeZone={timeZone}
+                />
 
                 {hasExpandableDetails ? (
                     <Collapsible
@@ -553,26 +554,6 @@ export function CrewAssignmentPhaseTimeline({
 
     const today = useMemo(() => nowInCompanyDate(timeZone), [timeZone]);
 
-    const includeToday = useMemo(
-        () =>
-            shouldIncludeTodayInTimelineRange(assignment.phase_timeline, mode),
-        [assignment.phase_timeline, mode],
-    );
-
-    const range = useMemo(() => {
-        const dates = collectTimelineDates(
-            assignment.phase_timeline,
-            mode,
-            timeZone,
-        );
-
-        return resolveSharedTimelineRange(dates, {
-            todayIso: today,
-            includeToday,
-            timeZone,
-        });
-    }, [assignment.phase_timeline, includeToday, mode, timeZone, today]);
-
     const milestones: AssignmentMilestone[] = useMemo(
         () => [
             {
@@ -617,6 +598,15 @@ export function CrewAssignmentPhaseTimeline({
         assignment.phase_timeline.length > 0 &&
         !hasAnyPlannedDates;
 
+    const legacyContext = resolveActiveLegacyPhaseContext(
+        assignment.current_phase?.code ?? null,
+        assignment.phase_timeline,
+    );
+    const skippedNote = normalProgressSkippedStagesNote(
+        assignment.current_phase?.code ?? null,
+        assignment.phase_timeline,
+    );
+
     return (
         <Card className="border-border/80 dark:border-white/10">
             <CardHeader className="space-y-3 pb-3">
@@ -626,12 +616,25 @@ export function CrewAssignmentPhaseTimeline({
                             Phase Timeline
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Planned and actual movements on one shared calendar
-                            scale
+                            Planned and actual movement dates by phase
                         </p>
                     </div>
                     <SegmentedControl value={mode} onChange={setMode} />
                 </div>
+                {legacyContext || skippedNote ? (
+                    <div className="space-y-1.5">
+                        {legacyContext ? (
+                            <p className="rounded-md border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                                {legacyContext}
+                            </p>
+                        ) : null}
+                        {skippedNote ? (
+                            <p className="rounded-md border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                                {skippedNote}
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
                 <AssignmentMilestones
                     milestones={milestones}
                     timeZone={timeZone}
@@ -659,7 +662,6 @@ export function CrewAssignmentPhaseTimeline({
                                     assignment.current_phase?.id === phase.id
                                 }
                                 mode={mode}
-                                range={range}
                                 today={today}
                                 timeZone={timeZone}
                                 can={can}
