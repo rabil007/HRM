@@ -986,3 +986,136 @@ test('selected candidates can be rejected without undo and validation preserves 
         ->and($candidate->interview_outcome)->toBe(CandidateInterviewOutcome::NotSelected)
         ->and($candidate->rejection_reason)->toBe('Client declined');
 });
+
+test('kanban through_page returns previously loaded page ranges authoritatively after a move', function () {
+    $candidates = [];
+
+    foreach (range(1, 31) as $index) {
+        $candidates[$index] = RecruitmentCandidate::query()->create([
+            'company_id' => $this->companyA->id,
+            'recruitment_requirement_id' => $this->requirement->id,
+            'recruitment_requirement_line_id' => $this->line->id,
+            'requirement_number_snapshot' => $this->requirement->requirement_number,
+            'position_title_snapshot' => 'Chief Officer',
+            'name' => "Applied {$index}",
+            'email' => "applied{$index}@example.com",
+            'email_normalized' => "applied{$index}@example.com",
+            'stage' => CandidateStage::Applied,
+            'lock_version' => 0,
+            'created_by' => $this->recruiterA->id,
+            'updated_by' => $this->recruiterA->id,
+        ]);
+        $candidates[$index]->forceFill([
+            'updated_at' => now()->subMinutes(40 - $index),
+        ])->saveQuietly();
+    }
+
+    // Newest-first pagination: page 1 = 31..17, page 2 = 16..2, remainder page 3 = 1.
+    $moved = $candidates[16];
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/candidates?view=kanban&per_page=15&page_applied=2')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('kanban.applied.data', 15)
+            ->where('kanban.applied.current_page', 2)
+            ->where('kanban.applied.total', 31)
+            ->where('kanban.applied.data.0.id', $moved->id)
+        );
+
+    $this->from('/organization/recruitment/candidates?view=kanban&per_page=15&page_applied=2')
+        ->post("/organization/recruitment/candidates/{$moved->id}/move", [
+            'lock_version' => 0,
+            'expected_stage' => 'applied',
+        ])
+        ->assertRedirect();
+
+    expect($moved->fresh()->stage)->toBe(CandidateStage::Screening);
+
+    $this->get('/organization/recruitment/candidates?view=kanban&per_page=15&through_page_applied=2')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('kanban.applied.data', 30)
+            ->where('kanban.applied.current_page', 2)
+            ->where('kanban.applied.last_page', 2)
+            ->where('kanban.applied.total', 30)
+            ->where('kanban.applied.from', 1)
+            ->where('kanban.applied.to', 30)
+            ->where('stage_totals.applied', 30)
+            ->where('stage_totals.screening', 1)
+            ->has('kanban.screening.data', 1)
+            ->where('kanban.screening.data.0.id', $moved->id)
+            ->where('kanban.applied.data', fn ($rows) => collect($rows)->every(
+                fn ($row) => (int) $row['id'] !== (int) $moved->id,
+            ))
+        );
+
+    // Single-page fetch still returns only page 2 (no duplicates when the client appends).
+    $this->get('/organization/recruitment/candidates?view=kanban&per_page=15&page_applied=2')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('kanban.applied.data', 15)
+            ->where('kanban.applied.current_page', 2)
+            ->where('kanban.applied.data', fn ($rows) => collect($rows)->every(
+                fn ($row) => (int) $row['id'] !== (int) $moved->id,
+            ))
+        );
+});
+
+test('interview update validates field lengths and preserves input without success flash', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Interview Fields',
+        'email' => 'interview-fields@example.com',
+        'email_normalized' => 'interview-fields@example.com',
+        'stage' => CandidateStage::Interview,
+        'lock_version' => 0,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $tooLongName = str_repeat('n', 201);
+    $tooLongLocation = str_repeat('l', 301);
+    $tooLongFeedback = str_repeat('f', 10001);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->put("/organization/recruitment/candidates/{$candidate->id}/interview", [
+            'external_interviewer_name' => $tooLongName,
+            'interview_location' => $tooLongLocation,
+            'interview_feedback' => $tooLongFeedback,
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors([
+            'external_interviewer_name',
+            'interview_location',
+            'interview_feedback',
+        ])
+        ->assertSessionMissing('success')
+        ->assertSessionHasInput('external_interviewer_name', $tooLongName)
+        ->assertSessionHasInput('interview_location', $tooLongLocation)
+        ->assertSessionHasInput('interview_feedback', $tooLongFeedback);
+
+    $this->put("/organization/recruitment/candidates/{$candidate->id}/interview", [
+        'external_interviewer_name' => 'Alex External',
+        'interview_location' => 'Teams link',
+        'interview_feedback' => 'Strong technical interview.',
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Interview information updated.');
+
+    $candidate->refresh();
+    expect($candidate->external_interviewer_name)->toBe('Alex External')
+        ->and($candidate->interview_location)->toBe('Teams link')
+        ->and($candidate->interview_feedback)->toBe('Strong technical interview.');
+});

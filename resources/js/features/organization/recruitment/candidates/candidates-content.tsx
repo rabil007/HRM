@@ -1,6 +1,6 @@
 import { Link, router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     dataTableBodyRowClass,
@@ -33,8 +33,10 @@ import {
 } from './components/candidate-stage-badge';
 import { emptyCandidateForm } from './lib/candidate-form';
 import {
+    buildKanbanThroughPageParams,
     candidateKanbanFilterKey,
     mergeKanbanBoard,
+    planKanbanBoardSync,
     visibleKanbanStages,
 } from './lib/kanban-accumulate';
 import type {
@@ -65,25 +67,93 @@ export function CandidatesContent({
     const [kanbanFilterKey, setKanbanFilterKey] = useState(filterKey);
     const [pendingAppendStage, setPendingAppendStage] =
         useState<CandidateStage | null>(null);
+    const [pendingThroughRefresh, setPendingThroughRefresh] = useState(false);
+    const [throughRefreshRequest, setThroughRefreshRequest] = useState<{
+        nonce: number;
+        params: Record<string, number>;
+    } | null>(null);
     const [accumulatedKanban, setAccumulatedKanban] = useState<Record<
         string,
         CandidateKanbanColumn
     > | null>(() => mergeKanbanBoard(null, kanban, null));
     const [syncedKanban, setSyncedKanban] = useState(kanban);
 
+    const kanbanStages = visibleKanbanStages(filters.stage);
+
     // Adjust accumulated pages when filters change or Inertia returns a fresh board.
     if (filterKey !== kanbanFilterKey) {
         setKanbanFilterKey(filterKey);
         setSyncedKanban(kanban);
         setPendingAppendStage(null);
+        setPendingThroughRefresh(false);
+        setThroughRefreshRequest(null);
         setAccumulatedKanban(mergeKanbanBoard(null, kanban, null));
     } else if (kanban !== syncedKanban) {
         setSyncedKanban(kanban);
-        setAccumulatedKanban((previous) =>
-            mergeKanbanBoard(previous, kanban, pendingAppendStage),
-        );
+
+        const plan = planKanbanBoardSync({
+            previous: accumulatedKanban,
+            incoming: kanban,
+            appendStage: pendingAppendStage,
+            isThroughRefresh: pendingThroughRefresh,
+            stages: kanbanStages,
+        });
+
+        setAccumulatedKanban(plan.next);
         setPendingAppendStage(null);
+
+        if (plan.needsThroughRefresh) {
+            setPendingThroughRefresh(true);
+            setThroughRefreshRequest((previous) => ({
+                nonce: (previous?.nonce ?? 0) + 1,
+                params: buildKanbanThroughPageParams(
+                    accumulatedKanban,
+                    kanbanStages,
+                ),
+            }));
+        } else {
+            setPendingThroughRefresh(false);
+            setThroughRefreshRequest(null);
+        }
     }
+
+    useEffect(() => {
+        if (!throughRefreshRequest) {
+            return;
+        }
+
+        if (Object.keys(throughRefreshRequest.params).length === 0) {
+            return;
+        }
+
+        const params: Record<string, string | number | null> = {
+            view: 'kanban',
+            search,
+            per_page: filters.per_page,
+            requirement_id: filters.requirement_id,
+            requirement_line_id: filters.requirement_line_id,
+            position_id: filters.position_id,
+            stage: filters.stage,
+            outcome: filters.outcome,
+            ...throughRefreshRequest.params,
+        };
+
+        router.get('/organization/recruitment/candidates', params, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['kanban', 'stage_totals', 'filters'],
+        });
+    }, [
+        throughRefreshRequest,
+        search,
+        filters.per_page,
+        filters.requirement_id,
+        filters.requirement_line_id,
+        filters.position_id,
+        filters.stage,
+        filters.outcome,
+    ]);
 
     const pagination = candidates
         ? {
@@ -191,6 +261,8 @@ export function CandidatesContent({
 
     const setView = (view: 'table' | 'kanban') => {
         setPendingAppendStage(null);
+        setPendingThroughRefresh(false);
+        setThroughRefreshRequest(null);
         list.visit({ view, page: null });
     };
 
@@ -230,7 +302,6 @@ export function CandidatesContent({
     };
 
     const rows = candidates?.data ?? [];
-    const kanbanStages = visibleKanbanStages(filters.stage);
     const activeFilterCount = useMemo(
         () =>
             [
@@ -439,8 +510,8 @@ export function CandidatesContent({
                                         {CANDIDATE_STAGE_LABELS[stage]}
                                     </h3>
                                     <Badge variant="secondary">
-                                        {column?.total ??
-                                            stage_totals[stage] ??
+                                        {stage_totals[stage] ??
+                                            column?.total ??
                                             0}
                                     </Badge>
                                 </div>

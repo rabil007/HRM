@@ -7,6 +7,7 @@ use App\Models\RecruitmentCandidate;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator as ConcreteLengthAwarePaginator;
 
 final class CandidateBrowseQuery
 {
@@ -14,7 +15,7 @@ final class CandidateBrowseQuery
      * @return array{
      *     mode: string,
      *     paginator: LengthAwarePaginator|null,
-     *     kanban: array<string, array{total: int, paginator: LengthAwarePaginator}>|null,
+     *     kanban: array<string, array{total: int, paginator: LengthAwarePaginator, from: int|null, to: int|null}>|null,
      *     stage_totals: array<string, int>,
      *     filters: array<string, mixed>,
      *     search: string,
@@ -52,16 +53,48 @@ final class CandidateBrowseQuery
 
             foreach ($columns as $column) {
                 $pageKey = 'page_'.$column->value;
+                $throughPage = max(0, (int) $request->input('through_page_'.$column->value, 0));
                 $page = max(1, (int) $request->input($pageKey, 1));
-                $columnQuery = (clone $base)->where('stage', $column->value);
-                $kanban[$column->value] = [
-                    'total' => $stageTotals[$column->value],
-                    'paginator' => $columnQuery
-                        ->orderByDesc('updated_at')
-                        ->orderByDesc('id')
+                $columnQuery = (clone $base)->where('stage', $column->value)
+                    ->orderByDesc('updated_at')
+                    ->orderByDesc('id');
+                $total = $stageTotals[$column->value];
+
+                if ($throughPage > 1) {
+                    $lastPage = max(1, (int) ceil($total / max(1, $perPage)));
+                    $effectiveThrough = min($throughPage, $lastPage);
+                    $take = $perPage * $effectiveThrough;
+                    $items = (clone $columnQuery)->limit($take)->get();
+                    $itemCount = $items->count();
+
+                    $kanban[$column->value] = [
+                        'total' => $total,
+                        'paginator' => new ConcreteLengthAwarePaginator(
+                            $items,
+                            $total,
+                            $perPage,
+                            $effectiveThrough,
+                            [
+                                'path' => $request->url(),
+                                'pageName' => $pageKey,
+                                'query' => $request->query(),
+                            ],
+                        ),
+                        'from' => $itemCount > 0 ? 1 : null,
+                        'to' => $itemCount > 0 ? $itemCount : null,
+                    ];
+                } else {
+                    $paginator = $columnQuery
                         ->paginate($perPage, ['*'], $pageKey, $page)
-                        ->withQueryString(),
-                ];
+                        ->withQueryString();
+
+                    $kanban[$column->value] = [
+                        'total' => $total,
+                        'paginator' => $paginator,
+                        'from' => $paginator->firstItem(),
+                        'to' => $paginator->lastItem(),
+                    ];
+                }
             }
 
             return [

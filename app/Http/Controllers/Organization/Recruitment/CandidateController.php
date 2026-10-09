@@ -55,8 +55,8 @@ class CandidateController extends Controller
                     'current_page' => $column['paginator']->currentPage(),
                     'last_page' => $column['paginator']->lastPage(),
                     'per_page' => $column['paginator']->perPage(),
-                    'from' => $column['paginator']->firstItem(),
-                    'to' => $column['paginator']->lastItem(),
+                    'from' => $column['from'] ?? $column['paginator']->firstItem(),
+                    'to' => $column['to'] ?? $column['paginator']->lastItem(),
                 ];
             }
         } elseif ($browse['paginator'] !== null) {

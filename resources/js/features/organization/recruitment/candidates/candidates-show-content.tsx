@@ -3,6 +3,7 @@ import { Download, Pencil } from 'lucide-react';
 import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { DetailsHeader } from '@/components/details-header';
+import InputError from '@/components/input-error';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -18,6 +19,11 @@ import {
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
 import { candidateFormFromRow } from './lib/candidate-form';
+import {
+    interviewFieldError,
+    interviewKnownGeneralError,
+    interviewUnrenderedErrors,
+} from './lib/interview-form-errors';
 import type { CandidateFormData, CandidateShowProps } from './types';
 
 export function CandidatesShowContent({
@@ -96,16 +102,19 @@ export function CandidatesShowContent({
             `/organization/recruitment/candidates/${candidate.id}/interview`,
             {
                 preserveScroll: true,
+                // Keep entered values on validation failure (Inertia default).
+                // Success flash is handled globally; show inline only when recentlySuccessful.
                 onFinish: () => interviewForm.transform((data) => data),
             },
         );
     };
 
     const interviewErrors = interviewForm.errors as Record<string, string>;
-    const interviewGeneralError =
-        interviewErrors.lock_version ||
-        interviewErrors.candidate ||
-        interviewErrors.stage;
+    const interviewGeneralError = interviewKnownGeneralError(interviewErrors);
+    const interviewFallbackErrors = interviewUnrenderedErrors(interviewErrors);
+    const showInterviewSuccess =
+        interviewForm.recentlySuccessful &&
+        Object.keys(interviewErrors).length === 0;
 
     return (
         <Main>
@@ -268,8 +277,30 @@ export function CandidatesShowContent({
                         ) : null}
                     </div>
                     {interviewGeneralError ? (
-                        <p className="mb-3 text-sm text-destructive">
+                        <p
+                            className="mb-3 text-sm text-destructive"
+                            role="alert"
+                        >
                             {interviewGeneralError}
+                        </p>
+                    ) : null}
+                    {interviewFallbackErrors.length > 0 ? (
+                        <div
+                            className="mb-3 space-y-1 text-sm text-destructive"
+                            role="alert"
+                            aria-live="assertive"
+                        >
+                            {interviewFallbackErrors.map((message) => (
+                                <p key={message}>{message}</p>
+                            ))}
+                        </div>
+                    ) : null}
+                    {showInterviewSuccess ? (
+                        <p
+                            className="mb-3 text-sm text-muted-foreground"
+                            aria-live="polite"
+                        >
+                            Interview information saved.
                         </p>
                     ) : null}
                     <div className="grid gap-4 md:grid-cols-2">
@@ -288,14 +319,13 @@ export function CandidatesShowContent({
                                     )
                                 }
                             />
-                            {interviewForm.errors.interview_scheduled_at ? (
-                                <p className="text-xs text-destructive">
-                                    {
-                                        interviewForm.errors
-                                            .interview_scheduled_at
-                                    }
-                                </p>
-                            ) : null}
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'interview_scheduled_at',
+                                )}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Mode</Label>
@@ -323,11 +353,13 @@ export function CandidatesShowContent({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {interviewForm.errors.interview_mode ? (
-                                <p className="text-xs text-destructive">
-                                    {interviewForm.errors.interview_mode}
-                                </p>
-                            ) : null}
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'interview_mode',
+                                )}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Internal interviewer</Label>
@@ -354,11 +386,13 @@ export function CandidatesShowContent({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {interviewForm.errors.interviewer_user_id ? (
-                                <p className="text-xs text-destructive">
-                                    {interviewForm.errors.interviewer_user_id}
-                                </p>
-                            ) : null}
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'interviewer_user_id',
+                                )}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>External interviewer name</Label>
@@ -374,6 +408,13 @@ export function CandidatesShowContent({
                                     )
                                 }
                             />
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'external_interviewer_name',
+                                )}
+                            />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                             <Label>Location / meeting details</Label>
@@ -387,6 +428,13 @@ export function CandidatesShowContent({
                                     )
                                 }
                             />
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'interview_location',
+                                )}
+                            />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                             <Label>Feedback</Label>
@@ -399,6 +447,13 @@ export function CandidatesShowContent({
                                         event.target.value,
                                     )
                                 }
+                            />
+                            <InputError
+                                className="text-xs"
+                                message={interviewFieldError(
+                                    interviewErrors,
+                                    'interview_feedback',
+                                )}
                             />
                         </div>
                     </div>
