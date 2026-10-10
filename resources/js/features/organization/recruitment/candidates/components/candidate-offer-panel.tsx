@@ -14,6 +14,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { nowInCompanyDate } from '@/lib/company-timezone';
+import {
+    offerKnownGeneralError,
+    offerUnrenderedErrors,
+} from '../lib/offer-form-errors';
 import type {
     CandidateDetail,
     CandidateFormOptions,
@@ -48,11 +53,13 @@ function emptyOfferForm(
         options.default_currency_code ||
         'AED';
 
+    const companyToday = nowInCompanyDate(candidate.timezone);
+
     return {
         salary_amount: offer?.salary_amount ?? '',
         salary_currency_code: offer?.salary_currency_code ?? lineCurrency,
         proposed_joining_date: offer?.proposed_joining_date ?? '',
-        offer_date: offer?.offer_date ?? new Date().toISOString().slice(0, 10),
+        offer_date: offer?.offer_date ?? companyToday,
         expiry_date: offer?.expiry_date ?? '',
         notes: offer?.notes ?? '',
         offer_document: null,
@@ -60,9 +67,9 @@ function emptyOfferForm(
         remove_offer_document: false,
         remove_acceptance_document: false,
         reason: '',
-        sent_at: '',
-        accepted_at: '',
-        rejected_at: '',
+        sent_at: companyToday,
+        accepted_at: companyToday,
+        rejected_at: companyToday,
     };
 }
 
@@ -77,9 +84,12 @@ export function CandidateOfferPanel({
     const [reasonAction, setReasonAction] = useState<
         'reject' | 'revise' | null
     >(null);
+    const [isPosting, setIsPosting] = useState(false);
     const form = useForm<OfferFormState>(
         emptyOfferForm(candidate, options, offer),
     );
+
+    const isBusy = form.processing || isPosting;
 
     const salaryReference =
         candidate.line?.salary_min || candidate.line?.salary_max
@@ -92,6 +102,11 @@ export function CandidateOfferPanel({
     };
 
     const submitPrepare = () => {
+        if (isBusy) {
+            return;
+        }
+
+        form.clearErrors();
         form.transform((data) => ({
             salary_amount: data.salary_amount,
             salary_currency_code: data.salary_currency_code,
@@ -115,10 +130,11 @@ export function CandidateOfferPanel({
     };
 
     const submitUpdate = () => {
-        if (!offer) {
+        if (!offer || isBusy) {
             return;
         }
 
+        form.clearErrors();
         form.transform((data) => ({
             salary_amount: data.salary_amount,
             salary_currency_code: data.salary_currency_code,
@@ -149,26 +165,35 @@ export function CandidateOfferPanel({
         url: string,
         data: Record<string, string | number | boolean | File | null>,
         forceFormData = false,
+        onSuccess?: () => void,
     ) => {
+        if (isBusy) {
+            return;
+        }
+
+        setIsPosting(true);
+        form.clearErrors();
+
         router.post(url, data, {
             preserveScroll: true,
             forceFormData,
+            onSuccess: () => {
+                onSuccess?.();
+            },
             onError: (errors) => {
                 form.setError(
                     errors as Partial<Record<keyof OfferFormState, string>>,
                 );
             },
+            onFinish: () => {
+                setIsPosting(false);
+            },
         });
     };
 
     const offerErrors = form.errors as Record<string, string>;
-    const generalError =
-        offerErrors.lock_version ||
-        offerErrors.offer_lock_version ||
-        offerErrors.candidate ||
-        offerErrors.offer ||
-        offerErrors.offer_status ||
-        offerErrors.stage;
+    const generalError = offerKnownGeneralError(offerErrors);
+    const unrenderedErrors = offerUnrenderedErrors(offerErrors);
 
     return (
         <section
@@ -204,10 +229,21 @@ export function CandidateOfferPanel({
                 </p>
             ) : null}
 
+            {unrenderedErrors.length > 0 ? (
+                <div
+                    className="mb-3 space-y-1 text-sm text-destructive"
+                    role="alert"
+                >
+                    {unrenderedErrors.map((msg, i) => (
+                        <p key={i}>{msg}</p>
+                    ))}
+                </div>
+            ) : null}
+
             {!offer && candidate.can_prepare_offer ? (
                 <div className="space-y-4">
                     <OfferFields form={form} options={options} />
-                    <Button onClick={submitPrepare} disabled={form.processing}>
+                    <Button onClick={submitPrepare} disabled={isBusy}>
                         Prepare Offer
                     </Button>
                 </div>
@@ -328,14 +364,14 @@ export function CandidateOfferPanel({
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     onClick={submitUpdate}
-                                    disabled={form.processing}
+                                    disabled={isBusy}
                                 >
                                     Save draft
                                 </Button>
                                 <Button
                                     variant="outline"
                                     onClick={() => resetFromOffer()}
-                                    disabled={form.processing}
+                                    disabled={isBusy}
                                 >
                                     Reset
                                 </Button>
@@ -343,85 +379,153 @@ export function CandidateOfferPanel({
                         </div>
                     ) : null}
 
-                    <div className="flex flex-wrap gap-2">
-                        {offer.can_send ? (
-                            <Button
-                                disabled={form.processing}
-                                onClick={() =>
-                                    postAction(
-                                        `/organization/recruitment/candidates/${candidate.id}/offers/${offer.id}/send`,
-                                        {
-                                            lock_version:
-                                                candidate.lock_version,
-                                            offer_lock_version:
-                                                offer.lock_version,
-                                            expected_stage: candidate.stage,
-                                            expected_offer_status: offer.status,
-                                            sent_at: form.data.sent_at || null,
-                                        },
-                                    )
-                                }
-                            >
-                                Mark Sent
-                            </Button>
-                        ) : null}
-                        {offer.can_accept ? (
-                            <Button
-                                disabled={form.processing}
-                                onClick={() =>
-                                    postAction(
-                                        `/organization/recruitment/candidates/${candidate.id}/offers/${offer.id}/accept`,
-                                        {
-                                            lock_version:
-                                                candidate.lock_version,
-                                            offer_lock_version:
-                                                offer.lock_version,
-                                            expected_stage: candidate.stage,
-                                            expected_offer_status: offer.status,
-                                            accepted_at:
-                                                form.data.accepted_at || null,
-                                            acceptance_document:
-                                                form.data.acceptance_document,
-                                        },
-                                        true,
-                                    )
-                                }
-                            >
-                                Mark Accepted
-                            </Button>
-                        ) : null}
-                        {offer.can_reject ? (
-                            <Button
-                                variant="destructive"
-                                disabled={form.processing}
-                                onClick={() => setReasonAction('reject')}
-                            >
-                                Reject Offer
-                            </Button>
-                        ) : null}
-                        {offer.can_revise ? (
-                            <Button
-                                variant="outline"
-                                disabled={form.processing}
-                                onClick={() => setReasonAction('revise')}
-                            >
-                                Revise Offer
-                            </Button>
-                        ) : null}
-                    </div>
+                    {offer.can_send ? (
+                        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                            <h4 className="text-sm font-medium">Send offer</h4>
+                            <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
+                                <div className="space-y-1">
+                                    <Label htmlFor="offer-sent-date">
+                                        Actual sent date
+                                    </Label>
+                                    <Input
+                                        id="offer-sent-date"
+                                        type="date"
+                                        value={form.data.sent_at}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'sent_at',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError message={form.errors.sent_at} />
+                                </div>
+                                <div>
+                                    <Button
+                                        disabled={isBusy}
+                                        onClick={() =>
+                                            postAction(
+                                                `/organization/recruitment/candidates/${candidate.id}/offers/${offer.id}/send`,
+                                                {
+                                                    lock_version:
+                                                        candidate.lock_version,
+                                                    offer_lock_version:
+                                                        offer.lock_version,
+                                                    expected_stage:
+                                                        candidate.stage,
+                                                    expected_offer_status:
+                                                        offer.status,
+                                                    sent_at:
+                                                        form.data.sent_at ||
+                                                        null,
+                                                },
+                                            )
+                                        }
+                                    >
+                                        Mark Sent
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : null}
 
                     {offer.can_accept ? (
-                        <div className="space-y-2">
-                            <Label>Signed acceptance (optional)</Label>
-                            <Input
-                                type="file"
-                                onChange={(event) =>
-                                    form.setData(
-                                        'acceptance_document',
-                                        event.target.files?.[0] ?? null,
-                                    )
-                                }
-                            />
+                        <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                            <h4 className="text-sm font-medium">
+                                Record acceptance
+                            </h4>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="space-y-1">
+                                    <Label htmlFor="offer-accepted-date">
+                                        Actual acceptance date
+                                    </Label>
+                                    <Input
+                                        id="offer-accepted-date"
+                                        type="date"
+                                        value={form.data.accepted_at}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'accepted_at',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    <InputError
+                                        message={form.errors.accepted_at}
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="offer-acceptance-document">
+                                        Signed acceptance (optional)
+                                    </Label>
+                                    <Input
+                                        id="offer-acceptance-document"
+                                        type="file"
+                                        onChange={(event) =>
+                                            form.setData(
+                                                'acceptance_document',
+                                                event.target.files?.[0] ?? null,
+                                            )
+                                        }
+                                    />
+                                    <InputError
+                                        message={
+                                            form.errors.acceptance_document
+                                        }
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <Button
+                                    disabled={isBusy}
+                                    onClick={() =>
+                                        postAction(
+                                            `/organization/recruitment/candidates/${candidate.id}/offers/${offer.id}/accept`,
+                                            {
+                                                lock_version:
+                                                    candidate.lock_version,
+                                                offer_lock_version:
+                                                    offer.lock_version,
+                                                expected_stage: candidate.stage,
+                                                expected_offer_status:
+                                                    offer.status,
+                                                accepted_at:
+                                                    form.data.accepted_at ||
+                                                    null,
+                                                acceptance_document:
+                                                    form.data
+                                                        .acceptance_document,
+                                            },
+                                            true,
+                                        )
+                                    }
+                                >
+                                    Mark Accepted
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {offer.can_reject || offer.can_revise ? (
+                        <div className="flex flex-wrap gap-2">
+                            {offer.can_reject ? (
+                                <Button
+                                    variant="destructive"
+                                    disabled={isBusy}
+                                    onClick={() => setReasonAction('reject')}
+                                >
+                                    Reject Offer
+                                </Button>
+                            ) : null}
+                            {offer.can_revise ? (
+                                <Button
+                                    variant="outline"
+                                    disabled={isBusy}
+                                    onClick={() => setReasonAction('revise')}
+                                >
+                                    Revise Offer
+                                </Button>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -450,7 +554,7 @@ export function CandidateOfferPanel({
             <Dialog
                 open={reasonAction !== null}
                 onOpenChange={(open) => {
-                    if (!open) {
+                    if (!open && !isBusy) {
                         setReasonAction(null);
                     }
                 }}
@@ -468,19 +572,42 @@ export function CandidateOfferPanel({
                                 : 'Records that the candidate declined the offer. This does not set interview outcome to Not Selected.'}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-2">
-                        <Label>Reason</Label>
-                        <Textarea
-                            value={form.data.reason}
-                            onChange={(event) =>
-                                form.setData('reason', event.target.value)
-                            }
-                        />
-                        <InputError message={form.errors.reason} />
+
+                    {generalError ? (
+                        <p className="text-sm text-destructive" role="alert">
+                            {generalError}
+                        </p>
+                    ) : null}
+                    {unrenderedErrors.length > 0 ? (
+                        <div
+                            className="space-y-1 text-sm text-destructive"
+                            role="alert"
+                        >
+                            {unrenderedErrors.map((msg, i) => (
+                                <p key={i}>{msg}</p>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    <div className="space-y-3">
+                        <div className="space-y-2">
+                            <Label htmlFor="offer-dialog-reason">Reason</Label>
+                            <Textarea
+                                id="offer-dialog-reason"
+                                value={form.data.reason}
+                                onChange={(event) =>
+                                    form.setData('reason', event.target.value)
+                                }
+                            />
+                            <InputError message={form.errors.reason} />
+                        </div>
                         {reasonAction === 'reject' ? (
                             <div className="space-y-2">
-                                <Label>Decision date (optional)</Label>
+                                <Label htmlFor="offer-dialog-rejected-at">
+                                    Decision date
+                                </Label>
                                 <Input
+                                    id="offer-dialog-rejected-at"
                                     type="date"
                                     value={form.data.rejected_at}
                                     onChange={(event) =>
@@ -490,12 +617,14 @@ export function CandidateOfferPanel({
                                         )
                                     }
                                 />
+                                <InputError message={form.errors.rejected_at} />
                             </div>
                         ) : null}
                     </div>
                     <DialogFooter>
                         <Button
                             variant="outline"
+                            disabled={isBusy}
                             onClick={() => setReasonAction(null)}
                         >
                             Cancel
@@ -506,12 +635,9 @@ export function CandidateOfferPanel({
                                     ? 'destructive'
                                     : 'default'
                             }
-                            disabled={
-                                form.processing ||
-                                form.data.reason.trim() === ''
-                            }
+                            disabled={isBusy || form.data.reason.trim() === ''}
                             onClick={() => {
-                                if (!offer || !reasonAction) {
+                                if (!offer || !reasonAction || isBusy) {
                                     return;
                                 }
 
@@ -528,6 +654,11 @@ export function CandidateOfferPanel({
                                                 offer.lock_version,
                                             expected_stage: candidate.stage,
                                             expected_offer_status: offer.status,
+                                        },
+                                        false,
+                                        () => {
+                                            setReasonAction(null);
+                                            form.setData('reason', '');
                                         },
                                     );
                                 } else {
@@ -559,10 +690,13 @@ export function CandidateOfferPanel({
                                             expected_stage: candidate.stage,
                                             expected_offer_status: offer.status,
                                         },
+                                        false,
+                                        () => {
+                                            setReasonAction(null);
+                                            form.setData('reason', '');
+                                        },
                                     );
                                 }
-
-                                setReasonAction(null);
                             }}
                         >
                             Confirm
@@ -584,8 +718,9 @@ function OfferFields({
     return (
         <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-                <Label>Offered amount</Label>
+                <Label htmlFor="offer-salary-amount">Offered amount</Label>
                 <Input
+                    id="offer-salary-amount"
                     type="number"
                     step="0.01"
                     min="0"
@@ -621,8 +756,9 @@ function OfferFields({
                 <InputError message={form.errors.salary_currency_code} />
             </div>
             <div className="space-y-2">
-                <Label>Offer date</Label>
+                <Label htmlFor="offer-field-offer-date">Offer date</Label>
                 <Input
+                    id="offer-field-offer-date"
                     type="date"
                     value={form.data.offer_date}
                     onChange={(event) =>
@@ -632,8 +768,11 @@ function OfferFields({
                 <InputError message={form.errors.offer_date} />
             </div>
             <div className="space-y-2">
-                <Label>Proposed joining date</Label>
+                <Label htmlFor="offer-field-joining-date">
+                    Proposed joining date
+                </Label>
                 <Input
+                    id="offer-field-joining-date"
                     type="date"
                     value={form.data.proposed_joining_date}
                     onChange={(event) =>
@@ -646,8 +785,11 @@ function OfferFields({
                 <InputError message={form.errors.proposed_joining_date} />
             </div>
             <div className="space-y-2">
-                <Label>Expiry date (optional)</Label>
+                <Label htmlFor="offer-field-expiry-date">
+                    Expiry date (optional)
+                </Label>
                 <Input
+                    id="offer-field-expiry-date"
                     type="date"
                     value={form.data.expiry_date}
                     onChange={(event) =>
@@ -657,8 +799,11 @@ function OfferFields({
                 <InputError message={form.errors.expiry_date} />
             </div>
             <div className="space-y-2">
-                <Label>Offer / JOL document (optional)</Label>
+                <Label htmlFor="offer-field-document">
+                    Offer / JOL document (optional)
+                </Label>
                 <Input
+                    id="offer-field-document"
                     type="file"
                     onChange={(event) =>
                         form.setData(
@@ -670,8 +815,9 @@ function OfferFields({
                 <InputError message={form.errors.offer_document} />
             </div>
             <div className="space-y-2 md:col-span-2">
-                <Label>Notes</Label>
+                <Label htmlFor="offer-field-notes">Notes</Label>
                 <Textarea
+                    id="offer-field-notes"
                     value={form.data.notes}
                     onChange={(event) =>
                         form.setData('notes', event.target.value)

@@ -8,6 +8,7 @@ use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Support\Facades\DB;
@@ -65,9 +66,11 @@ final class SendCandidateOffer
                 ]);
             }
 
-            $sentAt = filled($data['sent_at'] ?? null)
-                ? $data['sent_at']
-                : now();
+            $sentAt = CandidateOfferDateValidation::resolveAndValidateSentAt(
+                $locked->company_id,
+                $lockedOffer,
+                $data['sent_at'] ?? null,
+            );
 
             $lockedOffer->fill([
                 'status' => CandidateOfferStatus::Sent,

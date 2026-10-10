@@ -8,6 +8,7 @@ use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Support\Facades\DB;
@@ -73,9 +74,11 @@ final class RejectCandidateOffer
                 ]);
             }
 
-            $rejectedAt = filled($data['rejected_at'] ?? null)
-                ? $data['rejected_at']
-                : now();
+            $rejectedAt = CandidateOfferDateValidation::resolveAndValidateRejectedAt(
+                $locked->company_id,
+                $lockedOffer,
+                $data['rejected_at'] ?? null,
+            );
 
             $fromStage = $locked->stage;
             $fromOutcome = $locked->interview_outcome;
