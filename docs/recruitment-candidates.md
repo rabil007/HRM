@@ -81,21 +81,31 @@ Forward path (manual only; no Client Approval stage):
 - Safe upload rollback: newly uploaded files during offer creation or revision are deleted on rollback, while replaced files are deleted only post-commit.
 - **Accepted** (from Sent only): records acceptance, moves candidate to **Joining**, initializes `expected_joining_date` and `joining_readiness_status = pending`.
 - **Rejected** (from Sent only): reason + decision date, offer preserved as Rejected, candidate → Rejected with `pre_rejection_stage = offer_jol`. Does **not** set `interview_outcome = not_selected`.
-- **Revise** (manage + revise + reason) creates a new Draft revision and returns candidate to Offer/JOL.
+- **Revise** (manage + revise + reason):
+  - Creates a new Draft revision and returns candidate to Offer/JOL.
+  - **Joined candidate protection**: Offer revision is strictly rejected when candidate stage is `Joined` (enforced in `CandidateWorkflowAuthorization`, `ReviseCandidateOffer`, `ReviseCandidateOfferRequest`, and UI `can_revise` permission). Joining data and joined counts remain preserved. Revising requires first using the audited Undo Joined flow (`CorrectCandidateJoined`), which retains its downstream `employee_id` conversion safeguard.
 
 ### Phase 3 (Joining Readiness, Confirmation & Reminders)
 
+- **Date-Only Timezone Handling**:
+  - `offer_date`, `expected_joining_date`, and `actual_joining_date` extract pure calendar `Y-m-d` before constructing `!Y-m-d` CarbonImmutable instances in company timezone. This eliminates timezone shifts (e.g. UTC 00:00 shifting to previous-day evening in UTC-4/UTC-5).
+  - Joining countdowns in `CandidatePresenter` compare start-of-day calendar dates in company timezone using `(int) round($today->floatDiffInDays($expected, false))` to prevent fractional-day truncation during 23h/25h DST transitions and midnight boundaries.
 - **Joining Section**: compact section on Candidate detail showing expected joining date, actual joining date, readiness status (`Pending` / `Ready`), optional readiness notes and blocker notes.
 - Readiness edits are audited with actor, timestamp, and reason without altering accepted offer terms.
 - **Confirm Joined**: explicit action requiring current Accepted offer, stage Joining, valid parents, and readiness = Ready. Requires actual joining date (historical valid, no future relative to company timezone, on/after offer acceptance date). Moves candidate to `Joined` with immutable transition record.
 - **Undo Joined**: audited management-only correction path (`manage` + reason) reverting candidate to `Joining`. Blocked if downstream employee conversion exists (`employee_id !== null`).
+- **Joining Action Error Handling**:
+  - `joining-form-errors.ts` maps backend validation errors (`candidate`, `stage`, `offer`, `readiness_status`, `lock_version`, `notes`, `reason`) to banner and field alerts with an unrendered fallback.
+  - Action dialogs preserve user inputs and remain open on failure, clearing stale errors when reopened. Action buttons disable during submission.
 - **Requirement Progress**: Position line joined counts are dynamically derived from confirmed Joined candidates. UI displays required headcount, joined count, clamped remaining headcount, overfill flag, and suggests `Mark Filled` when target is reached (never auto-closes lines or requirements).
 - Headcount reductions in `ChangeHeadcountAction` and `ApproveHeadcountRevisionAction` are strictly guarded against dropping below confirmed joined count.
 - **Internal Reminders**:
   - Interview: 1 day before and day of (scheduled date).
   - Joining: 7 days before, 3 days before, and day of (expected joining date).
   - Overdue joining: once daily up to 7 days overdue.
-  - Recipients: current assigned recruiter and active requirement notification recipients (deduplicated).
+  - **Delivery Recipient Revalidation**: `DeliverCandidateInternalReminderJob` rechecks that recipients have active company membership via `ResolveCompanyAccess` and currently qualify as the assigned recruiter, submitter/creator fallback, or configured notification recipient. Removed CCs, former recruiters, and revoked memberships are skipped (`unqualified_recipient`, `revoked_membership`). Recipients are deduplicated; notification receipt grants no action permissions.
+  - **Milestone Expiration**: Each milestone's intended delivery date is calculated in company timezone. If delivery is delayed past that date (`todayLocal > intendedDeliveryDate`), the reminder is skipped with `milestone_expired`. Rescheduled candidates skip with `joining_rescheduled` / `interview_rescheduled`.
+  - **Independent Stale Record Recovery**: `recoverStaleRemindersForCompany` executes a bounded recovery sweep for stale `Pending` or `Queued` records independent of today's milestone candidate queries. Records are claimed under `lockForUpdate()`, skipping expired/obsolete records and re-queuing eligible ones idempotently.
   - Delivery: in-app notifications only (no external candidate emails). Idempotent execution, stale queued recovery, invalidation on reschedule, and cancellation upon interview selection or joining confirmation.
   - Scheduler: `recruitment:dispatch-candidate-reminders` command runs hourly via `routes/console.php` targeting companies at local 09:00 window.
 

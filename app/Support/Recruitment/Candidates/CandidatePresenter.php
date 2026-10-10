@@ -267,9 +267,19 @@ final class CandidatePresenter
         }
 
         $today = CarbonImmutable::now($timezone)->startOfDay();
-        $expected = CarbonImmutable::parse($candidate->expected_joining_date, $timezone)->startOfDay();
+        $dateStr = CandidateOfferDateValidation::extractDateOnlyString($candidate->expected_joining_date);
 
-        $diff = (int) $today->diffInDays($expected, false);
+        if ($dateStr === null) {
+            return [
+                'urgency' => null,
+                'days_diff' => null,
+                'label' => null,
+            ];
+        }
+
+        $expected = CarbonImmutable::createFromFormat('!Y-m-d', $dateStr, $timezone);
+
+        $diff = (int) round($today->floatDiffInDays($expected, false));
 
         if ($diff < 0) {
             $daysOverdue = abs($diff);

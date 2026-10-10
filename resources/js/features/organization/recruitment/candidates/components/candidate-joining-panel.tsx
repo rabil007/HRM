@@ -23,6 +23,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { nowInCompanyDate } from '@/lib/company-timezone';
+import {
+    joiningKnownGeneralError,
+    joiningUnrenderedErrors,
+} from '../lib/joining-form-errors';
 import type { CandidateDetail } from '../types';
 import { CandidateJoiningScheduleBadge } from './candidate-stage-badge';
 
@@ -127,21 +131,31 @@ export function CandidateJoiningPanel({
         );
     };
 
-    const readinessGeneralError =
-        (readinessForm.errors as Record<string, string | undefined>).error ||
-        (readinessForm.errors as Record<string, string | undefined>).general ||
-        (readinessForm.errors as Record<string, string | undefined>)
-            .lock_version;
+    const readinessGeneralError = joiningKnownGeneralError(
+        readinessForm.errors,
+    );
+    const readinessUnrenderedErrors = joiningUnrenderedErrors(
+        readinessForm.errors,
+        [
+            'expected_joining_date',
+            'joining_readiness_status',
+            'joining_readiness_notes',
+            'joining_blocker_notes',
+            'reason',
+        ],
+    );
 
-    const confirmGeneralError =
-        (confirmForm.errors as Record<string, string | undefined>).error ||
-        (confirmForm.errors as Record<string, string | undefined>).general ||
-        (confirmForm.errors as Record<string, string | undefined>).lock_version;
+    const confirmGeneralError = joiningKnownGeneralError(confirmForm.errors);
+    const confirmUnrenderedErrors = joiningUnrenderedErrors(
+        confirmForm.errors,
+        ['actual_joining_date', 'notes'],
+    );
 
-    const correctGeneralError =
-        (correctForm.errors as Record<string, string | undefined>).error ||
-        (correctForm.errors as Record<string, string | undefined>).general ||
-        (correctForm.errors as Record<string, string | undefined>).lock_version;
+    const correctGeneralError = joiningKnownGeneralError(correctForm.errors);
+    const correctUnrenderedErrors = joiningUnrenderedErrors(
+        correctForm.errors,
+        ['reason'],
+    );
 
     const readinessStatus =
         joining?.readiness_status ??
@@ -164,6 +178,7 @@ export function CandidateJoiningPanel({
                             variant="outline"
                             size="sm"
                             onClick={() => {
+                                readinessForm.clearErrors();
                                 readinessForm.setData({
                                     expected_joining_date:
                                         joining?.expected_joining_date ??
@@ -197,6 +212,7 @@ export function CandidateJoiningPanel({
                             size="sm"
                             className="bg-emerald-600 text-white hover:bg-emerald-700"
                             onClick={() => {
+                                confirmForm.clearErrors();
                                 confirmForm.setData({
                                     actual_joining_date:
                                         joining?.expected_joining_date ??
@@ -219,6 +235,7 @@ export function CandidateJoiningPanel({
                             size="sm"
                             className="text-destructive hover:bg-destructive/10"
                             onClick={() => {
+                                correctForm.clearErrors();
                                 correctForm.setData({
                                     reason: '',
                                     lock_version: candidate.lock_version,
@@ -354,7 +371,16 @@ export function CandidateJoiningPanel({
             </CardContent>
 
             {/* Dialog: Update Readiness */}
-            <Dialog open={isReadinessOpen} onOpenChange={setIsReadinessOpen}>
+            <Dialog
+                open={isReadinessOpen}
+                onOpenChange={(open) => {
+                    setIsReadinessOpen(open);
+
+                    if (!open) {
+                        readinessForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-lg">
                     <form
                         onSubmit={handleReadinessSubmit}
@@ -373,6 +399,15 @@ export function CandidateJoiningPanel({
                                 {readinessGeneralError}
                             </div>
                         )}
+
+                        {readinessUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -509,6 +544,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={readinessForm.processing}
                                 onClick={() => setIsReadinessOpen(false)}
                             >
                                 Cancel
@@ -527,7 +563,16 @@ export function CandidateJoiningPanel({
             </Dialog>
 
             {/* Dialog: Confirm Joined */}
-            <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <Dialog
+                open={isConfirmOpen}
+                onOpenChange={(open) => {
+                    setIsConfirmOpen(open);
+
+                    if (!open) {
+                        confirmForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-md">
                     <form onSubmit={handleConfirmSubmit} className="space-y-4">
                         <DialogHeader>
@@ -543,6 +588,15 @@ export function CandidateJoiningPanel({
                                 {confirmGeneralError}
                             </div>
                         )}
+
+                        {confirmUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -596,6 +650,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={confirmForm.processing}
                                 onClick={() => setIsConfirmOpen(false)}
                             >
                                 Cancel
@@ -615,7 +670,16 @@ export function CandidateJoiningPanel({
             </Dialog>
 
             {/* Dialog: Correct / Undo Joined */}
-            <Dialog open={isCorrectOpen} onOpenChange={setIsCorrectOpen}>
+            <Dialog
+                open={isCorrectOpen}
+                onOpenChange={(open) => {
+                    setIsCorrectOpen(open);
+
+                    if (!open) {
+                        correctForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-md">
                     <form onSubmit={handleCorrectSubmit} className="space-y-4">
                         <DialogHeader>
@@ -633,6 +697,15 @@ export function CandidateJoiningPanel({
                                 {correctGeneralError}
                             </div>
                         )}
+
+                        {correctUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -661,6 +734,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={correctForm.processing}
                                 onClick={() => setIsCorrectOpen(false)}
                             >
                                 Cancel

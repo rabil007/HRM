@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Organization\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Http\Requests\Organization\Recruitment\Concerns\ValidatesCandidateOfferFields;
+use App\Models\RecruitmentCandidate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -33,5 +35,19 @@ class ReviseCandidateOfferRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $this->withOfferDateConsistency($validator);
+
+        $validator->after(function (Validator $validator): void {
+            $candidate = $this->route('candidate');
+            if (is_numeric($candidate) || is_string($candidate)) {
+                $candidate = RecruitmentCandidate::query()->find($candidate);
+            }
+
+            if ($candidate instanceof RecruitmentCandidate && $candidate->stage === CandidateStage::Joined) {
+                $validator->errors()->add(
+                    'candidate',
+                    'Offers cannot be revised while candidate is in Joined stage. Undo joined first if revision is required.'
+                );
+            }
+        });
     }
 }

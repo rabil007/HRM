@@ -506,7 +506,8 @@ export function CandidateOfferPanel({
                         </div>
                     ) : null}
 
-                    {offer.can_reject || offer.can_revise ? (
+                    {offer.can_reject ||
+                    (offer.can_revise && candidate.stage !== 'joined') ? (
                         <div className="flex flex-wrap gap-2">
                             {offer.can_reject ? (
                                 <Button
@@ -517,7 +518,8 @@ export function CandidateOfferPanel({
                                     Reject Offer
                                 </Button>
                             ) : null}
-                            {offer.can_revise ? (
+                            {offer.can_revise &&
+                            candidate.stage !== 'joined' ? (
                                 <Button
                                     variant="outline"
                                     disabled={isBusy}
@@ -527,6 +529,14 @@ export function CandidateOfferPanel({
                                 </Button>
                             ) : null}
                         </div>
+                    ) : null}
+
+                    {candidate.stage === 'joined' ? (
+                        <p className="text-xs text-muted-foreground">
+                            Offers cannot be revised while candidate is in
+                            Joined stage. Undo joined first if revision is
+                            required.
+                        </p>
                     ) : null}
 
                     {candidate.offer_history.length > 1 ? (

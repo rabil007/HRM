@@ -15,6 +15,7 @@ use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -91,6 +92,11 @@ final class DispatchCandidateInternalReminders
 
         $queued = 0;
         $skipped = 0;
+
+        // Independent recovery sweep for stale queued or pending records
+        $recovery = $this->recoverStaleRemindersForCompany($companyId);
+        $queued += $recovery['recovered'];
+        $skipped += $recovery['skipped'];
 
         // 1. Interview reminders: 1 day before and on scheduled date
         $interviewMilestones = [
@@ -357,5 +363,176 @@ final class DispatchCandidateInternalReminders
             ]);
 
         return $affected > 0;
+    }
+
+    /**
+     * Independent bounded company-scoped recovery sweep for stale queued or pending records.
+     *
+     * @return array{recovered: int, skipped: int, errors: int}
+     */
+    public function recoverStaleRemindersForCompany(int $companyId, int $limit = 100): array
+    {
+        $staleQueuedThreshold = now()->subMinutes(self::STALE_QUEUED_TIMEOUT_MINUTES);
+        $companyTimezone = CompanyTimezone::forCompanyId($companyId);
+        $todayLocal = CarbonImmutable::now($companyTimezone)->startOfDay()->toDateString();
+
+        $staleReminders = RecruitmentCandidateInternalReminder::query()
+            ->where('company_id', $companyId)
+            ->where(function ($query) use ($staleQueuedThreshold): void {
+                $query->where('status', CandidateReminderStatus::Pending->value)
+                    ->orWhere(function ($q) use ($staleQueuedThreshold): void {
+                        $q->where('status', CandidateReminderStatus::Queued->value)
+                            ->where(function ($sub) use ($staleQueuedThreshold): void {
+                                $sub->where('claimed_at', '<=', $staleQueuedThreshold)
+                                    ->orWhere(function ($s2) use ($staleQueuedThreshold): void {
+                                        $s2->whereNull('claimed_at')
+                                            ->where('updated_at', '<=', $staleQueuedThreshold);
+                                    });
+                            });
+                    });
+            })
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        $recovered = 0;
+        $skipped = 0;
+        $errors = 0;
+
+        foreach ($staleReminders as $staleReminder) {
+            try {
+                $outcome = DB::transaction(function () use ($staleReminder, $companyId, $companyTimezone, $todayLocal, $staleQueuedThreshold): string {
+                    /** @var RecruitmentCandidateInternalReminder|null $locked */
+                    $locked = RecruitmentCandidateInternalReminder::query()
+                        ->where('id', $staleReminder->id)
+                        ->where('company_id', $companyId)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($locked === null) {
+                        return 'skip';
+                    }
+
+                    if (in_array($locked->status, [CandidateReminderStatus::Sent->value, CandidateReminderStatus::Skipped->value], true)) {
+                        return 'skip';
+                    }
+
+                    if ($locked->status === CandidateReminderStatus::Queued->value) {
+                        $isClaimedRecently = ($locked->claimed_at !== null && $locked->claimed_at->greaterThan($staleQueuedThreshold))
+                            || ($locked->claimed_at === null && $locked->updated_at?->greaterThan($staleQueuedThreshold));
+
+                        if ($isClaimedRecently) {
+                            return 'skip';
+                        }
+                    }
+
+                    $candidate = $locked->candidate()->with(['requirement'])->first();
+                    if ($candidate === null || (int) $candidate->company_id !== $companyId) {
+                        $locked->update([
+                            'status' => CandidateReminderStatus::Skipped->value,
+                            'skip_reason' => 'candidate_not_found',
+                        ]);
+
+                        return 'skip';
+                    }
+
+                    $requirement = $candidate->requirement;
+                    if ($requirement === null || in_array($requirement->status, [RequirementStatus::Cancelled, RequirementStatus::Completed], true)) {
+                        $locked->update([
+                            'status' => CandidateReminderStatus::Skipped->value,
+                            'skip_reason' => 'requirement_inactive',
+                        ]);
+
+                        return 'skip';
+                    }
+
+                    if ($locked->schedule_type === CandidateReminderScheduleType::Interview->value) {
+                        if ($candidate->stage !== CandidateStage::Interview || $candidate->interview_outcome !== null || $candidate->interview_scheduled_at === null) {
+                            $locked->update([
+                                'status' => CandidateReminderStatus::Skipped->value,
+                                'skip_reason' => 'candidate_stage_or_outcome_changed',
+                            ]);
+
+                            return 'skip';
+                        }
+
+                        $currentScheduleKey = $candidate->interview_scheduled_at->format('Y-m-d H:i:s');
+                        if ($currentScheduleKey !== $locked->schedule_key) {
+                            $locked->update([
+                                'status' => CandidateReminderStatus::Skipped->value,
+                                'skip_reason' => 'interview_rescheduled',
+                            ]);
+
+                            return 'skip';
+                        }
+                    } elseif (in_array($locked->schedule_type, [CandidateReminderScheduleType::Joining->value, CandidateReminderScheduleType::OverdueJoining->value], true)) {
+                        if ($candidate->stage !== CandidateStage::Joining || $candidate->expected_joining_date === null) {
+                            $locked->update([
+                                'status' => CandidateReminderStatus::Skipped->value,
+                                'skip_reason' => 'candidate_stage_changed',
+                            ]);
+
+                            return 'skip';
+                        }
+
+                        $currentScheduleKey = $candidate->expected_joining_date->toDateString();
+                        if ($currentScheduleKey !== $locked->schedule_key) {
+                            $locked->update([
+                                'status' => CandidateReminderStatus::Skipped->value,
+                                'skip_reason' => 'joining_rescheduled',
+                            ]);
+
+                            return 'skip';
+                        }
+                    }
+
+                    $intendedDeliveryDate = DeliverCandidateInternalReminderJob::calculateIntendedDeliveryDate($locked, $candidate, $companyTimezone);
+                    if ($intendedDeliveryDate === null || $todayLocal > $intendedDeliveryDate) {
+                        $locked->update([
+                            'status' => CandidateReminderStatus::Skipped->value,
+                            'skip_reason' => 'milestone_expired',
+                        ]);
+
+                        return 'skip';
+                    }
+
+                    if ($todayLocal < $intendedDeliveryDate) {
+                        $locked->update([
+                            'status' => CandidateReminderStatus::Skipped->value,
+                            'skip_reason' => 'premature_delivery',
+                        ]);
+
+                        return 'skip';
+                    }
+
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Queued->value,
+                        'claimed_at' => now(),
+                    ]);
+
+                    DeliverCandidateInternalReminderJob::dispatch([
+                        'reminder_id' => (int) $locked->id,
+                        'company_id' => (int) $companyId,
+                    ]);
+
+                    return 'recovered';
+                });
+
+                if ($outcome === 'recovered') {
+                    $recovered++;
+                } else {
+                    $skipped++;
+                }
+            } catch (Throwable $e) {
+                report($e);
+                $errors++;
+            }
+        }
+
+        return [
+            'recovered' => $recovered,
+            'skipped' => $skipped,
+            'errors' => $errors,
+        ];
     }
 }

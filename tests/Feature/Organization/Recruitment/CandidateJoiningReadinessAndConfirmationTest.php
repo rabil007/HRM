@@ -19,7 +19,11 @@ use App\Models\User;
 use App\Support\Recruitment\Candidates\Actions\AcceptCandidateOffer;
 use App\Support\Recruitment\Candidates\Actions\ConfirmCandidateJoined;
 use App\Support\Recruitment\Candidates\Actions\CorrectCandidateJoined;
+use App\Support\Recruitment\Candidates\Actions\ReviseCandidateOffer;
 use App\Support\Recruitment\Candidates\Actions\UpdateCandidateJoiningReadiness;
+use App\Support\Recruitment\Candidates\CandidateOfferPresenter;
+use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
+use App\Support\Recruitment\RequirementPresenter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -345,4 +349,220 @@ test('management can correct/undo joining with audit reason unless downstream em
         ->and($lastTransition->action->value)->toBe('joining_corrected')
         ->and($lastTransition->to_stage)->toBe(CandidateStage::Joining)
         ->and($lastTransition->reason)->toBe('Undo joining because candidate deferred arrival to next month');
+});
+
+test('offer revision is rejected when candidate is in joined stage via action and direct http request', function (): void {
+    $perm = Permission::query()->firstOrCreate(['name' => 'recruitment.candidates.offer.revise', 'guard_name' => 'web']);
+    $this->manager->givePermissionTo($perm);
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Epsilon',
+        'stage' => CandidateStage::Joined,
+        'expected_joining_date' => '2026-10-10',
+        'actual_joining_date' => '2026-10-10',
+        'joined_at' => now(),
+        'joined_by' => $this->recruiter->id,
+        'joining_readiness_status' => CandidateJoiningReadinessStatus::Ready,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    $this->line->update(['joined_headcount' => 1]);
+
+    $offer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-10',
+        'accepted_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'UTC'),
+        'lock_version' => 1,
+    ]);
+
+    // 1. Authorization checks reflect UI permission disabled
+    expect(CandidateWorkflowAuthorization::canReviseOffer($offer, $candidate))->toBeFalse();
+    $offerDetail = CandidateOfferPresenter::detail($offer, $candidate, $this->manager, 'Asia/Dubai');
+    expect($offerDetail['can_revise'])->toBeFalse();
+
+    // 2. Action directly rejects with validation exception
+    $reviseAction = app(ReviseCandidateOffer::class);
+    try {
+        $reviseAction->handle($this->manager, $candidate, $offer, [
+            'reason' => 'Attempting revision on joined candidate',
+            'salary_amount' => '15000',
+            'salary_currency_code' => 'AED',
+            'offer_date' => '2026-10-01',
+            'proposed_joining_date' => '2026-10-15',
+            'lock_version' => 1,
+            'offer_lock_version' => 1,
+        ]);
+        $this->fail('Expected ValidationException was not thrown');
+    } catch (ValidationException $e) {
+        expect($e->errors())->toHaveKey('candidate')
+            ->and($e->errors()['candidate'][0])->toContain('Offers cannot be revised while candidate is in Joined stage');
+    }
+
+    // 3. HTTP direct POST request also rejected with 302 back and validation error
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$candidate, $offer]), [
+            'reason' => 'Direct HTTP attempt to revise joined candidate',
+            'salary_amount' => '15000',
+            'salary_currency_code' => 'AED',
+            'offer_date' => '2026-10-01',
+            'proposed_joining_date' => '2026-10-15',
+            'lock_version' => 1,
+            'offer_lock_version' => 1,
+        ]);
+    $response->assertSessionHasErrors('candidate');
+
+    // 4. Joining data and headcount counts remain strictly unchanged
+    $candidate->refresh();
+    $reqShow = RequirementPresenter::toShow($this->requirement->fresh());
+    expect($candidate->stage)->toBe(CandidateStage::Joined)
+        ->and($candidate->actual_joining_date?->format('Y-m-d'))->toBe('2026-10-10')
+        ->and($candidate->joined_by)->toBe($this->recruiter->id)
+        ->and($candidate->joined_at)->not->toBeNull()
+        ->and($offer->refresh()->status)->toBe(CandidateOfferStatus::Accepted)
+        ->and($reqShow['lines'][0]['joined_count'])->toBe(1);
+});
+
+test('employee-linked joined candidate rejects offer revision and retains employee-link safeguard during undo joined', function (): void {
+    $perm = Permission::query()->firstOrCreate(['name' => 'recruitment.candidates.offer.revise', 'guard_name' => 'web']);
+    $this->manager->givePermissionTo($perm);
+
+    $employee = Employee::factory()->create(['company_id' => $this->company->id]);
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Zeta',
+        'stage' => CandidateStage::Joined,
+        'expected_joining_date' => '2026-10-10',
+        'actual_joining_date' => '2026-10-10',
+        'joined_at' => now(),
+        'joined_by' => $this->recruiter->id,
+        'joining_readiness_status' => CandidateJoiningReadinessStatus::Ready,
+        'employee_id' => $employee->id,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-10',
+        'accepted_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'UTC'),
+        'lock_version' => 1,
+    ]);
+
+    // Offer revision rejected
+    expect(fn () => app(ReviseCandidateOffer::class)->handle($this->manager, $candidate, $offer, [
+        'reason' => 'Cannot revise employee-linked joined candidate',
+        'salary_amount' => '15000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'offer_lock_version' => 1,
+    ]))->toThrow(ValidationException::class);
+
+    // Undo Joined is blocked because candidate is linked to an employee record
+    expect(fn () => app(CorrectCandidateJoined::class)->handle($this->manager, $candidate, [
+        'reason' => 'Cannot undo joining while employee record is linked',
+        'lock_version' => 1,
+    ]))->toThrow(ValidationException::class);
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Joined)
+        ->and($candidate->employee_id)->toBe($employee->id);
+});
+
+test('undo joined flow restores candidate to joining stage and permits audited offer revision', function (): void {
+    $perm = Permission::query()->firstOrCreate(['name' => 'recruitment.candidates.offer.revise', 'guard_name' => 'web']);
+    $this->manager->givePermissionTo($perm);
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Eta',
+        'stage' => CandidateStage::Joined,
+        'expected_joining_date' => '2026-10-10',
+        'actual_joining_date' => '2026-10-10',
+        'joined_at' => now(),
+        'joined_by' => $this->recruiter->id,
+        'joining_readiness_status' => CandidateJoiningReadinessStatus::Ready,
+        'employee_id' => null,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-10',
+        'accepted_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'UTC'),
+        'lock_version' => 1,
+    ]);
+
+    // Before undo: 1 joined candidate exists
+    $reqShowBefore = RequirementPresenter::toShow($this->requirement->fresh());
+    expect($reqShowBefore['lines'][0]['joined_count'])->toBe(1);
+
+    // 1. Undo Joined via CorrectCandidateJoined
+    app(CorrectCandidateJoined::class)->handle($this->manager, $candidate, [
+        'reason' => 'Undo joining because candidate needs contract revision before rejoining',
+        'lock_version' => 1,
+    ]);
+
+    $candidate->refresh();
+    $reqShowAfter = RequirementPresenter::toShow($this->requirement->fresh());
+    expect($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($candidate->actual_joining_date)->toBeNull()
+        ->and($candidate->joined_at)->toBeNull()
+        ->and($reqShowAfter['lines'][0]['joined_count'])->toBe(0);
+
+    // 2. Offer revision is now permitted
+    expect(CandidateWorkflowAuthorization::canReviseOffer($offer, $candidate))->toBeTrue();
+    $offerDetail = CandidateOfferPresenter::detail($offer, $candidate, $this->manager, 'Asia/Dubai');
+    expect($offerDetail['can_revise'])->toBeTrue();
+
+    // 3. Revising offer now succeeds, creating revision 2 in Draft
+    $revision2 = app(ReviseCandidateOffer::class)->handle($this->manager, $candidate, $offer, [
+        'reason' => 'Revised salary to 14000 AED as negotiated',
+        'salary_amount' => '14000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-20',
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+    ]);
+
+    expect($revision2->revision_number)->toBe(2)
+        ->and($revision2->status)->toBe(CandidateOfferStatus::Draft)
+        ->and($revision2->is_current)->toBeTrue()
+        ->and($offer->refresh()->is_current)->toBeFalse();
 });

@@ -140,6 +140,12 @@ final class CandidateWorkflowAuthorization
 
     public static function assertCanReviseOffer(User $user, RecruitmentCandidate $candidate): void
     {
+        if ($candidate->stage === CandidateStage::Joined) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Offers cannot be revised while candidate is in Joined stage. Undo joined first if revision is required.',
+            ]);
+        }
+
         if (! $user->can('recruitment.candidates.offer.revise') || ! $user->can('recruitment.candidates.manage')) {
             throw ValidationException::withMessages([
                 'candidate' => 'Revising a sent, accepted, or rejected offer requires revise permission and management override.',
@@ -509,7 +515,7 @@ final class CandidateWorkflowAuthorization
             return false;
         }
 
-        if ($candidate->stage === CandidateStage::Rejected) {
+        if ($candidate->stage === CandidateStage::Rejected || $candidate->stage === CandidateStage::Joined) {
             return false;
         }
 
