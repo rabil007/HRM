@@ -513,6 +513,12 @@ final class CandidateWorkflowAuthorization
             return false;
         }
 
+        // Confirmed joining is undone only through the joining correction path,
+        // which also refuses when a downstream employee record already exists.
+        if ($candidate->stage === CandidateStage::Joined || $candidate->employee_id !== null) {
+            return false;
+        }
+
         return in_array($offer->status, [
             CandidateOfferStatus::Sent,
             CandidateOfferStatus::Accepted,

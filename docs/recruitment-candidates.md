@@ -81,7 +81,7 @@ Forward path (manual only; no Client Approval stage):
 - Safe upload rollback: newly uploaded files during offer creation or revision are deleted on rollback, while replaced files are deleted only post-commit.
 - **Accepted** (from Sent only): records acceptance, moves candidate to **Joining**, initializes `expected_joining_date` and `joining_readiness_status = pending`.
 - **Rejected** (from Sent only): reason + decision date, offer preserved as Rejected, candidate → Rejected with `pre_rejection_stage = offer_jol`. Does **not** set `interview_outcome = not_selected`.
-- **Revise** (manage + revise + reason) creates a new Draft revision and returns candidate to Offer/JOL.
+- **Revise** (manage + revise + reason) creates a new Draft revision and returns candidate to Offer/JOL. Confirmed Joined candidates, and candidates already linked to an employee, cannot be revised; undo joining first, and only when no employee record is linked.
 
 ### Phase 3 (Joining Readiness, Confirmation & Reminders)
 

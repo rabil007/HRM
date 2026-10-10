@@ -74,6 +74,18 @@ final class ReviseCandidateOffer
                 $data['expected_offer_status'] ?? $lockedOffer->status->value,
             );
 
+            if ($locked->employee_id !== null) {
+                throw ValidationException::withMessages([
+                    'candidate' => 'This offer cannot be revised because an employee record is already linked to this candidate.',
+                ]);
+            }
+
+            if ($locked->stage === CandidateStage::Joined) {
+                throw ValidationException::withMessages([
+                    'candidate' => 'This offer cannot be revised while the candidate is confirmed as joined. Undo the joining first.',
+                ]);
+            }
+
             if (! CandidateWorkflowAuthorization::canReviseOffer($lockedOffer, $locked)) {
                 throw ValidationException::withMessages([
                     'offer_status' => 'Only Sent, Accepted, or Rejected current offers can be revised, and the candidate must not be in Rejected stage.',
