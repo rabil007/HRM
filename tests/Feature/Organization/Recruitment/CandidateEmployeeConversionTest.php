@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Enums\Recruitment\RequirementLineStatus;
@@ -12,12 +13,16 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Models\RecruitmentCandidate;
+use App\Models\RecruitmentCandidateOffer;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidatePresenter;
+use App\Support\Recruitment\Candidates\FindCandidateDuplicateEmployees;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -392,4 +397,389 @@ test('linking candidate rejects cross-company employee', function () {
             'lock_version' => 1,
         ])
         ->assertSessionHasErrors(['employee_id']);
+});
+
+test('duplicate employee suggestions and linked employee details are masked without employees.view permission', function () {
+    $userWithoutView = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'employees.create',
+    ]);
+
+    $userWithView = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'employees.create',
+        'employees.view',
+    ]);
+
+    $existingEmployee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $this->department->id,
+        'personal_email' => 'duplicate.match@example.com',
+        'phone' => '+971501234567',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Match Candidate',
+        'email' => 'duplicate.match@example.com',
+        'phone' => '+971501234567',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'employee_id' => $existingEmployee->id,
+    ]);
+
+    // 1. Duplicate suggestions
+    expect(FindCandidateDuplicateEmployees::find($candidate, $userWithoutView, $this->company->id))->toBeEmpty();
+    expect(FindCandidateDuplicateEmployees::find($candidate, $userWithView, $this->company->id))->not->toBeEmpty();
+
+    // 2. Candidate index row masking
+    $indexRowWithoutView = CandidatePresenter::toIndexRow($candidate, $userWithoutView, 'Asia/Dubai');
+    expect($indexRowWithoutView['employee_id'])->toBeNull()
+        ->and($indexRowWithoutView['conversion_status'])->toBe('converted');
+
+    $indexRowWithView = CandidatePresenter::toIndexRow($candidate, $userWithView, 'Asia/Dubai');
+    expect($indexRowWithView['employee_id'])->toBe($existingEmployee->id)
+        ->and($indexRowWithView['conversion_status'])->toBe('converted');
+
+    // 3. Candidate detail show array masking
+    $showWithoutView = CandidatePresenter::toShowArray($candidate, $userWithoutView, 'Asia/Dubai');
+    expect($showWithoutView['linked_employee'])->toBe([
+        'id' => null,
+        'name' => null,
+        'employee_no' => null,
+        'can_view' => false,
+    ]);
+
+    $showWithView = CandidatePresenter::toShowArray($candidate, $userWithView, 'Asia/Dubai');
+    expect($showWithView['linked_employee'])->toBe([
+        'id' => (int) $existingEmployee->id,
+        'name' => (string) $existingEmployee->name,
+        'employee_no' => (string) $existingEmployee->employee_no,
+        'can_view' => true,
+    ]);
+});
+
+test('duplicate employee suggestions and linked employee details are masked when employee is in a restricted department', function () {
+    $otherDepartment = Department::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Finance',
+        'status' => 'active',
+    ]);
+
+    // Create user with department-restricted role (only Engineering)
+    $restrictedUser = User::factory()->create(['company_id' => $this->company->id]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $restrictedUser->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'RestrictedRole-'.uniqid(),
+        'guard_name' => 'web',
+        'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+    ]);
+    $role->employeeVisibilityDepartments()->attach($this->department->id, ['company_id' => $this->company->id]);
+
+    foreach (['employees.view', 'recruitment.candidates.view', 'recruitment.candidates.convert'] as $perm) {
+        $p = Permission::query()->firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+        $role->givePermissionTo($p);
+    }
+    $restrictedUser->assignRole($role);
+
+    $financeEmployee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $otherDepartment->id,
+        'personal_email' => 'finance.staff@example.com',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Finance Staff',
+        'email' => 'finance.staff@example.com',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'employee_id' => $financeEmployee->id,
+    ]);
+
+    expect(FindCandidateDuplicateEmployees::find($candidate, $restrictedUser, $this->company->id))->toBeEmpty();
+
+    $show = CandidatePresenter::toShowArray($candidate, $restrictedUser, 'Asia/Dubai');
+    expect($show['linked_employee'])->toBe([
+        'id' => null,
+        'name' => null,
+        'employee_no' => null,
+        'can_view' => false,
+    ]);
+});
+
+test('duplicate employee suggestions do not include cross-company employees', function () {
+    $user = createConversionUser($this->company, [
+        'employees.view',
+        'recruitment.candidates.view',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Corp 2',
+        'slug' => 'other-corp-2-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $this->country->id,
+        'currency_id' => $this->currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->create([
+        'company_id' => $otherCompany->id,
+        'personal_email' => 'cross.company@example.com',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Cross Company Candidate',
+        'email' => 'cross.company@example.com',
+        'stage' => CandidateStage::Joined,
+    ]);
+
+    expect(FindCandidateDuplicateEmployees::find($candidate, $user, $this->company->id))->toBeEmpty();
+});
+
+test('opening employee create form with candidate_id preserves context and creates no employee', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Context Candidate',
+        'email' => 'context@example.com',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+    ]);
+
+    $initialEmployeeCount = Employee::count();
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.employees.create', ['candidate_id' => $candidate->id]));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('candidate_context.candidate_id', $candidate->id)
+            ->where('candidate_context.lock_version', $candidate->lock_version)
+            ->where('candidate_context.name', 'Context Candidate')
+            ->where('candidate_context.actual_joining_date', '2026-10-01')
+        );
+
+    // Visiting form must not create an employee
+    expect(Employee::count())->toBe($initialEmployeeCount);
+});
+
+test('conversion requires candidate_lock_version and rejects stale lock versions', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Lock Candidate',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 2,
+    ]);
+
+    // 1. Missing lock version
+    $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'employee_no' => 'EMP-LOCK-1',
+            'name' => 'Lock Candidate',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors(['candidate_lock_version']);
+
+    // 2. Stale lock version (sent version 1, candidate is version 2)
+    $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'candidate_lock_version' => 1,
+            'employee_no' => 'EMP-LOCK-1',
+            'name' => 'Lock Candidate',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors(['candidate_lock_version']);
+});
+
+test('validation errors during conversion retain candidate context and create no employee', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Validation Candidate',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 1,
+    ]);
+
+    $initialCount = Employee::count();
+
+    // Missing employee_no
+    $response = $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'candidate_lock_version' => 1,
+            'name' => 'Validation Candidate',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ]);
+
+    $response->assertSessionHasErrors(['employee_no']);
+    expect(Employee::count())->toBe($initialCount);
+
+    $candidate->refresh();
+    expect($candidate->employee_id)->toBeNull();
+});
+
+test('template changes followed by saving creates exactly one employee and links atomically', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Template Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $initialCount = Employee::count();
+
+    // 1. Visit create form with candidate_id
+    $this->actingAs($user)
+        ->get(route('organization.employees.create', ['candidate_id' => $candidate->id]))
+        ->assertOk();
+
+    // No employee created
+    expect(Employee::count())->toBe($initialCount);
+
+    // 2. Simulate template change by visiting create form with template_id
+    $this->actingAs($user)
+        ->get(route('organization.employees.create', ['candidate_id' => $candidate->id, 'template_id' => 999]))
+        ->assertOk();
+
+    // Still no employee created
+    expect(Employee::count())->toBe($initialCount);
+
+    // 3. Submit store conversion request
+    $response = $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'candidate_lock_version' => 1,
+            'employee_no' => 'EMP-TEMPL-1',
+            'name' => 'Template Candidate',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ]);
+
+    $response->assertRedirect(route('organization.recruitment.candidates.show', $candidate->id));
+
+    // Exactly one employee created
+    expect(Employee::count())->toBe($initialCount + 1);
+
+    $candidate->refresh();
+    expect($candidate->employee_id)->not->toBeNull();
+    $employee = Employee::find($candidate->employee_id);
+    expect($employee)->not->toBeNull()
+        ->and($employee->employee_no)->toBe('EMP-TEMPL-1');
+});
+
+test('accepted non-AED offer displays proposed total salary and currency without invented breakdown or AED fallback', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'USD Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => 7500.00,
+        'salary_currency_code' => 'USD',
+        'proposed_joining_date' => '2026-10-01',
+        'offer_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.employees.create', ['candidate_id' => $candidate->id]));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('candidate_context.proposed_offer.salary_amount', '7500.00')
+            ->where('candidate_context.proposed_offer.currency', 'USD')
+        );
 });

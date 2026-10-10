@@ -332,11 +332,8 @@ export type CandidateConversionContext = {
     actual_joining_date: string | null;
     lock_version: number;
     proposed_offer: {
-        basic_salary: string | null;
-        housing_allowance: string | null;
-        transportation_allowance: string | null;
-        other_allowances: string | null;
-        currency: string;
+        salary_amount: string | null;
+        currency: string | null;
     } | null;
     duplicate_matches: Array<{
         id: number;

@@ -75,14 +75,9 @@ final class RecruitmentReportExport implements FromQuery, WithHeadings, WithMapp
 
         $employeeNo = null;
         $employeeName = null;
-        if ($row['employee'] !== null) {
-            if ($row['employee']['can_view']) {
-                $employeeNo = $row['employee']['employee_no'];
-                $employeeName = $row['employee']['name'];
-            } else {
-                $employeeNo = 'Restricted';
-                $employeeName = 'Restricted';
-            }
+        if ($row['employee'] !== null && $row['employee']['can_view']) {
+            $employeeNo = $row['employee']['employee_no'];
+            $employeeName = $row['employee']['name'];
         }
 
         return [

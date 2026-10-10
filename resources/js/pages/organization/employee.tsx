@@ -277,6 +277,13 @@ function EmployeeDetailsPage({
                 search.delete('profile_template_id');
             }
 
+            if (candidate_context?.candidate_id) {
+                search.set(
+                    'candidate_id',
+                    String(candidate_context.candidate_id),
+                );
+            }
+
             const next = `${window.location.pathname}?${search.toString()}`;
             const current = `${window.location.pathname}${window.location.search}`;
 
@@ -284,7 +291,7 @@ function EmployeeDetailsPage({
                 window.history.replaceState(null, '', next);
             }
         },
-        [isCreateMode, selectedTemplateId],
+        [candidate_context, isCreateMode, selectedTemplateId],
     );
 
     const permissions = auth?.permissions ?? [];
@@ -538,7 +545,9 @@ function EmployeeDetailsPage({
             templateId === '' ? null : Number.parseInt(templateId, 10);
         setSelectedTemplateId(Number.isNaN(nextId as number) ? null : nextId);
 
-        const search = new URLSearchParams();
+        const search = new URLSearchParams(
+            typeof window !== 'undefined' ? window.location.search : '',
+        );
 
         if (effectiveEmployeeId) {
             search.set('employee_id', String(effectiveEmployeeId));
@@ -546,6 +555,20 @@ function EmployeeDetailsPage({
 
         if (nextId) {
             search.set('profile_template_id', String(nextId));
+        } else {
+            search.delete('profile_template_id');
+        }
+
+        const candidateId =
+            candidate_context?.candidate_id ??
+            (typeof window !== 'undefined'
+                ? new URLSearchParams(window.location.search).get(
+                      'candidate_id',
+                  )
+                : null);
+
+        if (candidateId) {
+            search.set('candidate_id', String(candidateId));
         }
 
         router.visit(
@@ -805,76 +828,27 @@ function EmployeeDetailsPage({
                                                 (Proposed Values For Review):
                                             </span>
                                         </div>
-                                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                            <div>
-                                                <span className="text-muted-foreground">
-                                                    Basic Salary:
-                                                </span>{' '}
-                                                <span className="font-medium">
-                                                    {
-                                                        candidate_context
-                                                            .proposed_offer
-                                                            .currency
-                                                    }{' '}
-                                                    {candidate_context
-                                                        .proposed_offer
-                                                        .basic_salary ?? '0'}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">
-                                                    Housing:
-                                                </span>{' '}
-                                                <span className="font-medium">
-                                                    {
-                                                        candidate_context
-                                                            .proposed_offer
-                                                            .currency
-                                                    }{' '}
-                                                    {candidate_context
-                                                        .proposed_offer
-                                                        .housing_allowance ??
-                                                        '0'}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">
-                                                    Transport:
-                                                </span>{' '}
-                                                <span className="font-medium">
-                                                    {
-                                                        candidate_context
-                                                            .proposed_offer
-                                                            .currency
-                                                    }{' '}
-                                                    {candidate_context
-                                                        .proposed_offer
-                                                        .transportation_allowance ??
-                                                        '0'}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">
-                                                    Other:
-                                                </span>{' '}
-                                                <span className="font-medium">
-                                                    {
-                                                        candidate_context
-                                                            .proposed_offer
-                                                            .currency
-                                                    }{' '}
-                                                    {candidate_context
-                                                        .proposed_offer
-                                                        .other_allowances ??
-                                                        '0'}
-                                                </span>
-                                            </div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <span className="text-muted-foreground">
+                                                Proposed Total Salary:
+                                            </span>{' '}
+                                            <span className="font-semibold text-foreground">
+                                                {candidate_context
+                                                    .proposed_offer.currency
+                                                    ? `${candidate_context.proposed_offer.currency} `
+                                                    : ''}
+                                                {candidate_context
+                                                    .proposed_offer
+                                                    .salary_amount ?? '—'}
+                                            </span>
                                         </div>
                                         <p className="mt-1.5 text-[11px] text-muted-foreground italic">
-                                            Note: These amounts are for HR
-                                            reference during profile creation.
-                                            No contract or payroll record is
-                                            automatically activated.
+                                            Note: Proposed salary is displayed
+                                            for HR review during profile
+                                            creation. No contract, salary
+                                            breakdown, or payroll values are
+                                            automatically inferred or
+                                            overwritten.
                                         </p>
                                     </div>
                                 )}

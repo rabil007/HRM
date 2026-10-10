@@ -90,7 +90,7 @@ final class CandidatePresenter
             'can_correct_joined' => $canCorrectJoined,
             'can_convert' => self::canConvert($user, $candidate),
             'conversion_status' => self::resolveConversionStatus($candidate),
-            'employee_id' => $candidate->employee_id,
+            'employee_id' => ($user->can('employees.view') && $candidate->employee_id !== null && EmployeeVisibilityScope::canAccessId($user, (int) $candidate->employee_id, (int) $candidate->company_id)) ? $candidate->employee_id : null,
         ];
     }
 

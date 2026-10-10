@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\RecentItemType;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
@@ -186,7 +187,13 @@ class EmployeeController extends Controller
             }
 
             $duplicateMatches = FindCandidateDuplicateEmployees::find($candidate, $user, $companyId);
-            $offer = $candidate->currentOffer;
+            $acceptedOffer = $candidate->currentOffer;
+            if ($acceptedOffer === null || $acceptedOffer->status !== CandidateOfferStatus::Accepted) {
+                $acceptedOffer = $candidate->offers()
+                    ->where('status', CandidateOfferStatus::Accepted)
+                    ->where('is_current', true)
+                    ->first();
+            }
 
             $candidateContext = [
                 'candidate_id' => (int) $candidate->id,
@@ -202,12 +209,9 @@ class EmployeeController extends Controller
                 'project_title' => $candidate->requirement?->project?->title,
                 'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
                 'lock_version' => (int) $candidate->lock_version,
-                'proposed_offer' => $offer ? [
-                    'basic_salary' => $offer->offered_basic_salary !== null ? (string) $offer->offered_basic_salary : null,
-                    'housing_allowance' => $offer->housing_allowance !== null ? (string) $offer->housing_allowance : null,
-                    'transportation_allowance' => $offer->transportation_allowance !== null ? (string) $offer->transportation_allowance : null,
-                    'other_allowances' => $offer->other_allowances !== null ? (string) $offer->other_allowances : null,
-                    'currency' => $offer->currency ?? 'AED',
+                'proposed_offer' => $acceptedOffer ? [
+                    'salary_amount' => $acceptedOffer->salary_amount !== null ? (string) $acceptedOffer->salary_amount : null,
+                    'currency' => $acceptedOffer->salary_currency_code,
                 ] : null,
                 'duplicate_matches' => $duplicateMatches,
                 'can_link_existing' => LinkCandidateToEmployee::canLink($user, $candidate),

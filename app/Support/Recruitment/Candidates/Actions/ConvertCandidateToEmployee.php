@@ -76,14 +76,18 @@ final class ConvertCandidateToEmployee
                 ]);
             }
 
-            if (isset($validated['candidate_lock_version'])) {
-                CandidateWorkflowAuthorization::assertExpectedLock(
-                    $locked,
-                    (int) $validated['candidate_lock_version'],
-                    CandidateStage::Joined->value,
-                    null,
-                );
+            if (! isset($validated['candidate_lock_version'])) {
+                throw ValidationException::withMessages([
+                    'candidate_lock_version' => 'A valid candidate lock version is required for conversion.',
+                ]);
             }
+
+            CandidateWorkflowAuthorization::assertExpectedLock(
+                $locked,
+                (int) $validated['candidate_lock_version'],
+                CandidateStage::Joined->value,
+                null,
+            );
 
             // Enforce department visibility
             $departmentId = $validated['department_id'] ?? null;

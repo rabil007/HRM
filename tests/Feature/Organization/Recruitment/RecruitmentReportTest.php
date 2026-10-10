@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
@@ -16,6 +17,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Reports\Recruitment\RecruitmentReportQuery;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Maatwebsite\Excel\Facades\Excel;
@@ -336,4 +338,266 @@ test('recruitment report exports excel and csv with active filters', function ()
         ->assertOk();
 
     Excel::assertDownloaded('recruitment-report-'.now()->toDateString().'.csv');
+});
+
+test('recruitment report renders page with populated client and project filter options without error', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.recruitment.reports'));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/reports/index')
+            ->has('filter_options.clients')
+            ->has('filter_options.projects')
+            ->where('filter_options.clients.0.value', (string) $this->client->id)
+            ->where('filter_options.clients.0.label', $this->client->name)
+            ->where('filter_options.projects.0.value', (string) $this->project->id)
+            ->where('filter_options.projects.0.label', $this->project->title)
+        );
+});
+
+test('recruitment report counts selected candidates still in interview stage', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'Selected Interviewee',
+        'stage' => CandidateStage::Interview,
+        'interview_outcome' => CandidateInterviewOutcome::Selected,
+        'lock_version' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.recruitment.reports'));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.selected_count', 1)
+            ->where('summary.applications_total', 1)
+        );
+});
+
+test('candidate stage filters do not distort position line fulfillment metrics', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    // Headcount required is 3 (from $this->line)
+    // Create 3 Joined candidates
+    for ($i = 1; $i <= 3; $i++) {
+        RecruitmentCandidate::query()->create([
+            'company_id' => $this->company->id,
+            'recruitment_requirement_id' => $this->requirement->id,
+            'recruitment_requirement_line_id' => $this->line->id,
+            'position_id' => $this->position->id,
+            'position_title_snapshot' => 'Field Engineer',
+            'requirement_number_snapshot' => $this->requirement->requirement_number,
+            'name' => "Joined Candidate {$i}",
+            'stage' => CandidateStage::Joined,
+            'actual_joining_date' => '2026-10-01',
+            'lock_version' => 1,
+        ]);
+    }
+
+    // Create 1 Screening candidate
+    RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'Screening Candidate',
+        'stage' => CandidateStage::Screening,
+        'lock_version' => 1,
+    ]);
+
+    // Filter report by stage=screening
+    $response = $this->actingAs($user)
+        ->get(route('organization.recruitment.reports', ['stage' => CandidateStage::Screening->value]));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            // Filtered pipeline view: only 1 screening candidate in view, so pipeline joined_count is 0
+            ->has('candidates', 1)
+            ->where('summary.applications_total', 1)
+            ->where('summary.joined_count', 0)
+            // Position line fulfillment: derived from confirmed joined on requirement line, unaffected by stage filter
+            ->where('summary.headcount_total', 3)
+            ->where('summary.headcount_confirmed_joined', 3)
+            ->where('summary.headcount_remaining', 0)
+            ->where('summary.headcount_overfill', 0)
+        );
+});
+
+test('fulfillment metrics calculate remaining and overfill per line without cross-line cancellation', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    // Set line 1 headcount to 1, and add 2 joined candidates (overfill = 1, remaining = 0)
+    $this->line->update(['required_headcount' => 1]);
+
+    for ($i = 1; $i <= 2; $i++) {
+        RecruitmentCandidate::query()->create([
+            'company_id' => $this->company->id,
+            'recruitment_requirement_id' => $this->requirement->id,
+            'recruitment_requirement_line_id' => $this->line->id,
+            'position_id' => $this->position->id,
+            'position_title_snapshot' => 'Field Engineer',
+            'requirement_number_snapshot' => $this->requirement->requirement_number,
+            'name' => "Overfilled Candidate {$i}",
+            'stage' => CandidateStage::Joined,
+            'actual_joining_date' => '2026-10-01',
+            'lock_version' => 1,
+        ]);
+    }
+
+    // Create line 2 with headcount 1, and 0 joined candidates (overfill = 0, remaining = 1)
+    $position2 = Position::query()->create([
+        'company_id' => $this->company->id,
+        'title' => 'Project Manager',
+        'status' => 'active',
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'position_id' => $position2->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+        'lock_version' => 1,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.recruitment.reports'));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.headcount_total', 2)
+            ->where('summary.joined_count', 2)
+            // One line has shortage (1 remaining), other line has overfill (1 overfill).
+            // They must NOT cancel out to 0 remaining!
+            ->where('summary.headcount_remaining', 1)
+            ->where('summary.headcount_overfill', 1)
+        );
+});
+
+test('recruitment duration uses actual_joining_date instead of audit confirmation timestamp', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    $this->requirement->update([
+        'approved_at' => '2026-09-15 08:00:00',
+    ]);
+
+    // Candidate created Sep 20, joined Oct 1, confirmation recorded Oct 10
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'October Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'joined_at' => '2026-10-10 14:00:00',
+        'lock_version' => 1,
+    ]);
+
+    DB::table('recruitment_candidates')->where('id', $candidate->id)->update([
+        'created_at' => '2026-09-20 09:00:00',
+    ]);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.recruitment.reports'));
+
+    $response->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            // Candidate to joined: Sep 20 to Oct 01 = 11 days (not 20 days)
+            ->where('candidates.0.time_to_hire_days', 11)
+            // Approval to joined: Sep 15 to Oct 01 = 16 days (not 25 days)
+            ->where('candidates.0.fulfillment_duration_days', 16)
+        );
+});
+
+test('recruitment duration normalizes timestamps to company timezone', function () {
+    $user = createReportUser($this->company, [
+        'reports.recruitment.view',
+    ]);
+
+    // Created 2026-10-01 22:30:00 UTC -> 2026-10-02 02:30:00 Asia/Dubai
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'TZ Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-05',
+        'lock_version' => 1,
+    ]);
+
+    DB::table('recruitment_candidates')->where('id', $candidate->id)->update([
+        'created_at' => '2026-10-01 22:30:00',
+    ]);
+    $candidate->refresh();
+
+    $days = RecruitmentReportQuery::calculateCandidateToJoinedDays($candidate, 'Asia/Dubai');
+    // In Asia/Dubai, Oct 2 to Oct 5 is 3 days
+    expect($days)->toBe(3);
+});
+
+test('recruitment duration returns null when dates are missing or created after actual joining date', function () {
+    // 1. Missing actual joining date
+    $candidateNoDate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'No Date Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => null,
+        'lock_version' => 1,
+    ]);
+
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateNoDate, 'Asia/Dubai'))->toBeNull();
+
+    // 2. Created after joining date (backdated entry)
+    $candidateBackdated = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'name' => 'Backdated Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-09-01',
+        'lock_version' => 1,
+    ]);
+
+    DB::table('recruitment_candidates')->where('id', $candidateBackdated->id)->update([
+        'created_at' => '2026-10-01 09:00:00',
+    ]);
+    $candidateBackdated->refresh();
+
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateBackdated, 'Asia/Dubai'))->toBeNull();
 });

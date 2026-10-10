@@ -26,6 +26,10 @@ final class FindCandidateDuplicateEmployees
      */
     public static function find(RecruitmentCandidate $candidate, User $user, int $companyId): array
     {
+        if (! $user->can('employees.view')) {
+            return [];
+        }
+
         $hasEmail = filled($candidate->email);
         $hasPhone = filled($candidate->phone);
         $hasName = filled($candidate->name);

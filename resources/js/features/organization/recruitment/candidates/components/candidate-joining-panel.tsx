@@ -474,7 +474,8 @@ export function CandidateJoiningPanel({
                                         <span className="text-muted-foreground">
                                             Linked Employee:
                                         </span>
-                                        {linkedEmployee.can_view ? (
+                                        {linkedEmployee.can_view &&
+                                        linkedEmployee.id ? (
                                             <Link
                                                 href={`/organization/employees/${linkedEmployee.id}`}
                                                 className="flex items-center gap-1 font-medium text-primary hover:underline"
@@ -486,9 +487,7 @@ export function CandidateJoiningPanel({
                                         ) : (
                                             <span className="flex items-center gap-1 font-medium text-muted-foreground">
                                                 <User className="size-3.5" />
-                                                {linkedEmployee.employee_no ||
-                                                    'Employee'}{' '}
-                                                (Restricted)
+                                                Restricted
                                             </span>
                                         )}
                                     </div>

@@ -1,6 +1,6 @@
 # Recruitment Candidates
 
-Candidate management through screening, interview selection, Offer/JOL (Phase 2), and Joining & Internal Reminders (Phase 3). Employee conversion / payroll / crew assignments remain downstream (out of scope).
+Candidate management through screening, interview selection, Offer/JOL (Phase 2), Joining & Internal Reminders (Phase 3), and Candidate Conversion to Employee & Recruitment Reports (Phase 4). Payroll / crew assignments remain downstream (out of scope).
 
 ## Migrations
 
@@ -47,6 +47,9 @@ Registered in `ApplicationPermissionDefinitions` and synced by `PermissionsSeede
 | `recruitment.candidates.offer.revise` | Create audited Draft revision of Sent/Accepted/Rejected (requires `manage`) |
 | `recruitment.candidates.offer.download` | Private offer/acceptance document download (also requires `view`) |
 | `recruitment.candidates.joining.confirm` | Confirm actual joined for candidate in Joining stage with readiness = Ready |
+| `recruitment.candidates.convert` | Convert confirmed Joined candidate into an employee record with HR review |
+| `reports.recruitment.view` | View recruitment report, candidate pipeline metrics, and fulfillment durations |
+| `reports.recruitment.export` | Export recruitment report to Excel or CSV |
 
 Re-seed: `php artisan db:seed --class=PermissionsSeeder`. Assign via Roles & permissions. Owner receives the catalog via AdminSeeder. Do not hardcode role names. CC notification recipients gain no candidate action rights.
 
@@ -109,13 +112,37 @@ Forward path (manual only; no Client Approval stage):
   - Delivery: in-app notifications only (no external candidate emails). Idempotent execution, stale queued recovery, invalidation on reschedule, and cancellation upon interview selection or joining confirmation.
   - Scheduler: `recruitment:dispatch-candidate-reminders` command runs hourly via `routes/console.php` targeting companies at local 09:00 window.
 
+### Phase 4 (Candidate Conversion to Employee & Recruitment Reports)
+
+- **Conversion to Employee**:
+  - Requires confirmed `Joined` stage, no existing linked employee, and `recruitment.candidates.convert` alongside `recruitment.candidates.view` and `employees.create`.
+  - Atomically creates employee via `CreateEmployee` action and links candidate `employee_id` in a single transaction.
+  - Candidate context (`candidate_id`) is strictly preserved across profile template switches and validation errors; `candidate_lock_version` is required on final save to guard concurrent changes.
+  - Form visits, template changes, or form cancellations never create employee records or provisional drafts.
+- **Employee Information Security**:
+  - Duplicate employee suggestions require `employees.view` in addition to tenant and department visibility scoping. Conversion permission alone does not grant employee viewing.
+  - When the linked employee is inaccessible (missing `employees.view`, cross-company, or restricted department), employee IDs, numbers, names, and profile URLs are masked to `null` across candidate index/show payloads and report exports while retaining the safe `Converted` status indicator.
+- **Accepted Offer Compensation Review**:
+  - The conversion form displays the proposed total salary amount and currency code from the accepted current offer as an HR reference guide.
+  - Invented basic/allowance breakdown mappings and hardcoded AED fallbacks are eliminated; contract inputs are never automatically overwritten.
+- **Recruitment Report & Metrics**:
+  - Navigation: Reports → Recruitment Report (`reports.recruitment.view`, `reports.recruitment.export`).
+  - **Metric Definitions**:
+    - **Selected**: Defined by `interview_outcome = 'selected'`. Reflects all candidates with a Selected interview outcome within the active filter scope (including those in Interview stage and those progressed to Offer/Joining/Joined).
+    - **Pipeline Totals vs Position Fulfillment**: Separate metric scopes in UI. Pipeline cards (Applications, Selected, Joining, Joined, Rejected, Converted) reflect the active filter view. Position fulfillment (Headcount, Confirmed Joined, Remaining, Overfill) reflects total authorized slots and all confirmed Joined candidates for the scoped requirements and position lines, independent of candidate stage, search, conversion, or date filters.
+    - **Per-Line Fulfillment**: Remaining and overfill are calculated per position line (`max(0, required - joined)` and `max(0, joined - required)`) and summed across scoped lines. An overfill in one position never cancels out a shortage in another position.
+  - **Duration Calculations**:
+    - Calendar durations (Time to Hire and Requirement Approval to Joined) use `actual_joining_date` in company timezone; `joined_at` serves strictly as audit confirmation time.
+    - Authoritative timestamps (`created_at`, `approved_at`) are normalized to company timezone before extracting start-of-day dates.
+    - If authoritative dates are missing, or if historical entry occurred after joining, duration returns unavailable (`null`).
+
 ## UI
 
-- Navigation: Recruitment → Candidates.
+- Navigation: Recruitment → Candidates; Reports → Recruitment Report.
 - Index: Table and Kanban include Joined stage. Kanban columns are independently paginated with server stage totals and upcoming/overdue joining badges.
-- Candidate detail: Joining panel with status, dates, notes, and actions (Update Readiness, Confirm Joined, Undo Joined).
+- Candidate detail: Joining panel with status, dates, notes, and actions (Update Readiness, Confirm Joined, Undo Joined, Convert to Employee).
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 
 ## Out of scope
 
-Workbook import, candidate-facing external emails, employee conversion, payroll/crew assignments, WMS reminders.
+Workbook import, candidate-facing external emails, payroll/crew assignments, WMS reminders.

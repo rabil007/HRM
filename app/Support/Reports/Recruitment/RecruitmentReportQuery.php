@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports\Recruitment;
 
+use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateStage;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentRequirement;
@@ -10,6 +11,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 final class RecruitmentReportQuery
@@ -180,20 +182,21 @@ final class RecruitmentReportQuery
         $counts = (clone $base)
             ->selectRaw('
                 COUNT(*) as applications_total,
-                SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as selected_count,
-                SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as joining_count,
-                SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as joined_count,
-                SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) as rejected_count,
-                SUM(CASE WHEN employee_id IS NOT NULL THEN 1 ELSE 0 END) as converted_count
+                SUM(CASE WHEN recruitment_candidates.interview_outcome = ? THEN 1 ELSE 0 END) as selected_count,
+                SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as joining_count,
+                SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as joined_count,
+                SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as rejected_count,
+                SUM(CASE WHEN recruitment_candidates.employee_id IS NOT NULL THEN 1 ELSE 0 END) as converted_count
             ', [
-                CandidateStage::OfferJol->value,
+                CandidateInterviewOutcome::Selected->value,
                 CandidateStage::Joining->value,
                 CandidateStage::Joined->value,
                 CandidateStage::Rejected->value,
             ])
             ->first();
 
-        // Calculate headcount information for active requirements matching the filter scope
+        // Calculate position fulfillment totals derived from all confirmed Joined candidates
+        // for the scoped requirements and position lines, unaffected by candidate-stage/search/conversion/date filters.
         $requirementsQuery = RecruitmentRequirement::query()
             ->where('company_id', $this->companyId);
 
@@ -213,6 +216,10 @@ final class RecruitmentReportQuery
         $requirementIds = $requirementsQuery->pluck('id')->all();
 
         $headcountTotal = 0;
+        $confirmedJoinedTotal = 0;
+        $remainingTotal = 0;
+        $overfillTotal = 0;
+
         if ($requirementIds !== []) {
             $lineQuery = RecruitmentRequirementLine::query()
                 ->whereIn('recruitment_requirement_id', $requirementIds);
@@ -221,51 +228,83 @@ final class RecruitmentReportQuery
                 $lineQuery->where('position_id', $this->filters->positionId);
             }
 
-            $headcountTotal = (int) $lineQuery->sum('required_headcount');
-        }
+            /** @var Collection<int, RecruitmentRequirementLine> $lines */
+            $lines = $lineQuery->get(['id', 'required_headcount']);
+            $lineIds = $lines->pluck('id')->all();
 
-        $confirmedJoined = (int) ($counts?->joined_count ?? 0);
-        $remaining = max(0, $headcountTotal - $confirmedJoined);
-        $overfill = max(0, $confirmedJoined - $headcountTotal);
+            $joinedPerLine = RecruitmentCandidate::query()
+                ->where('company_id', $this->companyId)
+                ->whereIn('recruitment_requirement_line_id', $lineIds)
+                ->where('stage', CandidateStage::Joined->value)
+                ->selectRaw('recruitment_requirement_line_id, COUNT(*) as aggregate')
+                ->groupBy('recruitment_requirement_line_id')
+                ->pluck('aggregate', 'recruitment_requirement_line_id');
+
+            foreach ($lines as $line) {
+                $required = (int) $line->required_headcount;
+                $joined = (int) ($joinedPerLine[$line->id] ?? 0);
+
+                $headcountTotal += $required;
+                $confirmedJoinedTotal += $joined;
+                $remainingTotal += max(0, $required - $joined);
+                $overfillTotal += max(0, $joined - $required);
+            }
+        }
 
         return [
             'applications_total' => (int) ($counts?->applications_total ?? 0),
             'selected_count' => (int) ($counts?->selected_count ?? 0),
             'joining_count' => (int) ($counts?->joining_count ?? 0),
-            'joined_count' => $confirmedJoined,
+            'joined_count' => (int) ($counts?->joined_count ?? 0),
             'rejected_count' => (int) ($counts?->rejected_count ?? 0),
             'converted_count' => (int) ($counts?->converted_count ?? 0),
             'headcount_total' => $headcountTotal,
-            'headcount_confirmed_joined' => $confirmedJoined,
-            'headcount_remaining' => $remaining,
-            'headcount_overfill' => $overfill,
+            'headcount_confirmed_joined' => $confirmedJoinedTotal,
+            'headcount_remaining' => $remainingTotal,
+            'headcount_overfill' => $overfillTotal,
         ];
     }
 
     /**
-     * Calendar days from candidate creation to confirmed joining date.
-     * Returns null if candidate is not confirmed Joined.
+     * Calendar days from candidate creation to confirmed actual joining date.
+     * Uses actual_joining_date in company timezone; joined_at serves as audit confirmation time.
+     * Returns null if candidate is not confirmed Joined or authoritative dates are missing/chronologically invalid.
      */
     public static function calculateCandidateToJoinedDays(RecruitmentCandidate $candidate, string $timezone): ?int
     {
-        if ($candidate->joined_at === null || $candidate->created_at === null) {
+        if ($candidate->stage !== CandidateStage::Joined || $candidate->actual_joining_date === null || $candidate->created_at === null) {
+            return null;
+        }
+
+        $joiningDateString = $candidate->actual_joining_date instanceof \DateTimeInterface
+            ? $candidate->actual_joining_date->format('Y-m-d')
+            : (is_string($candidate->actual_joining_date) ? substr($candidate->actual_joining_date, 0, 10) : null);
+
+        if ($joiningDateString === null) {
             return null;
         }
 
         $createdDate = CarbonImmutable::parse($candidate->created_at)->timezone($timezone)->startOfDay();
-        $joinedDate = CarbonImmutable::parse($candidate->joined_at)->timezone($timezone)->startOfDay();
+        $joinedDate = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, $timezone)->startOfDay();
 
-        return (int) $createdDate->diffInDays($joinedDate, false);
+        $days = (int) $createdDate->diffInDays($joinedDate, false);
+
+        if ($days < 0) {
+            return null;
+        }
+
+        return $days;
     }
 
     /**
-     * Calendar days from requirement approval to confirmed candidate joining date.
-     * Returns null if requirement was not approved through approval workflow
-     * or candidate is not confirmed Joined.
+     * Calendar days from requirement approval to confirmed candidate actual joining date.
+     * Uses actual_joining_date in company timezone.
+     * Returns null if requirement was not approved, candidate is not confirmed Joined,
+     * or dates are missing/chronologically invalid.
      */
     public static function calculateRequirementApprovalToJoinedDays(RecruitmentCandidate $candidate, string $timezone): ?int
     {
-        if ($candidate->joined_at === null) {
+        if ($candidate->stage !== CandidateStage::Joined || $candidate->actual_joining_date === null) {
             return null;
         }
 
@@ -274,9 +313,23 @@ final class RecruitmentReportQuery
             return null;
         }
 
-        $approvalDate = CarbonImmutable::parse($approvedAt)->timezone($timezone)->startOfDay();
-        $joinedDate = CarbonImmutable::parse($candidate->joined_at)->timezone($timezone)->startOfDay();
+        $joiningDateString = $candidate->actual_joining_date instanceof \DateTimeInterface
+            ? $candidate->actual_joining_date->format('Y-m-d')
+            : (is_string($candidate->actual_joining_date) ? substr($candidate->actual_joining_date, 0, 10) : null);
 
-        return (int) $approvalDate->diffInDays($joinedDate, false);
+        if ($joiningDateString === null) {
+            return null;
+        }
+
+        $approvalDate = CarbonImmutable::parse($approvedAt)->timezone($timezone)->startOfDay();
+        $joinedDate = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, $timezone)->startOfDay();
+
+        $days = (int) $approvalDate->diffInDays($joinedDate, false);
+
+        if ($days < 0) {
+            return null;
+        }
+
+        return $days;
     }
 }

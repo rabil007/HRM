@@ -38,7 +38,7 @@ class StoreEmployeeRequest extends FormRequest
                 Rule::exists('recruitment_candidates', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
             'candidate_lock_version' => [
-                'nullable',
+                'required_with:candidate_id',
                 'integer',
             ],
             'user_id' => [
@@ -161,6 +161,13 @@ class StoreEmployeeRequest extends FormRequest
 
                 if ($candidate->employee_id !== null) {
                     $validator->errors()->add('candidate_id', 'This candidate has already been converted to an employee.');
+
+                    return;
+                }
+
+                $lockVersion = $this->input('candidate_lock_version');
+                if ($lockVersion === null || (int) $candidate->lock_version !== (int) $lockVersion) {
+                    $validator->errors()->add('candidate_lock_version', 'The candidate record was modified by another action. Please refresh and try again.');
 
                     return;
                 }

@@ -62,7 +62,6 @@ class RecruitmentReportController extends Controller
                     ])
                     ->all(),
                 'clients' => fn () => Client::query()
-                    ->where('company_id', $companyId)
                     ->where('is_active', true)
                     ->orderBy('name')
                     ->get(['id', 'name'])
