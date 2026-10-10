@@ -262,7 +262,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 18
+                return $recruitmentOptions->count() === 24
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -291,7 +291,16 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->has('recruitment.candidates.move')
                     && $options->has('recruitment.candidates.manage')
                     && $options->has('recruitment.candidates.cv.download')
-                    && $options->get('recruitment.candidates.view')['group'] === 'Recruitment';
+                    && $options->get('recruitment.candidates.view')['group'] === 'Recruitment'
+                    && $options->has('recruitment.candidates.offer.prepare')
+                    && $options->get('recruitment.candidates.offer.prepare')['label'] === 'Prepare Candidate Offers'
+                    && $options->get('recruitment.candidates.offer.prepare')['group'] === 'Recruitment'
+                    && $options->has('recruitment.candidates.offer.update')
+                    && $options->has('recruitment.candidates.offer.send')
+                    && $options->has('recruitment.candidates.offer.decide')
+                    && $options->has('recruitment.candidates.offer.revise')
+                    && $options->has('recruitment.candidates.offer.download')
+                    && $options->get('recruitment.candidates.offer.download')['group'] === 'Recruitment';
             }),
         );
 });
