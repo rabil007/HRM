@@ -58,6 +58,7 @@ final class DispatchCandidateInternalReminders
                     $result = $this->forCompany((int) $company->id, $force);
                     $totals['reminders_queued'] += $result['queued'];
                     $totals['skipped'] += $result['skipped'];
+                    $totals['errors'] += $result['errors'];
                 } catch (Throwable $exception) {
                     report($exception);
                     $totals['errors']++;
@@ -74,7 +75,7 @@ final class DispatchCandidateInternalReminders
     }
 
     /**
-     * @return array{queued: int, skipped: int, reason?: string}
+     * @return array{queued: int, skipped: int, errors: int, reason?: string}
      */
     public function forCompany(int $companyId, bool $force = false): array
     {
@@ -86,17 +87,20 @@ final class DispatchCandidateInternalReminders
             return [
                 'queued' => 0,
                 'skipped' => 0,
+                'errors' => 0,
                 'reason' => 'outside_local_dispatch_hour',
             ];
         }
 
         $queued = 0;
         $skipped = 0;
+        $errors = 0;
 
         // Independent recovery sweep for stale queued or pending records
         $recovery = $this->recoverStaleRemindersForCompany($companyId);
         $queued += $recovery['recovered'];
         $skipped += $recovery['skipped'];
+        $errors += $recovery['errors'];
 
         // 1. Interview reminders: 1 day before and on scheduled date
         $interviewMilestones = [
@@ -138,6 +142,7 @@ final class DispatchCandidateInternalReminders
 
                 $queued += $result['queued'];
                 $skipped += $result['skipped'];
+                $errors += $result['errors'];
             }
         }
 
@@ -178,6 +183,7 @@ final class DispatchCandidateInternalReminders
 
                 $queued += $result['queued'];
                 $skipped += $result['skipped'];
+                $errors += $result['errors'];
             }
         }
 
@@ -215,17 +221,19 @@ final class DispatchCandidateInternalReminders
 
                 $queued += $result['queued'];
                 $skipped += $result['skipped'];
+                $errors += $result['errors'];
             }
         }
 
         return [
             'queued' => $queued,
             'skipped' => $skipped,
+            'errors' => $errors,
         ];
     }
 
     /**
-     * @return array{queued: int, skipped: int}
+     * @return array{queued: int, skipped: int, errors: int}
      */
     private function dispatchForCandidate(
         RecruitmentCandidate $candidate,
@@ -236,11 +244,12 @@ final class DispatchCandidateInternalReminders
     ): array {
         $recipients = $this->resolveRecipients($candidate);
         if ($recipients->isEmpty()) {
-            return ['queued' => 0, 'skipped' => 1];
+            return ['queued' => 0, 'skipped' => 1, 'errors' => 0];
         }
 
         $queued = 0;
         $skipped = 0;
+        $errors = 0;
 
         foreach ($recipients as $recipient) {
             $deliveryKey = "user_{$recipient->id}";
@@ -280,14 +289,17 @@ final class DispatchCandidateInternalReminders
 
             if ($outcome === 'enqueued') {
                 $queued++;
-            } else {
+            } elseif ($outcome === 'skipped') {
                 $skipped++;
+            } else {
+                $errors++;
             }
         }
 
         return [
             'queued' => $queued,
             'skipped' => $skipped,
+            'errors' => $errors,
         ];
     }
 

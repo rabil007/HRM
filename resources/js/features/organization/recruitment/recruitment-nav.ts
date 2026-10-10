@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
     BadgeCheck,
     ClipboardList,
+    FileSpreadsheet,
     History,
     UserCheck,
     Users,
@@ -36,6 +37,14 @@ export const RECRUITMENT_SUBMODULES: RecruitmentSubmodule[] = [
         href: '/organization/recruitment/candidates',
         permission: 'recruitment.candidates.view',
         icon: Users,
+        available: true,
+    },
+    {
+        key: 'reports',
+        title: 'Reports',
+        href: '/organization/recruitment/reports',
+        permission: 'reports.recruitment.view',
+        icon: FileSpreadsheet,
         available: true,
     },
     {

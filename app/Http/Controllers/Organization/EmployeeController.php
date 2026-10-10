@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\RecentItemType;
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\SavedViewPage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\AssignEmployeeProfileTemplateRequest;
@@ -13,6 +14,8 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
+use App\Models\Position;
+use App\Models\RecruitmentCandidate;
 use App\Services\Settings\AiSettingsService;
 use App\Support\Attendance\EmployeeHireDateChangeGuard;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
@@ -37,6 +40,9 @@ use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\PayrollRecordLinkage;
 use App\Support\RecentItems\RecordRecentItem;
+use App\Support\Recruitment\Candidates\Actions\ConvertCandidateToEmployee;
+use App\Support\Recruitment\Candidates\Actions\LinkCandidateToEmployee;
+use App\Support\Recruitment\Candidates\FindCandidateDuplicateEmployees;
 use App\Support\SavedViews\ApplyDefaultSavedView;
 use App\Support\SavedViews\SavedViewsForPage;
 use App\Support\Uploads\UploadedFileStorage;
@@ -143,6 +149,7 @@ class EmployeeController extends Controller
     public function create()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $user = request()->user();
 
         $requestedTemplateId = (int) request()->query('profile_template_id', 0);
         $selectedTemplate = $requestedTemplateId > 0
@@ -151,6 +158,84 @@ class EmployeeController extends Controller
                 ->where('is_active', true)
                 ->find($requestedTemplateId)
             : null;
+
+        $candidateContext = null;
+        $candidatePrefills = null;
+        $candidateId = (int) request()->query('candidate_id', 0);
+
+        if ($candidateId > 0) {
+            abort_unless(
+                $user !== null
+                    && $user->can('recruitment.candidates.view')
+                    && $user->can('employees.create')
+                    && $user->can('recruitment.candidates.convert'),
+                403,
+            );
+
+            /** @var RecruitmentCandidate $candidate */
+            $candidate = RecruitmentCandidate::query()
+                ->where('company_id', $companyId)
+                ->where('id', $candidateId)
+                ->with(['line.position', 'requirement.client', 'requirement.project', 'nationality', 'currentOffer'])
+                ->firstOrFail();
+
+            if ($candidate->stage !== CandidateStage::Joined || $candidate->employee_id !== null) {
+                return redirect()
+                    ->route('organization.recruitment.candidates.show', $candidateId)
+                    ->with('error', 'Only confirmed Joined candidates without an existing employee link can be converted.');
+            }
+
+            $duplicateMatches = FindCandidateDuplicateEmployees::find($candidate, $user, $companyId);
+            $offer = $candidate->currentOffer;
+
+            $candidateContext = [
+                'candidate_id' => (int) $candidate->id,
+                'name' => (string) $candidate->name,
+                'email' => $candidate->email,
+                'phone' => $candidate->phone,
+                'nationality_id' => $candidate->nationality_id,
+                'nationality_name' => $candidate->nationality?->name,
+                'position_id' => $candidate->line?->position_id,
+                'position_title' => (string) ($candidate->line?->position?->title ?? $candidate->position_title_snapshot),
+                'requirement_number' => (string) ($candidate->requirement?->requirement_number ?? $candidate->requirement_number_snapshot),
+                'client_name' => $candidate->requirement?->client?->name,
+                'project_title' => $candidate->requirement?->project?->title,
+                'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
+                'lock_version' => (int) $candidate->lock_version,
+                'proposed_offer' => $offer ? [
+                    'basic_salary' => $offer->offered_basic_salary !== null ? (string) $offer->offered_basic_salary : null,
+                    'housing_allowance' => $offer->housing_allowance !== null ? (string) $offer->housing_allowance : null,
+                    'transportation_allowance' => $offer->transportation_allowance !== null ? (string) $offer->transportation_allowance : null,
+                    'other_allowances' => $offer->other_allowances !== null ? (string) $offer->other_allowances : null,
+                    'currency' => $offer->currency ?? 'AED',
+                ] : null,
+                'duplicate_matches' => $duplicateMatches,
+                'can_link_existing' => LinkCandidateToEmployee::canLink($user, $candidate),
+            ];
+
+            $position = $candidate->line?->position;
+            $positionId = $position?->id;
+            if ($positionId !== null) {
+                $posExists = Position::query()->where('company_id', $companyId)->whereKey($positionId)->exists();
+                if (! $posExists) {
+                    $positionId = null;
+                    $position = null;
+                }
+            }
+
+            $candidatePrefills = [
+                'name' => (string) $candidate->name,
+                'personal_email' => $candidate->email,
+                'phone' => $candidate->phone,
+                'nationality_id' => $candidate->nationality_id,
+                'position_id' => $positionId,
+                'position' => $position ? ['id' => $position->id, 'title' => $position->title] : null,
+                'hire_date' => $candidate->actual_joining_date?->toDateString(),
+                'start_date' => $candidate->actual_joining_date?->toDateString(),
+                'candidate_id' => (int) $candidate->id,
+                'candidate_lock_version' => (int) $candidate->lock_version,
+            ];
+        }
 
         $employee = null;
         $employeeId = (int) request()->query('employee_id', 0);
@@ -188,10 +273,16 @@ class EmployeeController extends Controller
             ]);
         }
 
-        return Inertia::render(
-            'organization/employee',
-            EmployeeProfilePageData::forCreate($companyId, request(), $employee, $selectedTemplate),
-        );
+        $pageData = EmployeeProfilePageData::forCreate($companyId, request(), $employee, $selectedTemplate);
+
+        if ($candidateContext !== null) {
+            $pageData['candidate_context'] = $candidateContext;
+            if ($candidatePrefills !== null) {
+                $pageData['employee'] = array_merge($pageData['employee'], $candidatePrefills);
+            }
+        }
+
+        return Inertia::render('organization/employee', $pageData);
     }
 
     public function ensure(StoreEnsureEmployeeRequest $request, CreateEmployeeFromName $createEmployeeFromName)
@@ -268,10 +359,34 @@ class EmployeeController extends Controller
         );
     }
 
-    public function store(StoreEmployeeRequest $request, CreateEmployee $createEmployee)
-    {
+    public function store(
+        StoreEmployeeRequest $request,
+        CreateEmployee $createEmployee,
+        ConvertCandidateToEmployee $convertCandidateToEmployee,
+    ) {
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
+        $candidateId = $request->input('candidate_id');
+
+        if ($candidateId !== null && $candidateId !== '') {
+            /** @var RecruitmentCandidate $candidate */
+            $candidate = RecruitmentCandidate::query()
+                ->where('company_id', $companyId)
+                ->where('id', (int) $candidateId)
+                ->firstOrFail();
+
+            $employee = $convertCandidateToEmployee->handle(
+                $user,
+                $candidate,
+                $request->validated(),
+                $companyId,
+                $request->file('image'),
+            );
+
+            return redirect()
+                ->route('organization.recruitment.candidates.show', $candidateId)
+                ->with('success', "Candidate successfully converted to employee #{$employee->employee_no}.");
+        }
 
         $createEmployee->handle(
             $request->validated(),

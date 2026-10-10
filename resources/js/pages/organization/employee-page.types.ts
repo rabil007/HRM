@@ -317,8 +317,41 @@ export type EmployeeHireDateChangeProps = {
     has_annual_leave_balances: boolean;
 };
 
+export type CandidateConversionContext = {
+    candidate_id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    nationality_id: number | null;
+    nationality_name: string | null;
+    position_id: number | null;
+    position_title: string;
+    requirement_number: string;
+    client_name: string | null;
+    project_title: string | null;
+    actual_joining_date: string | null;
+    lock_version: number;
+    proposed_offer: {
+        basic_salary: string | null;
+        housing_allowance: string | null;
+        transportation_allowance: string | null;
+        other_allowances: string | null;
+        currency: string;
+    } | null;
+    duplicate_matches: Array<{
+        id: number;
+        name: string;
+        employee_no: string;
+        department_name: string | null;
+        position_title: string | null;
+        matched_on: string[];
+    }>;
+    can_link_existing: boolean;
+};
+
 export type EmployeePageProps = {
     mode?: 'edit' | 'create';
+    candidate_context?: CandidateConversionContext | null;
     hire_date_change?: EmployeeHireDateChangeProps;
     employee_navigation?: EmployeeNavigation | null;
     resolved_template?: ResolvedEmployeeTemplate;

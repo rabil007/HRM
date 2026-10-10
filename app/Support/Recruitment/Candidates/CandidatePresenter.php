@@ -7,6 +7,7 @@ use App\Enums\Recruitment\CandidateStage;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
+use App\Support\Employees\EmployeeVisibilityScope;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -87,6 +88,9 @@ final class CandidatePresenter
             'can_update_readiness' => $canUpdateReadiness,
             'can_confirm_joined' => $canConfirmJoined,
             'can_correct_joined' => $canCorrectJoined,
+            'can_convert' => self::canConvert($user, $candidate),
+            'conversion_status' => self::resolveConversionStatus($candidate),
+            'employee_id' => $candidate->employee_id,
         ];
     }
 
@@ -178,7 +182,13 @@ final class CandidatePresenter
                 'can_update_readiness' => $row['can_update_readiness'],
                 'can_confirm_joined' => $row['can_confirm_joined'],
                 'can_correct_joined' => $row['can_correct_joined'],
+                'can_convert' => $row['can_convert'],
+                'conversion_status' => $row['conversion_status'],
+                'linked_employee' => self::resolveLinkedEmployee($candidate, $user, (int) $candidate->company_id),
             ],
+            'conversion_status' => $row['conversion_status'],
+            'can_convert' => $row['can_convert'],
+            'linked_employee' => self::resolveLinkedEmployee($candidate, $user, (int) $candidate->company_id),
             'offer_history' => $includeMovementHistory && $candidate->relationLoaded('offers')
                 ? CandidateOfferPresenter::history($candidate, $timezone)
                 : [],
@@ -321,5 +331,64 @@ final class CandidatePresenter
         }
 
         return $value->copy()->timezone($timezone)->format('d M Y H:i');
+    }
+
+    /**
+     * @return array{id: int|null, name: string|null, employee_no: string|null, can_view: bool}|null
+     */
+    public static function resolveLinkedEmployee(?RecruitmentCandidate $candidate, User $user, int $companyId): ?array
+    {
+        if ($candidate === null || $candidate->employee_id === null) {
+            return null;
+        }
+
+        $employee = $candidate->relationLoaded('employee')
+            ? $candidate->employee
+            : $candidate->employee()->first();
+
+        if ($employee === null) {
+            return null;
+        }
+
+        $canView = $user->can('employees.view')
+            && EmployeeVisibilityScope::canAccess($user, $employee, $companyId);
+
+        if (! $canView) {
+            return [
+                'id' => null,
+                'name' => null,
+                'employee_no' => null,
+                'can_view' => false,
+            ];
+        }
+
+        return [
+            'id' => (int) $employee->id,
+            'name' => (string) $employee->name,
+            'employee_no' => (string) $employee->employee_no,
+            'can_view' => true,
+        ];
+    }
+
+    public static function resolveConversionStatus(RecruitmentCandidate $candidate): string
+    {
+        if ($candidate->employee_id !== null) {
+            return 'converted';
+        }
+
+        if ($candidate->stage === CandidateStage::Joined) {
+            return 'pending';
+        }
+
+        return 'not_applicable';
+    }
+
+    public static function canConvert(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.view')
+            && $user->can('employees.create')
+            && $user->can('recruitment.candidates.convert')
+            && $candidate->stage === CandidateStage::Joined
+            && $candidate->employee_id === null;
     }
 }

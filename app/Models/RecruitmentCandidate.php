@@ -110,6 +110,10 @@ class RecruitmentCandidate extends Model
                 'interview_mode',
                 'interview_location',
                 'cv_original_file_name',
+                'actual_joining_date',
+                'joined_at',
+                'joined_by',
+                'employee_id',
             ])
             ->logOnlyDirty();
     }

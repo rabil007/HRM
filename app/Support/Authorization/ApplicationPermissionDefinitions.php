@@ -2061,6 +2061,24 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the assigned recruiter (or a user with management override) to confirm a candidate has formally joined against an accepted Offer/JOL. Also required with recruitment.candidates.manage to correct or undo joining.',
                 'group' => 'Recruitment',
             ],
+            353 => [
+                'name' => 'recruitment.candidates.convert',
+                'label' => 'Convert Candidate to Employee',
+                'description' => 'Allows the user to convert a confirmed Joined candidate into an employee record with HR review in the active company.',
+                'group' => 'Recruitment',
+            ],
+            354 => [
+                'name' => 'reports.recruitment.view',
+                'label' => 'View Recruitment Report',
+                'description' => 'Allows the user to view the recruitment report, candidate pipeline metrics, and fulfillment durations for the active company.',
+                'group' => 'Reports',
+            ],
+            355 => [
+                'name' => 'reports.recruitment.export',
+                'label' => 'Export Recruitment Report',
+                'description' => 'Allows the user to export the recruitment report to Excel or CSV for the active company.',
+                'group' => 'Reports',
+            ],
             343 => [
                 'name' => 'crew_operations.movements.schedule.view',
                 'label' => 'View Scheduled Crew Movements',

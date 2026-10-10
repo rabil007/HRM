@@ -64,6 +64,14 @@ export type CandidateIndexRow = {
     can_confirm_joined: boolean;
     can_correct_joined: boolean;
     can_update_readiness: boolean;
+    can_convert: boolean;
+    conversion_status: 'converted' | 'pending' | 'not_applicable';
+    linked_employee?: {
+        id: number | null;
+        name: string | null;
+        employee_no: string | null;
+        can_view: boolean;
+    } | null;
     joined_by_name: string | null;
     joined_at: string | null;
 };
@@ -147,6 +155,14 @@ export type CandidateJoiningDetail = {
     can_update_readiness: boolean;
     can_confirm_joined: boolean;
     can_correct_joined: boolean;
+    can_convert?: boolean;
+    conversion_status?: 'converted' | 'pending' | 'not_applicable';
+    linked_employee?: {
+        id: number | null;
+        name: string | null;
+        employee_no: string | null;
+        can_view: boolean;
+    } | null;
     schedule_urgency: CandidateJoiningScheduleUrgency;
     schedule_label: string | null;
 };

@@ -1,5 +1,11 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { AlertTriangle } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    AlertCircle,
+    AlertTriangle,
+    ArrowLeft,
+    Coins,
+    UserCheck,
+} from 'lucide-react';
 import {
     lazy,
     Suspense,
@@ -142,6 +148,7 @@ export default function EmployeeDetails(props: EmployeePageProps) {
 
 function EmployeeDetailsPage({
     mode = 'edit',
+    candidate_context = null,
     employee_navigation = null,
     resolved_template,
     profile_templates = [],
@@ -317,7 +324,9 @@ function EmployeeDetailsPage({
         persistedEmployee,
         canUpdate,
         {
-            ensureEmployee: isCreateMode ? ensureEmployee : undefined,
+            ensureEmployee:
+                isCreateMode && !candidate_context ? ensureEmployee : undefined,
+            candidateContext: candidate_context,
             templateRequiredFields:
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
@@ -694,7 +703,274 @@ function EmployeeDetailsPage({
                             </AlertDialogContent>
                         </AlertDialog>
 
-                        {isCreateMode ? (
+                        {candidate_context ? (
+                            <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                            <UserCheck className="size-5" />
+                                        </div>
+                                        <div>
+                                            <h1 className="text-lg font-semibold text-foreground">
+                                                Review & Convert Joined
+                                                Candidate
+                                            </h1>
+                                            <p className="text-xs text-muted-foreground">
+                                                Review candidate details and
+                                                complete required employee
+                                                profile fields before saving.
+                                                Contracts and payroll are not
+                                                automatically activated.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <Link
+                                                href={`/organization/recruitment/candidates/${candidate_context.candidate_id}`}
+                                            >
+                                                <ArrowLeft className="mr-1.5 size-4" />
+                                                Cancel & Return
+                                            </Link>
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                            onClick={() => saveChanges()}
+                                            disabled={form.processing}
+                                        >
+                                            <UserCheck className="mr-1.5 size-4" />
+                                            {form.processing
+                                                ? 'Converting...'
+                                                : 'Convert to Employee'}
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3 border-t border-primary/10 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Candidate:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-foreground">
+                                            {candidate_context.name}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Requirement / Position:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-foreground">
+                                            #
+                                            {
+                                                candidate_context.requirement_number
+                                            }{' '}
+                                            • {candidate_context.position_title}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Actual Joining Date:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                                            {candidate_context.actual_joining_date ??
+                                                '—'}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Client / Project:
+                                        </span>
+                                        <div className="mt-0.5 text-foreground">
+                                            {candidate_context.client_name
+                                                ? `${candidate_context.client_name} • `
+                                                : ''}
+                                            {candidate_context.project_title ||
+                                                '—'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {candidate_context.proposed_offer && (
+                                    <div className="rounded-lg border border-border/60 bg-background/80 p-3 text-xs">
+                                        <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                            <Coins className="size-3.5 text-amber-500" />
+                                            <span>
+                                                Accepted Offer Compensation
+                                                (Proposed Values For Review):
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                            <div>
+                                                <span className="text-muted-foreground">
+                                                    Basic Salary:
+                                                </span>{' '}
+                                                <span className="font-medium">
+                                                    {
+                                                        candidate_context
+                                                            .proposed_offer
+                                                            .currency
+                                                    }{' '}
+                                                    {candidate_context
+                                                        .proposed_offer
+                                                        .basic_salary ?? '0'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground">
+                                                    Housing:
+                                                </span>{' '}
+                                                <span className="font-medium">
+                                                    {
+                                                        candidate_context
+                                                            .proposed_offer
+                                                            .currency
+                                                    }{' '}
+                                                    {candidate_context
+                                                        .proposed_offer
+                                                        .housing_allowance ??
+                                                        '0'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground">
+                                                    Transport:
+                                                </span>{' '}
+                                                <span className="font-medium">
+                                                    {
+                                                        candidate_context
+                                                            .proposed_offer
+                                                            .currency
+                                                    }{' '}
+                                                    {candidate_context
+                                                        .proposed_offer
+                                                        .transportation_allowance ??
+                                                        '0'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground">
+                                                    Other:
+                                                </span>{' '}
+                                                <span className="font-medium">
+                                                    {
+                                                        candidate_context
+                                                            .proposed_offer
+                                                            .currency
+                                                    }{' '}
+                                                    {candidate_context
+                                                        .proposed_offer
+                                                        .other_allowances ??
+                                                        '0'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="mt-1.5 text-[11px] text-muted-foreground italic">
+                                            Note: These amounts are for HR
+                                            reference during profile creation.
+                                            No contract or payroll record is
+                                            automatically activated.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {candidate_context.duplicate_matches?.length >
+                                    0 && (
+                                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+                                        <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                                            <AlertCircle className="size-4 text-amber-600 dark:text-amber-400" />
+                                            <span>
+                                                Potential Duplicate Existing
+                                                Employees Found (
+                                                {
+                                                    candidate_context
+                                                        .duplicate_matches
+                                                        .length
+                                                }
+                                                )
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-muted-foreground">
+                                            The following existing employee
+                                            records match candidate identifiers
+                                            (email, phone, or name). Verify if
+                                            this candidate is an existing
+                                            employee before creating a new
+                                            profile.
+                                        </p>
+                                        <div className="mt-2 space-y-1.5">
+                                            {candidate_context.duplicate_matches.map(
+                                                (match) => (
+                                                    <div
+                                                        key={match.id}
+                                                        className="flex flex-col justify-between gap-1 rounded bg-background/90 p-2 sm:flex-row sm:items-center"
+                                                    >
+                                                        <div>
+                                                            <span className="font-semibold">
+                                                                {match.name}
+                                                            </span>{' '}
+                                                            <span className="text-muted-foreground">
+                                                                (
+                                                                {
+                                                                    match.employee_no
+                                                                }
+                                                                )
+                                                            </span>
+                                                            {match.department_name && (
+                                                                <span className="text-muted-foreground">
+                                                                    {' '}
+                                                                    •{' '}
+                                                                    {
+                                                                        match.department_name
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                            {match.position_title && (
+                                                                <span className="text-muted-foreground">
+                                                                    {' '}
+                                                                    •{' '}
+                                                                    {
+                                                                        match.position_title
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                Matched on:{' '}
+                                                                {match.matched_on.join(
+                                                                    ', ',
+                                                                )}
+                                                            </span>
+                                                            {candidate_context.can_link_existing && (
+                                                                <Button
+                                                                    asChild
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 text-xs"
+                                                                >
+                                                                    <Link
+                                                                        href={`/organization/recruitment/candidates/${candidate_context.candidate_id}`}
+                                                                    >
+                                                                        Link
+                                                                        Candidate
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : isCreateMode ? (
                             <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 md:flex-row md:items-end md:justify-between">
                                 <div className="space-y-1">
                                     <h1 className="text-lg font-semibold text-foreground">

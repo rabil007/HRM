@@ -11,6 +11,7 @@ import {
     employeeProfileUpdateRequiresPostSpoof,
     isEmployeeProfileFormDirty,
     resolveEmployeeProfileSaveVisit,
+    transformEmployeeProfileFormData,
 } from '@/pages/organization/_lib/employee-profile-form-state';
 import { resolveEmployeeProfilePreserveState } from '@/pages/organization/_lib/employee-profile-persisted-state';
 import {
@@ -21,6 +22,7 @@ import {
 } from '@/pages/organization/_lib/hire-date-change-preview';
 import type { HireDateChangePreview } from '@/pages/organization/_lib/hire-date-change-preview';
 import type {
+    CandidateConversionContext,
     EmployeeDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
@@ -57,6 +59,7 @@ export function useEmployeeProfileForm(
     canUpdate: boolean,
     options?: {
         ensureEmployee?: () => Promise<number>;
+        candidateContext?: CandidateConversionContext | null;
         templateRequiredFields?:
             | Record<string, TemplateFieldConfig>
             | undefined;
@@ -403,6 +406,69 @@ export function useEmployeeProfileForm(
 
             setMissingRequiredFields(new Set());
 
+            if (options?.candidateContext) {
+                const candidateCtx = options.candidateContext;
+                const hasPendingImage = Boolean(
+                    form.data.image instanceof File,
+                );
+
+                form.transform((data: any) => {
+                    const payload = transformEmployeeProfileFormData(
+                        data,
+                        options?.templateRequiredFields,
+                    );
+
+                    if (data.image instanceof File) {
+                        payload.image = data.image;
+                    }
+
+                    payload.candidate_id = candidateCtx.candidate_id;
+                    payload.candidate_lock_version = candidateCtx.lock_version;
+                    payload.start_date =
+                        data.start_date ||
+                        data.hire_date ||
+                        candidateCtx.actual_joining_date ||
+                        null;
+
+                    return payload;
+                });
+
+                form.post('/organization/employees', {
+                    preserveScroll: true,
+                    forceFormData: hasPendingImage,
+                    onSuccess: () => {
+                        setActiveField(null);
+                        setMissingRequiredFields(new Set());
+                        afterSuccess?.();
+                    },
+                    onError: (errors: Record<string, string>) => {
+                        const errorKeys = Object.keys(errors ?? {});
+
+                        if (errorKeys.includes('employee_no')) {
+                            setMissingRequiredFields((current) => {
+                                const next = new Set(current);
+
+                                next.add('employee_no');
+
+                                return next;
+                            });
+
+                            focusMissingField('employee_no');
+                        }
+
+                        const first = Object.values(errors ?? {})[0];
+
+                        toast.error(
+                            typeof first === 'string' && first.length
+                                ? first
+                                : 'Failed to convert candidate.',
+                        );
+                    },
+                });
+
+                return;
+            }
+
             let targetEmployeeId = employee.id;
 
             if (
@@ -487,6 +553,7 @@ export function useEmployeeProfileForm(
             form,
             options?.hasAnnualLeaveBalances,
             options?.savedHireDate,
+            options?.candidateContext,
             options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,
