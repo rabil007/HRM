@@ -262,7 +262,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 24
+                return $recruitmentOptions->count() === 25
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -300,7 +300,10 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->has('recruitment.candidates.offer.decide')
                     && $options->has('recruitment.candidates.offer.revise')
                     && $options->has('recruitment.candidates.offer.download')
-                    && $options->get('recruitment.candidates.offer.download')['group'] === 'Recruitment';
+                    && $options->get('recruitment.candidates.offer.download')['group'] === 'Recruitment'
+                    && $options->has('recruitment.candidates.joining.confirm')
+                    && $options->get('recruitment.candidates.joining.confirm')['label'] === 'Confirm Candidate Joined'
+                    && $options->get('recruitment.candidates.joining.confirm')['group'] === 'Recruitment';
             }),
         );
 });

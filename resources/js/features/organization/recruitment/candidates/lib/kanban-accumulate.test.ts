@@ -158,6 +158,7 @@ describe('kanban accumulate helpers', () => {
             'interview',
             'offer_jol',
             'joining',
+            'joined',
             'rejected',
         ]);
     });
