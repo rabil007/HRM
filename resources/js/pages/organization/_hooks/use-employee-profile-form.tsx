@@ -424,6 +424,7 @@ export function useEmployeeProfileForm(
 
                     payload.candidate_id = candidateCtx.candidate_id;
                     payload.candidate_lock_version = candidateCtx.lock_version;
+                    delete (payload as Record<string, unknown>).employee_id;
                     payload.start_date =
                         data.start_date ||
                         data.hire_date ||

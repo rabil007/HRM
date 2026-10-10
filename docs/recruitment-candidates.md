@@ -118,6 +118,12 @@ Forward path (manual only; no Client Approval stage):
   - Requires confirmed `Joined` stage, no existing linked employee, and `recruitment.candidates.convert` alongside `recruitment.candidates.view` and `employees.create`.
   - Atomically creates employee via `CreateEmployee` action and links candidate `employee_id` in a single transaction.
   - Candidate context (`candidate_id`) is strictly preserved across profile template switches and validation errors; `candidate_lock_version` is required on final save to guard concurrent changes.
+  - **Candidate Conversion Mode Guard & Provisional Draft Isolation**:
+    - When `candidate_context` is present, provisional employee creation via `/organization/employees/ensure` is disabled and prohibited with a 422 validation response.
+    - All record-tab mutations (contracts, salary revisions, bank accounts, documents, education, work experience, vaccinations, languages, trainings, sea service) are disabled during conversion. Unavailable record tabs display: *"Create the employee first to add these records."*
+    - Profile fields on the Personal tab and header card remain fully editable for HR review and adjustments prior to conversion.
+    - Requests combining `candidate_id` with a provisional `employee_id` (via query parameter on `create` or payload on `store`) are rejected with 422 validation errors; provisional drafts are never silently reused or merged.
+    - Final conversion atomically creates exactly one employee record and links the candidate; authorized users can then open the finalized employee profile and add record tabs normally.
   - Form visits, template changes, or form cancellations never create employee records or provisional drafts.
 - **Employee Information Security**:
   - Duplicate employee suggestions require `employees.view` in addition to tenant and department visibility scoping. Conversion permission alone does not grant employee viewing.

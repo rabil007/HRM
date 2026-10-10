@@ -32,6 +32,7 @@ class StoreEmployeeRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
+            'employee_id' => ['nullable', 'integer'],
             'candidate_id' => [
                 'nullable',
                 'integer',
@@ -134,7 +135,15 @@ class StoreEmployeeRequest extends FormRequest
             }
 
             $candidateId = $this->input('candidate_id');
+            $employeeId = $this->input('employee_id');
+
             if ($candidateId !== null && $candidateId !== '') {
+                if ($employeeId !== null && $employeeId !== '') {
+                    $validator->errors()->add('employee_id', 'Candidate conversion cannot be combined with a provisional employee draft.');
+
+                    return;
+                }
+
                 $user = $this->user();
                 if ($user === null || ! $user->can('recruitment.candidates.view') || ! $user->can('recruitment.candidates.convert') || ! $user->can('employees.create')) {
                     $validator->errors()->add('candidate_id', 'You do not have permission to convert this candidate.');

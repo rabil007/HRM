@@ -31,6 +31,12 @@ final class ConvertCandidateToEmployee
     ): Employee {
         self::assertCanConvert($actor);
 
+        if (isset($validated['employee_id']) && $validated['employee_id'] !== null && $validated['employee_id'] !== '') {
+            throw ValidationException::withMessages([
+                'employee_id' => 'Candidate conversion cannot be combined with a provisional employee draft.',
+            ]);
+        }
+
         if ((int) $candidate->company_id !== $companyId) {
             throw ValidationException::withMessages([
                 'candidate' => 'Candidate does not belong to the active company.',
@@ -101,7 +107,7 @@ final class ConvertCandidateToEmployee
             }
 
             // Atomically create the employee through CreateEmployee
-            unset($validated['candidate_id'], $validated['candidate_lock_version']);
+            unset($validated['candidate_id'], $validated['candidate_lock_version'], $validated['employee_id']);
             $createEmployee = app(CreateEmployee::class);
             $employee = $createEmployee->handle($validated, $companyId, $actor->id, $image);
 

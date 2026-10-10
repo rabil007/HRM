@@ -15,6 +15,7 @@ type UseEnsureEmployeeOptions = {
     getDraftName: () => string;
     selectedProfileTemplateId: number | null;
     onEnsured: (employee: EnsuredEmployee) => void;
+    disabled?: boolean;
 };
 
 export function useEnsureEmployee({
@@ -22,6 +23,7 @@ export function useEnsureEmployee({
     getDraftName,
     selectedProfileTemplateId,
     onEnsured,
+    disabled = false,
 }: UseEnsureEmployeeOptions): () => Promise<number> {
     const idempotencyKeyRef = useRef<string>(createEnsureIdempotencyKey());
     const deduperRef = useRef(
@@ -38,6 +40,10 @@ export function useEnsureEmployee({
     }, [employeeId]);
 
     return useCallback(async (): Promise<number> => {
+        if (disabled) {
+            throw new Error('candidate_conversion_ensure_disabled');
+        }
+
         try {
             const ensured = await deduperRef.current.ensure(employeeId, {
                 name: getDraftName(),
@@ -59,5 +65,11 @@ export function useEnsureEmployee({
 
             throw error;
         }
-    }, [employeeId, getDraftName, onEnsured, selectedProfileTemplateId]);
+    }, [
+        disabled,
+        employeeId,
+        getDraftName,
+        onEnsured,
+        selectedProfileTemplateId,
+    ]);
 }

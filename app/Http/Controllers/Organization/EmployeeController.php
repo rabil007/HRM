@@ -243,6 +243,10 @@ class EmployeeController extends Controller
 
         $employee = null;
         $employeeId = (int) request()->query('employee_id', 0);
+        if ($candidateId > 0 && $employeeId > 0) {
+            abort(422, 'Candidate conversion cannot be combined with a provisional employee draft.');
+        }
+
         if ($employeeId > 0) {
             $employee = Employee::query()
                 ->where('company_id', $companyId)
@@ -291,6 +295,10 @@ class EmployeeController extends Controller
 
     public function ensure(StoreEnsureEmployeeRequest $request, CreateEmployeeFromName $createEmployeeFromName)
     {
+        if ($request->has('candidate_id')) {
+            abort(422, 'Cannot ensure provisional employee in candidate conversion mode.');
+        }
+
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
         $user = $request->user();

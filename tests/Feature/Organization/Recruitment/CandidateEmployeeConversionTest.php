@@ -783,3 +783,123 @@ test('accepted non-AED offer displays proposed total salary and currency without
             ->where('candidate_context.proposed_offer.currency', 'USD')
         );
 });
+
+test('candidate conversion create page rejects combination with employee_id query parameter', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Combined Draft Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees.create', [
+            'candidate_id' => $candidate->id,
+            'employee_id' => 999,
+        ]))
+        ->assertStatus(422);
+});
+
+test('ensure endpoint prohibits candidate_id and rejects provisional draft creation in conversion mode', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Ensure Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.employees.ensure'), [
+            'candidate_id' => $candidate->id,
+            'name' => 'Provisional Draft Attempt',
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['candidate_id']);
+});
+
+test('candidate conversion rejects combined employee_id in store request', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Combined Store Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $initialCount = Employee::count();
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'candidate_lock_version' => 1,
+            'employee_id' => 12345,
+            'employee_no' => 'EMP-COMBINED-1',
+            'name' => 'Combined Candidate',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect(Employee::count())->toBe($initialCount);
+});
+
+test('normal employee creation continues to support provisional drafts and ensure endpoint', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+    ]);
+
+    // Calling ensure without candidate_id works
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.employees.ensure'), [
+            'name' => 'Normal Provisional Draft',
+        ])
+        ->assertOk()
+        ->assertJsonStructure([
+            'employee' => ['id', 'name', 'employee_no'],
+        ]);
+
+    $employeeId = $response->json('employee.id');
+    expect($employeeId)->toBeGreaterThan(0);
+
+    // Resuming creation with employee_id works
+    $this->actingAs($user)
+        ->get(route('organization.employees.create', [
+            'employee_id' => $employeeId,
+        ]))
+        ->assertOk();
+});
