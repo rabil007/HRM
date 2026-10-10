@@ -566,3 +566,194 @@ test('undo joined flow restores candidate to joining stage and permits audited o
         ->and($revision2->is_current)->toBeTrue()
         ->and($offer->refresh()->is_current)->toBeFalse();
 });
+
+test('tenant-safe offer revision rejects cross-company and mismatched candidates and offers with 404 without exposing stage-specific errors', function (): void {
+    $perm = Permission::query()->firstOrCreate(['name' => 'recruitment.candidates.offer.revise', 'guard_name' => 'web']);
+    $this->manager->givePermissionTo($perm);
+
+    // Create another tenant company
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Tenant Corp',
+        'slug' => 'other-tenant-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $this->company->country_id,
+        'currency_id' => $this->company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherPosition = Position::query()->create([
+        'company_id' => $otherCompany->id,
+        'title' => 'Other Specialist',
+        'status' => 'active',
+    ]);
+
+    $otherReq = RecruitmentRequirement::query()->create([
+        'company_id' => $otherCompany->id,
+        'client_id' => $this->client->id,
+        'requirement_number' => 'REQ-OTHER-1',
+        'status' => RequirementStatus::Open,
+        'priority' => 'normal',
+        'request_received_date' => now()->subDays(5),
+        'required_by_date' => now()->addDays(25),
+        'total_headcount' => 1,
+        'assigned_to' => null,
+        'created_by' => $this->manager->id,
+    ]);
+
+    $otherLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $otherCompany->id,
+        'recruitment_requirement_id' => $otherReq->id,
+        'position_id' => $otherPosition->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    // 1. Cross-company Joined candidate
+    $otherJoinedCandidate = RecruitmentCandidate::query()->create([
+        'company_id' => $otherCompany->id,
+        'recruitment_requirement_id' => $otherReq->id,
+        'recruitment_requirement_line_id' => $otherLine->id,
+        'name' => 'Other Joined Candidate',
+        'stage' => CandidateStage::Joined,
+        'expected_joining_date' => '2026-10-10',
+        'actual_joining_date' => '2026-10-10',
+        'joined_at' => now(),
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Other Specialist',
+        'requirement_number_snapshot' => 'REQ-OTHER-1',
+    ]);
+
+    $otherJoinedOffer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $otherCompany->id,
+        'recruitment_candidate_id' => $otherJoinedCandidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '10000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-10',
+        'lock_version' => 1,
+    ]);
+
+    // 2. Cross-company non-Joined candidate
+    $otherOfferedCandidate = RecruitmentCandidate::query()->create([
+        'company_id' => $otherCompany->id,
+        'recruitment_requirement_id' => $otherReq->id,
+        'recruitment_requirement_line_id' => $otherLine->id,
+        'name' => 'Other Offered Candidate',
+        'stage' => CandidateStage::OfferJol,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Other Specialist',
+        'requirement_number_snapshot' => 'REQ-OTHER-1',
+    ]);
+
+    $otherOfferedOffer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $otherCompany->id,
+        'recruitment_candidate_id' => $otherOfferedCandidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '11000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+    ]);
+
+    // 3. Same-company candidates and offers
+    $sameCompanyCandidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Same Company Candidate',
+        'stage' => CandidateStage::OfferJol,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    $sameCompanyOffer = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $sameCompanyCandidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-20',
+        'lock_version' => 1,
+    ]);
+
+    $sameCompanyCandidate2 = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Same Company Candidate 2',
+        'stage' => CandidateStage::OfferJol,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    $sameCompanyOffer2 = RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $sameCompanyCandidate2->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '13000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-25',
+        'lock_version' => 1,
+    ]);
+
+    $validPayload = [
+        'reason' => 'Negotiated revised compensation package',
+        'salary_amount' => '15000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-25',
+        'lock_version' => 1,
+        'offer_lock_version' => 1,
+    ];
+
+    // Case 1: Cross-company Joined candidate -> 404 without exposing stage error
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$otherJoinedCandidate, $otherJoinedOffer]), $validPayload);
+    $response->assertNotFound();
+
+    // Case 2: Cross-company non-Joined candidate -> 404 without exposing stage error
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$otherOfferedCandidate, $otherOfferedOffer]), $validPayload);
+    $response->assertNotFound();
+
+    // Case 3: Mismatched offer: same-company candidate with cross-company offer -> 404
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$sameCompanyCandidate, $otherOfferedOffer]), $validPayload);
+    $response->assertNotFound();
+
+    // Case 4: Mismatched offer: same-company candidate with another candidate\'s offer -> 404
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$sameCompanyCandidate, $sameCompanyOffer2]), $validPayload);
+    $response->assertNotFound();
+
+    // Case 5: Valid same-company request -> success (redirects back with Draft revision created)
+    $response = $this->actingAs($this->manager)
+        ->post(route('organization.recruitment.candidates.offers.revise', [$sameCompanyCandidate, $sameCompanyOffer]), $validPayload);
+    $response->assertRedirect();
+    $response->assertSessionHasNoErrors();
+    $response->assertSessionHas('success');
+
+    // Verify draft revision was created
+    expect(RecruitmentCandidateOffer::query()
+        ->where('recruitment_candidate_id', $sameCompanyCandidate->id)
+        ->where('revision_number', 2)
+        ->where('status', CandidateOfferStatus::Draft)
+        ->exists()
+    )->toBeTrue();
+});
