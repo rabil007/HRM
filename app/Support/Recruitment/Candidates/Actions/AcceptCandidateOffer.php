@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment\Candidates\Actions;
 
+use App\Enums\Recruitment\CandidateJoiningReadinessStatus;
 use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
@@ -118,6 +119,8 @@ final class AcceptCandidateOffer
 
                 $locked->fill([
                     'stage' => CandidateStage::Joining,
+                    'expected_joining_date' => $lockedOffer->proposed_joining_date?->toDateString(),
+                    'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending,
                     'updated_by' => $actor->id,
                     'lock_version' => (int) $locked->lock_version + 1,
                 ])->save();

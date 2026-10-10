@@ -78,6 +78,11 @@ Schedule::command('recruitment:dispatch-target-date-reminders')
     ->timezone(config('app.timezone', 'UTC'))
     ->withoutOverlapping();
 
+Schedule::command('recruitment:dispatch-candidate-reminders')
+    ->hourly()
+    ->timezone(config('app.timezone', 'UTC'))
+    ->withoutOverlapping();
+
 Schedule::command('contracts:expire')
     ->dailyAt('01:00')
     ->timezone(config('app.timezone', 'UTC'))

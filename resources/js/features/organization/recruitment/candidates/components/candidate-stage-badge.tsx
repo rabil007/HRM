@@ -13,7 +13,8 @@ const stageVariant: Record<
     screening: 'outline',
     interview: 'default',
     offer_jol: 'outline',
-    joining: 'default',
+    joining: 'outline',
+    joined: 'default',
     rejected: 'destructive',
 };
 
@@ -24,7 +25,55 @@ export function CandidateStageBadge({
     stage: CandidateStage;
     label: string;
 }) {
-    return <Badge variant={stageVariant[stage] ?? 'secondary'}>{label}</Badge>;
+    return (
+        <Badge
+            variant={stageVariant[stage] ?? 'secondary'}
+            className={
+                stage === 'joined'
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                    : undefined
+            }
+        >
+            {label}
+        </Badge>
+    );
+}
+
+export function CandidateJoiningScheduleBadge({
+    urgency,
+    label,
+}: {
+    urgency: 'overdue' | 'today' | 'upcoming' | null | undefined;
+    label: string | null | undefined;
+}) {
+    if (!urgency || !label) {
+        return null;
+    }
+
+    if (urgency === 'overdue') {
+        return (
+            <Badge variant="destructive" className="font-medium">
+                {label}
+            </Badge>
+        );
+    }
+
+    if (urgency === 'today') {
+        return (
+            <Badge
+                variant="default"
+                className="bg-amber-600 font-medium text-white hover:bg-amber-600"
+            >
+                {label}
+            </Badge>
+        );
+    }
+
+    return (
+        <Badge variant="outline" className="text-muted-foreground">
+            {label}
+        </Badge>
+    );
 }
 
 export function CandidateOutcomeBadge({

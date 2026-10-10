@@ -17,8 +17,10 @@ use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\NavigationFavoriteController;
 use App\Http\Controllers\Notifications\DestroyPushSubscriptionController;
+use App\Http\Controllers\Notifications\MarkCandidateReminderReadNotificationController;
 use App\Http\Controllers\Notifications\NotificationFeedController;
 use App\Http\Controllers\Notifications\OpenAnnouncementNotificationController;
+use App\Http\Controllers\Notifications\OpenCandidateReminderNotificationController;
 use App\Http\Controllers\Notifications\OpenCrewOperationalAlertNotificationController;
 use App\Http\Controllers\Notifications\OpenDocumentComplianceNotificationController;
 use App\Http\Controllers\Notifications\OpenDocumentGenerationRunNotificationController;
@@ -189,6 +191,7 @@ use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
 use App\Http\Controllers\Organization\Recruitment\CandidateCheckDuplicatesController;
 use App\Http\Controllers\Organization\Recruitment\CandidateController;
 use App\Http\Controllers\Organization\Recruitment\CandidateCvDownloadController;
+use App\Http\Controllers\Organization\Recruitment\CandidateJoiningController;
 use App\Http\Controllers\Organization\Recruitment\CandidateMoveController;
 use App\Http\Controllers\Organization\Recruitment\CandidateOfferController;
 use App\Http\Controllers\Organization\Recruitment\CandidateOfferDocumentDownloadController;
@@ -381,6 +384,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('notifications.documents.compliance.open');
     Route::get('notifications/documents/generation-runs/{run}/open', OpenDocumentGenerationRunNotificationController::class)
         ->name('notifications.documents.generation-runs.open');
+    Route::get('notifications/candidate-reminders/{reminder}/open', OpenCandidateReminderNotificationController::class)
+        ->name('notifications.candidate-reminders.open');
     Route::get('notifications/feed', NotificationFeedController::class)
         ->name('notifications.feed');
     Route::get('search', GlobalSearchController::class)
@@ -481,6 +486,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('organization.announcements.inbox.read');
     Route::post('organization/notifications/crew/{recipient}/read', [CrewOperationalAlertInboxController::class, 'markRead'])
         ->name('organization.notifications.crew.read');
+    Route::post('organization/notifications/candidate-reminders/{reminder}/read', MarkCandidateReminderReadNotificationController::class)
+        ->name('organization.notifications.candidate-reminders.read');
     Route::get('organization/announcements/{announcement}', [AnnouncementController::class, 'show'])
         ->middleware('can:announcements.view')
         ->name('organization.announcements.show');
@@ -669,6 +676,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:recruitment.candidates.offer.download')
         ->whereIn('kind', ['offer', 'acceptance'])
         ->name('organization.recruitment.candidates.offers.documents.download');
+    Route::post('organization/recruitment/candidates/{candidate}/joining-readiness', [CandidateJoiningController::class, 'updateReadiness'])
+        ->middleware('can:recruitment.candidates.update')
+        ->name('organization.recruitment.candidates.joining.readiness');
+    Route::post('organization/recruitment/candidates/{candidate}/confirm-joined', [CandidateJoiningController::class, 'confirm'])
+        ->middleware('can:recruitment.candidates.joining.confirm')
+        ->name('organization.recruitment.candidates.joining.confirm');
+    Route::post('organization/recruitment/candidates/{candidate}/correct-joining', [CandidateJoiningController::class, 'correct'])
+        ->middleware(['can:recruitment.candidates.joining.confirm', 'can:recruitment.candidates.manage'])
+        ->name('organization.recruitment.candidates.joining.correct');
 
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');

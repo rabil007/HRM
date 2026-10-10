@@ -2,6 +2,7 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementHeadcountRevisionStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
@@ -82,6 +83,17 @@ final class ApproveHeadcountRevisionAction
                 ) {
                     throw ValidationException::withMessages([
                         'status' => 'This headcount revision can no longer be approved because the official headcount changed after the request was created.',
+                    ]);
+                }
+
+                $confirmedJoinedCount = $line->candidates()
+                    ->where('stage', CandidateStage::Joined->value)
+                    ->count();
+
+                if ((int) $revisionLine->requested_headcount < $confirmedJoinedCount) {
+                    $positionTitle = $line->position?->title ?? "Position #{$line->position_id}";
+                    throw ValidationException::withMessages([
+                        'status' => "This headcount revision cannot be approved because the requested headcount for {$positionTitle} is below the {$confirmedJoinedCount} confirmed joined candidate(s).",
                     ]);
                 }
 

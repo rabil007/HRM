@@ -4,11 +4,20 @@ export type CandidateStage =
     | 'interview'
     | 'offer_jol'
     | 'joining'
+    | 'joined'
     | 'rejected';
 
 export type CandidateInterviewOutcome = 'selected' | 'not_selected' | null;
 
 export type CandidateOfferStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
+
+export type CandidateJoiningReadinessStatus = 'pending' | 'ready' | null;
+
+export type CandidateJoiningScheduleUrgency =
+    | 'overdue'
+    | 'today'
+    | 'upcoming'
+    | null;
 
 export type CandidateIndexRow = {
     id: number;
@@ -33,6 +42,13 @@ export type CandidateIndexRow = {
     nationality: string | null;
     has_cv: boolean;
     interview_scheduled_at: string | null;
+    expected_joining_date: string | null;
+    actual_joining_date: string | null;
+    joining_readiness_status: CandidateJoiningReadinessStatus;
+    joining_readiness_notes: string | null;
+    joining_blocker_notes: string | null;
+    joining_schedule_urgency: CandidateJoiningScheduleUrgency;
+    joining_schedule_label: string | null;
     lock_version: number;
     created_at: string | null;
     parents_valid: boolean;
@@ -45,6 +61,11 @@ export type CandidateIndexRow = {
     can_prepare_offer: boolean;
     can_reopen: boolean;
     can_download_cv: boolean;
+    can_confirm_joined: boolean;
+    can_correct_joined: boolean;
+    can_update_readiness: boolean;
+    joined_by_name: string | null;
+    joined_at: string | null;
 };
 
 export type CandidateMovementEvent = {
@@ -114,6 +135,22 @@ export type CandidateOfferHistoryItem = {
     created_at: string | null;
 };
 
+export type CandidateJoiningDetail = {
+    expected_joining_date: string | null;
+    actual_joining_date: string | null;
+    readiness_status: CandidateJoiningReadinessStatus;
+    readiness_notes: string | null;
+    blocker_notes: string | null;
+    joined_at: string | null;
+    joined_by_name: string | null;
+    joined_by_id: number | null;
+    can_update_readiness: boolean;
+    can_confirm_joined: boolean;
+    can_correct_joined: boolean;
+    schedule_urgency: CandidateJoiningScheduleUrgency;
+    schedule_label: string | null;
+};
+
 export type CandidateDetail = CandidateIndexRow & {
     notes: string | null;
     rejection_reason: string | null;
@@ -153,6 +190,7 @@ export type CandidateDetail = CandidateIndexRow & {
     } | null;
     current_offer: CandidateOfferDetail | null;
     offer_history: CandidateOfferHistoryItem[];
+    joining: CandidateJoiningDetail | null;
     movement_history: CandidateMovementEvent[];
     timezone: string;
 };
@@ -194,6 +232,7 @@ export type CandidatePagePermissions = {
     offer_decide: boolean;
     offer_revise: boolean;
     offer_download: boolean;
+    joining_confirm: boolean;
     view_audit: boolean;
 };
 
@@ -300,6 +339,7 @@ export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
     'interview',
     'offer_jol',
     'joining',
+    'joined',
     'rejected',
 ];
 
@@ -309,6 +349,7 @@ export const CANDIDATE_STAGE_LABELS: Record<CandidateStage, string> = {
     interview: 'Interview',
     offer_jol: 'Offer/JOL',
     joining: 'Joining',
+    joined: 'Joined',
     rejected: 'Rejected',
 };
 

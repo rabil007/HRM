@@ -6,16 +6,19 @@ use App\Enums\AnnouncementChannel;
 use App\Enums\AnnouncementDeliveryStatus;
 use App\Enums\AnnouncementStatus;
 use App\Enums\CrewOperationalAlertStatus;
+use App\Enums\Recruitment\CandidateReminderScheduleType;
+use App\Enums\Recruitment\CandidateReminderStatus;
 use App\Models\AnnouncementRecipient;
 use App\Models\CrewOperationalAlert;
 use App\Models\CrewOperationalAlertRecipient;
+use App\Models\RecruitmentCandidateInternalReminder;
 use App\Models\User;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Support\Collection;
 
 /**
- * Builds a normalized notification feed combining announcements and Crew operational alerts.
+ * Builds a normalized notification feed combining announcements, Crew operational alerts, and Recruitment candidate reminders.
  */
 final class BuildUnifiedNotificationFeed
 {
@@ -28,7 +31,7 @@ final class BuildUnifiedNotificationFeed
      *     unread_count: int,
      *     items: list<array{
      *         id: string,
-     *         source: 'announcement'|'crew_operational_alert',
+     *         source: 'announcement'|'crew_operational_alert'|'candidate_internal_reminder',
      *         title: string|null,
      *         summary: string,
      *         severity: string|null,
@@ -44,9 +47,11 @@ final class BuildUnifiedNotificationFeed
     {
         $announcementItems = $this->announcementItems($user, $companyId);
         $crewItems = $this->crewItems($user, $companyId);
+        $candidateItems = $this->candidateItems($user, $companyId);
 
         $items = $announcementItems
             ->concat($crewItems)
+            ->concat($candidateItems)
             ->sortByDesc(fn (array $item): string => $item['created_at'] ?? '')
             ->take($limit)
             ->values()
@@ -54,7 +59,8 @@ final class BuildUnifiedNotificationFeed
 
         return [
             'unread_count' => $this->unreadAnnouncementCount($user, $companyId)
-                + $this->unreadCrewCount($user, $companyId),
+                + $this->unreadCrewCount($user, $companyId)
+                + $this->unreadCandidateCount($user, $companyId),
             'items' => $items,
         ];
     }
@@ -348,5 +354,55 @@ final class BuildUnifiedNotificationFeed
         }
 
         return $unreadCount;
+    }
+
+    /**
+     * @return Collection<int, array{
+     *     id: string,
+     *     source: 'candidate_internal_reminder',
+     *     title: string|null,
+     *     summary: string,
+     *     severity: string|null,
+     *     created_at: string|null,
+     *     read_at: string|null,
+     *     is_read: bool,
+     *     url: string|null,
+     *     source_label: string
+     * }>
+     */
+    private function candidateItems(User $user, int $companyId, int $limit = 20): Collection
+    {
+        return RecruitmentCandidateInternalReminder::query()
+            ->where('company_id', $companyId)
+            ->where('user_id', $user->id)
+            ->where('status', CandidateReminderStatus::Sent->value)
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (RecruitmentCandidateInternalReminder $reminder): array => [
+                'id' => 'candidate_internal_reminder:'.$reminder->id,
+                'source' => 'candidate_internal_reminder',
+                'title' => $reminder->title,
+                'summary' => $reminder->summary ?? '',
+                'severity' => $reminder->schedule_type === CandidateReminderScheduleType::OverdueJoining->value
+                    ? 'warning'
+                    : 'info',
+                'created_at' => $reminder->sent_at?->toIso8601String()
+                    ?? $reminder->created_at?->toIso8601String(),
+                'read_at' => $reminder->read_at?->toIso8601String(),
+                'is_read' => $reminder->read_at !== null,
+                'url' => route('notifications.candidate-reminders.open', $reminder->id),
+                'source_label' => 'Recruitment',
+            ]);
+    }
+
+    private function unreadCandidateCount(User $user, int $companyId): int
+    {
+        return RecruitmentCandidateInternalReminder::query()
+            ->where('company_id', $companyId)
+            ->where('user_id', $user->id)
+            ->where('status', CandidateReminderStatus::Sent->value)
+            ->whereNull('read_at')
+            ->count();
     }
 }

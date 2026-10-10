@@ -2,7 +2,9 @@
 
 namespace App\Support\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementDeadlineHealth;
+use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementAttachment;
@@ -223,6 +225,13 @@ final class RequirementPresenter
         $duration = CalculateActiveRecruitmentDuration::for($requirement);
 
         $lines = $requirement->lines->map(function (RecruitmentRequirementLine $line): array {
+            $joinedCount = (int) ($line->joined_candidates_count ?? $line->candidates()->where('stage', CandidateStage::Joined->value)->count());
+            $requiredHeadcount = (int) $line->required_headcount;
+            $remainingHeadcount = max(0, $requiredHeadcount - $joinedCount);
+            $isOverfilled = $joinedCount > $requiredHeadcount;
+            $targetReached = $joinedCount >= $requiredHeadcount;
+            $canMarkFilled = $targetReached && $line->status === RequirementLineStatus::Open;
+
             return [
                 'id' => (int) $line->id,
                 'recruitment_requirement_id' => (int) $line->recruitment_requirement_id,
@@ -230,7 +239,12 @@ final class RequirementPresenter
                 'position_title' => (string) ($line->position?->title ?? '—'),
                 'department_name' => $line->position?->department?->name,
                 'grade' => $line->position?->grade,
-                'required_headcount' => (int) $line->required_headcount,
+                'required_headcount' => $requiredHeadcount,
+                'joined_count' => $joinedCount,
+                'remaining_headcount' => $remainingHeadcount,
+                'is_overfilled' => $isOverfilled,
+                'target_reached' => $targetReached,
+                'can_mark_filled' => $canMarkFilled,
                 'line_notes' => $line->line_notes,
                 'status' => $line->status->value,
                 'status_label' => $line->status->label(),
@@ -302,10 +316,17 @@ final class RequirementPresenter
             'lines' => $lines,
             'attachments' => $attachments,
             'progress' => [
-                'filled' => 0,
-                'target' => $base['total_headcount'],
-                'percentage' => 0,
-                'is_target_reached' => false,
+                'filled' => array_sum(array_column($lines, 'joined_count')),
+                'target' => (int) $base['total_headcount'],
+                'remaining' => max(0, (int) $base['total_headcount'] - array_sum(array_column($lines, 'joined_count'))),
+                'percentage' => (int) $base['total_headcount'] > 0
+                    ? (int) min(100, round((array_sum(array_column($lines, 'joined_count')) / (int) $base['total_headcount']) * 100))
+                    : 0,
+                'is_target_reached' => count($lines) > 0 && ! in_array(false, array_column($lines, 'target_reached'), true),
+                'is_overfilled' => array_sum(array_column($lines, 'joined_count')) > (int) $base['total_headcount'],
+                'suggest_mark_filled' => count($lines) > 0
+                    && ! in_array(false, array_column($lines, 'target_reached'), true)
+                    && $requirement->status === RequirementStatus::Open,
             ],
         ]);
     }

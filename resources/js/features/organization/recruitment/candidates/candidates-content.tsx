@@ -28,6 +28,7 @@ import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
 import {
+    CandidateJoiningScheduleBadge,
     CandidateOfferStatusBadge,
     CandidateOutcomeBadge,
     CandidateStageBadge,
@@ -47,7 +48,7 @@ import type {
     CandidateKanbanColumn,
     CandidateStage,
 } from './types';
-import { CANDIDATE_STAGE_LABELS } from './types';
+import { CANDIDATE_KANBAN_STAGES, CANDIDATE_STAGE_LABELS } from './types';
 
 export function CandidatesContent({
     candidates,
@@ -446,16 +447,7 @@ export function CandidatesContent({
                     placeholder="Stage"
                 >
                     <AppSelectItem value="all">All stages</AppSelectItem>
-                    {(
-                        [
-                            'applied',
-                            'screening',
-                            'interview',
-                            'offer_jol',
-                            'joining',
-                            'rejected',
-                        ] as CandidateStage[]
-                    ).map((stage) => (
+                    {CANDIDATE_KANBAN_STAGES.map((stage) => (
                         <AppSelectItem key={stage} value={stage}>
                             {CANDIDATE_STAGE_LABELS[stage]}
                         </AppSelectItem>
@@ -481,16 +473,7 @@ export function CandidatesContent({
             </div>
 
             <div className="mb-4 flex flex-wrap gap-2">
-                {(
-                    [
-                        'applied',
-                        'screening',
-                        'interview',
-                        'offer_jol',
-                        'joining',
-                        'rejected',
-                    ] as CandidateStage[]
-                ).map((stage) => (
+                {CANDIDATE_KANBAN_STAGES.map((stage) => (
                     <Badge key={stage} variant="outline">
                         {CANDIDATE_STAGE_LABELS[stage]}:{' '}
                         {stage_totals[stage] ?? 0}
@@ -536,7 +519,7 @@ export function CandidatesContent({
                                                 {candidate.requirement_number} ·{' '}
                                                 {candidate.position_title}
                                             </p>
-                                            <div className="mt-2 flex flex-wrap gap-1">
+                                            <div className="mt-2 flex flex-wrap items-center gap-1">
                                                 <CandidateOutcomeBadge
                                                     outcome={
                                                         candidate.interview_outcome
@@ -553,6 +536,29 @@ export function CandidatesContent({
                                                         candidate.offer_status_label
                                                     }
                                                 />
+                                                {candidate.stage ===
+                                                'joining' ? (
+                                                    <CandidateJoiningScheduleBadge
+                                                        urgency={
+                                                            candidate.joining_schedule_urgency
+                                                        }
+                                                        label={
+                                                            candidate.joining_schedule_label
+                                                        }
+                                                    />
+                                                ) : null}
+                                                {candidate.stage === 'joined' &&
+                                                candidate.actual_joining_date ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="border-emerald-600/30 text-emerald-600 dark:text-emerald-400"
+                                                    >
+                                                        Joined:{' '}
+                                                        {
+                                                            candidate.actual_joining_date
+                                                        }
+                                                    </Badge>
+                                                ) : null}
                                             </div>
                                             <div className="mt-2">
                                                 <CandidateMovementActions
@@ -644,7 +650,7 @@ export function CandidatesContent({
                                         />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        <div className="flex flex-wrap gap-1">
+                                        <div className="flex flex-wrap items-center gap-1">
                                             <CandidateOutcomeBadge
                                                 outcome={
                                                     candidate.interview_outcome
@@ -659,6 +665,28 @@ export function CandidatesContent({
                                                     candidate.offer_status_label
                                                 }
                                             />
+                                            {candidate.stage === 'joining' ? (
+                                                <CandidateJoiningScheduleBadge
+                                                    urgency={
+                                                        candidate.joining_schedule_urgency
+                                                    }
+                                                    label={
+                                                        candidate.joining_schedule_label
+                                                    }
+                                                />
+                                            ) : null}
+                                            {candidate.stage === 'joined' &&
+                                            candidate.actual_joining_date ? (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="border-emerald-600/30 text-emerald-600 dark:text-emerald-400"
+                                                >
+                                                    Joined:{' '}
+                                                    {
+                                                        candidate.actual_joining_date
+                                                    }
+                                                </Badge>
+                                            ) : null}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>

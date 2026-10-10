@@ -3,6 +3,7 @@
 namespace App\Support\Recruitment\Candidates;
 
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateJoiningReadinessStatus;
 use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementLineStatus;
@@ -517,5 +518,75 @@ final class CandidateWorkflowAuthorization
             CandidateOfferStatus::Accepted,
             CandidateOfferStatus::Rejected,
         ], true);
+    }
+
+    public static function canUpdateReadiness(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.update')
+            && self::hasOwnershipOrManage($user, $candidate->requirement)
+            && self::hasValidParentsForActions($candidate)
+            && $candidate->stage === CandidateStage::Joining;
+    }
+
+    public static function assertCanUpdateReadiness(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.update')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to update candidate joining readiness.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can update joining readiness.',
+            ]);
+        }
+    }
+
+    public static function canConfirmJoined(User $user, RecruitmentCandidate $candidate): bool
+    {
+        $currentOffer = $candidate->relationLoaded('currentOffer')
+            ? $candidate->currentOffer
+            : $candidate->currentOffer()->first();
+
+        return $user->can('recruitment.candidates.joining.confirm')
+            && self::hasOwnershipOrManage($user, $candidate->requirement)
+            && self::hasValidParentsForActions($candidate)
+            && $candidate->stage === CandidateStage::Joining
+            && $candidate->joining_readiness_status === CandidateJoiningReadinessStatus::Ready
+            && $currentOffer !== null
+            && $currentOffer->status === CandidateOfferStatus::Accepted;
+    }
+
+    public static function assertCanConfirmJoined(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.joining.confirm')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to confirm candidate joining.',
+            ]);
+        }
+
+        if (! self::hasOwnershipOrManage($user, $candidate->requirement)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'Only the assigned recruiter (or a user with management override) can confirm candidate joining.',
+            ]);
+        }
+    }
+
+    public static function canCorrectJoined(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return $user->can('recruitment.candidates.manage')
+            && $user->can('recruitment.candidates.joining.confirm')
+            && $candidate->stage === CandidateStage::Joined
+            && $candidate->employee_id === null;
+    }
+
+    public static function assertCanCorrectJoined(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! $user->can('recruitment.candidates.manage') || ! $user->can('recruitment.candidates.joining.confirm')) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to correct or undo confirmed candidate joining.',
+            ]);
+        }
     }
 }

@@ -20,6 +20,7 @@ final class CandidatePagePermissions
      *     offer_decide: bool,
      *     offer_revise: bool,
      *     offer_download: bool,
+     *     joining_confirm: bool,
      *     view_audit: bool,
      * }
      */
@@ -38,6 +39,7 @@ final class CandidatePagePermissions
             'offer_decide' => (bool) $user?->can('recruitment.candidates.offer.decide'),
             'offer_revise' => (bool) $user?->can('recruitment.candidates.offer.revise'),
             'offer_download' => (bool) $user?->can('recruitment.candidates.offer.download'),
+            'joining_confirm' => (bool) $user?->can('recruitment.candidates.joining.confirm'),
             'view_audit' => (bool) $user?->can('audit.view'),
         ];
     }

@@ -46,12 +46,15 @@ final class UpdateCandidateInterview
             );
 
             $timezone = CompanyTimezone::forCompany((int) $locked->company_id);
+            $storageTimezone = (string) config('app.timezone', 'UTC');
             $scheduledAt = null;
+            $scheduledAtStorage = null;
             $hasSchedule = array_key_exists('interview_scheduled_at', $data);
 
             if ($hasSchedule && filled($data['interview_scheduled_at'] ?? null)) {
                 try {
                     $scheduledAt = Carbon::parse((string) $data['interview_scheduled_at'], $timezone);
+                    $scheduledAtStorage = $scheduledAt->copy()->setTimezone($storageTimezone);
                 } catch (\Throwable) {
                     throw ValidationException::withMessages([
                         'interview_scheduled_at' => 'Provide a valid interview date and time.',
@@ -123,7 +126,7 @@ final class UpdateCandidateInterview
             }
 
             $locked->fill([
-                'interview_scheduled_at' => $hasSchedule ? $scheduledAt : $locked->interview_scheduled_at,
+                'interview_scheduled_at' => $hasSchedule ? $scheduledAtStorage : $locked->interview_scheduled_at,
                 'interviewer_user_id' => $interviewerUserId,
                 'external_interviewer_name' => $externalName,
                 'interview_mode' => $mode,

@@ -200,6 +200,11 @@ export type RequirementLine = {
     department_name: string | null;
     grade: string | null;
     required_headcount: number;
+    joined_count?: number;
+    remaining_headcount?: number;
+    is_overfilled?: boolean;
+    target_reached?: boolean;
+    can_mark_filled?: boolean;
     line_notes: string | null;
     status: RequirementLineStatus;
     status_label: string;
@@ -256,8 +261,11 @@ export type RequirementDetail = RequirementIndexRow & {
     progress: {
         filled: number;
         target: number;
+        remaining?: number;
         percentage: number;
         is_target_reached: boolean;
+        is_overfilled?: boolean;
+        suggest_mark_filled?: boolean;
     };
     deadline_extensions?: RequirementDeadlineExtension[];
     headcount_revisions?: RequirementHeadcountRevision[];

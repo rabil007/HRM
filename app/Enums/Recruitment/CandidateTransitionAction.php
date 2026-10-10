@@ -18,6 +18,9 @@ enum CandidateTransitionAction: string
     case OfferAccepted = 'offer_accepted';
     case OfferRejected = 'offer_rejected';
     case OfferRevised = 'offer_revised';
+    case Joined = 'joined';
+    case JoiningReadinessUpdated = 'joining_readiness_updated';
+    case JoiningCorrected = 'joining_corrected';
 
     public function label(): string
     {
@@ -36,6 +39,9 @@ enum CandidateTransitionAction: string
             self::OfferAccepted => 'Offer accepted',
             self::OfferRejected => 'Offer rejected',
             self::OfferRevised => 'Offer revised',
+            self::Joined => 'Confirmed joined',
+            self::JoiningReadinessUpdated => 'Joining readiness updated',
+            self::JoiningCorrected => 'Joining corrected',
         };
     }
 }

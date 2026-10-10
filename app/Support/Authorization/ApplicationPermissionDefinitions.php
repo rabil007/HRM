@@ -2055,6 +2055,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to download private Offer/JOL and signed-acceptance documents for candidates they are authorized to view in the active company.',
                 'group' => 'Recruitment',
             ],
+            352 => [
+                'name' => 'recruitment.candidates.joining.confirm',
+                'label' => 'Confirm Candidate Joined',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to confirm a candidate has formally joined against an accepted Offer/JOL. Also required with recruitment.candidates.manage to correct or undo joining.',
+                'group' => 'Recruitment',
+            ],
             343 => [
                 'name' => 'crew_operations.movements.schedule.view',
                 'label' => 'View Scheduled Crew Movements',

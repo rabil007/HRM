@@ -162,6 +162,7 @@ final class CandidateBrowseQuery
                 'line:id,recruitment_requirement_id,position_id,status,salary_min,salary_max,salary_currency_code',
                 'line.position:id,title',
                 'currentOffer',
+                'joinedByUser:id,name',
             ]);
 
         if ($requirementId !== null) {

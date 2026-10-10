@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Recruitment\CandidateInterviewMode;
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateJoiningReadinessStatus;
 use App\Enums\Recruitment\CandidateSource;
 use App\Enums\Recruitment\CandidateStage;
 use App\Models\Concerns\LogsActivityWithCompany;
@@ -52,6 +53,14 @@ class RecruitmentCandidate extends Model
         'cv_mime_type',
         'cv_file_size_bytes',
         'cv_file_checksum',
+        'expected_joining_date',
+        'actual_joining_date',
+        'joined_at',
+        'joined_by',
+        'joining_readiness_status',
+        'joining_readiness_notes',
+        'joining_blocker_notes',
+        'employee_id',
         'lock_version',
         'created_by',
         'updated_by',
@@ -65,6 +74,8 @@ class RecruitmentCandidate extends Model
             'recruitment_requirement_line_id' => 'integer',
             'nationality_id' => 'integer',
             'interviewer_user_id' => 'integer',
+            'joined_by' => 'integer',
+            'employee_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
             'cv_file_size_bytes' => 'integer',
@@ -74,6 +85,10 @@ class RecruitmentCandidate extends Model
             'interview_mode' => CandidateInterviewMode::class,
             'source' => CandidateSource::class,
             'interview_scheduled_at' => 'datetime',
+            'expected_joining_date' => 'date',
+            'actual_joining_date' => 'date',
+            'joined_at' => 'datetime',
+            'joining_readiness_status' => CandidateJoiningReadinessStatus::class,
         ];
     }
 
@@ -149,6 +164,21 @@ class RecruitmentCandidate extends Model
         return $this->hasOne(RecruitmentCandidateOffer::class, 'recruitment_candidate_id')
             ->where('is_current', true)
             ->latestOfMany('id');
+    }
+
+    public function joinedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'joined_by');
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id');
+    }
+
+    public function internalReminders(): HasMany
+    {
+        return $this->hasMany(RecruitmentCandidateInternalReminder::class, 'recruitment_candidate_id');
     }
 
     public function scopeForCompany(Builder $query, int $companyId): Builder

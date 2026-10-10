@@ -8,6 +8,7 @@ use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 
 final class CandidatePresenter
 {
@@ -31,6 +32,11 @@ final class CandidatePresenter
             && $parentsValid
             && $user->can('recruitment.candidates.offer.prepare')
             && CandidateWorkflowAuthorization::canPrepareOffer($candidate);
+        $canConfirmJoined = CandidateWorkflowAuthorization::canConfirmJoined($user, $candidate);
+        $canCorrectJoined = CandidateWorkflowAuthorization::canCorrectJoined($user, $candidate);
+        $canUpdateReadiness = CandidateWorkflowAuthorization::canUpdateReadiness($user, $candidate);
+
+        $scheduleInfo = self::resolveJoiningScheduleInfo($candidate, $timezone);
 
         return [
             'id' => (int) $candidate->id,
@@ -55,6 +61,14 @@ final class CandidatePresenter
             'nationality' => $candidate->nationality?->name,
             'has_cv' => $candidate->hasCv(),
             'interview_scheduled_at' => self::formatDateTime($candidate->interview_scheduled_at, $timezone),
+            'expected_joining_date' => $candidate->expected_joining_date?->toDateString(),
+            'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
+            'joining_readiness_status' => $candidate->joining_readiness_status?->value,
+            'joining_readiness_label' => $candidate->joining_readiness_status?->label(),
+            'joining_readiness_badge' => $candidate->joining_readiness_status?->badgeVariant(),
+            'joining_schedule_urgency' => $scheduleInfo['urgency'],
+            'joining_schedule_days_diff' => $scheduleInfo['days_diff'],
+            'joining_schedule_label' => $scheduleInfo['label'],
             'lock_version' => (int) $candidate->lock_version,
             'created_at' => self::formatDateTime($candidate->created_at, $timezone),
             'parents_valid' => $parentsValid,
@@ -70,6 +84,9 @@ final class CandidatePresenter
                 && $candidate->stage === CandidateStage::Rejected
                 && $parentsValid,
             'can_download_cv' => $canDownload,
+            'can_update_readiness' => $canUpdateReadiness,
+            'can_confirm_joined' => $canConfirmJoined,
+            'can_correct_joined' => $canCorrectJoined,
         ];
     }
 
@@ -142,6 +159,26 @@ final class CandidatePresenter
                 $user,
                 $timezone,
             ),
+            'joining' => [
+                'expected_joining_date' => $candidate->expected_joining_date?->toDateString(),
+                'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
+                'joined_at' => self::formatDateTime($candidate->joined_at, $timezone),
+                'joined_by' => $candidate->joined_by,
+                'joined_by_name' => $candidate->relationLoaded('joinedByUser')
+                    ? $candidate->joinedByUser?->name
+                    : $candidate->joinedByUser()->value('name'),
+                'readiness_status' => $candidate->joining_readiness_status?->value,
+                'readiness_status_label' => $candidate->joining_readiness_status?->label(),
+                'readiness_status_badge' => $candidate->joining_readiness_status?->badgeVariant(),
+                'readiness_notes' => $candidate->joining_readiness_notes,
+                'blocker_notes' => $candidate->joining_blocker_notes,
+                'schedule_urgency' => $row['joining_schedule_urgency'],
+                'schedule_days_diff' => $row['joining_schedule_days_diff'],
+                'schedule_label' => $row['joining_schedule_label'],
+                'can_update_readiness' => $row['can_update_readiness'],
+                'can_confirm_joined' => $row['can_confirm_joined'],
+                'can_correct_joined' => $row['can_correct_joined'],
+            ],
             'offer_history' => $includeMovementHistory && $candidate->relationLoaded('offers')
                 ? CandidateOfferPresenter::history($candidate, $timezone)
                 : [],
@@ -209,6 +246,53 @@ final class CandidatePresenter
             'by_stage' => $byStage,
             'selected' => $selected,
             'recent' => $recent,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     urgency: 'overdue'|'today'|'upcoming'|null,
+     *     days_diff: int|null,
+     *     label: string|null,
+     * }
+     */
+    public static function resolveJoiningScheduleInfo(RecruitmentCandidate $candidate, string $timezone): array
+    {
+        if ($candidate->stage !== CandidateStage::Joining || $candidate->expected_joining_date === null) {
+            return [
+                'urgency' => null,
+                'days_diff' => null,
+                'label' => null,
+            ];
+        }
+
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $expected = CarbonImmutable::parse($candidate->expected_joining_date, $timezone)->startOfDay();
+
+        $diff = (int) $today->diffInDays($expected, false);
+
+        if ($diff < 0) {
+            $daysOverdue = abs($diff);
+
+            return [
+                'urgency' => 'overdue',
+                'days_diff' => $daysOverdue,
+                'label' => "Overdue by {$daysOverdue} day".($daysOverdue === 1 ? '' : 's'),
+            ];
+        }
+
+        if ($diff === 0) {
+            return [
+                'urgency' => 'today',
+                'days_diff' => 0,
+                'label' => 'Joining today',
+            ];
+        }
+
+        return [
+            'urgency' => 'upcoming',
+            'days_diff' => $diff,
+            'label' => "Joining in {$diff} day".($diff === 1 ? '' : 's'),
         ];
     }
 

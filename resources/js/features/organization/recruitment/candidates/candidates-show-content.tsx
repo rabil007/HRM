@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
+import { CandidateJoiningPanel } from './components/candidate-joining-panel';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
 import { CandidateOfferPanel } from './components/candidate-offer-panel';
 import {
@@ -268,6 +269,10 @@ export function CandidatesShowContent({
                 </section>
 
                 <CandidateOfferPanel candidate={candidate} options={options} />
+
+                <div className="lg:col-span-2">
+                    <CandidateJoiningPanel candidate={candidate} />
+                </div>
 
                 <section className="rounded-xl border border-border/60 p-5 lg:col-span-2">
                     <div className="mb-3 flex items-center justify-between">

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementHeadcountRevisionInitiator;
 use App\Enums\Recruitment\RequirementHeadcountRevisionStatus;
 use App\Enums\Recruitment\RequirementStatus;
@@ -266,10 +267,19 @@ final class ChangeHeadcountAction
                 ]);
             }
 
-            // No authoritative committed-candidate count exists yet. Progress "filled" is unused,
-            // so a reduction is limited only by the existing minimum headcount of 1.
+            $positionTitle = $position?->title ?? "Position #{$line->position_id}";
+            $confirmedJoinedCount = $line->candidates()
+                ->where('stage', CandidateStage::Joined->value)
+                ->count();
+
             $oldHeadcount = (int) $line->required_headcount;
             $requestedHeadcount = (int) $lineInput['required_headcount'];
+
+            if ($requestedHeadcount < $confirmedJoinedCount) {
+                throw ValidationException::withMessages([
+                    'lines' => "Required headcount cannot be reduced below the {$confirmedJoinedCount} confirmed joined candidate(s) for {$positionTitle}.",
+                ]);
+            }
 
             if ($oldHeadcount === $requestedHeadcount) {
                 continue;
@@ -277,7 +287,7 @@ final class ChangeHeadcountAction
 
             $changes[] = [
                 'line' => $line,
-                'position_title' => $position?->title ?? "Position #{$line->position_id}",
+                'position_title' => $positionTitle,
                 'old_headcount' => $oldHeadcount,
                 'requested_headcount' => $requestedHeadcount,
             ];

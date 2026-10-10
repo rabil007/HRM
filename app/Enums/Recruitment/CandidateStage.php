@@ -9,6 +9,7 @@ enum CandidateStage: string
     case Interview = 'interview';
     case OfferJol = 'offer_jol';
     case Joining = 'joining';
+    case Joined = 'joined';
     case Rejected = 'rejected';
 
     public function label(): string
@@ -19,6 +20,7 @@ enum CandidateStage: string
             self::Interview => 'Interview',
             self::OfferJol => 'Offer/JOL',
             self::Joining => 'Joining',
+            self::Joined => 'Joined',
             self::Rejected => 'Rejected',
         };
     }
@@ -30,7 +32,8 @@ enum CandidateStage: string
             self::Screening => 'warning',
             self::Interview => 'default',
             self::OfferJol => 'warning',
-            self::Joining => 'success',
+            self::Joining => 'warning',
+            self::Joined => 'success',
             self::Rejected => 'destructive',
         };
     }
@@ -48,6 +51,7 @@ enum CandidateStage: string
             self::Interview,
             self::OfferJol,
             self::Joining,
+            self::Joined,
             self::Rejected,
         ];
     }
@@ -82,6 +86,6 @@ enum CandidateStage: string
 
     public function isOfferWorkflowStage(): bool
     {
-        return in_array($this, [self::OfferJol, self::Joining], true);
+        return in_array($this, [self::OfferJol, self::Joining, self::Joined], true);
     }
 }

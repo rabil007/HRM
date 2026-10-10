@@ -15,7 +15,10 @@ import { cn } from '@/lib/utils';
 
 type FeedItem = {
     id: string;
-    source: 'announcement' | 'crew_operational_alert';
+    source:
+        | 'announcement'
+        | 'crew_operational_alert'
+        | 'candidate_internal_reminder';
     title: string | null;
     summary: string;
     severity: string | null;
@@ -119,10 +122,18 @@ export function AnnouncementNotificationBell() {
             void http.post(
                 `/organization/announcements/inbox/${recipientId}/read`,
             );
-        } else {
+        } else if (item.source === 'crew_operational_alert') {
             const recipientId = item.id.replace('crew_operational_alert:', '');
             void http.post(
                 `/organization/notifications/crew/${recipientId}/read`,
+            );
+        } else if (item.source === 'candidate_internal_reminder') {
+            const reminderId = item.id.replace(
+                'candidate_internal_reminder:',
+                '',
+            );
+            void http.post(
+                `/organization/notifications/candidate-reminders/${reminderId}/read`,
             );
         }
 

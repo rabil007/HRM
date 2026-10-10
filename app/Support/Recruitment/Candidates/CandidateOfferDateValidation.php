@@ -3,13 +3,24 @@
 namespace App\Support\Recruitment\Candidates;
 
 use App\Models\Company;
+use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class CandidateOfferDateValidation
 {
+    /**
+     * Storage timezone established for all datetime columns across the application.
+     */
+    public static function storageTimezone(): string
+    {
+        return (string) config('app.timezone', 'UTC');
+    }
+
     /**
      * Validates that the effective proposed joining and expiry dates are on or after the offer date.
      */
@@ -49,27 +60,30 @@ final class CandidateOfferDateValidation
      *
      * - Sent date must be >= offer date.
      * - Actual sent date cannot be in the future relative to the company's current date/time.
+     * - Normalized to application storage timezone before returning.
      */
     public static function resolveAndValidateSentAt(
         int|Company $company,
         RecruitmentCandidateOffer $offer,
         mixed $sentAtInput,
     ): CarbonImmutable {
-        $timezone = CompanyTimezone::forCompany($company);
-        $sentAt = self::resolveEventTimestamp($sentAtInput, $timezone, 'sent_at');
-        $today = CarbonImmutable::now($timezone)->startOfDay();
-        $now = CarbonImmutable::now($timezone);
+        $companyTimezone = CompanyTimezone::forCompany($company);
+        $storageTimezone = self::storageTimezone();
 
-        $sentDay = $sentAt->startOfDay();
+        $sentAtInCompany = self::resolveEventTimestamp($sentAtInput, $companyTimezone, 'sent_at');
+        $today = CarbonImmutable::now($companyTimezone)->startOfDay();
+        $now = CarbonImmutable::now($companyTimezone);
 
-        if ($sentDay->greaterThan($today) || $sentAt->greaterThan($now->addMinute())) {
+        $sentDay = $sentAtInCompany->startOfDay();
+
+        if ($sentDay->greaterThan($today) || $sentAtInCompany->greaterThan($now->addMinute())) {
             throw ValidationException::withMessages([
                 'sent_at' => 'The actual sent date cannot be in the future.',
             ]);
         }
 
         if ($offer->offer_date !== null) {
-            $offerDay = CarbonImmutable::parse($offer->offer_date, $timezone)->startOfDay();
+            $offerDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
 
             if ($sentDay->lessThan($offerDay)) {
                 throw ValidationException::withMessages([
@@ -78,7 +92,7 @@ final class CandidateOfferDateValidation
             }
         }
 
-        return $sentAt;
+        return $sentAtInCompany->setTimezone($storageTimezone);
     }
 
     /**
@@ -86,20 +100,23 @@ final class CandidateOfferDateValidation
      *
      * - Acceptance date must be >= sent date (or offer date if unsent).
      * - Acceptance date cannot be in the future relative to the company's current date/time.
+     * - Normalized to application storage timezone before returning.
      */
     public static function resolveAndValidateAcceptedAt(
         int|Company $company,
         RecruitmentCandidateOffer $offer,
         mixed $acceptedAtInput,
     ): CarbonImmutable {
-        $timezone = CompanyTimezone::forCompany($company);
-        $acceptedAt = self::resolveEventTimestamp($acceptedAtInput, $timezone, 'accepted_at');
-        $today = CarbonImmutable::now($timezone)->startOfDay();
-        $now = CarbonImmutable::now($timezone);
+        $companyTimezone = CompanyTimezone::forCompany($company);
+        $storageTimezone = self::storageTimezone();
 
-        $acceptedDay = $acceptedAt->startOfDay();
+        $acceptedAtInCompany = self::resolveEventTimestamp($acceptedAtInput, $companyTimezone, 'accepted_at');
+        $today = CarbonImmutable::now($companyTimezone)->startOfDay();
+        $now = CarbonImmutable::now($companyTimezone);
 
-        if ($acceptedDay->greaterThan($today) || $acceptedAt->greaterThan($now->addMinute())) {
+        $acceptedDay = $acceptedAtInCompany->startOfDay();
+
+        if ($acceptedDay->greaterThan($today) || $acceptedAtInCompany->greaterThan($now->addMinute())) {
             throw ValidationException::withMessages([
                 'accepted_at' => 'The acceptance date cannot be in the future.',
             ]);
@@ -109,10 +126,13 @@ final class CandidateOfferDateValidation
         $referenceLabel = null;
 
         if ($offer->sent_at !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->sent_at, $timezone)->startOfDay();
+            // Convert stored reference timestamp explicitly to company timezone before comparing local calendar dates.
+            $referenceDay = CarbonImmutable::instance($offer->sent_at)
+                ->setTimezone($companyTimezone)
+                ->startOfDay();
             $referenceLabel = 'date the offer was sent';
         } elseif ($offer->offer_date !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->offer_date, $timezone)->startOfDay();
+            $referenceDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
             $referenceLabel = 'offer date';
         }
 
@@ -122,7 +142,7 @@ final class CandidateOfferDateValidation
             ]);
         }
 
-        return $acceptedAt;
+        return $acceptedAtInCompany->setTimezone($storageTimezone);
     }
 
     /**
@@ -130,20 +150,23 @@ final class CandidateOfferDateValidation
      *
      * - Rejection date must be >= sent date (or offer date if unsent).
      * - Rejection date cannot be in the future relative to the company's current date/time.
+     * - Normalized to application storage timezone before returning.
      */
     public static function resolveAndValidateRejectedAt(
         int|Company $company,
         RecruitmentCandidateOffer $offer,
         mixed $rejectedAtInput,
     ): CarbonImmutable {
-        $timezone = CompanyTimezone::forCompany($company);
-        $rejectedAt = self::resolveEventTimestamp($rejectedAtInput, $timezone, 'rejected_at');
-        $today = CarbonImmutable::now($timezone)->startOfDay();
-        $now = CarbonImmutable::now($timezone);
+        $companyTimezone = CompanyTimezone::forCompany($company);
+        $storageTimezone = self::storageTimezone();
 
-        $rejectedDay = $rejectedAt->startOfDay();
+        $rejectedAtInCompany = self::resolveEventTimestamp($rejectedAtInput, $companyTimezone, 'rejected_at');
+        $today = CarbonImmutable::now($companyTimezone)->startOfDay();
+        $now = CarbonImmutable::now($companyTimezone);
 
-        if ($rejectedDay->greaterThan($today) || $rejectedAt->greaterThan($now->addMinute())) {
+        $rejectedDay = $rejectedAtInCompany->startOfDay();
+
+        if ($rejectedDay->greaterThan($today) || $rejectedAtInCompany->greaterThan($now->addMinute())) {
             throw ValidationException::withMessages([
                 'rejected_at' => 'The rejection date cannot be in the future.',
             ]);
@@ -153,10 +176,13 @@ final class CandidateOfferDateValidation
         $referenceLabel = null;
 
         if ($offer->sent_at !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->sent_at, $timezone)->startOfDay();
+            // Convert stored reference timestamp explicitly to company timezone before comparing local calendar dates.
+            $referenceDay = CarbonImmutable::instance($offer->sent_at)
+                ->setTimezone($companyTimezone)
+                ->startOfDay();
             $referenceLabel = 'date the offer was sent';
         } elseif ($offer->offer_date !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->offer_date, $timezone)->startOfDay();
+            $referenceDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
             $referenceLabel = 'offer date';
         }
 
@@ -166,14 +192,76 @@ final class CandidateOfferDateValidation
             ]);
         }
 
-        return $rejectedAt;
+        return $rejectedAtInCompany->setTimezone($storageTimezone);
+    }
+
+    /**
+     * Resolves and validates the actual joining date and event timestamp.
+     *
+     * - Date must be on or after offer acceptance date.
+     * - Date cannot be in the future relative to the company's current date/time.
+     * - Historical valid dates are accepted.
+     *
+     * @return array{actual_joining_date: string, joined_at: CarbonImmutable}
+     */
+    public static function resolveAndValidateActualJoiningDate(
+        int|Company $company,
+        RecruitmentCandidate $candidate,
+        RecruitmentCandidateOffer $acceptedOffer,
+        mixed $joiningDateInput,
+    ): array {
+        $companyTimezone = CompanyTimezone::forCompany($company);
+        $storageTimezone = self::storageTimezone();
+
+        if (! filled($joiningDateInput)) {
+            throw ValidationException::withMessages([
+                'actual_joining_date' => 'The actual joining date is required.',
+            ]);
+        }
+
+        $parsedDate = self::parseDateOnly((string) $joiningDateInput, $companyTimezone, 'actual_joining_date');
+        $today = CarbonImmutable::now($companyTimezone)->startOfDay();
+
+        if ($parsedDate->greaterThan($today)) {
+            throw ValidationException::withMessages([
+                'actual_joining_date' => 'The actual joining date cannot be in the future.',
+            ]);
+        }
+
+        if ($acceptedOffer->accepted_at !== null) {
+            $acceptedDay = CarbonImmutable::instance($acceptedOffer->accepted_at)
+                ->setTimezone($companyTimezone)
+                ->startOfDay();
+
+            if ($parsedDate->lessThan($acceptedDay)) {
+                throw ValidationException::withMessages([
+                    'actual_joining_date' => 'The actual joining date must be on or after the offer acceptance date.',
+                ]);
+            }
+        } elseif ($acceptedOffer->offer_date !== null) {
+            $offerDay = CarbonImmutable::parse($acceptedOffer->offer_date, $companyTimezone)->startOfDay();
+
+            if ($parsedDate->lessThan($offerDay)) {
+                throw ValidationException::withMessages([
+                    'actual_joining_date' => 'The actual joining date must be on or after the offer date.',
+                ]);
+            }
+        }
+
+        $nowCompany = CarbonImmutable::now($companyTimezone);
+        $joinedAt = $nowCompany->setTimezone($storageTimezone);
+
+        return [
+            'actual_joining_date' => $parsedDate->toDateString(),
+            'joined_at' => $joinedAt,
+        ];
     }
 
     private static function parseDateOnly(string $value, string $timezone, string $field): CarbonImmutable
     {
         try {
             return CarbonImmutable::parse($value, $timezone)->startOfDay();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             throw ValidationException::withMessages([
                 $field => 'The date format is invalid.',
             ]);
@@ -186,8 +274,8 @@ final class CandidateOfferDateValidation
             return CarbonImmutable::now($timezone);
         }
 
-        if ($input instanceof CarbonImmutable) {
-            return $input->timezone($timezone);
+        if ($input instanceof CarbonInterface) {
+            return CarbonImmutable::instance($input)->setTimezone($timezone);
         }
 
         $inputStr = trim((string) $input);
@@ -205,7 +293,7 @@ final class CandidateOfferDateValidation
             }
 
             return CarbonImmutable::parse($inputStr, $timezone);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             throw ValidationException::withMessages([
                 $fieldName => 'The date format is invalid.',
             ]);
