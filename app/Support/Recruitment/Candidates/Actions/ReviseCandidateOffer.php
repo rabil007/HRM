@@ -9,6 +9,7 @@ use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,21 @@ final class ReviseCandidateOffer
                 ]);
             }
 
+            $effectiveSalaryAmount = $data['salary_amount'] ?? $lockedOffer->salary_amount;
+            $effectiveSalaryCurrency = strtoupper((string) ($data['salary_currency_code'] ?? $lockedOffer->salary_currency_code));
+            $effectiveJoiningDate = $data['proposed_joining_date'] ?? $lockedOffer->proposed_joining_date?->toDateString();
+            $effectiveOfferDate = $data['offer_date'] ?? $lockedOffer->offer_date?->toDateString();
+            $effectiveExpiryDate = array_key_exists('expiry_date', $data)
+                ? ($data['expiry_date'] ?: null)
+                : $lockedOffer->expiry_date?->toDateString();
+
+            CandidateOfferDateValidation::validateOfferDraftDates(
+                $locked->company_id,
+                $effectiveOfferDate,
+                $effectiveJoiningDate,
+                $effectiveExpiryDate,
+            );
+
             $previousStatus = $lockedOffer->status;
             $lockedOffer->fill([
                 'is_current' => false,
@@ -94,13 +110,11 @@ final class ReviseCandidateOffer
                 'is_current' => true,
                 'supersedes_offer_id' => $lockedOffer->id,
                 'status' => CandidateOfferStatus::Draft,
-                'salary_amount' => $data['salary_amount'] ?? $lockedOffer->salary_amount,
-                'salary_currency_code' => strtoupper((string) ($data['salary_currency_code'] ?? $lockedOffer->salary_currency_code)),
-                'proposed_joining_date' => $data['proposed_joining_date'] ?? $lockedOffer->proposed_joining_date?->toDateString(),
-                'offer_date' => $data['offer_date'] ?? $lockedOffer->offer_date?->toDateString(),
-                'expiry_date' => array_key_exists('expiry_date', $data)
-                    ? ($data['expiry_date'] ?: null)
-                    : $lockedOffer->expiry_date?->toDateString(),
+                'salary_amount' => $effectiveSalaryAmount,
+                'salary_currency_code' => $effectiveSalaryCurrency,
+                'proposed_joining_date' => $effectiveJoiningDate,
+                'offer_date' => $effectiveOfferDate,
+                'expiry_date' => $effectiveExpiryDate,
                 'notes' => array_key_exists('notes', $data)
                     ? (filled($data['notes']) ? trim((string) $data['notes']) : null)
                     : $lockedOffer->notes,

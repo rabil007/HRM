@@ -13,11 +13,17 @@ use App\Models\Position;
 use App\Models\Project;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
+use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\Actions\AcceptCandidateOffer;
+use App\Support\Recruitment\Candidates\Actions\PrepareCandidateOffer;
+use App\Support\Recruitment\Candidates\Actions\SendCandidateOffer;
+use App\Support\Recruitment\Candidates\Actions\UpdateCandidateOffer;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
@@ -682,4 +688,616 @@ test('offer validation preserves input and rejects invalid date relationships', 
         ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
         ->assertSessionHasErrors(['salary_amount', 'proposed_joining_date'])
         ->assertSessionHasInput('salary_currency_code', 'AED');
+});
+
+test('prepare offer rolls back uploaded document if subsequent transition fails', function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $file = UploadedFile::fake()->create('contract.pdf', 100, 'application/pdf');
+
+    Event::listen('eloquent.creating: '.RecruitmentCandidateStageTransition::class, function () {
+        throw new RuntimeException('Simulated stage transition database error');
+    });
+
+    expect(fn () => app(PrepareCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate,
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'offer_document' => $file,
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+            'expected_outcome' => 'selected',
+        ],
+    ))->toThrow(RuntimeException::class, 'Simulated stage transition database error');
+
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+
+    expect(RecruitmentCandidateOffer::query()->count())->toBe(0)
+        ->and($candidate->fresh()->stage)->toBe(CandidateStage::Interview);
+});
+
+test('update offer rolls back multiple new uploads and preserves original files on transaction failure', function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $originalOfferFile = UploadedFile::fake()->create('original_offer.pdf', 100, 'application/pdf');
+    $originalAcceptanceFile = UploadedFile::fake()->create('original_acceptance.pdf', 100, 'application/pdf');
+
+    $offer = app(PrepareCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate,
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'offer_document' => $originalOfferFile,
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+            'expected_outcome' => 'selected',
+        ],
+    );
+
+    $offer = app(UpdateCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer,
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'acceptance_document' => $originalAcceptanceFile,
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+        ],
+    );
+
+    $origOfferPath = $offer->offer_document_path;
+    $origAcceptancePath = $offer->acceptance_document_path;
+
+    expect(Storage::disk('local')->exists($origOfferPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($origAcceptancePath))->toBeTrue();
+
+    $newOfferFile = UploadedFile::fake()->create('new_offer.pdf', 100, 'application/pdf');
+    $newAcceptanceFile = UploadedFile::fake()->create('new_acceptance.pdf', 100, 'application/pdf');
+
+    Event::listen('eloquent.saving: '.RecruitmentCandidate::class, function () {
+        throw new RuntimeException('Simulated candidate update failure');
+    });
+
+    expect(fn () => app(UpdateCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer->fresh(),
+        [
+            'salary_amount' => '5500',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'offer_document' => $newOfferFile,
+            'acceptance_document' => $newAcceptanceFile,
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->fresh()->lock_version,
+        ],
+    ))->toThrow(RuntimeException::class, 'Simulated candidate update failure');
+
+    expect(Storage::disk('local')->exists($origOfferPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($origAcceptancePath))->toBeTrue();
+
+    $allFiles = Storage::disk('local')->allFiles();
+    expect($allFiles)->toHaveCount(2)
+        ->and($allFiles)->toContain($origOfferPath)
+        ->and($allFiles)->toContain($origAcceptancePath);
+
+    $offer->refresh();
+    expect($offer->offer_document_path)->toBe($origOfferPath)
+        ->and($offer->acceptance_document_path)->toBe($origAcceptancePath)
+        ->and((string) $offer->salary_amount)->toBe('5000.00');
+});
+
+test('update offer deletes replaced files only after commit on success', function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $originalFile = UploadedFile::fake()->create('old_contract.pdf', 100, 'application/pdf');
+    $offer = app(PrepareCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate,
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'offer_document' => $originalFile,
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+            'expected_outcome' => 'selected',
+        ],
+    );
+
+    $oldPath = $offer->offer_document_path;
+    expect(Storage::disk('local')->exists($oldPath))->toBeTrue();
+
+    $newFile = UploadedFile::fake()->create('new_contract.pdf', 100, 'application/pdf');
+    $updatedOffer = app(UpdateCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer->fresh(),
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'offer_document' => $newFile,
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->fresh()->lock_version,
+        ],
+    );
+
+    expect(Storage::disk('local')->exists($oldPath))->toBeFalse()
+        ->and(Storage::disk('local')->exists($updatedOffer->offer_document_path))->toBeTrue()
+        ->and($updatedOffer->offer_document_path)->not->toBe($oldPath);
+});
+
+test('accept offer cleans up uploaded document on failure and removes replaced document after commit on success', function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->companyA->id);
+
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $offer = app(PrepareCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate,
+        [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now()->addMonth()->toDateString(),
+            'offer_date' => now()->toDateString(),
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+            'expected_outcome' => 'selected',
+        ],
+    );
+
+    $offer = app(SendCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer->fresh(),
+        [
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->fresh()->lock_version,
+            'sent_at' => now()->toDateString(),
+        ],
+    );
+
+    $fileToFail = UploadedFile::fake()->create('signed_fail.pdf', 100, 'application/pdf');
+
+    Event::listen('eloquent.creating: '.RecruitmentCandidateStageTransition::class, function () {
+        throw new RuntimeException('Simulated accept stage transition error');
+    });
+
+    expect(fn () => app(AcceptCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer->fresh(),
+        [
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->fresh()->lock_version,
+            'acceptance_document' => $fileToFail,
+            'accepted_at' => now()->toDateString(),
+        ],
+    ))->toThrow(RuntimeException::class, 'Simulated accept stage transition error');
+
+    expect(Storage::disk('local')->allFiles())->toBeEmpty();
+
+    Event::forget('eloquent.creating: '.RecruitmentCandidateStageTransition::class);
+
+    $fileSuccess = UploadedFile::fake()->create('signed_success.pdf', 100, 'application/pdf');
+    $acceptedOffer = app(AcceptCandidateOffer::class)->handle(
+        $this->recruiterA,
+        $candidate->fresh(),
+        $offer->fresh(),
+        [
+            'lock_version' => $candidate->fresh()->lock_version,
+            'offer_lock_version' => $offer->fresh()->lock_version,
+            'acceptance_document' => $fileSuccess,
+            'accepted_at' => now()->toDateString(),
+        ],
+    );
+
+    expect(Storage::disk('local')->exists($acceptedOffer->acceptance_document_path))->toBeTrue()
+        ->and($acceptedOffer->status)->toBe(CandidateOfferStatus::Accepted);
+});
+
+test('offer date validation rejects expiry date before offer date', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+            'salary_amount' => '5000',
+            'salary_currency_code' => 'AED',
+            'proposed_joining_date' => now('Asia/Dubai')->addDays(30)->toDateString(),
+            'offer_date' => now('Asia/Dubai')->toDateString(),
+            'expiry_date' => now('Asia/Dubai')->subDay()->toDateString(),
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+            'expected_outcome' => 'selected',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['expiry_date']);
+});
+
+test('send offer rejects sent_at before offer date and future sent_at', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '5000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => now('Asia/Dubai')->addMonth()->toDateString(),
+        'offer_date' => now('Asia/Dubai')->toDateString(),
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    // 1. Future sent_at rejected
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'draft',
+            'sent_at' => now('Asia/Dubai')->addDays(2)->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['sent_at']);
+
+    // 2. Sent at before offer_date rejected
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'draft',
+            'sent_at' => now('Asia/Dubai')->subDays(2)->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['sent_at']);
+});
+
+test('send offer default-to-now fails if offer date is in the future', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '5000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => now('Asia/Dubai')->addMonth()->toDateString(),
+        'offer_date' => now('Asia/Dubai')->addDays(5)->toDateString(),
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'draft',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['sent_at']);
+});
+
+test('accept and reject offer reject dates before sent_at or in the future', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '5000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => now('Asia/Dubai')->addMonth()->toDateString(),
+        'offer_date' => now('Asia/Dubai')->subDays(5)->toDateString(),
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'draft',
+        'sent_at' => now('Asia/Dubai')->subDays(3)->toDateString(),
+    ]);
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/accept", [
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+            'accepted_at' => now('Asia/Dubai')->subDays(4)->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['accepted_at']);
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/accept", [
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+            'accepted_at' => now('Asia/Dubai')->addDay()->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['accepted_at']);
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/reject", [
+            'reason' => 'Declined package',
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+            'rejected_at' => now('Asia/Dubai')->subDays(4)->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['rejected_at']);
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/reject", [
+            'reason' => 'Declined package',
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+            'rejected_at' => now('Asia/Dubai')->addDay()->toDateString(),
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['rejected_at']);
+});
+
+test('allows valid historical offer chronology in company timezone', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $histOfferDate = now('Asia/Dubai')->subDays(10)->toDateString();
+    $histSentDate = now('Asia/Dubai')->subDays(8)->toDateString();
+    $histAcceptedDate = now('Asia/Dubai')->subDays(5)->toDateString();
+    $futureJoinDate = now('Asia/Dubai')->addDays(20)->toDateString();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '6000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => $futureJoinDate,
+        'offer_date' => $histOfferDate,
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ])->assertRedirect()->assertSessionHas('success');
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'draft',
+        'sent_at' => $histSentDate,
+    ])->assertRedirect()->assertSessionHas('success');
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/accept", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'sent',
+        'accepted_at' => $histAcceptedDate,
+    ])->assertRedirect()->assertSessionHas('success');
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    expect($offer->status)->toBe(CandidateOfferStatus::Accepted)
+        ->and($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($offer->offer_date->toDateString())->toBe($histOfferDate)
+        ->and($offer->sent_at->setTimezone('Asia/Dubai')->toDateString())->toBe($histSentDate)
+        ->and($offer->accepted_at->setTimezone('Asia/Dubai')->toDateString())->toBe($histAcceptedDate);
+});
+
+test('revise offer validates effective dates against inherited fields inside locked transaction', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '5000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => now('Asia/Dubai')->addDays(10)->toDateString(),
+        'offer_date' => now('Asia/Dubai')->toDateString(),
+        'expiry_date' => now('Asia/Dubai')->addDays(5)->toDateString(),
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'draft',
+    ]);
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    $this->actingAs($this->managerA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/revise", [
+            'reason' => 'Delay offer release',
+            'offer_date' => now('Asia/Dubai')->addDays(7)->toDateString(),
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['expiry_date']);
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/revise", [
+            'reason' => 'Delay offer release beyond joining',
+            'offer_date' => now('Asia/Dubai')->addDays(15)->toDateString(),
+            'lock_version' => $candidate->lock_version,
+            'offer_lock_version' => $offer->lock_version,
+            'expected_stage' => 'offer_jol',
+            'expected_offer_status' => 'sent',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors(['proposed_joining_date']);
+});
+
+test('accept candidate offer attaches signed document and transitions candidate', function () {
+    $candidate = createSelectedInterviewCandidate(
+        $this->companyA,
+        $this->requirement,
+        $this->line,
+        $this->recruiterA,
+    );
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id]);
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers", [
+        'salary_amount' => '5000',
+        'salary_currency_code' => 'AED',
+        'proposed_joining_date' => now('Asia/Dubai')->addMonth()->toDateString(),
+        'offer_date' => now('Asia/Dubai')->toDateString(),
+        'lock_version' => 0,
+        'expected_stage' => 'interview',
+        'expected_outcome' => 'selected',
+    ]);
+
+    $offer = RecruitmentCandidateOffer::query()->firstOrFail();
+    $candidate->refresh();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/send", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'draft',
+    ]);
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    $signedDoc = UploadedFile::fake()->create('signed_offer.pdf', 150, 'application/pdf');
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/offers/{$offer->id}/accept", [
+        'lock_version' => $candidate->lock_version,
+        'offer_lock_version' => $offer->lock_version,
+        'expected_stage' => 'offer_jol',
+        'expected_offer_status' => 'sent',
+        'accepted_at' => now('Asia/Dubai')->toDateString(),
+        'acceptance_document' => $signedDoc,
+    ])->assertRedirect()->assertSessionHas('success');
+
+    $offer->refresh();
+    $candidate->refresh();
+
+    expect($offer->status)->toBe(CandidateOfferStatus::Accepted)
+        ->and($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($offer->acceptance_document_path)->not->toBeNull()
+        ->and(Storage::disk('local')->exists($offer->acceptance_document_path))->toBeTrue();
 });
