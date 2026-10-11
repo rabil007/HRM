@@ -82,13 +82,13 @@ final class ReviseCandidateOffer
 
             if ($locked->stage === CandidateStage::Joined) {
                 throw ValidationException::withMessages([
-                    'candidate' => 'This offer cannot be revised while the candidate is confirmed as joined. Undo the joining first.',
+                    'candidate' => 'Offers cannot be revised while candidate is in Joined stage. Undo joined first if revision is required.',
                 ]);
             }
 
             if (! CandidateWorkflowAuthorization::canReviseOffer($lockedOffer, $locked)) {
                 throw ValidationException::withMessages([
-                    'offer_status' => 'Only Sent, Accepted, or Rejected current offers can be revised, and the candidate must not be in Rejected stage.',
+                    'offer_status' => 'Only Sent, Accepted, or Rejected current offers can be revised, and the candidate must not be in Rejected or Joined stage.',
                 ]);
             }
 

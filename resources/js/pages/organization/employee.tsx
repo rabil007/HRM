@@ -1,5 +1,11 @@
-import { Head, router, usePage } from '@inertiajs/react';
-import { AlertTriangle } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    AlertCircle,
+    AlertTriangle,
+    ArrowLeft,
+    Coins,
+    UserCheck,
+} from 'lucide-react';
 import {
     lazy,
     Suspense,
@@ -27,6 +33,11 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+    isCandidateConversionMode,
+    isRecordTabUnavailableInConversion,
+} from '@/features/organization/employees/profile/candidate-conversion-mode';
+import { CandidateConversionUnavailableTabCard } from '@/features/organization/employees/profile/components/candidate-conversion-unavailable-tab-card';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
 import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
@@ -142,6 +153,7 @@ export default function EmployeeDetails(props: EmployeePageProps) {
 
 function EmployeeDetailsPage({
     mode = 'edit',
+    candidate_context = null,
     employee_navigation = null,
     resolved_template,
     profile_templates = [],
@@ -250,8 +262,14 @@ function EmployeeDetailsPage({
         [],
     );
 
+    const isConversionMode = isCandidateConversionMode(candidate_context);
+
     const handleEnsured = useCallback(
         (ensured: EnsuredEmployee) => {
+            if (isConversionMode) {
+                return;
+            }
+
             setLocalEmployee((current) =>
                 mergePersistedEmployeeAfterEnsure(current, ensured),
             );
@@ -270,6 +288,13 @@ function EmployeeDetailsPage({
                 search.delete('profile_template_id');
             }
 
+            if (candidate_context?.candidate_id) {
+                search.set(
+                    'candidate_id',
+                    String(candidate_context.candidate_id),
+                );
+            }
+
             const next = `${window.location.pathname}?${search.toString()}`;
             const current = `${window.location.pathname}${window.location.search}`;
 
@@ -277,7 +302,7 @@ function EmployeeDetailsPage({
                 window.history.replaceState(null, '', next);
             }
         },
-        [isCreateMode, selectedTemplateId],
+        [candidate_context, isConversionMode, isCreateMode, selectedTemplateId],
     );
 
     const permissions = auth?.permissions ?? [];
@@ -296,6 +321,7 @@ function EmployeeDetailsPage({
         getDraftName: () => formDraftRef.current.name,
         selectedProfileTemplateId: selectedTemplateId,
         onEnsured: handleEnsured,
+        disabled: isConversionMode,
     });
 
     const {
@@ -317,7 +343,9 @@ function EmployeeDetailsPage({
         persistedEmployee,
         canUpdate,
         {
-            ensureEmployee: isCreateMode ? ensureEmployee : undefined,
+            ensureEmployee:
+                isCreateMode && !isConversionMode ? ensureEmployee : undefined,
+            candidateContext: candidate_context,
             templateRequiredFields:
                 employee_tabs.template_fields?.employees ??
                 resolved_template?.fields?.employees,
@@ -529,14 +557,32 @@ function EmployeeDetailsPage({
             templateId === '' ? null : Number.parseInt(templateId, 10);
         setSelectedTemplateId(Number.isNaN(nextId as number) ? null : nextId);
 
-        const search = new URLSearchParams();
+        const search = new URLSearchParams(
+            typeof window !== 'undefined' ? window.location.search : '',
+        );
 
-        if (effectiveEmployeeId) {
+        if (isConversionMode) {
+            search.delete('employee_id');
+        } else if (effectiveEmployeeId) {
             search.set('employee_id', String(effectiveEmployeeId));
         }
 
         if (nextId) {
             search.set('profile_template_id', String(nextId));
+        } else {
+            search.delete('profile_template_id');
+        }
+
+        const candidateId =
+            candidate_context?.candidate_id ??
+            (typeof window !== 'undefined'
+                ? new URLSearchParams(window.location.search).get(
+                      'candidate_id',
+                  )
+                : null);
+
+        if (candidateId) {
+            search.set('candidate_id', String(candidateId));
         }
 
         router.visit(
@@ -694,7 +740,260 @@ function EmployeeDetailsPage({
                             </AlertDialogContent>
                         </AlertDialog>
 
-                        {isCreateMode ? (
+                        {candidate_context ? (
+                            <div className="space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 shadow-sm">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                            <UserCheck className="size-5" />
+                                        </div>
+                                        <div>
+                                            <h1 className="text-lg font-semibold text-foreground">
+                                                Review & Convert Joined
+                                                Candidate
+                                            </h1>
+                                            <p className="text-xs text-muted-foreground">
+                                                Review candidate details and
+                                                complete required employee
+                                                profile fields before saving.
+                                                Contracts and payroll are not
+                                                automatically activated.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {profile_templates.length > 0 && (
+                                            <div className="w-48 sm:w-56">
+                                                <AppSelect
+                                                    value={
+                                                        selectedTemplateId
+                                                            ? String(
+                                                                  selectedTemplateId,
+                                                              )
+                                                            : ''
+                                                    }
+                                                    onValueChange={
+                                                        changeProfileTemplate
+                                                    }
+                                                    placeholder="All tabs and fields (default)"
+                                                >
+                                                    <AppSelectItem value="">
+                                                        Default (show all)
+                                                    </AppSelectItem>
+                                                    {profile_templates.map(
+                                                        (template) => (
+                                                            <AppSelectItem
+                                                                key={
+                                                                    template.id
+                                                                }
+                                                                value={String(
+                                                                    template.id,
+                                                                )}
+                                                            >
+                                                                {template.name}
+                                                            </AppSelectItem>
+                                                        ),
+                                                    )}
+                                                </AppSelect>
+                                            </div>
+                                        )}
+                                        <Button
+                                            asChild
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <Link
+                                                href={`/organization/recruitment/candidates/${candidate_context.candidate_id}`}
+                                            >
+                                                <ArrowLeft className="mr-1.5 size-4" />
+                                                Cancel & Return
+                                            </Link>
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                            onClick={() => saveChanges()}
+                                            disabled={form.processing}
+                                        >
+                                            <UserCheck className="mr-1.5 size-4" />
+                                            {form.processing
+                                                ? 'Converting...'
+                                                : 'Convert to Employee'}
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-3 border-t border-primary/10 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Candidate:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-foreground">
+                                            {candidate_context.name}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Requirement / Position:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-foreground">
+                                            #
+                                            {
+                                                candidate_context.requirement_number
+                                            }{' '}
+                                            • {candidate_context.position_title}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Actual Joining Date:
+                                        </span>
+                                        <div className="mt-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
+                                            {candidate_context.actual_joining_date ??
+                                                '—'}
+                                        </div>
+                                    </div>
+                                    <div className="text-xs">
+                                        <span className="font-medium text-muted-foreground">
+                                            Client / Project:
+                                        </span>
+                                        <div className="mt-0.5 text-foreground">
+                                            {candidate_context.client_name
+                                                ? `${candidate_context.client_name} • `
+                                                : ''}
+                                            {candidate_context.project_title ||
+                                                '—'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {candidate_context.proposed_offer && (
+                                    <div className="rounded-lg border border-border/60 bg-background/80 p-3 text-xs">
+                                        <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                            <Coins className="size-3.5 text-amber-500" />
+                                            <span>
+                                                Accepted Offer Compensation
+                                                (Proposed Values For Review):
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <span className="text-muted-foreground">
+                                                Proposed Total Salary:
+                                            </span>{' '}
+                                            <span className="font-semibold text-foreground">
+                                                {candidate_context
+                                                    .proposed_offer.currency
+                                                    ? `${candidate_context.proposed_offer.currency} `
+                                                    : ''}
+                                                {candidate_context
+                                                    .proposed_offer
+                                                    .salary_amount ?? '—'}
+                                            </span>
+                                        </div>
+                                        <p className="mt-1.5 text-[11px] text-muted-foreground italic">
+                                            Note: Proposed salary is displayed
+                                            for HR review during profile
+                                            creation. No contract, salary
+                                            breakdown, or payroll values are
+                                            automatically inferred or
+                                            overwritten.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {candidate_context.duplicate_matches?.length >
+                                    0 && (
+                                    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+                                        <div className="flex items-center gap-1.5 font-semibold text-amber-900 dark:text-amber-200">
+                                            <AlertCircle className="size-4 text-amber-600 dark:text-amber-400" />
+                                            <span>
+                                                Potential Duplicate Existing
+                                                Employees Found (
+                                                {
+                                                    candidate_context
+                                                        .duplicate_matches
+                                                        .length
+                                                }
+                                                )
+                                            </span>
+                                        </div>
+                                        <p className="mt-1 text-muted-foreground">
+                                            The following existing employee
+                                            records match candidate identifiers
+                                            (email, phone, or name). Verify if
+                                            this candidate is an existing
+                                            employee before creating a new
+                                            profile.
+                                        </p>
+                                        <div className="mt-2 space-y-1.5">
+                                            {candidate_context.duplicate_matches.map(
+                                                (match) => (
+                                                    <div
+                                                        key={match.id}
+                                                        className="flex flex-col justify-between gap-1 rounded bg-background/90 p-2 sm:flex-row sm:items-center"
+                                                    >
+                                                        <div>
+                                                            <span className="font-semibold">
+                                                                {match.name}
+                                                            </span>{' '}
+                                                            <span className="text-muted-foreground">
+                                                                (
+                                                                {
+                                                                    match.employee_no
+                                                                }
+                                                                )
+                                                            </span>
+                                                            {match.department_name && (
+                                                                <span className="text-muted-foreground">
+                                                                    {' '}
+                                                                    •{' '}
+                                                                    {
+                                                                        match.department_name
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                            {match.position_title && (
+                                                                <span className="text-muted-foreground">
+                                                                    {' '}
+                                                                    •{' '}
+                                                                    {
+                                                                        match.position_title
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[11px] text-muted-foreground">
+                                                                Matched on:{' '}
+                                                                {match.matched_on.join(
+                                                                    ', ',
+                                                                )}
+                                                            </span>
+                                                            {candidate_context.can_link_existing && (
+                                                                <Button
+                                                                    asChild
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    className="h-7 text-xs"
+                                                                >
+                                                                    <Link
+                                                                        href={`/organization/recruitment/candidates/${candidate_context.candidate_id}`}
+                                                                    >
+                                                                        Link
+                                                                        Candidate
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : isCreateMode ? (
                             <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 md:flex-row md:items-end md:justify-between">
                                 <div className="space-y-1">
                                     <h1 className="text-lg font-semibold text-foreground">
@@ -853,431 +1152,527 @@ function EmployeeDetailsPage({
                             onTabChange={handleTabChange}
                             tabs={tabs}
                         >
-                            {employee_tabs.personal &&
-                            activeTab === 'personal' ? (
-                                <EmployeePersonalTab
-                                    employee={persistedEmployee}
-                                    countries={countries}
-                                    approvalLocations={approval_locations}
-                                    sssaOptions={sssa_options}
-                                    canUpdate={canUpdate}
-                                    form={form}
-                                    activeField={activeField}
-                                    setActiveField={setActiveField}
-                                    beginEdit={beginEdit}
-                                    templateProfileFields={
-                                        employee_tabs.profile_fields
-                                    }
-                                    isMissingRequired={isMissingRequired}
-                                />
-                            ) : null}
-                            {employee_tabs.contract &&
-                            activeTab === 'contract' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeContractTab
-                                            employeeId={effectiveEmployeeId}
-                                            contracts={contracts ?? []}
-                                            canCreate={
-                                                can?.contracts_create ?? false
-                                            }
-                                            canUpdate={
-                                                can?.contracts_update ?? false
-                                            }
-                                            canDelete={
-                                                can?.contracts_delete ?? false
-                                            }
-                                            canCreateSalaryRevisions={
-                                                can?.contracts_salary_revisions_create ??
-                                                false
-                                            }
-                                            canUpdateSalaryRevisions={
-                                                can?.contracts_salary_revisions_update ??
-                                                false
-                                            }
-                                            canDeleteSalaryRevisions={
-                                                can?.contracts_salary_revisions_delete ??
-                                                false
-                                            }
-                                            contractShowFrom="profile"
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateContractFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_contracts',
-                                            )}
-                                            companyVisaTypes={
-                                                company_visa_types
-                                            }
-                                            employeeCompanyVisaTypeId={
-                                                employee?.company_visa_type_id ??
-                                                null
-                                            }
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.salary_revisions &&
-                            activeTab === 'salary_revisions' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeSalaryRevisionsTab
-                                            employeeId={effectiveEmployeeId}
-                                            contracts={contracts ?? []}
-                                            canCreate={
-                                                can?.contracts_salary_revisions_create ??
-                                                false
-                                            }
-                                            canUpdate={
-                                                can?.contracts_salary_revisions_update ??
-                                                false
-                                            }
-                                            canDelete={
-                                                can?.contracts_salary_revisions_delete ??
-                                                false
-                                            }
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.bank && activeTab === 'bank' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeBankTab
-                                            employeeId={effectiveEmployeeId}
-                                            bank_accounts={bank_accounts ?? []}
-                                            banks={banks}
-                                            canManage={
-                                                can?.bank_accounts_manage ??
-                                                false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_bank_accounts',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.education !== false &&
-                            activeTab === 'education' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeEducationTab
-                                            employeeId={effectiveEmployeeId}
-                                            education_qualifications={
-                                                education_qualifications ?? []
-                                            }
+                            {isRecordTabUnavailableInConversion(
+                                activeTab,
+                                candidate_context,
+                            ) ? (
+                                <CandidateConversionUnavailableTabCard />
+                            ) : (
+                                <>
+                                    {employee_tabs.personal &&
+                                    activeTab === 'personal' ? (
+                                        <EmployeePersonalTab
+                                            employee={persistedEmployee}
                                             countries={countries}
-                                            canCreate={
-                                                can?.education_create ?? false
+                                            approvalLocations={
+                                                approval_locations
                                             }
-                                            canUpdate={
-                                                can?.education_update ?? false
+                                            sssaOptions={sssa_options}
+                                            canUpdate={canUpdate}
+                                            form={form}
+                                            activeField={activeField}
+                                            setActiveField={setActiveField}
+                                            beginEdit={beginEdit}
+                                            templateProfileFields={
+                                                employee_tabs.profile_fields
                                             }
-                                            canDelete={
-                                                can?.education_delete ?? false
+                                            isMissingRequired={
+                                                isMissingRequired
                                             }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_education_qualifications',
-                                            )}
                                         />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.work_experience !== false &&
-                            activeTab === 'work_experience' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeWorkExperienceTab
-                                            employeeId={effectiveEmployeeId}
-                                            work_experiences={
-                                                work_experiences ?? []
-                                            }
-                                            canCreate={
-                                                can?.work_experience_create ??
-                                                false
-                                            }
-                                            canUpdate={
-                                                can?.work_experience_update ??
-                                                false
-                                            }
-                                            canDelete={
-                                                can?.work_experience_delete ??
-                                                false
-                                            }
-                                            canImport={
-                                                can?.work_experience_import ??
-                                                false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_work_experiences',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.vaccination &&
-                            activeTab === 'vaccination' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeVaccinationTab
-                                            employeeId={effectiveEmployeeId}
-                                            vaccinations={vaccinations ?? []}
-                                            countries={countries}
-                                            canCreate={
-                                                can?.vaccination_create ?? false
-                                            }
-                                            canUpdate={
-                                                can?.vaccination_update ?? false
-                                            }
-                                            canDelete={
-                                                can?.vaccination_delete ?? false
-                                            }
-                                            canImport={
-                                                can?.vaccination_import ?? false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_vaccinations',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.languages !== false &&
-                            activeTab === 'languages' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeLanguagesTab
-                                            employeeId={effectiveEmployeeId}
-                                            languages={languages ?? []}
-                                            canCreate={
-                                                can?.languages_create ?? false
-                                            }
-                                            canUpdate={
-                                                can?.languages_update ?? false
-                                            }
-                                            canDelete={
-                                                can?.languages_delete ?? false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_languages',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.training &&
-                            activeTab === 'training' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeTrainingTab
-                                            employeeId={effectiveEmployeeId}
-                                            employeeName={employee.name}
-                                            trainings={trainings ?? []}
-                                            courses={courses ?? []}
-                                            countries={countries}
-                                            canCreate={
-                                                can?.training_create ?? false
-                                            }
-                                            canUpdate={
-                                                can?.training_update ?? false
-                                            }
-                                            canDelete={
-                                                can?.training_delete ?? false
-                                            }
-                                            canImport={
-                                                can?.training_import ?? false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_trainings',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.sea_service &&
-                            activeTab === 'sea_service' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeSeaServiceTab
-                                            employeeId={effectiveEmployeeId}
-                                            employeeNo={
-                                                localEmployee.employee_no
-                                            }
-                                            employeeName={localEmployee.name}
-                                            sea_services={sea_services ?? []}
-                                            vessel_types={vessel_types ?? []}
-                                            vessels={vessels ?? []}
-                                            positions={
-                                                sea_service_positions ?? []
-                                            }
-                                            clients={clients ?? []}
-                                            employeePositionId={
-                                                localEmployee.position?.id ??
-                                                null
-                                            }
-                                            canManage={
-                                                can?.sea_service_manage ?? false
-                                            }
-                                            canCreate={
-                                                can?.sea_service_create ?? false
-                                            }
-                                            canUpdate={
-                                                can?.sea_service_update ?? false
-                                            }
-                                            canDelete={
-                                                can?.sea_service_delete ?? false
-                                            }
-                                            canImport={
-                                                can?.sea_service_import ?? false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_sea_services',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
-                            {employee_tabs.documents &&
-                            activeTab === 'documents' ? (
-                                recordsLoading ? (
-                                    <EmployeeTabSkeleton />
-                                ) : (
-                                    <Suspense
-                                        fallback={<EmployeeTabSkeleton />}
-                                    >
-                                        <EmployeeDocumentsTab
-                                            employee={{
-                                                id: localEmployee.id as number,
-                                                name: localEmployee.name,
-                                                employee_no:
-                                                    localEmployee.employee_no,
-                                            }}
-                                            documents={documents ?? []}
-                                            document_types={
-                                                document_types ??
-                                                EMPTY_DOCUMENT_TYPES
-                                            }
-                                            can={{
-                                                documents_upload:
-                                                    can?.documents_upload ??
-                                                    false,
-                                                documents_download:
-                                                    can?.documents_download ??
-                                                    false,
-                                                documents_delete:
-                                                    can?.documents_delete ??
-                                                    false,
-                                            }}
-                                            documentAiSettings={
-                                                document_ai_settings
-                                            }
-                                            canUseDocumentAi={
-                                                can?.documents_ai_use ?? false
-                                            }
-                                            ensureEmployee={
-                                                isCreateMode
-                                                    ? ensureEmployee
-                                                    : undefined
-                                            }
-                                            templateFields={resolveTemplateTableFields(
-                                                employee_tabs.template_fields,
-                                                resolved_template?.fields,
-                                                'employee_documents',
-                                            )}
-                                        />
-                                    </Suspense>
-                                )
-                            ) : null}
+                                    ) : null}
+                                    {employee_tabs.contract &&
+                                    activeTab === 'contract' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeContractTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    contracts={contracts ?? []}
+                                                    canCreate={
+                                                        can?.contracts_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.contracts_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.contracts_delete ??
+                                                        false
+                                                    }
+                                                    canCreateSalaryRevisions={
+                                                        can?.contracts_salary_revisions_create ??
+                                                        false
+                                                    }
+                                                    canUpdateSalaryRevisions={
+                                                        can?.contracts_salary_revisions_update ??
+                                                        false
+                                                    }
+                                                    canDeleteSalaryRevisions={
+                                                        can?.contracts_salary_revisions_delete ??
+                                                        false
+                                                    }
+                                                    contractShowFrom="profile"
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateContractFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_contracts',
+                                                    )}
+                                                    companyVisaTypes={
+                                                        company_visa_types
+                                                    }
+                                                    employeeCompanyVisaTypeId={
+                                                        employee?.company_visa_type_id ??
+                                                        null
+                                                    }
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.salary_revisions &&
+                                    activeTab === 'salary_revisions' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeSalaryRevisionsTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    contracts={contracts ?? []}
+                                                    canCreate={
+                                                        can?.contracts_salary_revisions_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.contracts_salary_revisions_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.contracts_salary_revisions_delete ??
+                                                        false
+                                                    }
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.bank &&
+                                    activeTab === 'bank' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeBankTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    bank_accounts={
+                                                        bank_accounts ?? []
+                                                    }
+                                                    banks={banks}
+                                                    canManage={
+                                                        can?.bank_accounts_manage ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_bank_accounts',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.education !== false &&
+                                    activeTab === 'education' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeEducationTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    education_qualifications={
+                                                        education_qualifications ??
+                                                        []
+                                                    }
+                                                    countries={countries}
+                                                    canCreate={
+                                                        can?.education_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.education_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.education_delete ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_education_qualifications',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.work_experience !== false &&
+                                    activeTab === 'work_experience' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeWorkExperienceTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    work_experiences={
+                                                        work_experiences ?? []
+                                                    }
+                                                    canCreate={
+                                                        can?.work_experience_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.work_experience_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.work_experience_delete ??
+                                                        false
+                                                    }
+                                                    canImport={
+                                                        can?.work_experience_import ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_work_experiences',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.vaccination &&
+                                    activeTab === 'vaccination' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeVaccinationTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    vaccinations={
+                                                        vaccinations ?? []
+                                                    }
+                                                    countries={countries}
+                                                    canCreate={
+                                                        can?.vaccination_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.vaccination_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.vaccination_delete ??
+                                                        false
+                                                    }
+                                                    canImport={
+                                                        can?.vaccination_import ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_vaccinations',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.languages !== false &&
+                                    activeTab === 'languages' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeLanguagesTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    languages={languages ?? []}
+                                                    canCreate={
+                                                        can?.languages_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.languages_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.languages_delete ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_languages',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.training &&
+                                    activeTab === 'training' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeTrainingTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    employeeName={employee.name}
+                                                    trainings={trainings ?? []}
+                                                    courses={courses ?? []}
+                                                    countries={countries}
+                                                    canCreate={
+                                                        can?.training_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.training_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.training_delete ??
+                                                        false
+                                                    }
+                                                    canImport={
+                                                        can?.training_import ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_trainings',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.sea_service &&
+                                    activeTab === 'sea_service' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeSeaServiceTab
+                                                    employeeId={
+                                                        effectiveEmployeeId
+                                                    }
+                                                    employeeNo={
+                                                        localEmployee.employee_no
+                                                    }
+                                                    employeeName={
+                                                        localEmployee.name
+                                                    }
+                                                    sea_services={
+                                                        sea_services ?? []
+                                                    }
+                                                    vessel_types={
+                                                        vessel_types ?? []
+                                                    }
+                                                    vessels={vessels ?? []}
+                                                    positions={
+                                                        sea_service_positions ??
+                                                        []
+                                                    }
+                                                    clients={clients ?? []}
+                                                    employeePositionId={
+                                                        localEmployee.position
+                                                            ?.id ?? null
+                                                    }
+                                                    canManage={
+                                                        can?.sea_service_manage ??
+                                                        false
+                                                    }
+                                                    canCreate={
+                                                        can?.sea_service_create ??
+                                                        false
+                                                    }
+                                                    canUpdate={
+                                                        can?.sea_service_update ??
+                                                        false
+                                                    }
+                                                    canDelete={
+                                                        can?.sea_service_delete ??
+                                                        false
+                                                    }
+                                                    canImport={
+                                                        can?.sea_service_import ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_sea_services',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                    {employee_tabs.documents &&
+                                    activeTab === 'documents' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <Suspense
+                                                fallback={
+                                                    <EmployeeTabSkeleton />
+                                                }
+                                            >
+                                                <EmployeeDocumentsTab
+                                                    employee={{
+                                                        id: localEmployee.id as number,
+                                                        name: localEmployee.name,
+                                                        employee_no:
+                                                            localEmployee.employee_no,
+                                                    }}
+                                                    documents={documents ?? []}
+                                                    document_types={
+                                                        document_types ??
+                                                        EMPTY_DOCUMENT_TYPES
+                                                    }
+                                                    can={{
+                                                        documents_upload:
+                                                            can?.documents_upload ??
+                                                            false,
+                                                        documents_download:
+                                                            can?.documents_download ??
+                                                            false,
+                                                        documents_delete:
+                                                            can?.documents_delete ??
+                                                            false,
+                                                    }}
+                                                    documentAiSettings={
+                                                        document_ai_settings
+                                                    }
+                                                    canUseDocumentAi={
+                                                        can?.documents_ai_use ??
+                                                        false
+                                                    }
+                                                    ensureEmployee={
+                                                        isCreateMode &&
+                                                        !isConversionMode
+                                                            ? ensureEmployee
+                                                            : undefined
+                                                    }
+                                                    templateFields={resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_documents',
+                                                    )}
+                                                />
+                                            </Suspense>
+                                        )
+                                    ) : null}
+                                </>
+                            )}
                         </EmployeeProfileShell>
                     </div>
                 </div>

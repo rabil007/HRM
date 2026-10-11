@@ -17,6 +17,7 @@ class StoreEnsureEmployeeRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
+            'candidate_id' => ['prohibited'],
             'name' => ['required', 'string', 'max:200'],
             'employee_profile_template_id' => [
                 'nullable',

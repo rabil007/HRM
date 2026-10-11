@@ -7,6 +7,7 @@ use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use App\Support\Settings\CompanyTimezone;
@@ -66,8 +67,15 @@ final class UpdateCandidateJoiningReadiness
                 if ($rawDate === '') {
                     $expectedJoiningDate = null;
                 } else {
+                    $extracted = CandidateOfferDateValidation::extractDateOnlyString($rawDate);
+                    if ($extracted === null || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $extracted)) {
+                        throw ValidationException::withMessages([
+                            'expected_joining_date' => 'The expected joining date format is invalid.',
+                        ]);
+                    }
+
                     try {
-                        $expectedJoiningDate = CarbonImmutable::parse($rawDate, $timezone)->toDateString();
+                        $expectedJoiningDate = CarbonImmutable::createFromFormat('!Y-m-d', $extracted, $timezone)->toDateString();
                     } catch (Throwable) {
                         throw ValidationException::withMessages([
                             'expected_joining_date' => 'The expected joining date format is invalid.',

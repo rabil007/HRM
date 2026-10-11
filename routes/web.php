@@ -200,6 +200,7 @@ use App\Http\Controllers\Organization\Recruitment\CandidateReopenController;
 use App\Http\Controllers\Organization\Recruitment\CandidateSelectController;
 use App\Http\Controllers\Organization\Recruitment\CandidateUndoSelectController;
 use App\Http\Controllers\Organization\Recruitment\RecruitmentController;
+use App\Http\Controllers\Organization\Recruitment\RecruitmentReportController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAddHeadcountController;
 use App\Http\Controllers\Organization\Recruitment\RequirementApproveController;
 use App\Http\Controllers\Organization\Recruitment\RequirementAttachmentController;
@@ -685,6 +686,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/recruitment/candidates/{candidate}/correct-joining', [CandidateJoiningController::class, 'correct'])
         ->middleware(['can:recruitment.candidates.joining.confirm', 'can:recruitment.candidates.manage'])
         ->name('organization.recruitment.candidates.joining.correct');
+    Route::post('organization/recruitment/candidates/{candidate}/link-employee', [CandidateJoiningController::class, 'linkEmployee'])
+        ->middleware(['can:recruitment.candidates.view', 'can:recruitment.candidates.convert', 'can:employees.view'])
+        ->name('organization.recruitment.candidates.link-employee');
+    Route::get('organization/recruitment/reports', [RecruitmentReportController::class, 'index'])
+        ->middleware('can:reports.recruitment.view')
+        ->name('organization.recruitment.reports');
+    Route::get('organization/recruitment/reports/export', [RecruitmentReportController::class, 'export'])
+        ->middleware('can:reports.recruitment.export')
+        ->name('organization.recruitment.reports.export');
 
     Route::get('organization/roles', [RoleController::class, 'index'])->middleware('can:roles.view')->name('organization.roles');
     Route::get('organization/roles/export', [RoleController::class, 'export'])->middleware('can:roles.export')->name('organization.roles.export');

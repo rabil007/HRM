@@ -221,7 +221,8 @@ export function attendanceHref(permissions: string[]): string | null {
 export function canViewRecruitment(permissions: string[]): boolean {
     return (
         has(permissions, 'recruitment.requirements.view') ||
-        has(permissions, 'recruitment.candidates.view')
+        has(permissions, 'recruitment.candidates.view') ||
+        has(permissions, 'reports.recruitment.view')
     );
 }
 
@@ -232,6 +233,10 @@ export function recruitmentHref(permissions: string[]): string | null {
 
     if (has(permissions, 'recruitment.candidates.view')) {
         return '/organization/recruitment/candidates';
+    }
+
+    if (has(permissions, 'reports.recruitment.view')) {
+        return '/organization/recruitment/reports';
     }
 
     return null;
@@ -259,6 +264,8 @@ const SIDEBAR_DESTINATION_RULES: Record<string, DestinationRule> = {
         has(permissions, 'recruitment.requirements.view'),
     '/organization/recruitment/candidates': (permissions) =>
         has(permissions, 'recruitment.candidates.view'),
+    '/organization/recruitment/reports': (permissions) =>
+        has(permissions, 'reports.recruitment.view'),
     '/organization/employees': (permissions) =>
         has(permissions, 'employees.view'),
     '/organization/crew-operations': (permissions) =>

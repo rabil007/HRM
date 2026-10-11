@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
+use App\Models\RecruitmentCandidate;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
@@ -30,6 +32,16 @@ class StoreEmployeeRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
 
         return [
+            'employee_id' => ['nullable', 'integer'],
+            'candidate_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('recruitment_candidates', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
+            ],
+            'candidate_lock_version' => [
+                'required_with:candidate_id',
+                'integer',
+            ],
             'user_id' => [
                 'nullable',
                 'integer',
@@ -115,9 +127,59 @@ class StoreEmployeeRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $validator->after(function (Validator $validator): void {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        $validator->after(function (Validator $validator) use ($companyId): void {
             if ($validator->errors()->isNotEmpty()) {
                 return;
+            }
+
+            $candidateId = $this->input('candidate_id');
+            $employeeId = $this->input('employee_id');
+
+            if ($candidateId !== null && $candidateId !== '') {
+                if ($employeeId !== null && $employeeId !== '') {
+                    $validator->errors()->add('employee_id', 'Candidate conversion cannot be combined with a provisional employee draft.');
+
+                    return;
+                }
+
+                $user = $this->user();
+                if ($user === null || ! $user->can('recruitment.candidates.view') || ! $user->can('recruitment.candidates.convert') || ! $user->can('employees.create')) {
+                    $validator->errors()->add('candidate_id', 'You do not have permission to convert this candidate.');
+
+                    return;
+                }
+
+                $candidate = RecruitmentCandidate::query()
+                    ->where('company_id', $companyId)
+                    ->where('id', (int) $candidateId)
+                    ->first();
+
+                if (! $candidate instanceof RecruitmentCandidate) {
+                    $validator->errors()->add('candidate_id', 'The selected candidate was not found in the active company.');
+
+                    return;
+                }
+
+                if ($candidate->stage !== CandidateStage::Joined) {
+                    $validator->errors()->add('candidate_id', 'Only confirmed Joined candidates can be converted to employees.');
+
+                    return;
+                }
+
+                if ($candidate->employee_id !== null) {
+                    $validator->errors()->add('candidate_id', 'This candidate has already been converted to an employee.');
+
+                    return;
+                }
+
+                $lockVersion = $this->input('candidate_lock_version');
+                if ($lockVersion === null || (int) $candidate->lock_version !== (int) $lockVersion) {
+                    $validator->errors()->add('candidate_lock_version', 'The candidate record was modified by another action. Please refresh and try again.');
+
+                    return;
+                }
             }
 
             $clientId = $this->input('client_id');

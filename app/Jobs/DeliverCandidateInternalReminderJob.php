@@ -6,8 +6,12 @@ use App\Enums\Recruitment\CandidateReminderScheduleType;
 use App\Enums\Recruitment\CandidateReminderStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementStatus;
+use App\Models\Company;
+use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateInternalReminder;
 use App\Models\User;
+use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -62,6 +66,61 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
         return 'candidate-internal-reminder:'.$reminderId;
     }
 
+    public static function calculateIntendedDeliveryDate(
+        RecruitmentCandidateInternalReminder $reminder,
+        RecruitmentCandidate $candidate,
+        string $companyTimezone,
+    ): ?string {
+        if ($reminder->schedule_type === CandidateReminderScheduleType::Interview->value) {
+            if ($candidate->interview_scheduled_at === null) {
+                return null;
+            }
+
+            $scheduledDate = CarbonImmutable::instance($candidate->interview_scheduled_at)
+                ->setTimezone($companyTimezone)
+                ->startOfDay();
+
+            return match ($reminder->milestone) {
+                '1_day_before' => $scheduledDate->subDay()->toDateString(),
+                'day_of' => $scheduledDate->toDateString(),
+                default => null,
+            };
+        }
+
+        if (in_array($reminder->schedule_type, [
+            CandidateReminderScheduleType::Joining->value,
+            CandidateReminderScheduleType::OverdueJoining->value,
+        ], true)) {
+            if ($candidate->expected_joining_date === null) {
+                return null;
+            }
+
+            $dateStr = CandidateOfferDateValidation::extractDateOnlyString($candidate->expected_joining_date);
+            if ($dateStr === null) {
+                return null;
+            }
+
+            $expectedDate = CarbonImmutable::createFromFormat('!Y-m-d', $dateStr, $companyTimezone);
+
+            if ($reminder->schedule_type === CandidateReminderScheduleType::Joining->value) {
+                return match ($reminder->milestone) {
+                    '7_days_before' => $expectedDate->subDays(7)->toDateString(),
+                    '3_days_before' => $expectedDate->subDays(3)->toDateString(),
+                    'day_of' => $expectedDate->toDateString(),
+                    default => null,
+                };
+            }
+
+            if (preg_match('/^overdue_(\d+)$/', (string) $reminder->milestone, $matches)) {
+                $days = (int) $matches[1];
+
+                return $expectedDate->addDays($days)->toDateString();
+            }
+        }
+
+        return null;
+    }
+
     public function handle(): void
     {
         $reminderId = (int) ($this->payload['reminder_id'] ?? 0);
@@ -95,6 +154,16 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
                 return;
             }
 
+            $company = Company::query()->where('id', (int) $locked->company_id)->first();
+            if ($company === null || $company->status !== 'active') {
+                $locked->update([
+                    'status' => CandidateReminderStatus::Skipped->value,
+                    'skip_reason' => 'inactive_company',
+                ]);
+
+                return;
+            }
+
             $candidate = $locked->candidate()->with(['requirement'])->first();
             if ($candidate === null || (int) $candidate->company_id !== (int) $locked->company_id) {
                 $locked->update([
@@ -125,7 +194,39 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
                 return;
             }
 
+            $hasActiveMembership = app(ResolveCompanyAccess::class)->canAccess($recipient, (int) $locked->company_id);
+            if (! $hasActiveMembership) {
+                $locked->update([
+                    'status' => CandidateReminderStatus::Skipped->value,
+                    'skip_reason' => 'revoked_membership',
+                ]);
+
+                return;
+            }
+
+            // Revalidate current recipient qualification against the requirement
+            $isAssignedRecruiter = $requirement->assigned_to !== null && (int) $requirement->assigned_to === (int) $recipient->id;
+            $isFallback = false;
+            if ($requirement->submitted_by !== null) {
+                $isFallback = (int) $requirement->submitted_by === (int) $recipient->id;
+            } elseif ($requirement->created_by !== null) {
+                $isFallback = (int) $requirement->created_by === (int) $recipient->id;
+            }
+            $isConfiguredCc = $requirement->notificationRecipients()
+                ->where('user_id', $recipient->id)
+                ->exists();
+
+            if (! $isAssignedRecruiter && ! $isFallback && ! $isConfiguredCc) {
+                $locked->update([
+                    'status' => CandidateReminderStatus::Skipped->value,
+                    'skip_reason' => 'unqualified_recipient',
+                ]);
+
+                return;
+            }
+
             $companyTimezone = CompanyTimezone::forCompanyId((int) $locked->company_id);
+            $todayLocal = CarbonImmutable::now($companyTimezone)->startOfDay()->toDateString();
 
             if ($locked->schedule_type === CandidateReminderScheduleType::Interview->value) {
                 if ($candidate->stage !== CandidateStage::Interview || $candidate->interview_outcome !== null || $candidate->interview_scheduled_at === null) {
@@ -142,6 +243,34 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
                     $locked->update([
                         'status' => CandidateReminderStatus::Skipped->value,
                         'skip_reason' => 'interview_rescheduled',
+                    ]);
+
+                    return;
+                }
+
+                $intendedDeliveryDate = self::calculateIntendedDeliveryDate($locked, $candidate, $companyTimezone);
+                if ($intendedDeliveryDate === null) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'invalid_milestone',
+                    ]);
+
+                    return;
+                }
+
+                if ($todayLocal > $intendedDeliveryDate) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'milestone_expired',
+                    ]);
+
+                    return;
+                }
+
+                if ($todayLocal < $intendedDeliveryDate) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'premature_delivery',
                     ]);
 
                     return;
@@ -172,6 +301,34 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
                     $locked->update([
                         'status' => CandidateReminderStatus::Skipped->value,
                         'skip_reason' => 'joining_rescheduled',
+                    ]);
+
+                    return;
+                }
+
+                $intendedDeliveryDate = self::calculateIntendedDeliveryDate($locked, $candidate, $companyTimezone);
+                if ($intendedDeliveryDate === null) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'invalid_milestone',
+                    ]);
+
+                    return;
+                }
+
+                if ($todayLocal > $intendedDeliveryDate) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'milestone_expired',
+                    ]);
+
+                    return;
+                }
+
+                if ($todayLocal < $intendedDeliveryDate) {
+                    $locked->update([
+                        'status' => CandidateReminderStatus::Skipped->value,
+                        'skip_reason' => 'premature_delivery',
                     ]);
 
                     return;

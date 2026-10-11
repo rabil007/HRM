@@ -220,3 +220,144 @@ test('CandidateOfferDateValidation respects company timezone for relative event 
         );
     })->toThrow(ValidationException::class);
 });
+
+test('CandidateOfferDateValidation extracts pure Y-m-d calendar dates without timezone shifting across differing app and company timezones', function (): void {
+    // Differing timezone scenario:
+    // Application timezone is UTC. Company timezone is America/New_York (UTC-4).
+    $tz = 'America/New_York';
+
+    // 1. Strings with various formats: standard Y-m-d, ISO string, and full datetime string
+    $extracted1 = CandidateOfferDateValidation::extractDateOnlyString('2026-10-15');
+    $extracted2 = CandidateOfferDateValidation::extractDateOnlyString('2026-10-15T00:00:00.000000Z');
+    $extracted3 = CandidateOfferDateValidation::extractDateOnlyString('2026-10-15 00:00:00');
+    $carbonUtc = CarbonImmutable::parse('2026-10-15 00:00:00', 'UTC');
+    $extracted4 = CandidateOfferDateValidation::extractDateOnlyString($carbonUtc);
+
+    expect($extracted1)->toBe('2026-10-15')
+        ->and($extracted2)->toBe('2026-10-15')
+        ->and($extracted3)->toBe('2026-10-15')
+        ->and($extracted4)->toBe('2026-10-15');
+
+    // 2. Passing Carbon instance from Eloquent date cast (created in app.timezone UTC)
+    // When parsed in company timezone, it MUST remain 2026-10-15, never shifting to 2026-10-14!
+    $parsed = CandidateOfferDateValidation::parseDateOnly($carbonUtc, $tz, 'offer_date');
+    expect($parsed?->toDateString())->toBe('2026-10-15')
+        ->and($parsed?->timezoneName)->toBe($tz)
+        ->and($parsed?->format('H:i:s'))->toBe('00:00:00');
+
+    // Test with opposite direction timezone: Pacific/Auckland (UTC+13)
+    $parsedAuckland = CandidateOfferDateValidation::parseDateOnly($carbonUtc, 'Pacific/Auckland', 'offer_date');
+    expect($parsedAuckland?->toDateString())->toBe('2026-10-15')
+        ->and($parsedAuckland?->timezoneName)->toBe('Pacific/Auckland');
+});
+
+test('joining countdown in candidate presenter avoids fractional-day truncation and calculates exact calendar days for today, tomorrow, yesterday, and DST', function (): void {
+    $tz = 'America/New_York';
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyNY->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Countdown Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Analyst',
+        'requirement_number_snapshot' => 'REQ-TZ-1',
+    ]);
+
+    // Test near midnight boundary late at night: 23:45 in NY time
+    // In UTC, this is next day: 2026-10-16 03:45 UTC
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-16 03:45:00', 'UTC'));
+
+    // Today in NY is 2026-10-15: candidate expected joining is 2026-10-15 -> Joining today (diff 0)
+    $presented = CandidatePresenter::toShowArray($candidate, $this->user, $tz);
+    expect($presented['joining']['schedule_urgency'])->toBe('today')
+        ->and($presented['joining']['schedule_days_diff'])->toBe(0)
+        ->and($presented['joining']['schedule_label'])->toBe('Joining today');
+
+    // Tomorrow: expected joining is 2026-10-16 -> Joining in 1 day (diff 1)
+    $candidate->update(['expected_joining_date' => '2026-10-16']);
+    $presentedTomorrow = CandidatePresenter::toShowArray($candidate->fresh(), $this->user, $tz);
+    expect($presentedTomorrow['joining']['schedule_urgency'])->toBe('upcoming')
+        ->and($presentedTomorrow['joining']['schedule_days_diff'])->toBe(1)
+        ->and($presentedTomorrow['joining']['schedule_label'])->toBe('Joining in 1 day');
+
+    // Yesterday (overdue): expected joining was 2026-10-14 -> Overdue by 1 day (diff 1)
+    $candidate->update(['expected_joining_date' => '2026-10-14']);
+    $presentedYesterday = CandidatePresenter::toShowArray($candidate->fresh(), $this->user, $tz);
+    expect($presentedYesterday['joining']['schedule_urgency'])->toBe('overdue')
+        ->and($presentedYesterday['joining']['schedule_days_diff'])->toBe(1)
+        ->and($presentedYesterday['joining']['schedule_label'])->toBe('Overdue by 1 day');
+
+    // Near midnight boundary early in the morning: 00:15 in NY time (04:15 UTC)
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 04:15:00', 'UTC'));
+    $candidate->update(['expected_joining_date' => '2026-10-15']);
+    $presentedEarly = CandidatePresenter::toShowArray($candidate->fresh(), $this->user, $tz);
+    expect($presentedEarly['joining']['schedule_urgency'])->toBe('today')
+        ->and($presentedEarly['joining']['schedule_days_diff'])->toBe(0)
+        ->and($presentedEarly['joining']['schedule_label'])->toBe('Joining today');
+
+    // Test across DST boundary: America/New_York switches from EDT to EST on Nov 1, 2026 (25-hour day)
+    // Current time: Oct 31, 2026 12:00 NY (= 16:00 UTC)
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-31 16:00:00', 'UTC'));
+    $candidate->update(['expected_joining_date' => '2026-11-02']); // 2 calendar days later
+    $presentedDst = CandidatePresenter::toShowArray($candidate->fresh(), $this->user, $tz);
+    // Even though 49 hours elapse (25h on Nov 1), round() ensures exactly 2 days without fractional truncation
+    expect($presentedDst['joining']['schedule_urgency'])->toBe('upcoming')
+        ->and($presentedDst['joining']['schedule_days_diff'])->toBe(2)
+        ->and($presentedDst['joining']['schedule_label'])->toBe('Joining in 2 days');
+});
+
+test('same-day historical offer sending and acceptance validates accurately without error', function (): void {
+    // Current time is now 2026-10-20. Testing historical record entry for 2026-10-10.
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyNY->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Historical Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-10',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Analyst',
+        'requirement_number_snapshot' => 'REQ-TZ-1',
+    ]);
+
+    $offer = new RecruitmentCandidateOffer([
+        'company_id' => $this->companyNY->id,
+        'offer_date' => '2026-10-10',
+    ]);
+
+    // Sent at 00:01:00 on the same day in NY (just past midnight)
+    $sentAt = CandidateOfferDateValidation::resolveAndValidateSentAt(
+        $this->companyNY,
+        $offer,
+        '2026-10-10 00:01:00',
+    );
+    expect($sentAt)->not->toBeNull()
+        ->and($sentAt->setTimezone('America/New_York')->toDateString())->toBe('2026-10-10');
+
+    $offer->sent_at = $sentAt;
+
+    // Accepted at 23:59:00 on the same day in NY (just before midnight)
+    $acceptedAt = CandidateOfferDateValidation::resolveAndValidateAcceptedAt(
+        $this->companyNY,
+        $offer,
+        '2026-10-10 23:59:00',
+    );
+    expect($acceptedAt)->not->toBeNull()
+        ->and($acceptedAt->setTimezone('America/New_York')->toDateString())->toBe('2026-10-10');
+
+    $offer->accepted_at = $acceptedAt;
+
+    // Actual joining date on 2026-10-10 (same day)
+    $actualJoiningResult = CandidateOfferDateValidation::resolveAndValidateActualJoiningDate(
+        $this->companyNY,
+        $candidate,
+        $offer,
+        '2026-10-10',
+    );
+    expect($actualJoiningResult['actual_joining_date'])->toBe('2026-10-10');
+});

@@ -1,9 +1,12 @@
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import {
     CalendarCheck,
     AlertTriangle,
     Undo2,
     CheckCircle2,
+    UserPlus,
+    User,
+    Link2,
 } from 'lucide-react';
 import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -23,6 +26,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { nowInCompanyDate } from '@/lib/company-timezone';
+import {
+    joiningKnownGeneralError,
+    joiningUnrenderedErrors,
+} from '../lib/joining-form-errors';
 import type { CandidateDetail } from '../types';
 import { CandidateJoiningScheduleBadge } from './candidate-stage-badge';
 
@@ -44,6 +51,13 @@ export function CandidateJoiningPanel({
     const [isReadinessOpen, setIsReadinessOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [isCorrectOpen, setIsCorrectOpen] = useState(false);
+    const [isLinkOpen, setIsLinkOpen] = useState(false);
+
+    const canConvert = joining?.can_convert ?? candidate.can_convert;
+    const conversionStatus =
+        joining?.conversion_status ?? candidate.conversion_status;
+    const linkedEmployee =
+        joining?.linked_employee ?? candidate.linked_employee;
 
     const companyToday = nowInCompanyDate(candidate.timezone);
 
@@ -77,6 +91,20 @@ export function CandidateJoiningPanel({
 
     // Correct / Undo Form
     const correctForm = useForm({
+        reason: '',
+        lock_version: candidate.lock_version,
+    });
+
+    // Link Existing Employee Form
+    const linkForm = useForm<{
+        employee_id: string;
+        confirmed: boolean;
+        reason: string;
+        lock_version: number;
+        candidate?: string;
+    }>({
+        employee_id: '',
+        confirmed: false,
         reason: '',
         lock_version: candidate.lock_version,
     });
@@ -127,21 +155,45 @@ export function CandidateJoiningPanel({
         );
     };
 
-    const readinessGeneralError =
-        (readinessForm.errors as Record<string, string | undefined>).error ||
-        (readinessForm.errors as Record<string, string | undefined>).general ||
-        (readinessForm.errors as Record<string, string | undefined>)
-            .lock_version;
+    const handleLinkSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        linkForm.post(
+            `/organization/recruitment/candidates/${candidate.id}/link-employee`,
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsLinkOpen(false);
+                    linkForm.reset();
+                },
+            },
+        );
+    };
 
-    const confirmGeneralError =
-        (confirmForm.errors as Record<string, string | undefined>).error ||
-        (confirmForm.errors as Record<string, string | undefined>).general ||
-        (confirmForm.errors as Record<string, string | undefined>).lock_version;
+    const readinessGeneralError = joiningKnownGeneralError(
+        readinessForm.errors,
+    );
+    const readinessUnrenderedErrors = joiningUnrenderedErrors(
+        readinessForm.errors,
+        [
+            'expected_joining_date',
+            'joining_readiness_status',
+            'joining_readiness_notes',
+            'joining_blocker_notes',
+            'reason',
+        ],
+    );
 
-    const correctGeneralError =
-        (correctForm.errors as Record<string, string | undefined>).error ||
-        (correctForm.errors as Record<string, string | undefined>).general ||
-        (correctForm.errors as Record<string, string | undefined>).lock_version;
+    const confirmGeneralError = joiningKnownGeneralError(confirmForm.errors);
+    const confirmUnrenderedErrors = joiningUnrenderedErrors(
+        confirmForm.errors,
+        ['actual_joining_date', 'notes'],
+    );
+
+    const correctGeneralError = joiningKnownGeneralError(correctForm.errors);
+    const correctUnrenderedErrors = joiningUnrenderedErrors(
+        correctForm.errors,
+        ['reason'],
+    );
 
     const readinessStatus =
         joining?.readiness_status ??
@@ -164,6 +216,7 @@ export function CandidateJoiningPanel({
                             variant="outline"
                             size="sm"
                             onClick={() => {
+                                readinessForm.clearErrors();
                                 readinessForm.setData({
                                     expected_joining_date:
                                         joining?.expected_joining_date ??
@@ -197,6 +250,7 @@ export function CandidateJoiningPanel({
                             size="sm"
                             className="bg-emerald-600 text-white hover:bg-emerald-700"
                             onClick={() => {
+                                confirmForm.clearErrors();
                                 confirmForm.setData({
                                     actual_joining_date:
                                         joining?.expected_joining_date ??
@@ -213,12 +267,51 @@ export function CandidateJoiningPanel({
                         </Button>
                     )}
 
+                    {isJoined &&
+                        canConvert &&
+                        conversionStatus !== 'converted' && (
+                            <>
+                                <Button
+                                    asChild
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                                >
+                                    <Link
+                                        href={`/organization/employees/create?candidate_id=${candidate.id}`}
+                                    >
+                                        <UserPlus className="mr-1.5 size-4" />
+                                        Create Employee
+                                    </Link>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        linkForm.clearErrors();
+                                        linkForm.setData({
+                                            employee_id: '',
+                                            confirmed: false,
+                                            reason: '',
+                                            lock_version:
+                                                candidate.lock_version,
+                                        });
+                                        setIsLinkOpen(true);
+                                    }}
+                                >
+                                    <Link2 className="mr-1.5 size-4" />
+                                    Link Existing
+                                </Button>
+                            </>
+                        )}
+
                     {isJoined && candidate.can_correct_joined && (
                         <Button
                             variant="outline"
                             size="sm"
                             className="text-destructive hover:bg-destructive/10"
                             onClick={() => {
+                                correctForm.clearErrors();
                                 correctForm.setData({
                                     reason: '',
                                     lock_version: candidate.lock_version,
@@ -351,10 +444,70 @@ export function CandidateJoiningPanel({
                         )}
                     </div>
                 )}
+
+                {isJoined && (
+                    <div className="mt-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                    Employee Conversion:
+                                </span>
+                                {conversionStatus === 'converted' ? (
+                                    <Badge
+                                        variant="default"
+                                        className="bg-emerald-600 text-white hover:bg-emerald-600"
+                                    >
+                                        Converted
+                                    </Badge>
+                                ) : (
+                                    <Badge
+                                        variant="secondary"
+                                        className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                                    >
+                                        Pending HR Review
+                                    </Badge>
+                                )}
+                            </div>
+                            {conversionStatus === 'converted' &&
+                                linkedEmployee && (
+                                    <div className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground">
+                                            Linked Employee:
+                                        </span>
+                                        {linkedEmployee.can_view &&
+                                        linkedEmployee.id ? (
+                                            <Link
+                                                href={`/organization/employees/${linkedEmployee.id}`}
+                                                className="flex items-center gap-1 font-medium text-primary hover:underline"
+                                            >
+                                                <User className="size-3.5" />
+                                                {linkedEmployee.name} (
+                                                {linkedEmployee.employee_no})
+                                            </Link>
+                                        ) : (
+                                            <span className="flex items-center gap-1 font-medium text-muted-foreground">
+                                                <User className="size-3.5" />
+                                                Restricted
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+                        </div>
+                    </div>
+                )}
             </CardContent>
 
             {/* Dialog: Update Readiness */}
-            <Dialog open={isReadinessOpen} onOpenChange={setIsReadinessOpen}>
+            <Dialog
+                open={isReadinessOpen}
+                onOpenChange={(open) => {
+                    setIsReadinessOpen(open);
+
+                    if (!open) {
+                        readinessForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-lg">
                     <form
                         onSubmit={handleReadinessSubmit}
@@ -373,6 +526,15 @@ export function CandidateJoiningPanel({
                                 {readinessGeneralError}
                             </div>
                         )}
+
+                        {readinessUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -509,6 +671,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={readinessForm.processing}
                                 onClick={() => setIsReadinessOpen(false)}
                             >
                                 Cancel
@@ -527,7 +690,16 @@ export function CandidateJoiningPanel({
             </Dialog>
 
             {/* Dialog: Confirm Joined */}
-            <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+            <Dialog
+                open={isConfirmOpen}
+                onOpenChange={(open) => {
+                    setIsConfirmOpen(open);
+
+                    if (!open) {
+                        confirmForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-md">
                     <form onSubmit={handleConfirmSubmit} className="space-y-4">
                         <DialogHeader>
@@ -543,6 +715,15 @@ export function CandidateJoiningPanel({
                                 {confirmGeneralError}
                             </div>
                         )}
+
+                        {confirmUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -596,6 +777,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={confirmForm.processing}
                                 onClick={() => setIsConfirmOpen(false)}
                             >
                                 Cancel
@@ -615,7 +797,16 @@ export function CandidateJoiningPanel({
             </Dialog>
 
             {/* Dialog: Correct / Undo Joined */}
-            <Dialog open={isCorrectOpen} onOpenChange={setIsCorrectOpen}>
+            <Dialog
+                open={isCorrectOpen}
+                onOpenChange={(open) => {
+                    setIsCorrectOpen(open);
+
+                    if (!open) {
+                        correctForm.clearErrors();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-md">
                     <form onSubmit={handleCorrectSubmit} className="space-y-4">
                         <DialogHeader>
@@ -633,6 +824,15 @@ export function CandidateJoiningPanel({
                                 {correctGeneralError}
                             </div>
                         )}
+
+                        {correctUnrenderedErrors.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                            >
+                                {msg}
+                            </div>
+                        ))}
 
                         <div className="space-y-3">
                             <div className="space-y-1">
@@ -661,6 +861,7 @@ export function CandidateJoiningPanel({
                             <Button
                                 type="button"
                                 variant="outline"
+                                disabled={correctForm.processing}
                                 onClick={() => setIsCorrectOpen(false)}
                             >
                                 Cancel
@@ -673,6 +874,126 @@ export function CandidateJoiningPanel({
                                 {correctForm.processing
                                     ? 'Reverting...'
                                     : 'Undo Joined'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Dialog: Link Existing Employee */}
+            <Dialog
+                open={isLinkOpen}
+                onOpenChange={(open) => {
+                    setIsLinkOpen(open);
+
+                    if (!open) {
+                        linkForm.clearErrors();
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <form onSubmit={handleLinkSubmit} className="space-y-4">
+                        <DialogHeader>
+                            <DialogTitle>Link Existing Employee</DialogTitle>
+                            <DialogDescription>
+                                Link this joined candidate to an existing
+                                company employee profile. This action cannot be
+                                undone.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        {linkForm.errors.candidate && (
+                            <div className="rounded-md bg-destructive/15 p-2 text-xs text-destructive">
+                                {linkForm.errors.candidate}
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <div className="space-y-1">
+                                <Label htmlFor="link_employee_id">
+                                    Employee ID *
+                                </Label>
+                                <Input
+                                    id="link_employee_id"
+                                    type="number"
+                                    placeholder="Enter employee ID"
+                                    value={linkForm.data.employee_id}
+                                    onChange={(e) =>
+                                        linkForm.setData(
+                                            'employee_id',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError
+                                    message={linkForm.errors.employee_id}
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label htmlFor="link_reason">
+                                    Audit Reason *
+                                </Label>
+                                <Textarea
+                                    id="link_reason"
+                                    rows={2}
+                                    placeholder="Reason for manual employee link"
+                                    value={linkForm.data.reason}
+                                    onChange={(e) =>
+                                        linkForm.setData(
+                                            'reason',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                <InputError message={linkForm.errors.reason} />
+                            </div>
+
+                            <div className="flex items-start gap-2 pt-2">
+                                <input
+                                    id="link_confirmed"
+                                    type="checkbox"
+                                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                    checked={linkForm.data.confirmed}
+                                    onChange={(e) =>
+                                        linkForm.setData(
+                                            'confirmed',
+                                            e.target.checked,
+                                        )
+                                    }
+                                />
+                                <Label
+                                    htmlFor="link_confirmed"
+                                    className="text-xs leading-normal text-muted-foreground"
+                                >
+                                    I confirm that this candidate corresponds to
+                                    the selected employee and should be
+                                    permanently linked.
+                                </Label>
+                            </div>
+                            <InputError message={linkForm.errors.confirmed} />
+                        </div>
+
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={linkForm.processing}
+                                onClick={() => setIsLinkOpen(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    linkForm.processing ||
+                                    !linkForm.data.confirmed ||
+                                    !linkForm.data.employee_id
+                                }
+                            >
+                                {linkForm.processing
+                                    ? 'Linking...'
+                                    : 'Confirm Link'}
                             </Button>
                         </DialogFooter>
                     </form>

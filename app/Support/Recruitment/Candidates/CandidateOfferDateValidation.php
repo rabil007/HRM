@@ -83,7 +83,7 @@ final class CandidateOfferDateValidation
         }
 
         if ($offer->offer_date !== null) {
-            $offerDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
+            $offerDay = self::parseDateOnly($offer->offer_date, $companyTimezone, 'offer_date');
 
             if ($sentDay->lessThan($offerDay)) {
                 throw ValidationException::withMessages([
@@ -132,7 +132,7 @@ final class CandidateOfferDateValidation
                 ->startOfDay();
             $referenceLabel = 'date the offer was sent';
         } elseif ($offer->offer_date !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
+            $referenceDay = self::parseDateOnly($offer->offer_date, $companyTimezone, 'offer_date');
             $referenceLabel = 'offer date';
         }
 
@@ -182,7 +182,7 @@ final class CandidateOfferDateValidation
                 ->startOfDay();
             $referenceLabel = 'date the offer was sent';
         } elseif ($offer->offer_date !== null) {
-            $referenceDay = CarbonImmutable::parse($offer->offer_date, $companyTimezone)->startOfDay();
+            $referenceDay = self::parseDateOnly($offer->offer_date, $companyTimezone, 'offer_date');
             $referenceLabel = 'offer date';
         }
 
@@ -239,7 +239,7 @@ final class CandidateOfferDateValidation
                 ]);
             }
         } elseif ($acceptedOffer->offer_date !== null) {
-            $offerDay = CarbonImmutable::parse($acceptedOffer->offer_date, $companyTimezone)->startOfDay();
+            $offerDay = self::parseDateOnly($acceptedOffer->offer_date, $companyTimezone, 'offer_date');
 
             if ($parsedDate->lessThan($offerDay)) {
                 throw ValidationException::withMessages([
@@ -257,10 +257,39 @@ final class CandidateOfferDateValidation
         ];
     }
 
-    private static function parseDateOnly(string $value, string $timezone, string $field): CarbonImmutable
+    /**
+     * Extracts a pure calendar date string (Y-m-d) before any timezone interpretation.
+     */
+    public static function extractDateOnlyString(mixed $value): ?string
     {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if ($value instanceof CarbonInterface || $value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d');
+        }
+
+        $str = trim((string) $value);
+        if (preg_match('/^(\d{4}-\d{2}-\d{2})/', $str, $matches)) {
+            return $matches[1];
+        }
+
+        return $str;
+    }
+
+    public static function parseDateOnly(mixed $value, string $timezone, string $field): CarbonImmutable
+    {
+        $extracted = self::extractDateOnlyString($value);
+
+        if ($extracted === null || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $extracted)) {
+            throw ValidationException::withMessages([
+                $field => 'The date format is invalid.',
+            ]);
+        }
+
         try {
-            return CarbonImmutable::parse($value, $timezone)->startOfDay();
+            return CarbonImmutable::createFromFormat('!Y-m-d', $extracted, $timezone);
         } catch (Throwable) {
             throw ValidationException::withMessages([
                 $field => 'The date format is invalid.',

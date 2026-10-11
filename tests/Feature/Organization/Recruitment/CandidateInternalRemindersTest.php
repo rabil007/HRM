@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Support\Notifications\BuildUnifiedNotificationFeed;
 use App\Support\Recruitment\Candidates\DispatchCandidateInternalReminders;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Spatie\Permission\Models\Permission;
@@ -506,4 +507,815 @@ test('delivered internal reminder appears in unified feed and can be marked as r
 test('dispatch artisan command runs successfully with force flag', function (): void {
     $this->artisan('recruitment:dispatch-candidate-reminders', ['--force' => true, '--company' => $this->company->id])
         ->assertSuccessful();
+});
+
+test('revalidates recipient qualification at delivery and skips reassigned recruiter, removed CC, and revoked memberships', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 05:30:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Recipient Test Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    // 1. Reassigned recruiter: Reminder was queued for recruiter, but requirement was reassigned to submitter
+    $recruiterReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now(),
+    ]);
+
+    // Reassign requirement to submitter and remove recruiter from CC
+    $this->requirement->update(['assigned_to' => $this->submitter->id]);
+    RecruitmentRequirementNotificationRecipient::query()
+        ->where('recruitment_requirement_id', $this->requirement->id)
+        ->where('user_id', $this->recruiter->id)
+        ->delete();
+
+    $job1 = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $recruiterReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job1->handle();
+
+    $recruiterReminder->refresh();
+    expect($recruiterReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($recruiterReminder->skip_reason)->toBe('unqualified_recipient');
+
+    // 2. Removed CC: Reminder queued for CC user, but CC user was removed before delivery
+    $ccReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->ccUser->id,
+        'delivery_key' => "user_{$this->ccUser->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now(),
+    ]);
+
+    RecruitmentRequirementNotificationRecipient::query()
+        ->where('recruitment_requirement_id', $this->requirement->id)
+        ->where('user_id', $this->ccUser->id)
+        ->delete();
+
+    $job2 = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $ccReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job2->handle();
+
+    $ccReminder->refresh();
+    expect($ccReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($ccReminder->skip_reason)->toBe('unqualified_recipient');
+
+    // 3. Revoked membership: Reminder queued for newly assigned recruiter, but membership was revoked
+    $revokedUser = User::factory()->create(['company_id' => $this->company->id, 'status' => 'active']);
+    DB::table('company_user')->insert([
+        'company_id' => $this->company->id,
+        'user_id' => $revokedUser->id,
+        'status' => 'inactive', // revoked membership
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $this->requirement->update(['assigned_to' => $revokedUser->id]);
+
+    $revokedReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $revokedUser->id,
+        'delivery_key' => "user_{$revokedUser->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now(),
+    ]);
+
+    $job3 = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $revokedReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job3->handle();
+
+    $revokedReminder->refresh();
+    expect($revokedReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($revokedReminder->skip_reason)->toBe('revoked_membership');
+
+    // 4. Reassigned recruiter who qualifies through active CC delivers successfully
+    // Former recruiter added to CC notification recipients
+    RecruitmentRequirementNotificationRecipient::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'user_id' => $this->recruiter->id,
+    ]);
+
+    $candidate2 = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Recipient Test Candidate 2',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $qualifyingReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate2->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now(),
+    ]);
+
+    $job4 = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $qualifyingReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job4->handle();
+
+    $qualifyingReminder->refresh();
+    expect($qualifyingReminder->status)->toBe(CandidateReminderStatus::Sent->value)
+        ->and($qualifyingReminder->sent_at)->not->toBeNull();
+});
+
+test('expires outdated queued reminders when delivered after milestone date across midnight or multiple days', function (): void {
+    // Current time is 2026-10-15 05:30:00 UTC (09:30 Dubai)
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 05:30:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Delayed Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-14', // Milestone date was yesterday!
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    // Queued reminder whose intended delivery was day_of 2026-10-14 (yesterday)
+    $expiredReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-14',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-14',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now()->subDay(),
+    ]);
+
+    // Delivery job executes today (delayed across midnight/multiple days)
+    $job = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $expiredReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job->handle();
+
+    $expiredReminder->refresh();
+    expect($expiredReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($expiredReminder->skip_reason)->toBe('milestone_expired');
+
+    // Test rescheduling recheck: candidate date rescheduled from 2026-10-15 to 2026-10-20
+    $candidate->update(['expected_joining_date' => '2026-10-20']);
+    $rescheduledReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15', // Old schedule key
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now(),
+    ]);
+
+    $job2 = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $rescheduledReminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job2->handle();
+
+    $rescheduledReminder->refresh();
+    expect($rescheduledReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($rescheduledReminder->skip_reason)->toBe('joining_rescheduled');
+});
+
+test('independent recovery sweep re-queues eligible records and skips expired or obsolete records atomically', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 05:30:00', 'UTC'));
+
+    $candidateToday = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Sweep Today Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $candidateYesterday = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Sweep Yesterday Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-14',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    // 1. Record stranded overnight from yesterday: stuck in Queued
+    $strandedReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidateYesterday->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-14',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-14',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now()->subHours(12),
+    ]);
+
+    // 2. Record for today stuck in Pending (queue dispatch failure or worker crash)
+    $failedDispatchReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidateToday->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    // 3. Obsolete record: candidate already moved to Joined
+    $obsoleteCandidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Obsolete Joined Candidate',
+        'stage' => CandidateStage::Joined,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+    $obsoleteReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $obsoleteCandidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    Queue::fake();
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+    $recovery = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+
+    // Stranded record skipped with milestone_expired
+    $strandedReminder->refresh();
+    expect($strandedReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($strandedReminder->skip_reason)->toBe('milestone_expired');
+
+    // Obsolete record skipped with candidate_stage_changed
+    $obsoleteReminder->refresh();
+    expect($obsoleteReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($obsoleteReminder->skip_reason)->toBe('candidate_stage_changed');
+
+    // Failed dispatch record recovered and claimed atomically
+    $failedDispatchReminder->refresh();
+    expect($failedDispatchReminder->status)->toBe(CandidateReminderStatus::Queued->value)
+        ->and($failedDispatchReminder->claimed_at)->not->toBeNull()
+        ->and($recovery['recovered'])->toBe(1)
+        ->and($recovery['skipped'])->toBe(2);
+
+    Queue::assertPushed(DeliverCandidateInternalReminderJob::class, function ($job) use ($failedDispatchReminder) {
+        return $job->payload['reminder_id'] === $failedDispatchReminder->id;
+    });
+
+    // Idempotency: running recovery immediately again skips the recently claimed record
+    Queue::fake();
+    $recovery2 = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+    expect($recovery2['recovered'])->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+test('competing claims allow only the first claimant to enqueue delivery and terminal statuses remain unchanged', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Competing Claim Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $reminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    Queue::fake();
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    // Competing claimant 1
+    $outcome1 = $dispatcher->claimAndEnqueue($reminder->id, $this->company->id);
+    expect($outcome1)->toBe('enqueued');
+
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Queued->value)
+        ->and($reminder->claimed_at)->not->toBeNull();
+
+    // Competing claimant 2 racing concurrently
+    $outcome2 = $dispatcher->claimAndEnqueue($reminder->id, $this->company->id);
+    expect($outcome2)->toBe('skipped');
+
+    // Only one delivery job was enqueued
+    Queue::assertPushed(DeliverCandidateInternalReminderJob::class, 1);
+
+    // Delivery job executes
+    $job = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $reminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job->handle();
+
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Sent->value)
+        ->and($reminder->sent_at)->not->toBeNull()
+        ->and($reminder->title)->toContain('Joining Today: Competing Claim Candidate');
+
+    // Subsequent claim attempt on terminal Sent record is rejected
+    $outcome3 = $dispatcher->claimAndEnqueue($reminder->id, $this->company->id);
+    expect($outcome3)->toBe('skipped');
+
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Sent->value);
+
+    // Assert unified notification feed receives exactly one notification
+    $feed = app(BuildUnifiedNotificationFeed::class)->forUser($this->recruiter, $this->company->id);
+    $remindersInFeed = collect($feed['items'])->filter(fn ($item) => $item['id'] === "candidate_internal_reminder:{$reminder->id}");
+    expect($remindersInFeed)->toHaveCount(1);
+});
+
+test('stale dispatcher racing with delivery does not overwrite terminal Sent or Skipped status', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Racing Delivery Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $sentReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Sent->value,
+        'title' => 'Joining Today: Racing Delivery Candidate',
+        'summary' => 'Original delivered summary',
+        'url' => route('organization.recruitment.candidates.show', $candidate->id),
+        'sent_at' => now()->subMinutes(15),
+    ]);
+
+    $skippedReminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => '3_days_before',
+        'target_date' => '2026-10-12',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Skipped->value,
+        'skip_reason' => 'milestone_expired',
+    ]);
+
+    Queue::fake();
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    // 1. Race against Sent record
+    $sentResult = $dispatcher->claimAndEnqueue($sentReminder->id, $this->company->id);
+    expect($sentResult)->toBe('skipped');
+
+    $sentReminder->refresh();
+    expect($sentReminder->status)->toBe(CandidateReminderStatus::Sent->value)
+        ->and($sentReminder->title)->toBe('Joining Today: Racing Delivery Candidate')
+        ->and($sentReminder->summary)->toBe('Original delivered summary')
+        ->and($sentReminder->sent_at)->not->toBeNull();
+
+    // 2. Race against Skipped record
+    $skippedResult = $dispatcher->claimAndEnqueue($skippedReminder->id, $this->company->id);
+    expect($skippedResult)->toBe('skipped');
+
+    $skippedReminder->refresh();
+    expect($skippedReminder->status)->toBe(CandidateReminderStatus::Skipped->value)
+        ->and($skippedReminder->skip_reason)->toBe('milestone_expired');
+
+    Queue::assertNothingPushed();
+});
+
+test('repeated recovery sweeps do not publish duplicate notifications', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Repeated Recovery Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    // Record stuck in Queued from 15 minutes ago (eligible for recovery)
+    $reminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now()->subMinutes(15),
+    ]);
+
+    Queue::fake();
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    // Sweep 1: recovers the stale record
+    $sweep1 = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+    expect($sweep1['recovered'])->toBe(1);
+    Queue::assertPushed(DeliverCandidateInternalReminderJob::class, 1);
+
+    // Sweep 2 immediately afterwards: record was just claimed, so it is skipped
+    Queue::fake();
+    $sweep2 = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+    expect($sweep2['recovered'])->toBe(0);
+    Queue::assertNothingPushed();
+
+    // Delivery job runs to completion
+    $job = new DeliverCandidateInternalReminderJob([
+        'reminder_id' => $reminder->id,
+        'company_id' => $this->company->id,
+    ]);
+    $job->handle();
+
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Sent->value);
+
+    // Sweep 3 after delivery: terminal Sent record is not recovered
+    Queue::fake();
+    $sweep3 = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+    expect($sweep3['recovered'])->toBe(0);
+    Queue::assertNothingPushed();
+
+    // Verify unified feed has exactly one notification published
+    $feed = app(BuildUnifiedNotificationFeed::class)->forUser($this->recruiter, $this->company->id);
+    $items = collect($feed['items'])->filter(fn ($item) => $item['id'] === "candidate_internal_reminder:{$reminder->id}");
+    expect($items)->toHaveCount(1);
+});
+
+test('enqueue failure rolls back claim transaction preserving record status for retry', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Enqueue Failure Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $reminder = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    // Mock bus dispatcher to throw when dispatching job
+    $originalDispatcher = app(Dispatcher::class);
+    $mockDispatcher = Mockery::mock(Dispatcher::class);
+    $mockDispatcher->shouldReceive('dispatch')->andThrow(new RuntimeException('Simulated queue service failure'));
+    app()->instance(Dispatcher::class, $mockDispatcher);
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    // 1. Claim fails during enqueue
+    $outcome = $dispatcher->claimAndEnqueue($reminder->id, $this->company->id);
+    expect($outcome)->toBe('error');
+
+    // 2. Transaction rolled back: status remains Pending, claimed_at remains null
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Pending->value)
+        ->and($reminder->claimed_at)->toBeNull();
+
+    // 3. Restore dispatcher and retry: claim succeeds
+    app()->instance(Dispatcher::class, $originalDispatcher);
+    Queue::fake();
+
+    $retryOutcome = $dispatcher->claimAndEnqueue($reminder->id, $this->company->id);
+    expect($retryOutcome)->toBe('enqueued');
+
+    $reminder->refresh();
+    expect($reminder->status)->toBe(CandidateReminderStatus::Queued->value)
+        ->and($reminder->claimed_at)->not->toBeNull();
+
+    Queue::assertPushed(DeliverCandidateInternalReminderJob::class, 1);
+});
+
+test('normal enqueue failure propagates error count through forCompany and dispatchAll, and command exits with failure', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Error Dispatch Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    $originalDispatcher = app(Dispatcher::class);
+    $mockDispatcher = Mockery::mock(Dispatcher::class);
+    $mockDispatcher->shouldReceive('dispatch')->andThrow(new RuntimeException('Queue dispatch failed'));
+    app()->instance(Dispatcher::class, $mockDispatcher);
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    // 1. forCompany reflects error count
+    $forCompanyResult = $dispatcher->forCompany($this->company->id, true);
+    expect($forCompanyResult['errors'])->toBeGreaterThanOrEqual(1)
+        ->and($forCompanyResult['queued'])->toBe(0);
+
+    // 2. dispatchAll reflects error count
+    $dispatchAllResult = $dispatcher->dispatchAll(true, $this->company->id);
+    expect($dispatchAllResult['errors'])->toBeGreaterThanOrEqual(1);
+
+    // 3. Artisan command outputs errors and returns failure exit code (1)
+    $this->artisan('recruitment:dispatch-candidate-reminders', [
+        '--force' => true,
+        '--company' => $this->company->id,
+    ])
+        ->expectsOutputToContain('errors')
+        ->assertExitCode(1);
+
+    app()->instance(Dispatcher::class, $originalDispatcher);
+});
+
+test('recovery failure propagates error count through forCompany and dispatchAll, and command exits with failure', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Recovery Error Candidate',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+
+    RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Queued->value,
+        'claimed_at' => now()->subMinutes(15),
+    ]);
+
+    $originalDispatcher = app(Dispatcher::class);
+    $mockDispatcher = Mockery::mock(Dispatcher::class);
+    $mockDispatcher->shouldReceive('dispatch')->andThrow(new RuntimeException('Queue worker down'));
+    app()->instance(Dispatcher::class, $mockDispatcher);
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    $recoveryResult = $dispatcher->recoverStaleRemindersForCompany($this->company->id);
+    expect($recoveryResult['errors'])->toBe(1)
+        ->and($recoveryResult['recovered'])->toBe(0);
+
+    $forCompanyResult = $dispatcher->forCompany($this->company->id, true);
+    expect($forCompanyResult['errors'])->toBeGreaterThanOrEqual(1);
+
+    $this->artisan('recruitment:dispatch-candidate-reminders', [
+        '--force' => true,
+        '--company' => $this->company->id,
+    ])->assertExitCode(1);
+
+    app()->instance(Dispatcher::class, $originalDispatcher);
+});
+
+test('mixed results accurately report enqueued, skipped, and error counts and subsequent retry succeeds', function (): void {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
+
+    // Candidate 1: will fail enqueue
+    $candidate1 = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Will Fail',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+    $reminder1 = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate1->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    // Candidate 2: already skipped/expired
+    $candidate2 = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Already Skipped',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+    $reminder2 = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate2->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Skipped->value,
+        'skip_reason' => 'milestone_expired',
+    ]);
+
+    // Candidate 3: will succeed enqueue
+    $candidate3 = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Will Succeed',
+        'stage' => CandidateStage::Joining,
+        'expected_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Engineer',
+        'requirement_number_snapshot' => 'REQ-REM-1',
+    ]);
+    $reminder3 = RecruitmentCandidateInternalReminder::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate3->id,
+        'schedule_type' => CandidateReminderScheduleType::Joining->value,
+        'schedule_key' => '2026-10-15',
+        'milestone' => 'day_of',
+        'target_date' => '2026-10-15',
+        'user_id' => $this->recruiter->id,
+        'delivery_key' => "user_{$this->recruiter->id}",
+        'status' => CandidateReminderStatus::Pending->value,
+    ]);
+
+    $originalDispatcher = app(Dispatcher::class);
+    $mockDispatcher = Mockery::mock(Dispatcher::class);
+    // reminder 1 fails
+    $mockDispatcher->shouldReceive('dispatch')->with(Mockery::on(function ($job) use ($reminder1) {
+        return ($job->payload['reminder_id'] ?? 0) === $reminder1->id;
+    }))->andThrow(new RuntimeException('Connection timeout'));
+    // reminder 3 succeeds
+    $mockDispatcher->shouldReceive('dispatch')->with(Mockery::on(function ($job) use ($reminder3) {
+        return ($job->payload['reminder_id'] ?? 0) === $reminder3->id;
+    }))->andReturnNull();
+    app()->instance(Dispatcher::class, $mockDispatcher);
+
+    $dispatcher = app(DispatchCandidateInternalReminders::class);
+
+    $res1 = $dispatcher->claimAndEnqueue($reminder1->id, $this->company->id);
+    expect($res1)->toBe('error');
+
+    $res2 = $dispatcher->claimAndEnqueue($reminder2->id, $this->company->id);
+    expect($res2)->toBe('skipped');
+
+    $res3 = $dispatcher->claimAndEnqueue($reminder3->id, $this->company->id);
+    expect($res3)->toBe('enqueued');
+
+    // Terminal statuses remained unchanged
+    $reminder2->refresh();
+    expect($reminder2->status)->toBe(CandidateReminderStatus::Skipped->value);
+
+    // Reminder 1 remained Pending after rollback
+    $reminder1->refresh();
+    expect($reminder1->status)->toBe(CandidateReminderStatus::Pending->value);
+
+    // Retry Reminder 1 with working queue
+    app()->instance(Dispatcher::class, $originalDispatcher);
+    Queue::fake();
+
+    $retryRes = $dispatcher->claimAndEnqueue($reminder1->id, $this->company->id);
+    expect($retryRes)->toBe('enqueued');
+
+    $reminder1->refresh();
+    expect($reminder1->status)->toBe(CandidateReminderStatus::Queued->value);
+
+    // Command now runs cleanly and returns SUCCESS (0)
+    $this->artisan('recruitment:dispatch-candidate-reminders', [
+        '--force' => true,
+        '--company' => $this->company->id,
+    ])
+        ->expectsOutputToContain('errors 0')
+        ->assertExitCode(0);
 });

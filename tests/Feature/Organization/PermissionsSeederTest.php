@@ -86,6 +86,9 @@ test('permissions seeder creates expected permissions and is idempotent', functi
     expect(Permission::query()->where('name', 'recruitment.candidates.move')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.candidates.manage')->exists())->toBeTrue();
     expect(Permission::query()->where('name', 'recruitment.candidates.cv.download')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'recruitment.candidates.convert')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'reports.recruitment.view')->exists())->toBeTrue();
+    expect(Permission::query()->where('name', 'reports.recruitment.export')->exists())->toBeTrue();
 
     expect(Permission::query()->where('name', 'company.settings.view')->exists())->toBeFalse();
     expect(Permission::query()->where('name', 'company.settings.update')->exists())->toBeFalse();
@@ -119,6 +122,9 @@ test('permission metadata follows current module categories without changing nam
         'recruitment.candidates.move' => 'Recruitment',
         'recruitment.candidates.manage' => 'Recruitment',
         'recruitment.candidates.cv.download' => 'Recruitment',
+        'recruitment.candidates.convert' => 'Recruitment',
+        'reports.recruitment.view' => 'Reports',
+        'reports.recruitment.export' => 'Reports',
     ];
 
     foreach ($groups as $name => $group) {
@@ -262,7 +268,7 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 25
+                return $recruitmentOptions->count() === 26
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
@@ -303,7 +309,14 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                     && $options->get('recruitment.candidates.offer.download')['group'] === 'Recruitment'
                     && $options->has('recruitment.candidates.joining.confirm')
                     && $options->get('recruitment.candidates.joining.confirm')['label'] === 'Confirm Candidate Joined'
-                    && $options->get('recruitment.candidates.joining.confirm')['group'] === 'Recruitment';
+                    && $options->get('recruitment.candidates.joining.confirm')['group'] === 'Recruitment'
+                    && $options->has('recruitment.candidates.convert')
+                    && $options->get('recruitment.candidates.convert')['label'] === 'Convert Candidate to Employee'
+                    && $options->get('recruitment.candidates.convert')['group'] === 'Recruitment'
+                    && $options->has('reports.recruitment.view')
+                    && $options->get('reports.recruitment.view')['group'] === 'Reports'
+                    && $options->has('reports.recruitment.export')
+                    && $options->get('reports.recruitment.export')['group'] === 'Reports';
             }),
         );
 });

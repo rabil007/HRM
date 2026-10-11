@@ -21,7 +21,7 @@ final class CreateEmployee
     {
         $data = $validated;
         $data['company_id'] = $companyId;
-        unset($data['rank_id']);
+        unset($data['rank_id'], $data['candidate_id'], $data['candidate_lock_version']);
 
         $documents = $data['documents'] ?? [];
         unset($data['documents']);
