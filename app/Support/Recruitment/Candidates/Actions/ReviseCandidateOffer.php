@@ -74,6 +74,12 @@ final class ReviseCandidateOffer
                 $data['expected_offer_status'] ?? $lockedOffer->status->value,
             );
 
+            if ($locked->employee_id !== null) {
+                throw ValidationException::withMessages([
+                    'candidate' => 'This offer cannot be revised because an employee record is already linked to this candidate.',
+                ]);
+            }
+
             if ($locked->stage === CandidateStage::Joined) {
                 throw ValidationException::withMessages([
                     'candidate' => 'Offers cannot be revised while candidate is in Joined stage. Undo joined first if revision is required.',

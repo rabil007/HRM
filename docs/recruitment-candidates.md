@@ -87,6 +87,7 @@ Forward path (manual only; no Client Approval stage):
 - **Revise** (manage + revise + reason):
   - Creates a new Draft revision and returns candidate to Offer/JOL.
   - **Joined candidate protection**: Offer revision is strictly rejected when candidate stage is `Joined` (enforced in `CandidateWorkflowAuthorization`, `ReviseCandidateOffer`, `ReviseCandidateOfferRequest`, and UI `can_revise` permission). Joining data and joined counts remain preserved. Revising requires first using the audited Undo Joined flow (`CorrectCandidateJoined`), which retains its downstream `employee_id` conversion safeguard.
+  - **Employee conversion protection**: Offer revision is also rejected whenever `employee_id` is set, regardless of candidate stage. The workflow capability and locked action both enforce this safeguard.
 
 ### Phase 3 (Joining Readiness, Confirmation & Reminders)
 
