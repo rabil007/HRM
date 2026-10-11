@@ -52,6 +52,7 @@ export function ReopenRequirementDialog({
 
     const isPreviouslyApproved = Boolean(
         ('approved_at' in requirement && requirement.approved_at) ||
+        ('opened_at' in requirement && requirement.opened_at) ||
         ('is_previously_approved' in requirement &&
             requirement.is_previously_approved),
     );

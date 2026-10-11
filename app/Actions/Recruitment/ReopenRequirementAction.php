@@ -42,7 +42,7 @@ final class ReopenRequirementAction
             }
 
             $fromStatus = $locked->status;
-            $isPreviouslyApproved = $locked->approved_at !== null;
+            $isPreviouslyApproved = $locked->approved_at !== null || $locked->opened_at !== null;
             $targetStatus = $isPreviouslyApproved ? RequirementStatus::Open : RequirementStatus::Draft;
 
             $updateData = [
