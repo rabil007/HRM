@@ -559,7 +559,9 @@ test('on hold intervals are excluded and filled or cancelled stop the clock', fu
 
     $this->actingAs($this->recruiter)
         ->withSession(['current_company_id' => $this->companyA->id])
-        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->post("/organization/recruitment/requirements/{$req->id}/fill", [
+            'reason' => 'Management override closure for clock test',
+        ])
         ->assertRedirect();
 
     $filled = CalculateActiveRecruitmentDuration::for($req->fresh()->load('approver'));

@@ -2,20 +2,26 @@
 
 namespace App\Actions\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementDeadlineExtension;
 use App\Models\RecruitmentRequirementHeadcountRevision;
+use App\Models\User;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
+use App\Support\Recruitment\RequirementWorkflowAuthorization;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class FillRequirementAction
 {
-    public function execute(RecruitmentRequirement $requirement, int $userId): RecruitmentRequirement
-    {
-        return DB::transaction(function () use ($requirement, $userId): RecruitmentRequirement {
+    public function execute(
+        RecruitmentRequirement $requirement,
+        int $userId,
+        ?string $reason = null,
+    ): RecruitmentRequirement {
+        return DB::transaction(function () use ($requirement, $userId, $reason): RecruitmentRequirement {
             /** @var RecruitmentRequirement $locked */
             $locked = RecruitmentRequirement::query()
                 ->where('id', $requirement->id)
@@ -60,6 +66,57 @@ final class FillRequirementAction
                 ]);
             }
 
+            // Calculate fulfillment per position line
+            $lines = $locked->lines()
+                ->with('position')
+                ->where('status', '!=', RequirementLineStatus::Cancelled)
+                ->lockForUpdate()
+                ->get();
+
+            $fulfillmentSnapshot = [];
+            $totalRemaining = 0;
+            $totalOverfill = 0;
+
+            foreach ($lines as $line) {
+                $joinedCount = $line->candidates()
+                    ->where('stage', CandidateStage::Joined->value)
+                    ->count();
+                $required = (int) $line->required_headcount;
+                $remaining = max(0, $required - $joinedCount);
+                $overfill = max(0, $joinedCount - $required);
+
+                $fulfillmentSnapshot[] = [
+                    'line_id' => (int) $line->id,
+                    'position_id' => (int) $line->position_id,
+                    'position_title' => $line->position?->title ?? "Position #{$line->position_id}",
+                    'required_headcount' => $required,
+                    'joined_count' => $joinedCount,
+                    'remaining_headcount' => $remaining,
+                    'overfill' => $overfill,
+                ];
+
+                $totalRemaining += $remaining;
+                $totalOverfill += $overfill;
+            }
+
+            $actor = User::query()->findOrFail($userId);
+            $trimmedReason = trim((string) $reason);
+
+            if ($totalRemaining > 0) {
+                // Unfilled positions remain: prevent ordinary Filled action unless authorized with management override and mandatory reason
+                if (! RequirementWorkflowAuthorization::canOverrideFill($actor)) {
+                    throw ValidationException::withMessages([
+                        'status' => "This requirement has {$totalRemaining} unfilled vacancy(ies). Marking it as filled requires management override authorization.",
+                    ]);
+                }
+
+                if ($trimmedReason === '') {
+                    throw ValidationException::withMessages([
+                        'reason' => 'A mandatory reason is required when marking a partially fulfilled requirement as filled.',
+                    ]);
+                }
+            }
+
             $fromStatus = $locked->status;
 
             $locked->update([
@@ -77,16 +134,33 @@ final class FillRequirementAction
                 $fromStatus,
                 RequirementStatus::Completed,
                 $userId,
+                $trimmedReason !== '' ? $trimmedReason : null,
+                [
+                    'unfilled_vacancies' => $totalRemaining,
+                    'overfill_count' => $totalOverfill,
+                    'partially_fulfilled' => $totalRemaining > 0,
+                    'fulfillment_snapshot' => $fulfillmentSnapshot,
+                ],
             );
 
-            activity('recruitment')
+            $activity = activity('recruitment')
                 ->causedBy($userId)
                 ->performedOn($locked)
                 ->withProperties([
                     'company_id' => $locked->company_id,
                     'requirement_number' => $locked->requirement_number,
-                ])
-                ->log("Requirement {$locked->requirement_number} marked as Filled/Completed.");
+                    'unfilled_vacancies' => $totalRemaining,
+                    'overfill_count' => $totalOverfill,
+                    'partially_fulfilled' => $totalRemaining > 0,
+                    'fulfillment_snapshot' => $fulfillmentSnapshot,
+                    'reason' => $trimmedReason !== '' ? $trimmedReason : null,
+                ]);
+
+            if ($totalRemaining > 0) {
+                $activity->log("Requirement {$locked->requirement_number} marked as Filled/Completed with management override ({$totalRemaining} unfilled vacancies). Reason: {$trimmedReason}");
+            } else {
+                $activity->log("Requirement {$locked->requirement_number} marked as Filled/Completed.");
+            }
 
             return $locked;
         });

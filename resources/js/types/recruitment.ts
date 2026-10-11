@@ -185,6 +185,9 @@ export type RequirementIndexRow = {
     can_decide_headcount_revision?: boolean;
     pending_headcount_revision?: RequirementHeadcountRevision | null;
     can_fill: boolean;
+    is_fully_fulfilled?: boolean;
+    unfilled_vacancies?: number;
+    can_override_fill?: boolean;
     can_cancel: boolean;
     can_transfer_ownership?: boolean;
     can_reopen: boolean;

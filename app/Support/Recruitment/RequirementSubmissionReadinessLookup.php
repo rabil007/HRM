@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment;
 
+use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use Illuminate\Support\Facades\DB;
@@ -136,6 +137,9 @@ final class RequirementSubmissionReadinessLookup
             'pendingHeadcountRevision.requestedBy:id,name',
             'pendingHeadcountRevision.decidedBy:id,name',
             'repeatedFrom:id,requirement_number',
+            'lines' => fn ($query) => $query->withCount([
+                'candidates as joined_candidates_count' => fn ($q) => $q->where('stage', CandidateStage::Joined->value),
+            ]),
             'lines.position' => fn ($query) => $query->withTrashed()->select('id', 'title', 'company_id', 'status', 'deleted_at'),
         ];
     }

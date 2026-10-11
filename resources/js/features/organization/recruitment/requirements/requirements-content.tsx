@@ -3,7 +3,6 @@ import { Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import RequirementApproveController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementApproveController';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
-import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
 import RequirementHoldController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementHoldController';
 import RequirementResubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResubmitController';
 import RequirementResumeController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResumeController';
@@ -30,6 +29,7 @@ import { SubmissionReadinessBlockedDialog } from './components/submission-readin
 import { CancelRequirementDialog } from './components/workflow/cancel-requirement-dialog';
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
+import { FillRequirementDialog } from './components/workflow/fill-requirement-dialog';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
 import { ReturnRequirementDialog } from './components/workflow/return-requirement-dialog';
@@ -64,6 +64,8 @@ export function RequirementsContent({
     const [changeHeadcountTarget, setChangeHeadcountTarget] =
         useState<RequirementIndexRow | null>(null);
     const [cancelDialogTarget, setCancelDialogTarget] =
+        useState<RequirementIndexRow | null>(null);
+    const [fillDialogTarget, setFillDialogTarget] =
         useState<RequirementIndexRow | null>(null);
     const [reopenDialogTarget, setReopenDialogTarget] =
         useState<RequirementIndexRow | null>(null);
@@ -210,19 +212,7 @@ export function RequirementsContent({
     };
 
     const handleFillRequirement = (row: RequirementIndexRow) => {
-        router.post(
-            RequirementFillController.url(row.id),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () =>
-                    toast.success(
-                        `${row.requirement_number} marked as filled & completed.`,
-                    ),
-                onError: () =>
-                    toast.error('Failed to mark requirement as filled.'),
-            },
-        );
+        setFillDialogTarget(row);
     };
 
     const postWorkflow = (
@@ -443,6 +433,12 @@ export function RequirementsContent({
                 open={Boolean(cancelDialogTarget)}
                 onOpenChange={(open) => !open && setCancelDialogTarget(null)}
                 requirement={cancelDialogTarget}
+            />
+
+            <FillRequirementDialog
+                open={Boolean(fillDialogTarget)}
+                onOpenChange={(open) => !open && setFillDialogTarget(null)}
+                requirement={fillDialogTarget}
             />
 
             <ReopenRequirementDialog

@@ -2,7 +2,6 @@ import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import RequirementApproveController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementApproveController';
 import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
-import RequirementFillController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementFillController';
 import RequirementHoldController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementHoldController';
 import RequirementResubmitController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResubmitController';
 import RequirementResumeController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementResumeController';
@@ -32,6 +31,7 @@ import { CancelRequirementDialog } from './components/workflow/cancel-requiremen
 import { ChangeHeadcountDialog } from './components/workflow/change-headcount-dialog';
 import { DeadlineExtensionRequestCard } from './components/workflow/deadline-extension-request-card';
 import { ExtendDeadlineDialog } from './components/workflow/extend-deadline-dialog';
+import { FillRequirementDialog } from './components/workflow/fill-requirement-dialog';
 import { HeadcountRevisionRequestCard } from './components/workflow/headcount-revision-request-card';
 import { ReopenRequirementDialog } from './components/workflow/reopen-requirement-dialog';
 import { RepeatRequirementDialog } from './components/workflow/repeat-requirement-dialog';
@@ -68,6 +68,7 @@ export function RequirementsShowContent({
     const [isExtendOpen, setIsExtendOpen] = useState(false);
     const [isChangeHeadcountOpen, setIsChangeHeadcountOpen] = useState(false);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [isFillOpen, setIsFillOpen] = useState(false);
     const [isTransferOwnershipOpen, setIsTransferOwnershipOpen] =
         useState(false);
     const [isReopenOpen, setIsReopenOpen] = useState(false);
@@ -139,11 +140,7 @@ export function RequirementsShowContent({
     };
 
     const handleFill = () => {
-        runWorkflow(
-            RequirementFillController.url(requirement.id),
-            'Requirement marked as completed.',
-            'Failed to mark requirement as filled.',
-        );
+        setIsFillOpen(true);
     };
 
     const handleSubmit = () => {
@@ -329,6 +326,12 @@ export function RequirementsShowContent({
             <CancelRequirementDialog
                 open={isCancelOpen}
                 onOpenChange={setIsCancelOpen}
+                requirement={requirement}
+            />
+
+            <FillRequirementDialog
+                open={isFillOpen}
+                onOpenChange={setIsFillOpen}
                 requirement={requirement}
             />
 

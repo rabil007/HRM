@@ -38,9 +38,18 @@ final class CancelRequirementAction
                 'updated_by' => $userId,
             ]);
 
-            $locked->lines()->update([
-                'status' => RequirementLineStatus::Cancelled,
-            ]);
+            // Distinguish lines closed by requirement cancellation from lines already cancelled deliberately
+            $activeLineIds = $locked->lines()
+                ->where('status', '!=', RequirementLineStatus::Cancelled)
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+
+            $locked->lines()
+                ->whereIn('id', $activeLineIds)
+                ->update([
+                    'status' => RequirementLineStatus::Cancelled,
+                ]);
 
             RecordRequirementStatusTransition::handle(
                 $locked,
@@ -48,6 +57,9 @@ final class CancelRequirementAction
                 RequirementStatus::Cancelled,
                 $userId,
                 $reason,
+                [
+                    'cancelled_line_ids' => $activeLineIds,
+                ],
             );
 
             activity('recruitment')
@@ -57,6 +69,7 @@ final class CancelRequirementAction
                     'company_id' => $locked->company_id,
                     'requirement_number' => $locked->requirement_number,
                     'reason' => $reason,
+                    'cancelled_line_ids' => $activeLineIds,
                 ])
                 ->log("Requirement {$locked->requirement_number} cancelled. Reason: {$reason}");
 

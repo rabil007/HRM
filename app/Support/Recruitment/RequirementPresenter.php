@@ -48,6 +48,20 @@ final class RequirementPresenter
             ),
         ])->all();
 
+        $unfilledVacancies = 0;
+        foreach ($requirement->lines as $line) {
+            if ($line->status === RequirementLineStatus::Cancelled) {
+                continue;
+            }
+            $joined = isset($line->joined_candidates_count)
+                ? (int) $line->joined_candidates_count
+                : (int) ($line->relationLoaded('candidates')
+                    ? $line->candidates->where('stage', CandidateStage::Joined)->count()
+                    : $line->candidates()->where('stage', CandidateStage::Joined->value)->count());
+            $unfilledVacancies += max(0, (int) $line->required_headcount - $joined);
+        }
+        $isFullyFulfilled = count($positionsSummary) > 0 && $unfilledVacancies === 0;
+
         $canUpdate = $user ? (bool) $user->can('recruitment.requirements.update') : true;
         $canClose = $user ? (bool) $user->can('recruitment.requirements.close') : true;
         $canCancelPerm = $user ? (bool) $user->can('recruitment.requirements.cancel') : true;
@@ -56,6 +70,8 @@ final class RequirementPresenter
         $canView = $user ? (bool) $user->can('recruitment.requirements.view') : true;
         $canSubmitPerm = $user ? (bool) $user->can('recruitment.requirements.submit') : true;
         $canApprovePerm = $user ? (bool) $user->can('recruitment.requirements.approve') : true;
+        $canManage = $user ? RequirementWorkflowAuthorization::canOverrideFill($user) : true;
+        $canOverrideFill = $canClose && $canManage;
 
         $isEditable = $requirement->status->isEditable();
         $isHistory = in_array($requirement->status, RequirementStatus::historyListStatuses(), true);
@@ -196,7 +212,11 @@ final class RequirementPresenter
             'can_fill' => $canClose
                 && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
                 && $pendingExtensionPayload === null
-                && $pendingHeadcountPayload === null,
+                && $pendingHeadcountPayload === null
+                && ($isFullyFulfilled || $canManage),
+            'is_fully_fulfilled' => $isFullyFulfilled,
+            'unfilled_vacancies' => $unfilledVacancies,
+            'can_override_fill' => $canOverrideFill,
             'can_cancel' => $canCancelPerm && in_array($requirement->status, $cancellableStatuses, true),
             'can_transfer_ownership' => $user !== null
                 && $user->can('recruitment.requirements.transfer_ownership')
@@ -226,11 +246,14 @@ final class RequirementPresenter
         $duration = CalculateActiveRecruitmentDuration::for($requirement);
 
         $lines = $requirement->lines->map(function (RecruitmentRequirementLine $line): array {
-            $joinedCount = (int) ($line->joined_candidates_count ?? $line->candidates()->where('stage', CandidateStage::Joined->value)->count());
+            $joinedCount = (int) ($line->joined_candidates_count ?? ($line->relationLoaded('candidates')
+                ? $line->candidates->where('stage', CandidateStage::Joined)->count()
+                : $line->candidates()->where('stage', CandidateStage::Joined->value)->count()));
             $requiredHeadcount = (int) $line->required_headcount;
-            $remainingHeadcount = max(0, $requiredHeadcount - $joinedCount);
-            $isOverfilled = $joinedCount > $requiredHeadcount;
-            $targetReached = $joinedCount >= $requiredHeadcount;
+            $isCancelled = $line->status === RequirementLineStatus::Cancelled;
+            $remainingHeadcount = $isCancelled ? 0 : max(0, $requiredHeadcount - $joinedCount);
+            $isOverfilled = ! $isCancelled && $joinedCount > $requiredHeadcount;
+            $targetReached = $isCancelled || $joinedCount >= $requiredHeadcount;
             $canMarkFilled = $targetReached && $line->status === RequirementLineStatus::Open;
 
             return [
@@ -296,6 +319,10 @@ final class RequirementPresenter
             ? $requirement->headcountRevisions
             : collect();
 
+        $activeLines = array_filter($lines, fn (array $l): bool => $l['status'] !== RequirementLineStatus::Cancelled->value);
+        $activeHeadcount = array_sum(array_column($activeLines, 'required_headcount'));
+        $activeFilled = array_sum(array_column($activeLines, 'joined_count'));
+
         return array_merge($base, $duration, [
             'deadline_extensions' => RequirementDeadlineExtensionPresenter::history($deadlineExtensions),
             'headcount_revisions' => RequirementHeadcountRevisionPresenter::history($headcountRevisions),
@@ -317,16 +344,16 @@ final class RequirementPresenter
             'lines' => $lines,
             'attachments' => $attachments,
             'progress' => [
-                'filled' => array_sum(array_column($lines, 'joined_count')),
-                'target' => (int) $base['total_headcount'],
-                'remaining' => max(0, (int) $base['total_headcount'] - array_sum(array_column($lines, 'joined_count'))),
-                'percentage' => (int) $base['total_headcount'] > 0
-                    ? (int) min(100, round((array_sum(array_column($lines, 'joined_count')) / (int) $base['total_headcount']) * 100))
+                'filled' => $activeFilled,
+                'target' => $activeHeadcount,
+                'remaining' => $base['unfilled_vacancies'],
+                'percentage' => $activeHeadcount > 0
+                    ? (int) min(100, round(($activeFilled / $activeHeadcount) * 100))
                     : 0,
-                'is_target_reached' => count($lines) > 0 && ! in_array(false, array_column($lines, 'target_reached'), true),
-                'is_overfilled' => array_sum(array_column($lines, 'joined_count')) > (int) $base['total_headcount'],
-                'suggest_mark_filled' => count($lines) > 0
-                    && ! in_array(false, array_column($lines, 'target_reached'), true)
+                'is_target_reached' => $base['is_fully_fulfilled'],
+                'is_overfilled' => in_array(true, array_column($lines, 'is_overfilled'), true)
+                    || $activeFilled > $activeHeadcount,
+                'suggest_mark_filled' => $base['is_fully_fulfilled']
                     && $requirement->status === RequirementStatus::Open,
             ],
         ]);

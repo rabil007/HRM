@@ -41,6 +41,12 @@ final class LinkCandidateToEmployee
             ]);
         }
 
+        if ($lockVersion === null) {
+            throw ValidationException::withMessages([
+                'lock_version' => 'A lock version is required. Refresh and try again.',
+            ]);
+        }
+
         if ((int) $candidate->company_id !== $companyId) {
             throw ValidationException::withMessages([
                 'candidate' => 'Candidate does not belong to the active company.',
@@ -86,19 +92,18 @@ final class LinkCandidateToEmployee
                 ]);
             }
 
-            if ($lockVersion !== null) {
-                CandidateWorkflowAuthorization::assertExpectedLock(
-                    $locked,
-                    $lockVersion,
-                    CandidateStage::Joined->value,
-                    null,
-                );
-            }
+            CandidateWorkflowAuthorization::assertExpectedLock(
+                $locked,
+                $lockVersion,
+                CandidateStage::Joined->value,
+                null,
+            );
 
-            // Validate the target employee
+            // Validate and row-lock the target employee in active company
             $employee = Employee::query()
                 ->where('company_id', $companyId)
                 ->where('id', $employeeId)
+                ->lockForUpdate()
                 ->first();
 
             if (! $employee instanceof Employee) {
@@ -110,6 +115,19 @@ final class LinkCandidateToEmployee
             if (! EmployeeVisibilityScope::canAccess($actor, $employee, $companyId)) {
                 throw ValidationException::withMessages([
                     'employee_id' => 'You do not have permission to view or select this employee.',
+                ]);
+            }
+
+            // Prevent accidental duplicate active linking on the same requirement
+            $alreadyLinkedOnSameRequirement = RecruitmentCandidate::query()
+                ->where('recruitment_requirement_id', $locked->recruitment_requirement_id)
+                ->where('employee_id', $employee->id)
+                ->where('id', '!=', $locked->id)
+                ->exists();
+
+            if ($alreadyLinkedOnSameRequirement) {
+                throw ValidationException::withMessages([
+                    'employee_id' => 'This employee is already linked to another candidate on this requirement.',
                 ]);
             }
 

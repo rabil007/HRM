@@ -5,10 +5,14 @@ namespace App\Actions\Recruitment;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
+use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 final class ReopenRequirementAction
 {
@@ -69,9 +73,24 @@ final class ReopenRequirementAction
             // For unapproved requirements, approved_at/approved_by/opened_at remain null.
             $locked->update($updateData);
 
-            $locked->lines()->whereIn('status', [RequirementLineStatus::Filled, RequirementLineStatus::Cancelled])->update([
-                'status' => RequirementLineStatus::Open,
-            ]);
+            if ($fromStatus === RequirementStatus::Completed) {
+                // Completed requirements: restore only lines that were Filled by completion.
+                // Deliberately cancelled lines remain Cancelled.
+                $locked->lines()->where('status', RequirementLineStatus::Filled)->update([
+                    'status' => RequirementLineStatus::Open,
+                ]);
+            } elseif ($fromStatus === RequirementStatus::Cancelled) {
+                // Cancelled requirements: restore only lines closed by the requirement-level cancellation.
+                $linesToReopen = $this->resolveLinesToReopenFromCancelled($locked);
+                if ($linesToReopen->isNotEmpty()) {
+                    $locked->lines()
+                        ->whereIn('id', $linesToReopen->pluck('id'))
+                        ->where('status', RequirementLineStatus::Cancelled)
+                        ->update([
+                            'status' => RequirementLineStatus::Open,
+                        ]);
+                }
+            }
 
             RecordRequirementStatusTransition::handle(
                 $locked,
@@ -95,6 +114,84 @@ final class ReopenRequirementAction
                 ->log("Requirement {$locked->requirement_number} reopened. Reason: {$reason}");
 
             return $locked;
+        });
+    }
+
+    /**
+     * Resolve position lines that were closed by the requirement cancellation.
+     *
+     * @return Collection<int, RecruitmentRequirementLine>
+     */
+    private function resolveLinesToReopenFromCancelled(RecruitmentRequirement $requirement): Collection
+    {
+        // 1. Check if the latest cancellation status transition has recorded cancelled_line_ids
+        $cancellationTransition = $requirement->statusTransitions()
+            ->where('to_status', RequirementStatus::Cancelled->value)
+            ->latest('id')
+            ->first();
+
+        if (
+            $cancellationTransition !== null
+            && is_array($cancellationTransition->context)
+            && isset($cancellationTransition->context['cancelled_line_ids'])
+            && is_array($cancellationTransition->context['cancelled_line_ids'])
+        ) {
+            $ids = array_map(fn (mixed $id): int => (int) $id, $cancellationTransition->context['cancelled_line_ids']);
+
+            return $requirement->lines()
+                ->whereIn('id', $ids)
+                ->where('status', RequirementLineStatus::Cancelled)
+                ->get();
+        }
+
+        // 2. Check activity log for requirement cancellation metadata
+        $cancelActivity = Activity::query()
+            ->where('subject_type', RecruitmentRequirement::class)
+            ->where('subject_id', $requirement->id)
+            ->where('properties->cancelled_line_ids', '!=', null)
+            ->latest('id')
+            ->first();
+
+        if (
+            $cancelActivity !== null
+            && is_array($cancelActivity->properties->get('cancelled_line_ids'))
+        ) {
+            $ids = array_map(fn (mixed $id): int => (int) $id, $cancelActivity->properties->get('cancelled_line_ids'));
+
+            return $requirement->lines()
+                ->whereIn('id', $ids)
+                ->where('status', RequirementLineStatus::Cancelled)
+                ->get();
+        }
+
+        // 3. Historical fallback:
+        // Exclude lines that had deliberate position-level cancellation recorded before the requirement was cancelled.
+        $cancelledLines = $requirement->lines()
+            ->where('status', RequirementLineStatus::Cancelled)
+            ->get();
+
+        $cancelledAt = $requirement->cancelled_at ?? now();
+
+        return $cancelledLines->filter(function (RecruitmentRequirementLine $line) use ($cancelledAt): bool {
+            $hasPriorLineCancellation = Activity::query()
+                ->where('subject_type', RecruitmentRequirementLine::class)
+                ->where('subject_id', $line->id)
+                ->where('created_at', '<', $cancelledAt)
+                ->where(function (Builder $q): void {
+                    $q->where('properties->attributes->status', RequirementLineStatus::Cancelled->value)
+                        ->orWhere('description', 'like', '%cancelled%');
+                })
+                ->exists();
+
+            if ($hasPriorLineCancellation) {
+                return false;
+            }
+
+            if ($line->updated_at !== null && $line->updated_at->lt($cancelledAt->copy()->subSeconds(2))) {
+                return false;
+            }
+
+            return true;
         });
     }
 }
