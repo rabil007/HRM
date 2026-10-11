@@ -555,7 +555,6 @@ export function useEmployeeProfileForm(
             options?.hasAnnualLeaveBalances,
             options?.savedHireDate,
             options?.candidateContext,
-            options?.listQuery,
             options?.templateRequiredFields,
             requiredFields,
             requestHireDateWarning,

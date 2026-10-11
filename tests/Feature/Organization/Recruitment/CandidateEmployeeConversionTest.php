@@ -11,6 +11,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeEducationQualification;
 use App\Models\Position;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateOffer;
@@ -902,4 +903,61 @@ test('normal employee creation continues to support provisional drafts and ensur
             'employee_id' => $employeeId,
         ]))
         ->assertOk();
+});
+
+test('authorized users can add records after conversion', function () {
+    $user = createConversionUser($this->company, [
+        'employees.create',
+        'employees.view',
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'education.create',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Converted Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    // 1. Convert candidate to employee
+    $this->actingAs($user)
+        ->post(route('organization.employees.store'), [
+            'candidate_id' => $candidate->id,
+            'candidate_lock_version' => 1,
+            'employee_no' => 'EMP-POST-CONV-1',
+            'name' => 'Converted Joiner',
+            'department_id' => $this->department->id,
+            'position_id' => $this->position->id,
+            'start_date' => '2026-10-01',
+            'status' => 'active',
+        ])
+        ->assertRedirect(route('organization.recruitment.candidates.show', $candidate->id));
+
+    $candidate->refresh();
+    expect($candidate->employee_id)->not->toBeNull();
+
+    $employee = Employee::find($candidate->employee_id);
+    expect($employee)->not->toBeNull();
+
+    // 2. Authorized user can add a record tab entry (e.g. education qualification) to the created employee
+    $response = $this->actingAs($user)
+        ->post(route('organization.employees.education.store', $employee), [
+            'certificate' => 'Bachelor of Engineering',
+            'country_id' => $this->country->id,
+        ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success', 'Education qualification added.');
+
+    expect(EmployeeEducationQualification::query()
+        ->where('employee_id', $employee->id)
+        ->where('certificate', 'Bachelor of Engineering')
+        ->exists()
+    )->toBeTrue();
 });
