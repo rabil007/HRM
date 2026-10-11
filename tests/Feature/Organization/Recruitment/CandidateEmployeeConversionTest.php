@@ -1036,3 +1036,169 @@ test('authorized users can add records after conversion', function () {
         ->exists()
     )->toBeTrue();
 });
+
+test('candidate history redacts employee linking reason and employee details for unauthorized or restricted viewers while preserving audit store and authorized access', function () {
+    $financeDepartment = Department::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Finance',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $financeDepartment->id,
+        'name' => 'Jane Sensitive Doe',
+        'employee_no' => 'EMP-LINK-SENSITIVE-99',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Joined Link Candidate',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-01',
+        'lock_version' => 1,
+    ]);
+
+    $linker = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'employees.view',
+    ]);
+
+    $linkingReason = "Linking candidate to {$employee->name} #{$employee->employee_no} for finance operations";
+
+    $this->actingAs($linker)
+        ->post(route('organization.recruitment.candidates.link-employee', $candidate), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => $linkingReason,
+            'lock_version' => 1,
+        ])
+        ->assertRedirect();
+
+    $candidate->refresh();
+    expect($candidate->employee_id)->toBe($employee->id);
+
+    // 1. Viewer with audit.view but without employees.view sees no sensitive text in the complete candidate response.
+    $viewerWithoutEmployeesView = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'audit.view',
+    ]);
+
+    $responseWithoutEmployeesView = $this->actingAs($viewerWithoutEmployeesView)
+        ->get(route('organization.recruitment.candidates.show', $candidate));
+
+    $responseWithoutEmployeesView->assertOk();
+    $candidateData = $responseWithoutEmployeesView->original->getData()['page']['props']['candidate'];
+    $transitionData = collect($candidateData['movement_history'])
+        ->firstWhere('action', CandidateTransitionAction::EmployeeLinked->value);
+
+    expect($transitionData)->not->toBeNull()
+        ->and($transitionData['reason'])->toBe('Linked to existing employee')
+        ->and($transitionData['context']['reason'])->toBeNull()
+        ->and($transitionData['context']['employee_id'])->toBeNull()
+        ->and($transitionData['context']['employee_no'])->toBeNull()
+        ->and($transitionData['action'])->toBe(CandidateTransitionAction::EmployeeLinked->value)
+        ->and($transitionData['action_label'])->toBe(CandidateTransitionAction::EmployeeLinked->label())
+        ->and($transitionData['performed_by'])->toBe($linker->id)
+        ->and($transitionData['performed_by_name'])->toBe($linker->name)
+        ->and($transitionData['created_at'])->not->toBeNull();
+
+    expect(json_encode($candidateData))->not->toContain($employee->name)
+        ->not->toContain($employee->employee_no);
+    expect($responseWithoutEmployeesView->getContent())->not->toContain($employee->name)
+        ->not->toContain($employee->employee_no);
+
+    // 2. Viewer with employees.view but a restricted department sees no sensitive text.
+    $restrictedUser = User::factory()->create(['company_id' => $this->company->id]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $restrictedUser->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'RestrictedDeptRole-'.uniqid(),
+        'guard_name' => 'web',
+        'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+    ]);
+    $role->employeeVisibilityDepartments()->attach($this->department->id, ['company_id' => $this->company->id]);
+
+    foreach (['employees.view', 'recruitment.candidates.view', 'audit.view'] as $perm) {
+        $p = Permission::query()->firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+        $role->givePermissionTo($p);
+    }
+    $restrictedUser->assignRole($role);
+
+    $responseRestricted = $this->actingAs($restrictedUser)
+        ->get(route('organization.recruitment.candidates.show', $candidate));
+
+    $responseRestricted->assertOk();
+    $candidateDataRestricted = $responseRestricted->original->getData()['page']['props']['candidate'];
+    $transitionDataRestricted = collect($candidateDataRestricted['movement_history'])
+        ->firstWhere('action', CandidateTransitionAction::EmployeeLinked->value);
+
+    expect($transitionDataRestricted)->not->toBeNull()
+        ->and($transitionDataRestricted['reason'])->toBe('Linked to existing employee')
+        ->and($transitionDataRestricted['context']['reason'])->toBeNull()
+        ->and($transitionDataRestricted['context']['employee_id'])->toBeNull()
+        ->and($transitionDataRestricted['context']['employee_no'])->toBeNull()
+        ->and($transitionDataRestricted['action'])->toBe(CandidateTransitionAction::EmployeeLinked->value)
+        ->and($transitionDataRestricted['action_label'])->toBe(CandidateTransitionAction::EmployeeLinked->label())
+        ->and($transitionDataRestricted['performed_by'])->toBe($linker->id)
+        ->and($transitionDataRestricted['performed_by_name'])->toBe($linker->name)
+        ->and($transitionDataRestricted['created_at'])->not->toBeNull();
+
+    expect(json_encode($candidateDataRestricted))->not->toContain($employee->name)
+        ->not->toContain($employee->employee_no);
+    expect($responseRestricted->getContent())->not->toContain($employee->name)
+        ->not->toContain($employee->employee_no);
+
+    // 3. Authorized viewer sees the original details.
+    $authorizedViewer = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'employees.view',
+        'audit.view',
+    ]);
+
+    $responseAuthorized = $this->actingAs($authorizedViewer)
+        ->get(route('organization.recruitment.candidates.show', $candidate));
+
+    $responseAuthorized->assertOk();
+    $candidateDataAuthorized = $responseAuthorized->original->getData()['page']['props']['candidate'];
+    $transitionDataAuthorized = collect($candidateDataAuthorized['movement_history'])
+        ->firstWhere('action', CandidateTransitionAction::EmployeeLinked->value);
+
+    expect($transitionDataAuthorized)->not->toBeNull()
+        ->and($transitionDataAuthorized['reason'])->toBe("Linked to existing employee #{$employee->employee_no}: {$linkingReason}")
+        ->and($transitionDataAuthorized['context']['reason'])->toBe($linkingReason)
+        ->and($transitionDataAuthorized['context']['employee_id'])->toBe($employee->id)
+        ->and($transitionDataAuthorized['context']['employee_no'])->toBe($employee->employee_no)
+        ->and($candidateDataAuthorized['linked_employee'])->toBe([
+            'id' => (int) $employee->id,
+            'name' => (string) $employee->name,
+            'employee_no' => (string) $employee->employee_no,
+            'can_view' => true,
+        ]);
+
+    expect($responseAuthorized->getContent())->toContain($employee->name)
+        ->toContain($employee->employee_no);
+
+    // 4. Stored transition reason/context remain unchanged.
+    $stored = RecruitmentCandidateStageTransition::query()
+        ->where('recruitment_candidate_id', $candidate->id)
+        ->where('action', CandidateTransitionAction::EmployeeLinked)
+        ->first();
+
+    expect($stored)->not->toBeNull()
+        ->and($stored->reason)->toBe("Linked to existing employee #{$employee->employee_no}: {$linkingReason}")
+        ->and($stored->context)->toBe([
+            'employee_id' => $employee->id,
+            'employee_no' => $employee->employee_no,
+            'reason' => $linkingReason,
+        ]);
+});

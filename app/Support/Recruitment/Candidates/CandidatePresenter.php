@@ -239,8 +239,7 @@ final class CandidatePresenter
                 if ($action === CandidateTransitionAction::EmployeeConverted) {
                     $reason = 'Candidate converted to employee';
                 } elseif ($action === CandidateTransitionAction::EmployeeLinked) {
-                    $userReason = is_array($context) && ! empty($context['reason']) ? trim((string) $context['reason']) : null;
-                    $reason = $userReason ? "Linked to existing employee: {$userReason}" : 'Linked to existing employee';
+                    $reason = 'Linked to existing employee';
                 } else {
                     if ($reason !== null && is_array($context) && ! empty($context['employee_no'])) {
                         $reason = str_replace(['#'.$context['employee_no'], (string) $context['employee_no']], '', $reason);
@@ -259,6 +258,9 @@ final class CandidatePresenter
                     }
                     if (array_key_exists('employee_url', $context)) {
                         $context['employee_url'] = null;
+                    }
+                    if (array_key_exists('reason', $context)) {
+                        $context['reason'] = null;
                     }
                 }
             }
