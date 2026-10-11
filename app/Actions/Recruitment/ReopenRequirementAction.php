@@ -42,20 +42,31 @@ final class ReopenRequirementAction
             }
 
             $fromStatus = $locked->status;
+            $isPreviouslyApproved = $locked->approved_at !== null;
+            $targetStatus = $isPreviouslyApproved ? RequirementStatus::Open : RequirementStatus::Draft;
 
             $updateData = [
-                'status' => RequirementStatus::Open,
+                'status' => $targetStatus,
                 'completed_at' => null,
                 'cancelled_at' => null,
                 'cancellation_reason' => null,
                 'updated_by' => $userId,
             ];
 
+            if (! $isPreviouslyApproved) {
+                $updateData['submitted_at'] = null;
+                $updateData['submitted_by'] = null;
+                $updateData['returned_at'] = null;
+                $updateData['returned_by'] = null;
+                $updateData['return_reason'] = null;
+            }
+
             if ($newRequiredByDate !== null) {
                 $updateData['required_by_date'] = $newRequiredByDate;
             }
 
-            // Preserve historical approval metadata; clock resumes from approved_at/opened_at.
+            // Preserve historical approval metadata for previously approved requirements; clock resumes from approved_at/opened_at.
+            // For unapproved requirements, approved_at/approved_by/opened_at remain null.
             $locked->update($updateData);
 
             $locked->lines()->whereIn('status', [RequirementLineStatus::Filled, RequirementLineStatus::Cancelled])->update([
@@ -65,7 +76,7 @@ final class ReopenRequirementAction
             RecordRequirementStatusTransition::handle(
                 $locked,
                 $fromStatus,
-                RequirementStatus::Open,
+                $targetStatus,
                 $userId,
                 $reason,
             );
@@ -76,6 +87,8 @@ final class ReopenRequirementAction
                 ->withProperties([
                     'company_id' => $locked->company_id,
                     'requirement_number' => $locked->requirement_number,
+                    'from_status' => $fromStatus->value,
+                    'to_status' => $targetStatus->value,
                     'reason' => $reason,
                     'new_required_by_date' => $newRequiredByDate,
                 ])

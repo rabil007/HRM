@@ -188,6 +188,7 @@ export type RequirementIndexRow = {
     can_cancel: boolean;
     can_transfer_ownership?: boolean;
     can_reopen: boolean;
+    is_previously_approved?: boolean;
     can_repeat: boolean;
     submission_readiness?: RequirementSubmissionReadiness | null;
 };

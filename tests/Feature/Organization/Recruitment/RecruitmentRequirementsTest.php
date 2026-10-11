@@ -511,17 +511,21 @@ test('cancelling a requirement sets status, marks lines cancelled, and records c
         ->and($line->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
 });
 
-test('reopening a cancelled requirement restores it to open with a new deadline', function () {
+test('reopening a previously approved cancelled requirement restores it to open with a new deadline', function () {
+    $approvedAt = now()->subMonth();
     $req = RecruitmentRequirement::query()->create([
         'company_id' => $this->companyA->id,
         'requirement_number' => 'REQ-2026-000001',
         'client_id' => $this->client->id,
-        'request_received_date' => now()->subMonth(),
+        'request_received_date' => now()->subMonths(2),
         'required_by_date' => now()->subDays(10),
         'priority' => 'normal',
         'status' => RequirementStatus::Cancelled,
         'cancellation_reason' => 'Cancelled earlier',
         'cancelled_at' => now()->subDays(5),
+        'approved_at' => $approvedAt,
+        'approved_by' => $this->adminUserA->id,
+        'opened_at' => $approvedAt,
         'created_by' => $this->adminUserA->id,
     ]);
 
@@ -541,10 +545,60 @@ test('reopening a cancelled requirement restores it to open with a new deadline'
             'new_required_by_date' => $newDeadline,
             'reason' => 'Client reinstated operations.',
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHas('success', "Requirement {$req->requirement_number} reopened.");
 
     $fresh = $req->fresh();
     expect($fresh->status)->toBe(RequirementStatus::Open)
+        ->and($fresh->approved_at->toIso8601String())->toBe($approvedAt->toIso8601String())
+        ->and($fresh->approved_by)->toBe($this->adminUserA->id)
+        ->and($fresh->required_by_date->format('Y-m-d'))->toBe($newDeadline)
+        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Open);
+});
+
+test('reopening an unapproved cancelled requirement returns it to draft and preserves authentic timestamps', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-000002',
+        'client_id' => $this->client->id,
+        'request_received_date' => now()->subMonth(),
+        'required_by_date' => now()->subDays(10),
+        'priority' => 'normal',
+        'status' => RequirementStatus::Cancelled,
+        'cancellation_reason' => 'Cancelled during draft review',
+        'cancelled_at' => now()->subDays(5),
+        'submitted_at' => now()->subDays(7),
+        'submitted_by' => $this->adminUserA->id,
+        'approved_at' => null,
+        'approved_by' => null,
+        'created_by' => $this->adminUserA->id,
+    ]);
+
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $newDeadline = now()->addDays(25)->format('Y-m-d');
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'new_required_by_date' => $newDeadline,
+            'reason' => 'Reopening unapproved request for revisions.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', "Requirement {$req->requirement_number} reopened and returned to draft for review and submission.");
+
+    $fresh = $req->fresh();
+    expect($fresh->status)->toBe(RequirementStatus::Draft)
+        ->and($fresh->approved_at)->toBeNull()
+        ->and($fresh->approved_by)->toBeNull()
+        ->and($fresh->opened_at)->toBeNull()
+        ->and($fresh->submitted_at)->toBeNull()
         ->and($fresh->required_by_date->format('Y-m-d'))->toBe($newDeadline)
         ->and($line->fresh()->status)->toBe(RequirementLineStatus::Open);
 });

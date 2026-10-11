@@ -4,6 +4,7 @@ namespace App\Support\Recruitment\Candidates;
 
 use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateStage;
+use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
@@ -114,7 +115,12 @@ final class CandidatePresenter
             $transitions = $candidate->stageTransitions
                 ->sortBy('created_at')
                 ->values()
-                ->map(fn (RecruitmentCandidateStageTransition $t): array => self::transitionToArray($t, $timezone))
+                ->map(fn (RecruitmentCandidateStageTransition $t): array => self::transitionToArray(
+                    $t,
+                    $timezone,
+                    $user,
+                    (int) $candidate->company_id,
+                ))
                 ->all();
         }
 
@@ -200,8 +206,64 @@ final class CandidatePresenter
     /**
      * @return array<string, mixed>
      */
-    public static function transitionToArray(RecruitmentCandidateStageTransition $transition, string $timezone): array
-    {
+    public static function transitionToArray(
+        RecruitmentCandidateStageTransition $transition,
+        string $timezone,
+        ?User $user = null,
+        ?int $companyId = null,
+    ): array {
+        $action = $transition->action;
+        $context = $transition->context;
+        $reason = $transition->reason;
+
+        $isEmployeeAction = in_array($action, [
+            CandidateTransitionAction::EmployeeConverted,
+            CandidateTransitionAction::EmployeeLinked,
+        ], true) || (is_array($context) && (array_key_exists('employee_id', $context) || array_key_exists('employee_no', $context)));
+
+        if ($isEmployeeAction) {
+            $employeeId = is_array($context) && ! empty($context['employee_id'])
+                ? (int) $context['employee_id']
+                : (int) ($transition->candidate?->employee_id ?? 0);
+
+            $resolvedCompanyId = $companyId ?? (int) ($transition->company_id ?? $transition->candidate?->company_id ?? 0);
+
+            $canView = false;
+            if ($user !== null && $resolvedCompanyId > 0 && $user->can('employees.view')) {
+                if ($employeeId > 0) {
+                    $canView = EmployeeVisibilityScope::canAccessId($user, $employeeId, $resolvedCompanyId);
+                }
+            }
+
+            if (! $canView) {
+                if ($action === CandidateTransitionAction::EmployeeConverted) {
+                    $reason = 'Candidate converted to employee';
+                } elseif ($action === CandidateTransitionAction::EmployeeLinked) {
+                    $userReason = is_array($context) && ! empty($context['reason']) ? trim((string) $context['reason']) : null;
+                    $reason = $userReason ? "Linked to existing employee: {$userReason}" : 'Linked to existing employee';
+                } else {
+                    if ($reason !== null && is_array($context) && ! empty($context['employee_no'])) {
+                        $reason = str_replace(['#'.$context['employee_no'], (string) $context['employee_no']], '', $reason);
+                    }
+                }
+
+                if (is_array($context)) {
+                    if (array_key_exists('employee_id', $context)) {
+                        $context['employee_id'] = null;
+                    }
+                    if (array_key_exists('employee_no', $context)) {
+                        $context['employee_no'] = null;
+                    }
+                    if (array_key_exists('employee_name', $context)) {
+                        $context['employee_name'] = null;
+                    }
+                    if (array_key_exists('employee_url', $context)) {
+                        $context['employee_url'] = null;
+                    }
+                }
+            }
+        }
+
         return [
             'id' => (int) $transition->id,
             'action' => $transition->action->value,
@@ -214,8 +276,8 @@ final class CandidatePresenter
             'from_outcome_label' => $transition->from_outcome?->label(),
             'to_outcome' => $transition->to_outcome?->value,
             'to_outcome_label' => $transition->to_outcome?->label(),
-            'reason' => $transition->reason,
-            'context' => $transition->context,
+            'reason' => $reason,
+            'context' => $context,
             'performed_by' => $transition->performed_by,
             'performed_by_name' => $transition->performer?->name,
             'created_at' => self::formatDateTime($transition->created_at, $timezone),

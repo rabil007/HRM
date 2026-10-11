@@ -2,6 +2,7 @@
 
 namespace App\Support\Activity;
 
+use App\Models\RecruitmentCandidate;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
 
@@ -38,9 +39,22 @@ final class RecentActivityQuery
             ->limit($limit)
             ->get();
 
-        return ActivityChangePresenter::presentLogs($logs, $companyId)
-            ->map(fn (Activity $log): array => ActivityChangePresenter::toRecentActivityArray($log))
-            ->values()
-            ->all();
+        $presented = ActivityChangePresenter::presentLogs($logs, $companyId, $user)
+            ->map(fn (Activity $log): array => ActivityChangePresenter::toRecentActivityArray($log));
+
+        if ($subjectType === RecruitmentCandidate::class && ($user === null || ! $user->can('employees.view'))) {
+            $presented = $presented->map(function (array $item): array {
+                if (isset($item['old_values']) && is_array($item['old_values']) && array_key_exists('employee_id', $item['old_values'])) {
+                    $item['old_values']['employee_id'] = null;
+                }
+                if (isset($item['new_values']) && is_array($item['new_values']) && array_key_exists('employee_id', $item['new_values'])) {
+                    $item['new_values']['employee_id'] = null;
+                }
+
+                return $item;
+            });
+        }
+
+        return $presented->values()->all();
     }
 }

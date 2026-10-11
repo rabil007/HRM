@@ -20,8 +20,10 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Recruitment\Candidates\CandidatePresenter;
 use App\Support\Recruitment\Candidates\FindCandidateDuplicateEmployees;
+use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission;
@@ -405,6 +407,7 @@ test('duplicate employee suggestions and linked employee details are masked with
         'recruitment.candidates.view',
         'recruitment.candidates.convert',
         'employees.create',
+        'audit.view',
     ]);
 
     $userWithView = createConversionUser($this->company, [
@@ -412,6 +415,7 @@ test('duplicate employee suggestions and linked employee details are masked with
         'recruitment.candidates.convert',
         'employees.create',
         'employees.view',
+        'audit.view',
     ]);
 
     $existingEmployee = Employee::factory()->create([
@@ -431,8 +435,25 @@ test('duplicate employee suggestions and linked employee details are masked with
         'phone' => '+971501234567',
         'stage' => CandidateStage::Joined,
         'actual_joining_date' => '2026-10-01',
-        'employee_id' => $existingEmployee->id,
+        'employee_id' => null,
     ]);
+
+    $candidate->update(['employee_id' => $existingEmployee->id]);
+
+    RecordCandidateStageTransition::handle(
+        $candidate,
+        CandidateTransitionAction::EmployeeConverted,
+        CandidateStage::Joined,
+        CandidateStage::Joined,
+        $candidate->interview_outcome,
+        $candidate->interview_outcome,
+        $userWithView->id,
+        "Candidate converted to employee #{$existingEmployee->employee_no}",
+        [
+            'employee_id' => $existingEmployee->id,
+            'employee_no' => $existingEmployee->employee_no,
+        ],
+    );
 
     // 1. Duplicate suggestions
     expect(FindCandidateDuplicateEmployees::find($candidate, $userWithoutView, $this->company->id))->toBeEmpty();
@@ -448,7 +469,7 @@ test('duplicate employee suggestions and linked employee details are masked with
         ->and($indexRowWithView['conversion_status'])->toBe('converted');
 
     // 3. Candidate detail show array masking
-    $showWithoutView = CandidatePresenter::toShowArray($candidate, $userWithoutView, 'Asia/Dubai');
+    $showWithoutView = CandidatePresenter::toShowArray($candidate, $userWithoutView, 'Asia/Dubai', true);
     expect($showWithoutView['linked_employee'])->toBe([
         'id' => null,
         'name' => null,
@@ -456,13 +477,37 @@ test('duplicate employee suggestions and linked employee details are masked with
         'can_view' => false,
     ]);
 
-    $showWithView = CandidatePresenter::toShowArray($candidate, $userWithView, 'Asia/Dubai');
+    $showWithView = CandidatePresenter::toShowArray($candidate, $userWithView, 'Asia/Dubai', true);
     expect($showWithView['linked_employee'])->toBe([
         'id' => (int) $existingEmployee->id,
         'name' => (string) $existingEmployee->name,
         'employee_no' => (string) $existingEmployee->employee_no,
         'can_view' => true,
     ]);
+
+    // 4. Movement history masking
+    expect($showWithoutView['movement_history'])->not->toBeEmpty();
+    $transWithoutView = $showWithoutView['movement_history'][0];
+    expect($transWithoutView['action'])->toBe('employee_converted')
+        ->and($transWithoutView['reason'])->toBe('Candidate converted to employee')
+        ->and($transWithoutView['context']['employee_id'])->toBeNull()
+        ->and($transWithoutView['context']['employee_no'])->toBeNull();
+
+    expect($showWithView['movement_history'])->not->toBeEmpty();
+    $transWithView = $showWithView['movement_history'][0];
+    expect($transWithView['action'])->toBe('employee_converted')
+        ->and($transWithView['reason'])->toBe("Candidate converted to employee #{$existingEmployee->employee_no}")
+        ->and($transWithView['context']['employee_id'])->toBe($existingEmployee->id)
+        ->and($transWithView['context']['employee_no'])->toBe($existingEmployee->employee_no);
+
+    // 5. Recent activity masking
+    $activityWithoutView = RecentActivityQuery::for($userWithoutView, $this->company->id, RecruitmentCandidate::class, $candidate->id);
+    expect($activityWithoutView)->not->toBeEmpty()
+        ->and(data_get($activityWithoutView[0], 'new_values.employee_id'))->toBeNull();
+
+    $activityWithView = RecentActivityQuery::for($userWithView, $this->company->id, RecruitmentCandidate::class, $candidate->id);
+    expect($activityWithView)->not->toBeEmpty()
+        ->and(data_get($activityWithView[0], 'new_values.employee_id'))->toBe("{$existingEmployee->name} ({$existingEmployee->employee_no})");
 });
 
 test('duplicate employee suggestions and linked employee details are masked when employee is in a restricted department', function () {
@@ -488,7 +533,7 @@ test('duplicate employee suggestions and linked employee details are masked when
     ]);
     $role->employeeVisibilityDepartments()->attach($this->department->id, ['company_id' => $this->company->id]);
 
-    foreach (['employees.view', 'recruitment.candidates.view', 'recruitment.candidates.convert'] as $perm) {
+    foreach (['employees.view', 'recruitment.candidates.view', 'recruitment.candidates.convert', 'audit.view'] as $perm) {
         $p = Permission::query()->firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
         $role->givePermissionTo($p);
     }
@@ -509,18 +554,48 @@ test('duplicate employee suggestions and linked employee details are masked when
         'email' => 'finance.staff@example.com',
         'stage' => CandidateStage::Joined,
         'actual_joining_date' => '2026-10-01',
-        'employee_id' => $financeEmployee->id,
+        'employee_id' => null,
     ]);
+
+    $candidate->update(['employee_id' => $financeEmployee->id]);
+
+    RecordCandidateStageTransition::handle(
+        $candidate,
+        CandidateTransitionAction::EmployeeConverted,
+        CandidateStage::Joined,
+        CandidateStage::Joined,
+        $candidate->interview_outcome,
+        $candidate->interview_outcome,
+        $restrictedUser->id,
+        "Candidate converted to employee #{$financeEmployee->employee_no}",
+        [
+            'employee_id' => $financeEmployee->id,
+            'employee_no' => $financeEmployee->employee_no,
+        ],
+    );
 
     expect(FindCandidateDuplicateEmployees::find($candidate, $restrictedUser, $this->company->id))->toBeEmpty();
 
-    $show = CandidatePresenter::toShowArray($candidate, $restrictedUser, 'Asia/Dubai');
+    $show = CandidatePresenter::toShowArray($candidate, $restrictedUser, 'Asia/Dubai', true);
     expect($show['linked_employee'])->toBe([
         'id' => null,
         'name' => null,
         'employee_no' => null,
         'can_view' => false,
     ]);
+
+    // Movement history masking under restricted department
+    expect($show['movement_history'])->not->toBeEmpty();
+    $transRestricted = $show['movement_history'][0];
+    expect($transRestricted['action'])->toBe('employee_converted')
+        ->and($transRestricted['reason'])->toBe('Candidate converted to employee')
+        ->and($transRestricted['context']['employee_id'])->toBeNull()
+        ->and($transRestricted['context']['employee_no'])->toBeNull();
+
+    // Recent activity masking under restricted department
+    $activityRestricted = RecentActivityQuery::for($restrictedUser, $this->company->id, RecruitmentCandidate::class, $candidate->id);
+    expect($activityRestricted)->not->toBeEmpty()
+        ->and(data_get($activityRestricted[0], 'new_values.employee_id'))->toBeNull();
 });
 
 test('duplicate employee suggestions do not include cross-company employees', function () {

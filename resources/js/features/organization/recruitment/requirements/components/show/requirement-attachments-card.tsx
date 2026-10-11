@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import * as RequirementAttachmentController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementAttachmentController';
-import RequirementController from '@/actions/App/Http/Controllers/Organization/Recruitment/RequirementController';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -52,22 +51,33 @@ export function RequirementAttachmentsCard({
 
         setIsUploading(true);
         router.post(
-            RequirementController.update.url(requirement.id),
+            RequirementAttachmentController.store.url({
+                requirement: requirement.id,
+            }),
             {
-                _method: 'PUT',
                 attachment: file,
             },
             {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     toast.success('Attachment uploaded.');
                     setIsUploading(false);
+
+                    if (e.target) {
+                        e.target.value = '';
+                    }
                 },
-                onError: () => {
-                    toast.error(
-                        'Failed to upload attachment. Check file size (max 10MB).',
-                    );
+                onError: (errors) => {
+                    const message =
+                        errors.attachment ||
+                        'Failed to upload attachment. Check file size (max 20MB) and format.';
+                    toast.error(message);
                     setIsUploading(false);
+
+                    if (e.target) {
+                        e.target.value = '';
+                    }
                 },
             },
         );
@@ -109,6 +119,7 @@ export function RequirementAttachmentsCard({
                                 <label
                                     htmlFor="new-attachment-input"
                                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border/80 bg-background/60 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                                    title="Upload attachment (max 20MB)"
                                 >
                                     {isUploading ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -121,7 +132,7 @@ export function RequirementAttachmentsCard({
                                     id="new-attachment-input"
                                     type="file"
                                     className="hidden"
-                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.png,.jpg,.jpeg"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.png,.jpg,.jpeg,.webp"
                                     onChange={handleUpload}
                                     disabled={isUploading}
                                 />

@@ -202,6 +202,7 @@ final class RequirementPresenter
                 && $user->can('recruitment.requirements.transfer_ownership')
                 && $requirement->status->allowsOwnershipTransfer(),
             'can_reopen' => $canReopenPerm && $isHistory,
+            'is_previously_approved' => $requirement->approved_at !== null,
             'can_repeat' => $canView && $canCreate && $isHistory,
             'submission_readiness' => in_array($requirement->status, [
                 RequirementStatus::Draft,

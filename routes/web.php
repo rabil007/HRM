@@ -615,6 +615,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/recruitment/requirements/{requirement}/attachments/{attachment}/download', [RequirementAttachmentController::class, 'download'])
         ->middleware('can:recruitment.requirements.attachments.download')
         ->name('organization.recruitment.requirements.attachments.download');
+    Route::post('organization/recruitment/requirements/{requirement}/attachments', [RequirementAttachmentController::class, 'store'])
+        ->middleware('can:recruitment.requirements.update')
+        ->name('organization.recruitment.requirements.attachments.store');
     Route::delete('organization/recruitment/requirements/{requirement}/attachments/{attachment}', [RequirementAttachmentController::class, 'destroy'])
         ->middleware('can:recruitment.requirements.update')
         ->name('organization.recruitment.requirements.attachments.destroy');

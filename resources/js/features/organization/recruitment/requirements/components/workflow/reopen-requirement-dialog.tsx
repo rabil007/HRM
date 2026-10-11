@@ -50,12 +50,22 @@ export function ReopenRequirementDialog({
         return null;
     }
 
+    const isPreviouslyApproved = Boolean(
+        ('approved_at' in requirement && requirement.approved_at) ||
+        ('is_previously_approved' in requirement &&
+            requirement.is_previously_approved),
+    );
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(RequirementReopenController.url(requirement.id), {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Requirement reopened successfully.');
+                toast.success(
+                    isPreviouslyApproved
+                        ? 'Requirement reopened successfully.'
+                        : 'Requirement reopened and returned to draft.',
+                );
                 onOpenChange(false);
                 reset();
                 onSuccess?.();
@@ -91,10 +101,27 @@ export function ReopenRequirementDialog({
 
                     <div className="my-5 space-y-4">
                         <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
-                            Reopening will return this requirement to active{' '}
-                            <strong className="text-foreground">Open</strong>{' '}
-                            status and restore line items so recruitment
-                            activities can continue.
+                            {isPreviouslyApproved ? (
+                                <>
+                                    Reopening will return this requirement to
+                                    active{' '}
+                                    <strong className="text-foreground">
+                                        Open
+                                    </strong>{' '}
+                                    status and restore line items so recruitment
+                                    activities can continue.
+                                </>
+                            ) : (
+                                <>
+                                    Reopening will return this unapproved
+                                    requirement to{' '}
+                                    <strong className="text-foreground">
+                                        Draft
+                                    </strong>{' '}
+                                    status and restore line items for readiness
+                                    review, submission, and recruiter approval.
+                                </>
+                            )}
                         </div>
 
                         <div className="space-y-2">
