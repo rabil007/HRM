@@ -212,8 +212,7 @@ final class RequirementPresenter
             'can_fill' => $canClose
                 && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
                 && $pendingExtensionPayload === null
-                && $pendingHeadcountPayload === null
-                && ($isFullyFulfilled || $canManage),
+                && $pendingHeadcountPayload === null,
             'is_fully_fulfilled' => $isFullyFulfilled,
             'unfilled_vacancies' => $unfilledVacancies,
             'can_override_fill' => $canOverrideFill,
