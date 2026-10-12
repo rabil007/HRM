@@ -74,6 +74,7 @@ export type CandidateIndexRow = {
     created_at: string | null;
     parents_valid: boolean;
     can_update: boolean;
+    can_update_interview: boolean;
     can_move: boolean;
     can_move_forward: boolean;
     can_correct_stage: boolean;
@@ -205,7 +206,10 @@ export type CandidateDetail = CandidateIndexRow & {
         mode: string | null;
         mode_label: string | null;
         location: string | null;
+        notes: string | null;
         feedback: string | null;
+        can_edit: boolean;
+        edit_blocked_reason: string | null;
     };
     requirement: {
         id: number;

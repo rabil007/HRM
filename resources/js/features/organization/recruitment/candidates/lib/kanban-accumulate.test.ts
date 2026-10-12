@@ -44,6 +44,7 @@ function row(
         created_at: null,
         parents_valid: true,
         can_update: true,
+        can_update_interview: true,
         can_move: true,
         can_move_forward: true,
         can_reject: true,

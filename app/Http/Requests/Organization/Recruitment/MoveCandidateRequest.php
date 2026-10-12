@@ -28,6 +28,7 @@ class MoveCandidateRequest extends FormRequest
             'external_interviewer_name' => ['nullable', 'string', 'max:200'],
             'interview_mode' => ['nullable', 'string', Rule::in(CandidateInterviewMode::values())],
             'interview_location' => ['nullable', 'string', 'max:300'],
+            'interview_notes' => ['nullable', 'string', 'max:10000'],
             'interview_feedback' => ['nullable', 'string', 'max:10000'],
         ];
     }

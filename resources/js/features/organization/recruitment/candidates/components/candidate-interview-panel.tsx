@@ -23,6 +23,7 @@ type InterviewFormData = {
     external_interviewer_name: string;
     interview_mode: string;
     interview_location: string;
+    interview_notes: string;
     interview_feedback: string;
     lock_version: number;
     expected_stage: CandidateStage;
@@ -44,7 +45,11 @@ export function CandidateInterviewPanel({
     const interviewFallbackErrors = interviewUnrenderedErrors(interviewErrors);
     const showInterviewSuccess =
         form.recentlySuccessful && Object.keys(interviewErrors).length === 0;
-    const canEdit = candidate.can_update && candidate.parents_valid;
+    const canEdit =
+        candidate.interview.can_edit &&
+        candidate.can_update_interview &&
+        candidate.parents_valid;
+    const lockedReason = candidate.interview.edit_blocked_reason;
 
     return (
         <section
@@ -78,6 +83,15 @@ export function CandidateInterviewPanel({
                 ) : null}
             </div>
 
+            {!canEdit && lockedReason ? (
+                <p
+                    className="mb-3 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+                    role="status"
+                >
+                    {lockedReason}
+                </p>
+            ) : null}
+
             {interviewGeneralError ? (
                 <p className="mb-3 text-sm text-destructive" role="alert">
                     {interviewGeneralError}
@@ -105,11 +119,12 @@ export function CandidateInterviewPanel({
 
             <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                    <Label>Scheduled at</Label>
+                    <Label htmlFor="interview_scheduled_at">Scheduled at</Label>
                     <Input
+                        id="interview_scheduled_at"
                         type="datetime-local"
                         value={form.data.interview_scheduled_at}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onChange={(event) =>
                             form.setData(
                                 'interview_scheduled_at',
@@ -129,7 +144,7 @@ export function CandidateInterviewPanel({
                     <Label>Mode</Label>
                     <AppSelect
                         value={form.data.interview_mode || 'none'}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onValueChange={(value) =>
                             form.setData(
                                 'interview_mode',
@@ -156,7 +171,7 @@ export function CandidateInterviewPanel({
                     <Label>Internal interviewer</Label>
                     <AppSelect
                         value={form.data.interviewer_user_id || 'none'}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onValueChange={(value) =>
                             form.setData(
                                 'interviewer_user_id',
@@ -183,10 +198,13 @@ export function CandidateInterviewPanel({
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label>External interviewer name</Label>
+                    <Label htmlFor="external_interviewer_name">
+                        External interviewer name
+                    </Label>
                     <Input
+                        id="external_interviewer_name"
                         value={form.data.external_interviewer_name}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onChange={(event) =>
                             form.setData(
                                 'external_interviewer_name',
@@ -203,10 +221,13 @@ export function CandidateInterviewPanel({
                     />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                    <Label>Location / meeting details</Label>
+                    <Label htmlFor="interview_location">
+                        Location / meeting details
+                    </Label>
                     <Input
+                        id="interview_location"
                         value={form.data.interview_location}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onChange={(event) =>
                             form.setData(
                                 'interview_location',
@@ -223,10 +244,39 @@ export function CandidateInterviewPanel({
                     />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                    <Label>Feedback</Label>
+                    <Label htmlFor="interview_notes">Preparation notes</Label>
+                    <p className="text-xs text-muted-foreground">
+                        Scheduling instructions and topics to discuss before the
+                        interview.
+                    </p>
                     <Textarea
+                        id="interview_notes"
+                        value={form.data.interview_notes}
+                        disabled={!canEdit}
+                        onChange={(event) =>
+                            form.setData('interview_notes', event.target.value)
+                        }
+                    />
+                    <InputError
+                        className="text-xs"
+                        message={interviewFieldError(
+                            interviewErrors,
+                            'interview_notes',
+                        )}
+                    />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="interview_feedback">
+                        Interview feedback
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                        Evaluation and observations recorded after the
+                        interview.
+                    </p>
+                    <Textarea
+                        id="interview_feedback"
                         value={form.data.interview_feedback}
-                        disabled={!candidate.can_update}
+                        disabled={!canEdit}
                         onChange={(event) =>
                             form.setData(
                                 'interview_feedback',

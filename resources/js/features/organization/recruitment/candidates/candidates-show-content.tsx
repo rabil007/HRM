@@ -90,6 +90,7 @@ export function CandidatesShowContent({
             candidate.interview.external_interviewer_name ?? '',
         interview_mode: candidate.interview.mode ?? '',
         interview_location: candidate.interview.location ?? '',
+        interview_notes: candidate.interview.notes ?? '',
         interview_feedback: candidate.interview.feedback ?? '',
         lock_version: candidate.lock_version,
         expected_stage: candidate.stage,

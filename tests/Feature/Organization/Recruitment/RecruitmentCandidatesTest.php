@@ -3,6 +3,7 @@
 use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
+use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\Client;
@@ -1229,7 +1230,7 @@ test('screening can be corrected back to applied with audited reason', function 
         ->and($transition->performed_by)->toBe($this->recruiterA->id);
 });
 
-test('interview correction to screening clears selected outcome and preserves history fields', function () {
+test('interview correction to screening snapshots cycle and clears active interview fields', function () {
     $candidate = RecruitmentCandidate::query()->create([
         'company_id' => $this->companyA->id,
         'recruitment_requirement_id' => $this->requirement->id,
@@ -1241,8 +1242,10 @@ test('interview correction to screening clears selected outcome and preserves hi
         'email_normalized' => 'correct-interview@example.com',
         'stage' => CandidateStage::Interview,
         'interview_outcome' => CandidateInterviewOutcome::Selected,
+        'interview_notes' => 'Prep for panel A',
         'interview_feedback' => 'Kept feedback',
         'external_interviewer_name' => 'Panel Lead',
+        'interview_location' => 'Room 2',
         'lock_version' => 1,
         'created_by' => $this->recruiterA->id,
         'updated_by' => $this->recruiterA->id,
@@ -1262,8 +1265,10 @@ test('interview correction to screening clears selected outcome and preserves hi
     $candidate->refresh();
     expect($candidate->stage)->toBe(CandidateStage::Screening)
         ->and($candidate->interview_outcome)->toBeNull()
-        ->and($candidate->interview_feedback)->toBe('Kept feedback')
-        ->and($candidate->external_interviewer_name)->toBe('Panel Lead');
+        ->and($candidate->interview_feedback)->toBeNull()
+        ->and($candidate->interview_notes)->toBeNull()
+        ->and($candidate->external_interviewer_name)->toBeNull()
+        ->and($candidate->interview_location)->toBeNull();
 
     $transition = RecruitmentCandidateStageTransition::query()
         ->where('recruitment_candidate_id', $candidate->id)
@@ -1271,7 +1276,10 @@ test('interview correction to screening clears selected outcome and preserves hi
         ->first();
 
     expect($transition->context['cleared_selection'] ?? false)->toBeTrue()
-        ->and($transition->context['cleared_interview_outcome'] ?? null)->toBe('selected');
+        ->and($transition->context['cleared_interview_outcome'] ?? null)->toBe('selected')
+        ->and($transition->context['interview_cycle_snapshot']['interview_feedback'] ?? null)->toBe('Kept feedback')
+        ->and($transition->context['interview_cycle_snapshot']['interview_notes'] ?? null)->toBe('Prep for panel A')
+        ->and($transition->context['interview_cycle_snapshot']['external_interviewer_name'] ?? null)->toBe('Panel Lead');
 });
 
 test('interview can correct directly to applied with mandatory reason', function () {
@@ -1436,7 +1444,7 @@ test('screening to interview move can set interview details in one transaction',
             'interview_mode' => 'video',
             'external_interviewer_name' => 'External Panel',
             'interview_location' => 'Zoom room A',
-            'interview_feedback' => 'Pre-brief notes',
+            'interview_notes' => 'Pre-brief notes',
         ])
         ->assertRedirect()
         ->assertSessionHas('success');
@@ -1446,7 +1454,8 @@ test('screening to interview move can set interview details in one transaction',
         ->and($candidate->interview_mode?->value)->toBe('video')
         ->and($candidate->external_interviewer_name)->toBe('External Panel')
         ->and($candidate->interview_location)->toBe('Zoom room A')
-        ->and($candidate->interview_feedback)->toBe('Pre-brief notes')
+        ->and($candidate->interview_notes)->toBe('Pre-brief notes')
+        ->and($candidate->interview_feedback)->toBeNull()
         ->and($candidate->interview_scheduled_at)->not->toBeNull();
 
     $actions = RecruitmentCandidateStageTransition::query()
@@ -1556,7 +1565,187 @@ test('candidate detail exposes move destinations and accepts interviewer on scre
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    expect($candidate->fresh()->stage)->toBe(CandidateStage::Screening);
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Screening)
+        ->and($candidate->interview_mode)->toBeNull()
+        ->and($candidate->interviewer_user_id)->toBeNull()
+        ->and($candidate->interview_location)->toBeNull();
+});
+
+test('screening to interview re-entry starts a clean cycle without stale prior fields', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Reentry Cycle',
+        'email' => 'reentry-cycle@example.com',
+        'email_normalized' => 'reentry-cycle@example.com',
+        'stage' => CandidateStage::Interview,
+        'interview_mode' => 'in_person',
+        'external_interviewer_name' => 'First Panel',
+        'interview_location' => 'HQ Room 1',
+        'interview_notes' => 'First cycle prep',
+        'interview_feedback' => 'First cycle feedback',
+        'lock_version' => 2,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/candidates/{$candidate->id}/correct-stage", [
+            'to_stage' => 'screening',
+            'reason' => 'Wrong interview schedule',
+            'lock_version' => 2,
+            'expected_stage' => 'interview',
+        ])
+        ->assertRedirect();
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Screening)
+        ->and($candidate->interview_notes)->toBeNull()
+        ->and($candidate->interview_feedback)->toBeNull();
+
+    $this->post("/organization/recruitment/candidates/{$candidate->id}/move", [
+        'lock_version' => $candidate->lock_version,
+        'expected_stage' => 'screening',
+        'interview_mode' => 'video',
+        'external_interviewer_name' => 'Second Panel',
+        'interview_location' => 'Zoom B',
+        'interview_notes' => 'Second cycle prep only',
+    ])->assertRedirect()->assertSessionHas('success');
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Interview)
+        ->and($candidate->interview_mode?->value)->toBe('video')
+        ->and($candidate->external_interviewer_name)->toBe('Second Panel')
+        ->and($candidate->interview_location)->toBe('Zoom B')
+        ->and($candidate->interview_notes)->toBe('Second cycle prep only')
+        ->and($candidate->interview_feedback)->toBeNull();
+
+    $correction = RecruitmentCandidateStageTransition::query()
+        ->where('recruitment_candidate_id', $candidate->id)
+        ->where('action', CandidateTransitionAction::StageCorrected)
+        ->latest('id')
+        ->first();
+
+    expect($correction->context['interview_cycle_snapshot']['interview_feedback'] ?? null)->toBe('First cycle feedback')
+        ->and($correction->context['interview_cycle_snapshot']['external_interviewer_name'] ?? null)->toBe('First Panel');
+});
+
+test('interview re-entry with omitted optional fields does not revive prior cycle values', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Omit Reentry',
+        'email' => 'omit-reentry@example.com',
+        'email_normalized' => 'omit-reentry@example.com',
+        'stage' => CandidateStage::Screening,
+        'lock_version' => 0,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    // Simulate residual stale active fields that should not merge on re-entry.
+    $candidate->forceFill([
+        'interview_location' => 'Stale location',
+        'interview_notes' => 'Stale notes',
+        'interview_feedback' => 'Stale feedback',
+        'external_interviewer_name' => 'Stale interviewer',
+    ])->save();
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/candidates/{$candidate->id}/move", [
+            'lock_version' => 0,
+            'expected_stage' => 'screening',
+            'interview_mode' => 'phone',
+        ])
+        ->assertRedirect();
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Interview)
+        ->and($candidate->interview_mode?->value)->toBe('phone')
+        ->and($candidate->interview_location)->toBeNull()
+        ->and($candidate->interview_notes)->toBeNull()
+        ->and($candidate->interview_feedback)->toBeNull()
+        ->and($candidate->external_interviewer_name)->toBeNull();
+});
+
+test('selected interview cannot be updated through the routine interview endpoint', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Locked Selected',
+        'email' => 'locked-selected@example.com',
+        'email_normalized' => 'locked-selected@example.com',
+        'stage' => CandidateStage::Interview,
+        'interview_outcome' => CandidateInterviewOutcome::Selected,
+        'interview_notes' => 'Original prep',
+        'interview_feedback' => 'Original feedback',
+        'lock_version' => 3,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->put("/organization/recruitment/candidates/{$candidate->id}/interview", [
+            'interview_notes' => 'Hacked notes',
+            'interview_feedback' => 'Hacked feedback',
+            'lock_version' => 3,
+            'expected_stage' => 'interview',
+        ])
+        ->assertRedirect("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertSessionHasErrors('interview');
+
+    $candidate->refresh();
+    expect($candidate->interview_notes)->toBe('Original prep')
+        ->and($candidate->interview_feedback)->toBe('Original feedback')
+        ->and($candidate->lock_version)->toBe(3);
+});
+
+test('interview notes and feedback persist separately on update', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Notes Feedback Split',
+        'email' => 'notes-feedback@example.com',
+        'email_normalized' => 'notes-feedback@example.com',
+        'stage' => CandidateStage::Interview,
+        'lock_version' => 0,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->put("/organization/recruitment/candidates/{$candidate->id}/interview", [
+            'interview_notes' => 'Discuss salary expectations',
+            'interview_feedback' => 'Strong culture fit',
+            'interview_mode' => 'video',
+            'lock_version' => 0,
+            'expected_stage' => 'interview',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $candidate->refresh();
+    expect($candidate->interview_notes)->toBe('Discuss salary expectations')
+        ->and($candidate->interview_feedback)->toBe('Strong culture fit')
+        ->and($candidate->interview_mode?->value)->toBe('video');
 });
 
 test('move rejects interviewer outside the active company membership', function () {

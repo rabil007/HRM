@@ -81,6 +81,7 @@ final class CandidatePresenter
             'created_at' => self::formatDateTime($candidate->created_at, $timezone),
             'parents_valid' => $parentsValid,
             'can_update' => $canUpdate,
+            'can_update_interview' => $canUpdate && CandidateWorkflowAuthorization::canEditInterviewDetails($candidate),
             'can_move' => $canMove,
             'can_move_forward' => $canMove && $candidate->stage->allowsForwardMove() && $candidate->interview_outcome === null,
             'can_correct_stage' => CandidateWorkflowAuthorization::canCorrectStage($user, $candidate),
@@ -294,7 +295,10 @@ final class CandidatePresenter
                 'mode' => $candidate->interview_mode?->value,
                 'mode_label' => $candidate->interview_mode?->label(),
                 'location' => $candidate->interview_location,
+                'notes' => $candidate->interview_notes,
                 'feedback' => $candidate->interview_feedback,
+                'can_edit' => (bool) ($row['can_update_interview'] ?? false),
+                'edit_blocked_reason' => CandidateWorkflowAuthorization::interviewEditBlockedReason($candidate),
             ],
             'requirement' => $requirement === null ? null : [
                 'id' => (int) $requirement->id,

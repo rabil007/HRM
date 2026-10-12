@@ -7,6 +7,7 @@ use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateInterviewCycle;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use Illuminate\Support\Facades\DB;
@@ -90,19 +91,21 @@ final class CorrectCandidateStage
             $fromOutcome = $locked->interview_outcome;
             $toOutcome = $fromOutcome;
             $clearedSelection = false;
-
-            if ($from === CandidateStage::Interview && $fromOutcome !== null) {
-                // Preserve interview field history; clear outcome so the earlier stage is actionable again.
-                $toOutcome = null;
-                $clearedSelection = $fromOutcome === CandidateInterviewOutcome::Selected;
-                $locked->interview_outcome = null;
-            }
-
-            $locked->fill([
+            $interviewSnapshot = null;
+            $fill = [
                 'stage' => $to,
                 'updated_by' => $actor->id,
                 'lock_version' => (int) $locked->lock_version + 1,
-            ]);
+            ];
+
+            if ($from === CandidateStage::Interview) {
+                $interviewSnapshot = CandidateInterviewCycle::snapshot($locked);
+                $clearedSelection = $fromOutcome === CandidateInterviewOutcome::Selected;
+                $toOutcome = null;
+                $fill = array_merge($fill, CandidateInterviewCycle::clearedActiveFields());
+            }
+
+            $locked->fill($fill);
             $locked->save();
 
             RecordCandidateStageTransition::handle(
@@ -118,6 +121,7 @@ final class CorrectCandidateStage
                     'correction' => true,
                     'cleared_interview_outcome' => $fromOutcome?->value,
                     'cleared_selection' => $clearedSelection,
+                    'interview_cycle_snapshot' => $interviewSnapshot,
                 ],
             );
 

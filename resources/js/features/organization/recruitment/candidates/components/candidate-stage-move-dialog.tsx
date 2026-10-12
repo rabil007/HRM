@@ -178,7 +178,7 @@ function StageMoveDialogBody({
                 }
 
                 if (interviewNotes.trim()) {
-                    payload.interview_feedback = interviewNotes.trim();
+                    payload.interview_notes = interviewNotes.trim();
                 }
             }
 
@@ -417,23 +417,37 @@ function StageMoveDialogBody({
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="interview_notes">
-                                    Interview notes
+                                    Preparation notes
                                 </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Scheduling instructions and topics to
+                                    discuss before the interview. Not interview
+                                    feedback.
+                                </p>
                                 <Textarea
                                     id="interview_notes"
                                     value={interviewNotes}
                                     onChange={(event) =>
                                         setInterviewNotes(event.target.value)
                                     }
+                                    aria-describedby="interview_notes_hint"
                                 />
+                                <p
+                                    id="interview_notes_hint"
+                                    className="sr-only"
+                                >
+                                    Optional preparation notes for the
+                                    interview, distinct from post-interview
+                                    feedback.
+                                </p>
                                 {stageMoveFieldError(
                                     errors,
-                                    'interview_feedback',
+                                    'interview_notes',
                                 ) ? (
                                     <p className="text-xs text-destructive">
                                         {stageMoveFieldError(
                                             errors,
-                                            'interview_feedback',
+                                            'interview_notes',
                                         )}
                                     </p>
                                 ) : null}

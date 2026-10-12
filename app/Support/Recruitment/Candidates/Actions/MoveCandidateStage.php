@@ -7,6 +7,7 @@ use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\User;
+use App\Support\Recruitment\Candidates\CandidateInterviewCycle;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\Candidates\RecordCandidateStageTransition;
 use App\Support\Recruitment\CompanyUserOptionsQuery;
@@ -27,6 +28,7 @@ final class MoveCandidateStage
      *     external_interviewer_name?: string|null,
      *     interview_mode?: string|null,
      *     interview_location?: string|null,
+     *     interview_notes?: string|null,
      *     interview_feedback?: string|null,
      * }  $guard
      */
@@ -87,12 +89,33 @@ final class MoveCandidateStage
             ];
 
             $interviewChanges = [];
-            if ($interviewPayload !== [] && $to === CandidateStage::Interview) {
-                [$fill, $interviewChanges] = self::applyInterviewFields($locked, $interviewPayload, $fill);
+            $priorCycleSnapshot = null;
+
+            if ($to === CandidateStage::Interview) {
+                // New interview cycle: clear any residual active fields, then apply submitted values only.
+                if (CandidateInterviewCycle::hasActiveDetails($locked)) {
+                    $priorCycleSnapshot = CandidateInterviewCycle::snapshot($locked);
+                }
+
+                $fill = array_merge($fill, CandidateInterviewCycle::clearedActiveFields());
+
+                if ($interviewPayload !== []) {
+                    [$fill, $interviewChanges] = self::applyInterviewFieldsForNewCycle(
+                        $locked,
+                        $interviewPayload,
+                        $fill,
+                    );
+                }
             }
 
             $locked->fill($fill);
             $locked->save();
+
+            $moveContext = [];
+            if ($priorCycleSnapshot !== null) {
+                $moveContext['prior_interview_cycle_snapshot'] = $priorCycleSnapshot;
+                $moveContext['new_interview_cycle'] = true;
+            }
 
             RecordCandidateStageTransition::handle(
                 $locked,
@@ -103,6 +126,7 @@ final class MoveCandidateStage
                 null,
                 (int) $actor->id,
                 $note,
+                $moveContext === [] ? null : $moveContext,
             );
 
             if ($interviewChanges !== []) {
@@ -115,7 +139,7 @@ final class MoveCandidateStage
                     null,
                     (int) $actor->id,
                     null,
-                    ['changes' => $interviewChanges, 'with_stage_move' => true],
+                    ['changes' => $interviewChanges, 'with_stage_move' => true, 'new_interview_cycle' => true],
                 );
             }
 
@@ -135,6 +159,7 @@ final class MoveCandidateStage
             'external_interviewer_name',
             'interview_mode',
             'interview_location',
+            'interview_notes',
             'interview_feedback',
         ];
 
@@ -149,11 +174,13 @@ final class MoveCandidateStage
     }
 
     /**
+     * Apply interview fields for a fresh Interview cycle (no fall-back to prior active values).
+     *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>  $fill
      * @return array{0: array<string, mixed>, 1: array<string, array{from: mixed, to: mixed}>}
      */
-    private static function applyInterviewFields(
+    private static function applyInterviewFieldsForNewCycle(
         RecruitmentCandidate $locked,
         array $data,
         array $fill,
@@ -179,7 +206,7 @@ final class MoveCandidateStage
             ? ($data['interviewer_user_id'] !== null && $data['interviewer_user_id'] !== ''
                 ? (int) $data['interviewer_user_id']
                 : null)
-            : $locked->interviewer_user_id;
+            : null;
 
         if ($interviewerUserId !== null
             && ! CompanyUserOptionsQuery::isActiveCompanyMember($interviewerUserId, (int) $locked->company_id)
@@ -191,21 +218,26 @@ final class MoveCandidateStage
 
         $externalName = array_key_exists('external_interviewer_name', $data)
             ? (trim((string) ($data['external_interviewer_name'] ?? '')) ?: null)
-            : $locked->external_interviewer_name;
+            : null;
 
         $mode = array_key_exists('interview_mode', $data)
             ? (filled($data['interview_mode'] ?? null)
                 ? CandidateInterviewMode::from((string) $data['interview_mode'])
                 : null)
-            : $locked->interview_mode;
+            : null;
 
         $location = array_key_exists('interview_location', $data)
             ? (trim((string) ($data['interview_location'] ?? '')) ?: null)
-            : $locked->interview_location;
+            : null;
 
+        $notes = array_key_exists('interview_notes', $data)
+            ? (trim((string) ($data['interview_notes'] ?? '')) ?: null)
+            : null;
+
+        // Feedback is post-interview only; accept if explicitly sent but prefer notes for move dialogs.
         $feedback = array_key_exists('interview_feedback', $data)
             ? (trim((string) ($data['interview_feedback'] ?? '')) ?: null)
-            : $locked->interview_feedback;
+            : null;
 
         if ($scheduledAt !== null && $mode === null) {
             throw ValidationException::withMessages([
@@ -213,19 +245,29 @@ final class MoveCandidateStage
             ]);
         }
 
+        $next = [
+            'interview_scheduled_at' => $hasSchedule ? $scheduledAtStorage : null,
+            'interviewer_user_id' => $interviewerUserId,
+            'external_interviewer_name' => $externalName,
+            'interview_mode' => $mode,
+            'interview_location' => $location,
+            'interview_notes' => $notes,
+            'interview_feedback' => $feedback,
+            'interview_outcome' => null,
+        ];
+
         $changes = [];
         $compare = [
             'interview_scheduled_at' => [
-                $locked->interview_scheduled_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
-                $hasSchedule
-                    ? ($scheduledAt?->format('Y-m-d H:i:s'))
-                    : $locked->interview_scheduled_at?->copy()->timezone($timezone)->format('Y-m-d H:i:s'),
+                null,
+                $hasSchedule ? ($scheduledAt?->format('Y-m-d H:i:s')) : null,
             ],
-            'interviewer_user_id' => [$locked->interviewer_user_id, $interviewerUserId],
-            'external_interviewer_name' => [$locked->external_interviewer_name, $externalName],
-            'interview_mode' => [$locked->interview_mode?->value, $mode?->value],
-            'interview_location' => [$locked->interview_location, $location],
-            'interview_feedback' => [$locked->interview_feedback, $feedback],
+            'interviewer_user_id' => [null, $interviewerUserId],
+            'external_interviewer_name' => [null, $externalName],
+            'interview_mode' => [null, $mode?->value],
+            'interview_location' => [null, $location],
+            'interview_notes' => [null, $notes],
+            'interview_feedback' => [null, $feedback],
         ];
 
         foreach ($compare as $field => [$before, $after]) {
@@ -234,17 +276,6 @@ final class MoveCandidateStage
             }
         }
 
-        if ($changes === []) {
-            return [$fill, []];
-        }
-
-        $fill['interview_scheduled_at'] = $hasSchedule ? $scheduledAtStorage : $locked->interview_scheduled_at;
-        $fill['interviewer_user_id'] = $interviewerUserId;
-        $fill['external_interviewer_name'] = $externalName;
-        $fill['interview_mode'] = $mode;
-        $fill['interview_location'] = $location;
-        $fill['interview_feedback'] = $feedback;
-
-        return [$fill, $changes];
+        return [array_merge($fill, $next), $changes];
     }
 }

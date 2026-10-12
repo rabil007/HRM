@@ -267,6 +267,67 @@ final class CandidateWorkflowAuthorization
         }
     }
 
+    /**
+     * Routine interview scheduling/details edits are only allowed while Interview is still pending.
+     */
+    public static function assertCanEditInterviewDetails(User $user, RecruitmentCandidate $candidate): void
+    {
+        self::assertCanUpdate($user, $candidate);
+
+        if (! self::canEditInterviewDetails($candidate)) {
+            throw ValidationException::withMessages([
+                'interview' => self::interviewEditBlockedReason($candidate)
+                    ?? 'Interview details cannot be edited in the current state.',
+            ]);
+        }
+    }
+
+    public static function canEditInterviewDetails(RecruitmentCandidate $candidate): bool
+    {
+        if ($candidate->stage !== CandidateStage::Interview) {
+            return false;
+        }
+
+        if ($candidate->interview_outcome !== null) {
+            return false;
+        }
+
+        if ($candidate->currentOffer !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function interviewEditBlockedReason(RecruitmentCandidate $candidate): ?string
+    {
+        if ($candidate->stage === CandidateStage::Rejected) {
+            return 'Interview details cannot be edited after rejection. Reopen the candidate first if a correction is required.';
+        }
+
+        if ($candidate->stage === CandidateStage::Joined || $candidate->stage === CandidateStage::OfferJol) {
+            return 'Interview details are locked after Offer/JOL preparation or joining. Use the authorized correction workflows instead.';
+        }
+
+        if ($candidate->stage !== CandidateStage::Interview) {
+            return 'Interview details can only be edited while the candidate is in Interview.';
+        }
+
+        if ($candidate->currentOffer !== null) {
+            return 'Interview details are locked after Offer/JOL preparation. Use Undo Selected is no longer available; revise the offer workflow instead.';
+        }
+
+        if ($candidate->interview_outcome === CandidateInterviewOutcome::Selected) {
+            return 'Interview details are locked after selection. Use Undo Selected, then update the interview, then select again if still appropriate.';
+        }
+
+        if ($candidate->interview_outcome !== null) {
+            return 'Interview details are locked after an interview outcome is recorded.';
+        }
+
+        return null;
+    }
+
     public static function assertCanMove(User $user, RecruitmentCandidate $candidate): void
     {
         if (! $user->can('recruitment.candidates.move')) {

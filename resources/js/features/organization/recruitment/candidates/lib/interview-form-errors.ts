@@ -4,6 +4,7 @@ const INTERVIEW_FIELD_ERROR_KEYS = [
     'interviewer_user_id',
     'external_interviewer_name',
     'interview_location',
+    'interview_notes',
     'interview_feedback',
 ] as const;
 
@@ -12,6 +13,7 @@ const INTERVIEW_KNOWN_GENERAL_KEYS = [
     'candidate',
     'stage',
     'expected_stage',
+    'interview',
 ] as const;
 
 export type InterviewFormErrors = Record<string, string | string[] | undefined>;

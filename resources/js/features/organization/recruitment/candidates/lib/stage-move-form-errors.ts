@@ -6,6 +6,7 @@ const FIELD_ERROR_KEYS = [
     'interviewer_user_id',
     'external_interviewer_name',
     'interview_location',
+    'interview_notes',
     'interview_feedback',
     'actual_joining_date',
     'notes',

@@ -96,6 +96,7 @@ export function hasInterviewDetails(candidate: CandidateDetail): boolean {
         interview.interviewer_user_id ||
         interview.external_interviewer_name ||
         interview.location ||
+        interview.notes ||
         interview.feedback ||
         candidate.interview_outcome,
     );
