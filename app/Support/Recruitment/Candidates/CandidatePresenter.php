@@ -445,7 +445,6 @@ final class CandidatePresenter
             'context' => self::sanitizeTransitionContext(
                 is_array($context) ? $context : null,
                 $timezone,
-                $canViewEmployee,
             ),
             'performed_by' => $transition->performed_by,
             'performed_by_name' => $transition->performer?->name,
@@ -456,10 +455,13 @@ final class CandidatePresenter
     /**
      * Expose only approved transition context fields for recruitment movement history.
      *
+     * Employee identifiers may already be nullified by the caller for unauthorized viewers;
+     * keep those keys (including nulls) so redaction remains explicit rather than omitted.
+     *
      * @param  array<string, mixed>|null  $context
      * @return array<string, mixed>|null
      */
-    private static function sanitizeTransitionContext(?array $context, string $timezone, bool $includeEmployeeFields = true): ?array
+    private static function sanitizeTransitionContext(?array $context, string $timezone): ?array
     {
         if ($context === null || $context === []) {
             return null;
@@ -496,23 +498,20 @@ final class CandidatePresenter
             'cleared_selection',
             'cleared_interview_outcome',
             'notes',
+            'reason',
             'revision_number',
             'offer_id',
             'offer_status',
             'readiness_status',
             'expected_joining_date',
             'actual_joining_date',
+            'employee_id',
+            'employee_no',
+            'employee_name',
+            'employee_url',
         ] as $key) {
             if (array_key_exists($key, $context)) {
                 $sanitized[$key] = $context[$key];
-            }
-        }
-
-        if ($includeEmployeeFields) {
-            foreach (['employee_id', 'employee_no', 'employee_name', 'employee_url'] as $key) {
-                if (array_key_exists($key, $context)) {
-                    $sanitized[$key] = $context[$key];
-                }
             }
         }
 
