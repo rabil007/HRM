@@ -45,10 +45,14 @@ export type CandidateIndexRow = {
     expected_joining_date: string | null;
     actual_joining_date: string | null;
     joining_readiness_status: CandidateJoiningReadinessStatus;
+    joining_readiness_label?: string | null;
+    joining_readiness_badge?: string | null;
     joining_readiness_notes: string | null;
     joining_blocker_notes: string | null;
     joining_schedule_urgency: CandidateJoiningScheduleUrgency;
+    joining_schedule_days_diff?: number | null;
     joining_schedule_label: string | null;
+    days_in_stage: number;
     lock_version: number;
     created_at: string | null;
     parents_valid: boolean;

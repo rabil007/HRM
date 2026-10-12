@@ -39,6 +39,7 @@ final class CandidatePresenter
         $canUpdateReadiness = CandidateWorkflowAuthorization::canUpdateReadiness($user, $candidate);
 
         $scheduleInfo = self::resolveJoiningScheduleInfo($candidate, $timezone);
+        $daysInStage = self::resolveDaysInStage($candidate, $timezone);
 
         return [
             'id' => (int) $candidate->id,
@@ -68,9 +69,12 @@ final class CandidatePresenter
             'joining_readiness_status' => $candidate->joining_readiness_status?->value,
             'joining_readiness_label' => $candidate->joining_readiness_status?->label(),
             'joining_readiness_badge' => $candidate->joining_readiness_status?->badgeVariant(),
+            'joining_readiness_notes' => $candidate->joining_readiness_notes,
+            'joining_blocker_notes' => $candidate->joining_blocker_notes,
             'joining_schedule_urgency' => $scheduleInfo['urgency'],
             'joining_schedule_days_diff' => $scheduleInfo['days_diff'],
             'joining_schedule_label' => $scheduleInfo['label'],
+            'days_in_stage' => $daysInStage,
             'lock_version' => (int) $candidate->lock_version,
             'created_at' => self::formatDateTime($candidate->created_at, $timezone),
             'parents_valid' => $parentsValid,
@@ -321,6 +325,26 @@ final class CandidatePresenter
             'selected' => $selected,
             'recent' => $recent,
         ];
+    }
+
+    /**
+     * Calendar days since the candidate entered the current stage (latest transition, else created_at).
+     */
+    public static function resolveDaysInStage(RecruitmentCandidate $candidate, string $timezone): int
+    {
+        $raw = $candidate->getAttribute('stage_transitions_max_created_at');
+
+        if ($raw === null) {
+            $enteredAt = $candidate->created_at ?? CarbonImmutable::now($timezone);
+        } else {
+            $enteredAt = CarbonImmutable::parse((string) $raw, config('app.timezone'))
+                ->timezone($timezone);
+        }
+
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $enteredDay = $enteredAt->startOfDay();
+
+        return max(0, (int) round($enteredDay->floatDiffInDays($today, false)));
     }
 
     /**

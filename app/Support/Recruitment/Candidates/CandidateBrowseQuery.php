@@ -163,7 +163,8 @@ final class CandidateBrowseQuery
                 'line.position:id,title',
                 'currentOffer',
                 'joinedByUser:id,name',
-            ]);
+            ])
+            ->withMax('stageTransitions', 'created_at');
 
         if ($requirementId !== null) {
             $query->where('recruitment_requirement_id', $requirementId);

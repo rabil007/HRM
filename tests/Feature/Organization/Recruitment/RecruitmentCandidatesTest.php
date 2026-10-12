@@ -582,6 +582,7 @@ test('kanban view returns independent stage column totals', function () {
             ->where('stage_totals.screening', 1)
             ->where('stage_totals.interview', 1)
             ->has('kanban.applied.data', 1)
+            ->where('kanban.applied.data.0.days_in_stage', 0)
         );
 });
 
