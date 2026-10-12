@@ -609,6 +609,70 @@ test('reopening an unapproved cancelled requirement returns it to draft and pres
         ->and($line->fresh()->status)->toBe(RequirementLineStatus::Open);
 });
 
+test('reopening a cancelled requirement with opened_at and no approved_at restores open and keeps start metadata', function () {
+    $openedAt = now()->subDays(12);
+    $submittedAt = now()->subDays(14);
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-OPENED',
+        'client_id' => $this->client->id,
+        'request_received_date' => now()->subMonth(),
+        'required_by_date' => now()->subDays(10),
+        'priority' => 'normal',
+        'status' => RequirementStatus::Cancelled,
+        'cancellation_reason' => 'Paused after it had already opened',
+        'cancelled_at' => now()->subDays(2),
+        'submitted_at' => $submittedAt,
+        'submitted_by' => $this->adminUserA->id,
+        'approved_at' => null,
+        'approved_by' => null,
+        'opened_at' => $openedAt,
+        'created_by' => $this->adminUserA->id,
+    ]);
+
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/requirements?'.http_build_query([
+            'tab' => 'history',
+            'search' => 'REQ-2026-OPENED',
+        ]))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('requirements.data.0.id', $req->id)
+            ->where('requirements.data.0.is_previously_approved', true)
+            ->where('requirements.data.0.can_reopen', true));
+
+    $newDeadline = now()->addDays(18)->format('Y-m-d');
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'new_required_by_date' => $newDeadline,
+            'reason' => 'Client resumed after the requirement had already opened.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success', "Requirement {$req->requirement_number} reopened.");
+
+    $fresh = $req->fresh();
+    expect($fresh->status)->toBe(RequirementStatus::Open)
+        ->and($fresh->approved_at)->toBeNull()
+        ->and($fresh->approved_by)->toBeNull()
+        ->and($fresh->opened_at->toIso8601String())->toBe($openedAt->toIso8601String())
+        ->and($fresh->submitted_at->toIso8601String())->toBe($submittedAt->toIso8601String())
+        ->and($fresh->submitted_by)->toBe($this->adminUserA->id)
+        ->and($fresh->cancelled_at)->toBeNull()
+        ->and($fresh->required_by_date->format('Y-m-d'))->toBe($newDeadline)
+        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Open);
+});
+
 test('repeating a requirement creates a new requisition linked via repeated_from_id', function () {
     $sourceReq = RecruitmentRequirement::query()->create([
         'company_id' => $this->companyA->id,

@@ -231,6 +231,66 @@ test('leave balance report includes employee photo when the viewer can access th
             ->where('balances.0.employee.can_view', true));
 });
 
+test('leave balance report combines opening and hrm used days into previous used', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
+    grantCompanyPermissions($user, $company, ['reports.leave_balance.view', 'reports.leave_balance.export', 'employees.view']);
+    $user->update(['current_company_id' => $company->id]);
+
+    $leaveType->update(['name' => 'Annual', 'category' => LeaveTypeCategory::Annual]);
+    $employee->update(['name' => 'Combined Used Person', 'employee_no' => 'BAL-USED']);
+
+    makeBalance($employee, $leaveType, (int) now()->year, [
+        'entitled_days' => 30,
+        'carried_days' => 0,
+        'opening_used_days' => 6,
+        'used_days' => 4,
+        'pending_days' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.index', ['year' => now()->year]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('balances', 1)
+            ->where('balances', function ($balances): bool {
+                $row = collect($balances)->first();
+
+                return $row !== null
+                    && (float) $row['opening_used_days'] === 6.0
+                    && (float) $row['used_days'] === 4.0
+                    && (float) $row['total_used_days'] === 10.0
+                    && (float) $row['pending_days'] === 1.0;
+            }));
+
+    Excel::fake();
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.leave-balances.export', [
+            'format' => 'xlsx',
+            'year' => now()->year,
+        ]))
+        ->assertOk();
+
+    Excel::assertDownloaded('leave-balance-report-'.now()->toDateString().'.xlsx', function (LeaveBalanceReportExport $export): bool {
+        $headings = $export->headings();
+        $previousUsedIndex = array_search('Previous Used Days', $headings, true);
+        $balance = $export->query()->first();
+
+        if ($previousUsedIndex === false || ! $balance instanceof LeaveBalance) {
+            return false;
+        }
+
+        $mapped = $export->map($balance);
+
+        return ! in_array('HRM Used Days', $headings, true)
+            && count(array_filter($headings, fn (string $heading): bool => $heading === 'Previous Used Days')) === 1
+            && count($mapped) === count($headings)
+            && (float) $mapped[$previousUsedIndex] === 10.0
+            && (float) $mapped[array_search('Pending Days', $headings, true)] === 1.0
+            && (float) $mapped[array_search('Remaining Days', $headings, true)] === 19.0;
+    });
+});
+
 test('leave balance report hides employee photo without employees.view', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'leaveType' => $leaveType] = authorizeLeaveReport();
     grantCompanyPermissions($user, $company, ['reports.leave_balance.view']);
