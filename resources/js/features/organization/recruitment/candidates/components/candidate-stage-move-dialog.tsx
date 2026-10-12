@@ -19,6 +19,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    stageMoveFieldError,
+    stageMoveKnownGeneralError,
+    stageMoveUnrenderedErrors,
+} from '../lib/stage-move-form-errors';
 import type {
     CandidateIndexRow,
     CandidateMoveDestination,
@@ -31,7 +36,12 @@ export type StageMoveIntent = {
     destination: CandidateMoveDestination;
 };
 
-const INTERVIEW_MODES = [
+export type StageMoveInterviewOptions = {
+    interview_modes: Array<{ value: string; label: string }>;
+    interviewers: Array<{ id: number; name: string; email: string }>;
+};
+
+const FALLBACK_INTERVIEW_MODES = [
     { value: 'in_person', label: 'In person' },
     { value: 'video', label: 'Video' },
     { value: 'phone', label: 'Phone' },
@@ -40,9 +50,11 @@ const INTERVIEW_MODES = [
 export function CandidateStageMoveDialog({
     intent,
     onClose,
+    interviewOptions,
 }: {
     intent: StageMoveIntent | null;
     onClose: () => void;
+    interviewOptions?: StageMoveInterviewOptions | null;
 }) {
     if (!intent) {
         return null;
@@ -53,6 +65,7 @@ export function CandidateStageMoveDialog({
             key={`${intent.candidate.id}-${intent.destination.kind}-${intent.destination.stage}-${intent.candidate.lock_version}`}
             intent={intent}
             onClose={onClose}
+            interviewOptions={interviewOptions ?? null}
         />
     );
 }
@@ -60,20 +73,28 @@ export function CandidateStageMoveDialog({
 function StageMoveDialogBody({
     intent,
     onClose,
+    interviewOptions,
 }: {
     intent: StageMoveIntent;
     onClose: () => void;
+    interviewOptions: StageMoveInterviewOptions | null;
 }) {
     const { candidate, destination } = intent;
     const [reason, setReason] = useState('');
     const [actualJoiningDate, setActualJoiningDate] = useState('');
     const [interviewScheduledAt, setInterviewScheduledAt] = useState('');
     const [interviewMode, setInterviewMode] = useState('');
+    const [interviewerUserId, setInterviewerUserId] = useState('');
     const [externalInterviewer, setExternalInterviewer] = useState('');
     const [interviewLocation, setInterviewLocation] = useState('');
     const [interviewNotes, setInterviewNotes] = useState('');
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const interviewModes = interviewOptions?.interview_modes?.length
+        ? interviewOptions.interview_modes
+        : [...FALLBACK_INTERVIEW_MODES];
+    const interviewers = interviewOptions?.interviewers ?? [];
 
     const fromLabel =
         CANDIDATE_STAGE_LABELS[candidate.stage as CandidateStage] ??
@@ -139,6 +160,10 @@ function StageMoveDialogBody({
                     payload.interview_mode = interviewMode;
                 }
 
+                if (interviewerUserId) {
+                    payload.interviewer_user_id = Number(interviewerUserId);
+                }
+
                 if (externalInterviewer.trim()) {
                     payload.external_interviewer_name =
                         externalInterviewer.trim();
@@ -202,12 +227,8 @@ function StageMoveDialogBody({
         }
     };
 
-    const generalError =
-        errors.candidate ||
-        errors.lock_version ||
-        errors.stage ||
-        errors.to_stage ||
-        errors.interview_outcome;
+    const generalError = stageMoveKnownGeneralError(errors);
+    const unrenderedErrors = stageMoveUnrenderedErrors(errors);
 
     const confirmDisabled =
         processing ||
@@ -259,9 +280,15 @@ function StageMoveDialogBody({
                                         )
                                     }
                                 />
-                                {errors.interview_scheduled_at ? (
+                                {stageMoveFieldError(
+                                    errors,
+                                    'interview_scheduled_at',
+                                ) ? (
                                     <p className="text-xs text-destructive">
-                                        {errors.interview_scheduled_at}
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'interview_scheduled_at',
+                                        )}
                                     </p>
                                 ) : null}
                             </div>
@@ -275,7 +302,7 @@ function StageMoveDialogBody({
                                         <SelectValue placeholder="Select mode" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {INTERVIEW_MODES.map((mode) => (
+                                        {interviewModes.map((mode) => (
                                             <SelectItem
                                                 key={mode.value}
                                                 value={mode.value}
@@ -285,9 +312,54 @@ function StageMoveDialogBody({
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                {errors.interview_mode ? (
+                                {stageMoveFieldError(
+                                    errors,
+                                    'interview_mode',
+                                ) ? (
                                     <p className="text-xs text-destructive">
-                                        {errors.interview_mode}
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'interview_mode',
+                                        )}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Internal interviewer</Label>
+                                <Select
+                                    value={interviewerUserId || 'none'}
+                                    onValueChange={(value) =>
+                                        setInterviewerUserId(
+                                            value === 'none' ? '' : value,
+                                        )
+                                    }
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select interviewer" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">
+                                            None
+                                        </SelectItem>
+                                        {interviewers.map((user) => (
+                                            <SelectItem
+                                                key={user.id}
+                                                value={String(user.id)}
+                                            >
+                                                {user.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {stageMoveFieldError(
+                                    errors,
+                                    'interviewer_user_id',
+                                ) ? (
+                                    <p className="text-xs text-destructive">
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'interviewer_user_id',
+                                        )}
                                     </p>
                                 ) : null}
                             </div>
@@ -304,6 +376,17 @@ function StageMoveDialogBody({
                                         )
                                     }
                                 />
+                                {stageMoveFieldError(
+                                    errors,
+                                    'external_interviewer_name',
+                                ) ? (
+                                    <p className="text-xs text-destructive">
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'external_interviewer_name',
+                                        )}
+                                    </p>
+                                ) : null}
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="interview_location">
@@ -316,6 +399,17 @@ function StageMoveDialogBody({
                                         setInterviewLocation(event.target.value)
                                     }
                                 />
+                                {stageMoveFieldError(
+                                    errors,
+                                    'interview_location',
+                                ) ? (
+                                    <p className="text-xs text-destructive">
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'interview_location',
+                                        )}
+                                    </p>
+                                ) : null}
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="interview_notes">
@@ -328,6 +422,17 @@ function StageMoveDialogBody({
                                         setInterviewNotes(event.target.value)
                                     }
                                 />
+                                {stageMoveFieldError(
+                                    errors,
+                                    'interview_feedback',
+                                ) ? (
+                                    <p className="text-xs text-destructive">
+                                        {stageMoveFieldError(
+                                            errors,
+                                            'interview_feedback',
+                                        )}
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
                     ) : null}
@@ -345,9 +450,15 @@ function StageMoveDialogBody({
                                     setActualJoiningDate(event.target.value)
                                 }
                             />
-                            {errors.actual_joining_date ? (
+                            {stageMoveFieldError(
+                                errors,
+                                'actual_joining_date',
+                            ) ? (
                                 <p className="text-xs text-destructive">
-                                    {errors.actual_joining_date}
+                                    {stageMoveFieldError(
+                                        errors,
+                                        'actual_joining_date',
+                                    )}
                                 </p>
                             ) : null}
                         </div>
@@ -375,18 +486,39 @@ function StageMoveDialogBody({
                                     setReason(event.target.value)
                                 }
                             />
-                            {errors.reason ? (
+                            {stageMoveFieldError(errors, 'reason') ? (
                                 <p className="text-xs text-destructive">
-                                    {errors.reason}
+                                    {stageMoveFieldError(errors, 'reason')}
+                                </p>
+                            ) : null}
+                            {stageMoveFieldError(errors, 'to_stage') ? (
+                                <p className="text-xs text-destructive">
+                                    {stageMoveFieldError(errors, 'to_stage')}
                                 </p>
                             ) : null}
                         </div>
                     ) : null}
 
                     {generalError ? (
-                        <p className="text-xs text-destructive">
+                        <p className="text-xs text-destructive" role="alert">
                             {generalError}
                         </p>
+                    ) : null}
+
+                    {unrenderedErrors.length > 0 ? (
+                        <div
+                            className="space-y-1 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2"
+                            role="alert"
+                        >
+                            {unrenderedErrors.map((message) => (
+                                <p
+                                    key={message}
+                                    className="text-xs text-destructive"
+                                >
+                                    {message}
+                                </p>
+                            ))}
+                        </div>
                     ) : null}
                 </div>
 

@@ -21,6 +21,8 @@ import {
     CandidateOutcomeBadge,
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
+import { CandidateStageMoveDialog } from './components/candidate-stage-move-dialog';
+import type { StageMoveIntent } from './components/candidate-stage-move-dialog';
 import { candidateFormFromRow } from './lib/candidate-form';
 import {
     interviewFieldError,
@@ -37,6 +39,7 @@ export function CandidatesShowContent({
     can_view_audit,
 }: CandidateShowProps) {
     const [editOpen, setEditOpen] = useState(false);
+    const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
     );
@@ -178,7 +181,10 @@ export function CandidatesShowContent({
             </div>
 
             <div className="mb-6">
-                <CandidateMovementActions candidate={candidate} />
+                <CandidateMovementActions
+                    candidate={candidate}
+                    onRequestMove={setMoveIntent}
+                />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
@@ -535,6 +541,15 @@ export function CandidatesShowContent({
                 editing={candidate}
                 onSubmit={submitProfile}
                 duplicateMessage={duplicateMessage}
+            />
+
+            <CandidateStageMoveDialog
+                intent={moveIntent}
+                onClose={() => setMoveIntent(null)}
+                interviewOptions={{
+                    interview_modes: options.interview_modes,
+                    interviewers: options.interviewers,
+                }}
             />
         </Main>
     );

@@ -1495,3 +1495,96 @@ test('kanban index exposes server move destinations for drag and menu parity', f
             })
         );
 });
+
+test('candidate detail exposes move destinations and accepts interviewer on screening to interview move', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Detail Move',
+        'email' => 'detail-move@example.com',
+        'email_normalized' => 'detail-move@example.com',
+        'stage' => CandidateStage::Screening,
+        'lock_version' => 0,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('candidate.id', $candidate->id)
+            ->where('candidate.can_move_forward', true)
+            ->where('candidate.move_destinations', function ($destinations) {
+                $kinds = collect($destinations)->pluck('kind')->all();
+
+                return in_array('forward', $kinds, true)
+                    && in_array('backward', $kinds, true);
+            })
+            ->has('options.interviewers')
+            ->has('options.interview_modes')
+        );
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/move", [
+            'lock_version' => 0,
+            'expected_stage' => 'screening',
+            'interview_mode' => 'video',
+            'interviewer_user_id' => $this->recruiterA->id,
+            'interview_location' => 'Teams',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::Interview)
+        ->and($candidate->interview_mode?->value)->toBe('video')
+        ->and($candidate->interviewer_user_id)->toBe($this->recruiterA->id)
+        ->and($candidate->interview_location)->toBe('Teams');
+
+    $this->from("/organization/recruitment/candidates/{$candidate->id}")
+        ->post("/organization/recruitment/candidates/{$candidate->id}/correct-stage", [
+            'to_stage' => 'screening',
+            'reason' => 'Detail page correction',
+            'lock_version' => $candidate->lock_version,
+            'expected_stage' => 'interview',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($candidate->fresh()->stage)->toBe(CandidateStage::Screening);
+});
+
+test('move rejects interviewer outside the active company membership', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Bad Interviewer',
+        'email' => 'bad-interviewer@example.com',
+        'email_normalized' => 'bad-interviewer@example.com',
+        'stage' => CandidateStage::Screening,
+        'lock_version' => 0,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/candidates/{$candidate->id}/move", [
+            'lock_version' => 0,
+            'expected_stage' => 'screening',
+            'interview_mode' => 'phone',
+            'interviewer_user_id' => $this->recruiterB->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('interviewer_user_id');
+
+    expect($candidate->fresh()->stage)->toBe(CandidateStage::Screening);
+});

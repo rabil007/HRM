@@ -969,6 +969,10 @@ export function CandidatesContent({
                 <CandidateStageMoveDialog
                     intent={moveIntent}
                     onClose={() => setMoveIntent(null)}
+                    interviewOptions={{
+                        interview_modes: options.interview_modes,
+                        interviewers: options.interviewers,
+                    }}
                 />
             </TooltipProvider>
         </Main>
