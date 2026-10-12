@@ -12,7 +12,12 @@ export type RequirementStatus =
     | 'on_hold'
     | 'completed'
     | 'cancelled';
-export type RequirementLineStatus = 'open' | 'on_hold' | 'filled' | 'cancelled';
+export type RequirementLineStatus =
+    | 'open'
+    | 'on_hold'
+    | 'filled'
+    | 'cancelled'
+    | 'closed';
 export type RequirementPriority = 'normal' | 'urgent';
 export type RequirementDeadlineHealth = 'on_track' | 'due_soon' | 'overdue';
 
@@ -185,6 +190,9 @@ export type RequirementIndexRow = {
     can_decide_headcount_revision?: boolean;
     pending_headcount_revision?: RequirementHeadcountRevision | null;
     can_fill: boolean;
+    is_fully_fulfilled?: boolean;
+    unfilled_vacancies?: number;
+    can_override_fill?: boolean;
     can_cancel: boolean;
     can_transfer_ownership?: boolean;
     can_reopen: boolean;

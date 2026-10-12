@@ -101,8 +101,11 @@ Forward path (manual only; no Client Approval stage):
 - **Joining Action Error Handling**:
   - `joining-form-errors.ts` maps backend validation errors (`candidate`, `stage`, `offer`, `readiness_status`, `lock_version`, `notes`, `reason`) to banner and field alerts with an unrendered fallback.
   - Action dialogs preserve user inputs and remain open on failure, clearing stale errors when reopened. Action buttons disable during submission.
-- **Requirement Progress**: Position line joined counts are dynamically derived from confirmed Joined candidates. UI displays required headcount, joined count, clamped remaining headcount, overfill flag, and suggests `Mark Filled` when target is reached (never auto-closes lines or requirements).
-- Headcount reductions in `ChangeHeadcountAction` and `ApproveHeadcountRevisionAction` are strictly guarded against dropping below confirmed joined count.
+- **Requirement Progress & Fulfillment**:
+  - Position line joined counts are dynamically derived from confirmed Joined candidates. UI displays required headcount, joined count, clamped remaining headcount, overfill flag, and suggests `Mark Filled` when target is reached (never auto-closes lines or requirements).
+  - Headcount reductions in `ChangeHeadcountAction` and `ApproveHeadcountRevisionAction` are strictly guarded against dropping below confirmed joined count.
+  - **Requirement Filled Completion & Management Override**: Marking a requirement Filled (`recruitment.requirements.close`) checks required headcount, confirmed joined count, remaining vacancies, and overfill per position line. Full fulfillment completes normally when all lines have reached their target (`unfilled_vacancies === 0`). Requirements with zero active positions cannot be marked filled. When unfilled vacancies remain, normal closure is blocked unless an authorized user with `recruitment.requirements.override_fill` provides a mandatory business reason override. Overfill in one line never offsets vacancies in another, required headcount is never silently reduced, and position lines are independently resolved upon closure: lines with met targets become `Filled`, while lines with remaining vacancies become `Closed` (preventing actionable open lines inside completed requirements while preserving snapshots). Audit records capture actor, mandatory reason, remaining vacancies, and fulfillment snapshot.
+  - **Requirement Reopening & Position Restoration**: Reopening a Completed requirement restores position lines that were closed as `Filled` or `Closed` back to `Open`, preserving deliberate line-level cancellations (`Cancelled`). Reopening a Cancelled requirement restores only position lines that were actively open prior to requirement cancellation (tracked via cancellation snapshot metadata or historical activity log fallback with original cancellation timestamps), keeping lines that were independently cancelled before requirement closure unchanged. Reopening fails safely with clear feedback if all lines were deliberately cancelled beforehand. Confirmed candidate joining and employee conversion records are never modified on reopen.
 - **Internal Reminders**:
   - Interview: 1 day before and day of (scheduled date).
   - Joining: 7 days before, 3 days before, and day of (expected joining date).
@@ -126,6 +129,13 @@ Forward path (manual only; no Client Approval stage):
     - Requests combining `candidate_id` with a provisional `employee_id` (via query parameter on `create` or payload on `store`) are rejected with 422 validation errors; provisional drafts are never silently reused or merged.
     - Final conversion atomically creates exactly one employee record and links the candidate; authorized users can then open the finalized employee profile and add record tabs normally.
   - Form visits, template changes, or form cancellations never create employee records or provisional drafts.
+- **Linking Existing Employee**:
+  - Links an existing employee record to a confirmed Joined candidate (`recruitment.candidates.convert`, `recruitment.candidates.view`, and `employees.view`).
+  - Candidate `lock_version` is mandatory; stale submissions are rejected with a clear refresh prompt.
+  - Inside the transaction, revalidates candidate Joined stage, unlinked employee status, employee company tenant match, and department visibility under row locks (`lockForUpdate`).
+  - Rejects cross-company employee selections and respects department scoping (`Role::SCOPE_SELECTED_DEPARTMENTS`).
+  - Prevents duplicate employee links on the same requirement while allowing legitimate associations across distinct requirements (rehires, separate recruitment campaigns).
+  - Preserves explicit confirmation, mandatory reason, audit trail, and downstream employee masking rules when employee access is restricted.
 - **Employee Information Security**:
   - Duplicate employee suggestions require `employees.view` in addition to tenant and department visibility scoping. Conversion permission alone does not grant employee viewing.
   - When the linked employee is inaccessible (missing `employees.view`, cross-company, or restricted department), employee IDs, numbers, names, and profile URLs are masked to `null` across candidate index/show payloads and report exports while retaining the safe `Converted` status indicator.
@@ -134,14 +144,16 @@ Forward path (manual only; no Client Approval stage):
   - Invented basic/allowance breakdown mappings and hardcoded AED fallbacks are eliminated; contract inputs are never automatically overwritten.
 - **Recruitment Report & Metrics**:
   - Navigation: Reports → Recruitment Report (`reports.recruitment.view`, `reports.recruitment.export`).
+  - **Recruiter Options Filter**:
+    - Populates recruiter filter options (`RecruiterOptionsQuery::forCompany`) using active `company_user` memberships to include all recruiters belonging to the selected company. Excludes inactive accounts and revoked company memberships while preventing cross-company exposure.
   - **Metric Definitions**:
     - **Selected**: Defined by `interview_outcome = 'selected'`. Reflects all candidates with a Selected interview outcome within the active filter scope (including those in Interview stage and those progressed to Offer/Joining/Joined).
     - **Pipeline Totals vs Position Fulfillment**: Separate metric scopes in UI. Pipeline cards (Applications, Selected, Joining, Joined, Rejected, Converted) reflect the active filter view. Position fulfillment (Headcount, Confirmed Joined, Remaining, Overfill) reflects total authorized slots and all confirmed Joined candidates for the scoped requirements and position lines, independent of candidate stage, search, conversion, or date filters.
     - **Per-Line Fulfillment**: Remaining and overfill are calculated per position line (`max(0, required - joined)` and `max(0, joined - required)`) and summed across scoped lines. An overfill in one position never cancels out a shortage in another position.
   - **Duration Calculations**:
-    - Calendar durations (Time to Hire and Requirement Approval to Joined) use `actual_joining_date` in company timezone; `joined_at` serves strictly as audit confirmation time.
-    - Authoritative timestamps (`created_at`, `approved_at`) are normalized to company timezone before extracting start-of-day dates.
-    - If authoritative dates are missing, or if historical entry occurred after joining, duration returns unavailable (`null`).
+    - Calendar durations (Time to Hire and Requirement Approval to Joined) calculate date differences using naive calendar dates (`!Y-m-d` in UTC) derived from company-timezone date strings. This eliminates fractional-day and DST transition (23h/25h) truncation artifacts across timezone boundaries.
+    - `actual_joining_date` serves as the authoritative joining date; `joined_at` serves strictly as audit confirmation time.
+    - Returns `null` when authoritative dates are missing or chronologically invalid (e.g. historical creation or approval recorded after joining).
 
 ## UI
 

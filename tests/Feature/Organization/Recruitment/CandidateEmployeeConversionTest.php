@@ -1202,3 +1202,210 @@ test('candidate history redacts employee linking reason and employee details for
             'reason' => $linkingReason,
         ]);
 });
+
+test('linking candidate requires mandatory lock_version and rejects missing or stale versions', function (): void {
+    $user = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'employees.view',
+    ]);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'John Doe',
+        'email' => 'john.lock@example.com',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 3,
+    ]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $this->department->id,
+        'position_id' => $this->position->id,
+    ]);
+
+    // 1. Missing lock_version
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $candidate), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => 'Valid reason for linking',
+        ])
+        ->assertSessionHasErrors(['lock_version']);
+
+    // 2. Stale lock_version
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $candidate), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => 'Valid reason for linking',
+            'lock_version' => 2,
+        ])
+        ->assertSessionHasErrors(['lock_version']);
+
+    expect($candidate->fresh()->employee_id)->toBeNull();
+});
+
+test('linking candidate prevents duplicate links within the same requirement but allows across different requirements', function (): void {
+    $user = createConversionUser($this->company, [
+        'recruitment.candidates.view',
+        'recruitment.candidates.convert',
+        'employees.view',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $this->department->id,
+        'position_id' => $this->position->id,
+    ]);
+
+    $candidateA = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Alice Smith',
+        'email' => 'alice@example.com',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 1,
+    ]);
+
+    $candidateB = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Bob Smith',
+        'email' => 'bob@example.com',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 1,
+    ]);
+
+    // Link candidateA to employee
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $candidateA), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => 'First link to employee',
+            'lock_version' => 1,
+        ])
+        ->assertRedirect();
+
+    expect($candidateA->fresh()->employee_id)->toBe($employee->id);
+
+    // Linking candidateB (same requirement) to same employee is rejected
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $candidateB), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => 'Duplicate link attempt',
+            'lock_version' => 1,
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect($candidateB->fresh()->employee_id)->toBeNull();
+
+    // Now test across DIFFERENT requirement (valid historical relationship / rehire)
+    $secondRequirement = RecruitmentRequirement::query()->create([
+        'company_id' => $this->company->id,
+        'requirement_number' => 'REQ-TEST-REHIRE',
+        'client_id' => $this->client->id,
+        'status' => RequirementStatus::Open,
+        'lock_version' => 1,
+    ]);
+    $secondLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $secondRequirement->id,
+        'position_id' => $this->position->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+        'lock_version' => 1,
+    ]);
+    $rehireCandidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $secondRequirement->id,
+        'recruitment_requirement_line_id' => $secondLine->id,
+        'position_id' => $this->position->id,
+        'name' => 'Alice Smith',
+        'email' => 'alice.rehire@example.com',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $rehireCandidate), [
+            'employee_id' => $employee->id,
+            'confirmed' => true,
+            'reason' => 'Rehire campaign linking to original employee record',
+            'lock_version' => 1,
+        ])
+        ->assertRedirect();
+
+    expect($rehireCandidate->fresh()->employee_id)->toBe($employee->id);
+});
+
+test('linking candidate rejects employee when actor lacks department visibility', function (): void {
+    $secretDept = Department::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Executive',
+        'status' => 'active',
+    ]);
+
+    $secretEmployee = Employee::factory()->create([
+        'company_id' => $this->company->id,
+        'department_id' => $secretDept->id,
+        'position_id' => $this->position->id,
+    ]);
+
+    $restrictedUser = User::factory()->create(['company_id' => $this->company->id]);
+    DB::table('company_user')->updateOrInsert(
+        ['company_id' => $this->company->id, 'user_id' => $restrictedUser->id],
+        ['status' => 'active', 'created_at' => now(), 'updated_at' => now()],
+    );
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $this->company->id,
+        'name' => 'RestrictedRole-'.uniqid(),
+        'guard_name' => 'web',
+        'employee_visibility_scope' => Role::SCOPE_SELECTED_DEPARTMENTS,
+    ]);
+    $role->employeeVisibilityDepartments()->attach($this->department->id, ['company_id' => $this->company->id]);
+
+    foreach (['employees.view', 'recruitment.candidates.view', 'recruitment.candidates.convert'] as $perm) {
+        $p = Permission::query()->firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+        $role->givePermissionTo($p);
+    }
+    $restrictedUser->assignRole($role);
+
+    $candidate = createConversionCandidate([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'position_id' => $this->position->id,
+        'name' => 'Eve Secret',
+        'email' => 'eve@example.com',
+        'stage' => CandidateStage::Joined,
+        'lock_version' => 1,
+    ]);
+
+    $this->actingAs($restrictedUser)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->post(route('organization.recruitment.candidates.link-employee', $candidate), [
+            'employee_id' => $secretEmployee->id,
+            'confirmed' => true,
+            'reason' => 'Attempting to link restricted department employee',
+            'lock_version' => 1,
+        ])
+        ->assertSessionHasErrors(['employee_id']);
+
+    expect($candidate->fresh()->employee_id)->toBeNull();
+});

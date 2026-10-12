@@ -601,3 +601,214 @@ test('recruitment duration returns null when dates are missing or created after 
 
     expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateBackdated, 'Asia/Dubai'))->toBeNull();
 });
+
+test('recruitment report recruiter filter includes primary and secondary company members and excludes inactive or revoked members', function () {
+    $otherCompany = Company::query()->create([
+        'name' => 'Second Company Ltd',
+        'slug' => 'second-company-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $this->country->id,
+        'currency_id' => $this->currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    // 1. Primary-company recruiter with approve permission
+    $primaryRecruiter = createReportUser($this->company, ['recruitment.requirements.approve'], ['name' => 'Primary Recruiter']);
+
+    // 2. Secondary-company recruiter (user.company_id is otherCompany, but has active company_user row for this->company and approve permission in this->company)
+    $secondaryUser = User::factory()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Secondary Member Recruiter',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->company->id,
+        'user_id' => $secondaryUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($this->company->id);
+    $approvePerm = Permission::query()->firstOrCreate(['name' => 'recruitment.requirements.approve', 'guard_name' => 'web']);
+    $secondaryUser->givePermissionTo($approvePerm);
+
+    // 3. User with revoked membership (company_user status = inactive)
+    $revokedUser = User::factory()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Revoked Recruiter',
+        'status' => 'active',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->company->id,
+        'user_id' => $revokedUser->id,
+        'status' => 'inactive',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $revokedUser->givePermissionTo($approvePerm);
+
+    // 4. Inactive user (users.status = inactive)
+    $inactiveUser = User::factory()->create([
+        'company_id' => $this->company->id,
+        'name' => 'Inactive Recruiter',
+        'status' => 'inactive',
+    ]);
+    DB::table('company_user')->insert([
+        'company_id' => $this->company->id,
+        'user_id' => $inactiveUser->id,
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $inactiveUser->givePermissionTo($approvePerm);
+
+    // 5. Cross-company user (only belongs to otherCompany, not this->company)
+    $otherCompanyRecruiter = createReportUser($otherCompany, ['recruitment.requirements.approve'], ['name' => 'Other Company Only']);
+
+    $viewer = createReportUser($this->company, ['reports.recruitment.view']);
+
+    $response = $this->actingAs($viewer)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->get(route('organization.recruitment.reports'));
+
+    $response->assertOk()
+        ->assertInertia(function (Assert $page) use ($primaryRecruiter, $secondaryUser, $revokedUser, $inactiveUser, $otherCompanyRecruiter) {
+            $page->component('organization/recruitment/reports/index');
+            $recruiters = $page->toArray()['props']['filter_options']['recruiters'];
+            $recruiterIds = collect($recruiters)->pluck('value')->all();
+
+            expect($recruiterIds)->toContain((string) $primaryRecruiter->id)
+                ->and($recruiterIds)->toContain((string) $secondaryUser->id)
+                ->and($recruiterIds)->not->toContain((string) $revokedUser->id)
+                ->and($recruiterIds)->not->toContain((string) $inactiveUser->id)
+                ->and($recruiterIds)->not->toContain((string) $otherCompanyRecruiter->id);
+        });
+});
+
+test('recruitment duration calculations handle calendar dates across UTC, Asia/Dubai, and DST boundaries accurately', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->company->id,
+        'requirement_number' => 'REQ-DST-001',
+        'client_id' => $this->client->id,
+        'status' => RequirementStatus::Open,
+        'approved_at' => '2026-03-07 10:00:00',
+        'lock_version' => 1,
+    ]);
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->position->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+        'lock_version' => 1,
+    ]);
+
+    // Candidate crossing US Spring Forward DST boundary (March 8, 2026)
+    // March 7 to March 9 is 47 clock hours, which in floatDiff is 1.958 days.
+    // Calendar days must be exactly 2 days!
+    $candidateDstSpring = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $req->requirement_number,
+        'name' => 'DST Spring Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-03-09',
+        'lock_version' => 1,
+    ]);
+    DB::table('recruitment_candidates')->where('id', $candidateDstSpring->id)->update([
+        'created_at' => '2026-03-07 14:00:00',
+    ]);
+    $candidateDstSpring->refresh();
+
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateDstSpring, 'America/New_York'))->toBe(2);
+    expect(RecruitmentReportQuery::calculateRequirementApprovalToJoinedDays($candidateDstSpring, 'America/New_York'))->toBe(2);
+
+    // Fall Back DST boundary (Nov 1, 2026: 25-hour day)
+    // Oct 31 to Nov 2 is 49 clock hours, which in floatDiff is 2.04 days.
+    // Calendar days must be exactly 2 days!
+    $candidateDstFall = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $req->requirement_number,
+        'name' => 'DST Fall Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-11-02',
+        'lock_version' => 1,
+    ]);
+    DB::table('recruitment_candidates')->where('id', $candidateDstFall->id)->update([
+        'created_at' => '2026-10-31 14:00:00',
+    ]);
+    $candidateDstFall->refresh();
+
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateDstFall, 'America/New_York'))->toBe(2);
+
+    // Same-day event
+    $candidateSameDay = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $req->requirement_number,
+        'name' => 'Same Day Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-15',
+        'lock_version' => 1,
+    ]);
+    DB::table('recruitment_candidates')->where('id', $candidateSameDay->id)->update([
+        'created_at' => '2026-10-15 09:30:00',
+    ]);
+    $candidateSameDay->refresh();
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateSameDay, 'UTC'))->toBe(0)
+        ->and(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateSameDay, 'Asia/Dubai'))->toBe(0);
+
+    // Midnight boundary (23:55 on Day 1, joined on Day 2 -> 1 calendar day)
+    $candidateMidnight = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $req->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $req->requirement_number,
+        'name' => 'Midnight Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-16',
+        'lock_version' => 1,
+    ]);
+    DB::table('recruitment_candidates')->where('id', $candidateMidnight->id)->update([
+        'created_at' => '2026-10-15 23:55:00',
+    ]);
+    $candidateMidnight->refresh();
+    expect(RecruitmentReportQuery::calculateCandidateToJoinedDays($candidateMidnight, 'UTC'))->toBe(1);
+
+    // Invalid chronological ordering: approved_at after actual_joining_date returns null
+    $reqFuture = RecruitmentRequirement::query()->create([
+        'company_id' => $this->company->id,
+        'requirement_number' => 'REQ-FUTURE-001',
+        'client_id' => $this->client->id,
+        'status' => RequirementStatus::Open,
+        'approved_at' => '2026-10-20 10:00:00',
+        'lock_version' => 1,
+    ]);
+    $candidateInvalidApproval = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $reqFuture->id,
+        'recruitment_requirement_line_id' => $line->id,
+        'position_id' => $this->position->id,
+        'position_title_snapshot' => 'Field Engineer',
+        'requirement_number_snapshot' => $reqFuture->requirement_number,
+        'name' => 'Invalid Approval Joiner',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => '2026-10-10',
+        'lock_version' => 1,
+    ]);
+    expect(RecruitmentReportQuery::calculateRequirementApprovalToJoinedDays($candidateInvalidApproval, 'UTC'))->toBeNull();
+});

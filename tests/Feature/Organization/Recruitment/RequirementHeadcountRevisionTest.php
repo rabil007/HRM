@@ -1227,6 +1227,7 @@ test('requirement fill succeeds after a pending headcount revision is resolved',
     $closer = createHeadcountRevisionTestUser($this->companyA, [
         'recruitment.requirements.view',
         'recruitment.requirements.close',
+        'recruitment.requirements.override_fill',
     ]);
 
     $req = createHeadcountRevisionRequirement($this);
@@ -1248,7 +1249,9 @@ test('requirement fill succeeds after a pending headcount revision is resolved',
 
     $this->actingAs($closer)
         ->withSession(['current_company_id' => $this->companyA->id])
-        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->post("/organization/recruitment/requirements/{$req->id}/fill", [
+            'reason' => 'Closed by management after resolved revision',
+        ])
         ->assertRedirect();
 
     expect($req->fresh()->status)->toBe(RequirementStatus::Completed);

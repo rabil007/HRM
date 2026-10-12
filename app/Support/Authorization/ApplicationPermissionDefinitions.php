@@ -2097,6 +2097,12 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to edit, reschedule, or cancel pending scheduled crew movements before automatic execution.',
                 'group' => 'Crew Operations',
             ],
+            356 => [
+                'name' => 'recruitment.requirements.override_fill',
+                'label' => 'Override Requirement Fulfillment',
+                'description' => 'Allows authorized management users to mark recruitment requirements as filled and completed when position lines have remaining unfilled vacancies, requiring a mandatory business reason.',
+                'group' => 'Recruitment',
+            ],
         ];
     }
 }

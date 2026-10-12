@@ -25,7 +25,17 @@ class CandidateLinkEmployeeRequest extends FormRequest
             'employee_id' => ['required', 'integer'],
             'confirmed' => ['required', 'accepted'],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],
-            'lock_version' => ['nullable', 'integer'],
+            'lock_version' => ['required', 'integer'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'lock_version.required' => 'A lock version is required. Refresh and try again.',
         ];
     }
 }
