@@ -12,6 +12,7 @@ use App\Models\RecruitmentCandidateInternalReminder;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
+use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -287,7 +288,11 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
 
                 $summary = "Interview scheduled for candidate {$candidate->name} ({$candidate->position_title_snapshot}, Req: {$candidate->requirement_number_snapshot}) on {$formattedTime}.";
             } elseif (in_array($locked->schedule_type, [CandidateReminderScheduleType::Joining->value, CandidateReminderScheduleType::OverdueJoining->value], true)) {
-                if ($candidate->stage !== CandidateStage::Joining || $candidate->expected_joining_date === null) {
+                $candidate->loadMissing('currentOffer');
+                if (
+                    ! CandidateWorkflowAuthorization::isAwaitingJoiningConfirmation($candidate)
+                    || $candidate->expected_joining_date === null
+                ) {
                     $locked->update([
                         'status' => CandidateReminderStatus::Skipped->value,
                         'skip_reason' => 'candidate_stage_changed',

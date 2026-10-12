@@ -36,9 +36,9 @@ export function RecruitmentReportSummaryCards({ summary }: SummaryCardsProps) {
                         hint="Outcome: Selected"
                     />
                     <StatCard
-                        label="Joining"
+                        label="Awaiting join"
                         value={summary.joining_count}
-                        hint="Joining stage"
+                        hint="Offer accepted"
                     />
                     <StatCard
                         label="Joined"

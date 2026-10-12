@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment\Candidates;
 
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateReminderScheduleType;
 use App\Enums\Recruitment\CandidateReminderStatus;
 use App\Enums\Recruitment\CandidateStage;
@@ -156,10 +157,14 @@ final class DispatchCandidateInternalReminders
         foreach ($joiningMilestones as $milestone => $targetDate) {
             $candidates = RecruitmentCandidate::query()
                 ->where('company_id', $companyId)
-                ->where('stage', CandidateStage::Joining->value)
+                ->where('stage', CandidateStage::OfferJol->value)
                 ->whereDate('expected_joining_date', $targetDate)
+                ->whereHas('currentOffer', fn ($q) => $q
+                    ->where('is_current', true)
+                    ->where('status', CandidateOfferStatus::Accepted->value))
                 ->whereHas('requirement', fn ($q) => $q->whereIn('status', [RequirementStatus::Open->value, RequirementStatus::OnHold->value]))
                 ->with([
+                    'currentOffer',
                     'requirement.assignedRecruiter:id,name,email,status,deleted_at',
                     'requirement.submitter:id,name,email,status,deleted_at',
                     'requirement.creator:id,name,email,status,deleted_at',
@@ -194,10 +199,14 @@ final class DispatchCandidateInternalReminders
 
             $candidates = RecruitmentCandidate::query()
                 ->where('company_id', $companyId)
-                ->where('stage', CandidateStage::Joining->value)
+                ->where('stage', CandidateStage::OfferJol->value)
                 ->whereDate('expected_joining_date', $targetDate)
+                ->whereHas('currentOffer', fn ($q) => $q
+                    ->where('is_current', true)
+                    ->where('status', CandidateOfferStatus::Accepted->value))
                 ->whereHas('requirement', fn ($q) => $q->whereIn('status', [RequirementStatus::Open->value, RequirementStatus::OnHold->value]))
                 ->with([
+                    'currentOffer',
                     'requirement.assignedRecruiter:id,name,email,status,deleted_at',
                     'requirement.submitter:id,name,email,status,deleted_at',
                     'requirement.creator:id,name,email,status,deleted_at',
@@ -431,7 +440,11 @@ final class DispatchCandidateInternalReminders
                         return 'skipped';
                     }
                 } elseif (in_array($locked->schedule_type, [CandidateReminderScheduleType::Joining->value, CandidateReminderScheduleType::OverdueJoining->value], true)) {
-                    if ($candidate->stage !== CandidateStage::Joining || $candidate->expected_joining_date === null) {
+                    $candidate->loadMissing('currentOffer');
+                    if (
+                        ! CandidateWorkflowAuthorization::isAwaitingJoiningConfirmation($candidate)
+                        || $candidate->expected_joining_date === null
+                    ) {
                         $locked->update([
                             'status' => CandidateReminderStatus::Skipped->value,
                             'skip_reason' => 'candidate_stage_changed',

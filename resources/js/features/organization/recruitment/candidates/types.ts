@@ -354,10 +354,12 @@ export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
     'screening',
     'interview',
     'offer_jol',
-    'joining',
     'joined',
     'rejected',
 ];
+
+/** Historical stage retained for movement history labels only. */
+export const CANDIDATE_HISTORICAL_STAGES: CandidateStage[] = ['joining'];
 
 export const CANDIDATE_STAGE_LABELS: Record<CandidateStage, string> = {
     applied: 'Applied',

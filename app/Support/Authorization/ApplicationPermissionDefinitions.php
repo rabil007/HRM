@@ -2040,7 +2040,7 @@ final class ApplicationPermissionDefinitions
             349 => [
                 'name' => 'recruitment.candidates.offer.decide',
                 'label' => 'Decide Candidate Offers',
-                'description' => 'Allows the assigned recruiter (or a user with management override) to record Offer/JOL acceptance (move to Joining) or rejection (move to Rejected) for Sent offers.',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to record Offer/JOL acceptance (stay in Offer/JOL and start joining preparation) or rejection (move to Rejected) for Sent offers.',
                 'group' => 'Recruitment',
             ],
             350 => [
@@ -2058,7 +2058,7 @@ final class ApplicationPermissionDefinitions
             352 => [
                 'name' => 'recruitment.candidates.joining.confirm',
                 'label' => 'Confirm Candidate Joined',
-                'description' => 'Allows the assigned recruiter (or a user with management override) to confirm a candidate has formally joined against an accepted Offer/JOL. Also required with recruitment.candidates.manage to correct or undo joining.',
+                'description' => 'Allows the assigned recruiter (or a user with management override) to confirm a candidate has formally joined from Offer/JOL when the current offer is Accepted and joining readiness is Ready. Also required with recruitment.candidates.manage to correct or undo joining (returns the candidate to Offer/JOL).',
                 'group' => 'Recruitment',
             ],
             353 => [

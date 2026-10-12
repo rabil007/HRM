@@ -8,6 +8,11 @@ enum CandidateStage: string
     case Screening = 'screening';
     case Interview = 'interview';
     case OfferJol = 'offer_jol';
+    /**
+     * Historical compatibility only. No new candidates enter Joining.
+     * Active workflow is Offer/JOL → Joined; joining preparation lives on Offer/JOL
+     * when the current offer is Accepted.
+     */
     case Joining = 'joining';
     case Joined = 'joined';
     case Rejected = 'rejected';
@@ -39,7 +44,7 @@ enum CandidateStage: string
     }
 
     /**
-     * Stages shown as independent Kanban columns.
+     * Stages shown as independent Kanban columns (active pipeline).
      *
      * @return list<self>
      */
@@ -50,10 +55,20 @@ enum CandidateStage: string
             self::Screening,
             self::Interview,
             self::OfferJol,
-            self::Joining,
             self::Joined,
             self::Rejected,
         ];
+    }
+
+    /**
+     * Stages available for active filters and reporting groups.
+     * Historical Joining is omitted so it cannot be selected as a live stage.
+     *
+     * @return list<self>
+     */
+    public static function activeStages(): array
+    {
+        return self::kanbanColumns();
     }
 
     public function allowsForwardMove(): bool
@@ -86,6 +101,12 @@ enum CandidateStage: string
 
     public function isOfferWorkflowStage(): bool
     {
-        return in_array($this, [self::OfferJol, self::Joining, self::Joined], true);
+        return in_array($this, [self::OfferJol, self::Joined], true)
+            || $this === self::Joining; // historical rows still count as offer-workflow
+    }
+
+    public function isHistoricalOnly(): bool
+    {
+        return $this === self::Joining;
     }
 }

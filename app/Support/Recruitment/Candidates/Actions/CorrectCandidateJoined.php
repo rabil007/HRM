@@ -65,7 +65,7 @@ final class CorrectCandidateJoined
             $fromStage = $locked->stage;
 
             $locked->fill([
-                'stage' => CandidateStage::Joining,
+                'stage' => CandidateStage::OfferJol,
                 'actual_joining_date' => null,
                 'joined_at' => null,
                 'joined_by' => null,
@@ -77,7 +77,7 @@ final class CorrectCandidateJoined
                 $locked,
                 CandidateTransitionAction::JoiningCorrected,
                 $fromStage,
-                CandidateStage::Joining,
+                CandidateStage::OfferJol,
                 $locked->interview_outcome,
                 $locked->interview_outcome,
                 (int) $actor->id,

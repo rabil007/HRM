@@ -42,7 +42,7 @@ final class ConfirmCandidateJoined
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
                 array_key_exists('lock_version', $data) ? (int) $data['lock_version'] : null,
-                $data['expected_stage'] ?? CandidateStage::Joining->value,
+                $data['expected_stage'] ?? CandidateStage::OfferJol->value,
                 null,
             );
 
@@ -52,9 +52,9 @@ final class ConfirmCandidateJoined
                 ]);
             }
 
-            if ($locked->stage !== CandidateStage::Joining) {
+            if ($locked->stage !== CandidateStage::OfferJol) {
                 throw ValidationException::withMessages([
-                    'stage' => 'Candidate must be in Joining stage to confirm joined.',
+                    'stage' => 'Candidate must be in Offer/JOL with an accepted offer to confirm joined.',
                 ]);
             }
 

@@ -144,8 +144,8 @@ Candidate actions use **permission + assigned-recruiter ownership** (or `recruit
 - `view` is company-wide.
 - `create` / `update` / `move` / `offer.*` require the matching permission and the user must be the requirement’s current `assigned_to`, unless they also hold `manage`.
 - `manage` overrides ownership only. It does not bypass company tenancy, missing action permissions, or workflow validation (Open requirement + Open line, allowed transitions, lock version).
-- `recruitment.candidates.joining.confirm` allows confirming actual joining for candidates in Joining stage with readiness = Ready; requires assigned recruiter or `manage` override.
-- Undoing/correcting a confirmed joining requires management override (`recruitment.candidates.manage`) plus reason, and is blocked if downstream employee conversion exists (`employee_id !== null`).
+- `recruitment.candidates.joining.confirm` allows confirming actual joining from Offer/JOL when the current offer is Accepted and readiness = Ready; requires assigned recruiter or `manage` override.
+- Undoing/correcting a confirmed joining requires management override (`recruitment.candidates.manage`) plus reason, returns the candidate to Offer/JOL, and is blocked if downstream employee conversion exists (`employee_id !== null`).
 - Offer revise additionally requires both `recruitment.candidates.offer.revise` and `manage`.
 - `cv.download` and `offer.download` require `view` as well for downloads.
 - Requirement CC recipients gain no candidate action rights.

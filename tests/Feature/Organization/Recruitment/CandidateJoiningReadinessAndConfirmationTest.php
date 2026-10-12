@@ -25,6 +25,7 @@ use App\Support\Recruitment\Candidates\CandidateOfferPresenter;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Recruitment\RequirementPresenter;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
@@ -118,7 +119,7 @@ beforeEach(function (): void {
     ]);
 });
 
-test('accepting an offer moves candidate to joining and initializes readiness and expected date', function (): void {
+test('accepting an offer keeps candidate in offer/jol and initializes readiness and expected date', function (): void {
     $candidate = RecruitmentCandidate::query()->create([
         'company_id' => $this->company->id,
         'recruitment_requirement_id' => $this->requirement->id,
@@ -152,7 +153,7 @@ test('accepting an offer moves candidate to joining and initializes readiness an
     ]);
 
     $candidate->refresh();
-    expect($candidate->stage)->toBe(CandidateStage::Joining)
+    expect($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($candidate->expected_joining_date?->format('Y-m-d'))->toBe('2026-11-01')
         ->and($candidate->joining_readiness_status)->toBe(CandidateJoiningReadinessStatus::Pending);
 });
@@ -163,7 +164,7 @@ test('updating readiness audits change without altering accepted offer terms', f
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Candidate Beta',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-11-01',
         'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending,
         'lock_version' => 1,
@@ -219,7 +220,7 @@ test('confirming joined requires ready readiness status and accepted offer', fun
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Candidate Gamma',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-10',
         'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending, // Not ready
         'lock_version' => 1,
@@ -338,7 +339,7 @@ test('management can correct/undo joining with audit reason unless downstream em
     ]);
 
     $candidate->refresh();
-    expect($candidate->stage)->toBe(CandidateStage::Joining)
+    expect($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($candidate->actual_joining_date)->toBeNull()
         ->and($candidate->joined_at)->toBeNull()
         ->and($candidate->joined_by)->toBeNull()
@@ -347,7 +348,7 @@ test('management can correct/undo joining with audit reason unless downstream em
     $lastTransition = $candidate->stageTransitions()->latest('id')->first();
     expect($lastTransition)->not->toBeNull()
         ->and($lastTransition->action->value)->toBe('joining_corrected')
-        ->and($lastTransition->to_stage)->toBe(CandidateStage::Joining)
+        ->and($lastTransition->to_stage)->toBe(CandidateStage::OfferJol)
         ->and($lastTransition->reason)->toBe('Undo joining because candidate deferred arrival to next month');
 });
 
@@ -540,7 +541,7 @@ test('undo joined flow restores candidate to joining stage and permits audited o
 
     $candidate->refresh();
     $reqShowAfter = RequirementPresenter::toShow($this->requirement->fresh());
-    expect($candidate->stage)->toBe(CandidateStage::Joining)
+    expect($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($candidate->actual_joining_date)->toBeNull()
         ->and($candidate->joined_at)->toBeNull()
         ->and($reqShowAfter['lines'][0]['joined_count'])->toBe(0);
@@ -830,14 +831,14 @@ test('revising an accepted offer cannot undo a confirmed join or bypass the empl
         ->and(RecruitmentCandidateOffer::query()->count())->toBe(1)
         ->and($this->line->candidates()->where('stage', CandidateStage::Joined->value)->count())->toBe(1);
 
-    $candidate->update(['stage' => CandidateStage::Joining]);
+    $candidate->update(['stage' => CandidateStage::OfferJol]);
     $candidate->refresh();
     expect(CandidateWorkflowAuthorization::canReviseOffer($offer, $candidate))->toBeFalse();
     expect(fn () => $revise->handle($this->manager, $candidate, $offer, [
         ...$payload,
-        'expected_stage' => CandidateStage::Joining->value,
+        'expected_stage' => CandidateStage::OfferJol->value,
     ]))->toThrow(ValidationException::class);
-    expect($candidate->fresh()->stage)->toBe(CandidateStage::Joining)
+    expect($candidate->fresh()->stage)->toBe(CandidateStage::OfferJol)
         ->and($offer->fresh()->is_current)->toBeTrue();
 
     $candidate->update(['stage' => CandidateStage::Joined, 'employee_id' => null]);
@@ -850,7 +851,7 @@ test('revising an accepted offer cannot undo a confirmed join or bypass the empl
     $offer->refresh();
     $candidate->setRelation('currentOffer', $offer);
 
-    expect($candidate->stage)->toBe(CandidateStage::Joining)
+    expect($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and(CandidateWorkflowAuthorization::canReviseOffer($offer, $candidate))->toBeTrue();
 
     $revised = $revise->handle($this->manager, $candidate, $offer, [
@@ -858,7 +859,7 @@ test('revising an accepted offer cannot undo a confirmed join or bypass the empl
         'salary_amount' => '13000',
         'lock_version' => $candidate->lock_version,
         'offer_lock_version' => $offer->lock_version,
-        'expected_stage' => CandidateStage::Joining->value,
+        'expected_stage' => CandidateStage::OfferJol->value,
         'expected_offer_status' => CandidateOfferStatus::Accepted->value,
     ]);
 
@@ -868,4 +869,145 @@ test('revising an accepted offer cannot undo a confirmed join or bypass the empl
         ->and($revised->is_current)->toBeTrue()
         ->and($revised->status)->toBe(CandidateOfferStatus::Draft)
         ->and($offer->fresh()->is_current)->toBeFalse();
+});
+
+test('joining readiness updates are blocked before the current offer is accepted', function (): void {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Pre-Accept',
+        'stage' => CandidateStage::OfferJol,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    foreach ([CandidateOfferStatus::Draft, CandidateOfferStatus::Sent, CandidateOfferStatus::Rejected] as $status) {
+        RecruitmentCandidateOffer::query()->where('recruitment_candidate_id', $candidate->id)->delete();
+
+        RecruitmentCandidateOffer::query()->create([
+            'company_id' => $this->company->id,
+            'recruitment_candidate_id' => $candidate->id,
+            'revision_number' => 1,
+            'is_current' => true,
+            'status' => $status,
+            'salary_amount' => '12000',
+            'salary_currency_code' => 'AED',
+            'offer_date' => '2026-10-01',
+            'proposed_joining_date' => '2026-11-01',
+            'lock_version' => 1,
+        ]);
+
+        expect(CandidateWorkflowAuthorization::canUpdateReadiness($this->recruiter, $candidate->fresh()))
+            ->toBeFalse();
+
+        expect(fn () => app(UpdateCandidateJoiningReadiness::class)->handle($this->recruiter, $candidate->fresh(), [
+            'joining_readiness_status' => 'ready',
+            'lock_version' => 1,
+        ]))->toThrow(ValidationException::class);
+    }
+});
+
+test('confirm joined is blocked when current offer is not accepted even if readiness is ready', function (): void {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Candidate Sent Offer',
+        'stage' => CandidateStage::OfferJol,
+        'expected_joining_date' => '2026-10-10',
+        'joining_readiness_status' => CandidateJoiningReadinessStatus::Ready,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Sent,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-10',
+        'sent_at' => CarbonImmutable::parse('2026-10-02 08:00:00', 'UTC'),
+        'lock_version' => 1,
+    ]);
+
+    expect(CandidateWorkflowAuthorization::canConfirmJoined($this->recruiter, $candidate->fresh()))
+        ->toBeFalse();
+
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-12 12:00:00', 'Asia/Dubai'));
+    try {
+        expect(fn () => app(ConfirmCandidateJoined::class)->handle($this->recruiter, $candidate->fresh(), [
+            'actual_joining_date' => '2026-10-10',
+            'lock_version' => 1,
+        ]))->toThrow(ValidationException::class);
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('historical joining stage remains castable and active candidates are normalized to offer/jol', function (): void {
+    expect(CandidateStage::from('joining'))->toBe(CandidateStage::Joining)
+        ->and(CandidateStage::Joining->label())->toBe('Joining')
+        ->and(CandidateStage::Joining->isHistoricalOnly())->toBeTrue()
+        ->and(collect(CandidateStage::kanbanColumns())->pluck('value')->all())
+        ->not->toContain('joining')
+        ->and(collect(CandidateStage::activeStages())->pluck('value')->all())
+        ->not->toContain('joining');
+
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'name' => 'Legacy Joining Candidate',
+        'stage' => CandidateStage::OfferJol,
+        'expected_joining_date' => '2026-11-01',
+        'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending,
+        'lock_version' => 1,
+        'position_title_snapshot' => 'Specialist',
+        'requirement_number_snapshot' => 'REQ-JOIN-1',
+    ]);
+
+    RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->company->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '12000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-11-01',
+        'accepted_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'UTC'),
+        'lock_version' => 1,
+    ]);
+
+    // Simulate a pre-migration row still stored as joining.
+    DB::table('recruitment_candidates')
+        ->where('id', $candidate->id)
+        ->update(['stage' => 'joining']);
+
+    expect($candidate->fresh()->stage)->toBe(CandidateStage::Joining);
+
+    (new class extends Migration
+    {
+        public function up(): void
+        {
+            DB::table('recruitment_candidates')
+                ->where('stage', 'joining')
+                ->update(['stage' => 'offer_jol']);
+        }
+    })->up();
+
+    $candidate->refresh();
+    expect($candidate->stage)->toBe(CandidateStage::OfferJol)
+        ->and($candidate->expected_joining_date?->format('Y-m-d'))->toBe('2026-11-01')
+        ->and($candidate->joining_readiness_status)->toBe(CandidateJoiningReadinessStatus::Pending)
+        ->and($candidate->currentOffer?->status)->toBe(CandidateOfferStatus::Accepted)
+        ->and(CandidateWorkflowAuthorization::isAwaitingJoiningConfirmation($candidate))->toBeTrue();
 });

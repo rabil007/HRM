@@ -536,8 +536,7 @@ export function CandidatesContent({
                                                         candidate.offer_status_label
                                                     }
                                                 />
-                                                {candidate.stage ===
-                                                'joining' ? (
+                                                {candidate.joining_schedule_label ? (
                                                     <CandidateJoiningScheduleBadge
                                                         urgency={
                                                             candidate.joining_schedule_urgency
@@ -665,7 +664,7 @@ export function CandidatesContent({
                                                     candidate.offer_status_label
                                                 }
                                             />
-                                            {candidate.stage === 'joining' ? (
+                                            {candidate.joining_schedule_label ? (
                                                 <CandidateJoiningScheduleBadge
                                                     urgency={
                                                         candidate.joining_schedule_urgency

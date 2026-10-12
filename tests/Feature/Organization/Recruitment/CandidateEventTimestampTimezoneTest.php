@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Recruitment\CandidateJoiningReadinessStatus;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\RequirementLineStatus;
 use App\Enums\Recruitment\RequirementStatus;
@@ -138,7 +139,7 @@ test('offer sent_at, accepted_at, and actual joining timestamps round-trip acros
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'DST Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-11-04',
         'joining_readiness_status' => CandidateJoiningReadinessStatus::Ready,
         'lock_version' => 2,
@@ -259,11 +260,25 @@ test('joining countdown in candidate presenter avoids fractional-day truncation 
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Countdown Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Analyst',
         'requirement_number_snapshot' => 'REQ-TZ-1',
+    ]);
+
+    RecruitmentCandidateOffer::query()->create([
+        'company_id' => $this->companyNY->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '75000',
+        'salary_currency_code' => 'USD',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => '2026-10-15',
+        'accepted_at' => CarbonImmutable::parse('2026-10-05 12:00:00', 'UTC'),
+        'lock_version' => 1,
     ]);
 
     // Test near midnight boundary late at night: 23:45 in NY time
@@ -318,7 +333,7 @@ test('same-day historical offer sending and acceptance validates accurately with
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Historical Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-10',
         'lock_version' => 1,
         'position_title_snapshot' => 'Analyst',

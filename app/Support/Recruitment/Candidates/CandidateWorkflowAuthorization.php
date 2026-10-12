@@ -532,12 +532,30 @@ final class CandidateWorkflowAuthorization
         ], true);
     }
 
+    /**
+     * Offer/JOL with an Accepted current offer, awaiting Confirm Joined.
+     */
+    public static function isAwaitingJoiningConfirmation(RecruitmentCandidate $candidate): bool
+    {
+        if ($candidate->stage !== CandidateStage::OfferJol) {
+            return false;
+        }
+
+        $currentOffer = $candidate->relationLoaded('currentOffer')
+            ? $candidate->currentOffer
+            : $candidate->currentOffer()->first();
+
+        return $currentOffer !== null
+            && $currentOffer->is_current
+            && $currentOffer->status === CandidateOfferStatus::Accepted;
+    }
+
     public static function canUpdateReadiness(User $user, RecruitmentCandidate $candidate): bool
     {
         return $user->can('recruitment.candidates.update')
             && self::hasOwnershipOrManage($user, $candidate->requirement)
             && self::hasValidParentsForActions($candidate)
-            && $candidate->stage === CandidateStage::Joining;
+            && self::isAwaitingJoiningConfirmation($candidate);
     }
 
     public static function assertCanUpdateReadiness(User $user, RecruitmentCandidate $candidate): void
@@ -564,9 +582,10 @@ final class CandidateWorkflowAuthorization
         return $user->can('recruitment.candidates.joining.confirm')
             && self::hasOwnershipOrManage($user, $candidate->requirement)
             && self::hasValidParentsForActions($candidate)
-            && $candidate->stage === CandidateStage::Joining
+            && $candidate->stage === CandidateStage::OfferJol
             && $candidate->joining_readiness_status === CandidateJoiningReadinessStatus::Ready
             && $currentOffer !== null
+            && $currentOffer->is_current
             && $currentOffer->status === CandidateOfferStatus::Accepted;
     }
 

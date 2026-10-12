@@ -13,6 +13,7 @@ Additive migrations (do not edit deployed history):
 - `2026_10_10_120000_add_joining_fields_to_recruitment_candidates_table.php` — `expected_joining_date`, `actual_joining_date`, `joined_at`, `joined_by`, `joining_readiness_status`, `joining_readiness_notes`, `joining_blocker_notes`, `employee_id`
 - `2026_10_10_120001_create_recruitment_candidate_internal_reminders_table.php` — `recruitment_candidate_internal_reminders`
 - `2026_10_10_120002_add_recruitment_candidate_joining_permissions.php` — `recruitment.candidates.joining.confirm` permission
+- `2026_10_12_120000_normalize_recruitment_candidate_joining_stage_to_offer_jol.php` — remaps active `joining` candidate rows to `offer_jol` (transition history unchanged)
 
 Legacy `candidates` / `interviews` / `job_offers` / `job_postings` tables are **unchanged**. Existing rows stay as-is; no requirement links are invented for them.
 
@@ -43,10 +44,10 @@ Registered in `ApplicationPermissionDefinitions` and synced by `PermissionsSeede
 | `recruitment.candidates.offer.prepare` | Prepare Draft Offer/JOL from Selected Interview (plus ownership) |
 | `recruitment.candidates.offer.update` | Edit Draft offer details/documents (plus ownership) |
 | `recruitment.candidates.offer.send` | Mark offer Sent (records external send; does **not** email) |
-| `recruitment.candidates.offer.decide` | Accept (→ Joining) or reject offer (→ Rejected) from Sent |
+| `recruitment.candidates.offer.decide` | Accept (stay in Offer/JOL; start joining preparation) or reject offer (→ Rejected) from Sent |
 | `recruitment.candidates.offer.revise` | Create audited Draft revision of Sent/Accepted/Rejected (requires `manage`) |
 | `recruitment.candidates.offer.download` | Private offer/acceptance document download (also requires `view`) |
-| `recruitment.candidates.joining.confirm` | Confirm actual joined for candidate in Joining stage with readiness = Ready |
+| `recruitment.candidates.joining.confirm` | Confirm actual joined from Offer/JOL when current offer is Accepted and readiness = Ready |
 | `recruitment.candidates.convert` | Convert confirmed Joined candidate into an employee record with HR review |
 | `reports.recruitment.view` | View recruitment report, candidate pipeline metrics, and fulfillment durations |
 | `reports.recruitment.export` | Export recruitment report to Excel or CSV |
@@ -61,7 +62,9 @@ Create / update / move / offer / confirm joined actions require the action permi
 
 Forward path (manual only; no Client Approval stage):
 
-**Applied → Screening → Interview → Offer/JOL → Joining → Joined**.
+**Applied → Screening → Interview → Offer/JOL → Joined**.
+
+Joining preparation (expected date, readiness, blockers, reminders, Confirm Joined) happens inside **Offer/JOL** after the current offer is **Accepted**. Historical transition rows may still contain stage value `joining`; the enum case remains for casting/history labels only. Active candidates previously stored as `joining` are normalized to `offer_jol` by migration.
 
 ### Phase 1 (screening / interview)
 
@@ -69,7 +72,7 @@ Forward path (manual only; no Client Approval stage):
 - Reject from Applied, Screening, or Interview (reason required). Interview rejection sets `interview_outcome = not_selected`.
 - Select keeps stage = Interview with Selected badge until Offer/JOL is prepared.
 - Undo Selected clears outcome to pending (audited). Blocked after an Offer/JOL exists.
-- Reopen Rejected restores recorded `pre_rejection_stage`. When restoring Offer/JOL, Selected outcome is preserved and Joining is normalized back to Offer/JOL.
+- Reopen Rejected restores recorded `pre_rejection_stage`. When restoring Offer/JOL, Selected outcome is preserved; any historical Joining restore value is normalized back to Offer/JOL.
 - Profile updates never change stage, outcome, or requirement links.
 - Interview field changes are audited separately.
 - Optimistic `lock_version` + expected stage/outcome guard concurrent updates.
@@ -82,22 +85,22 @@ Forward path (manual only; no Client Approval stage):
 - Offer statuses: **Draft → Sent → Accepted | Rejected**.
 - One current offer per candidate; previous revisions kept (`is_current = false`, `supersedes_offer_id`, `revision_number`).
 - Safe upload rollback: newly uploaded files during offer creation or revision are deleted on rollback, while replaced files are deleted only post-commit.
-- **Accepted** (from Sent only): records acceptance, moves candidate to **Joining**, initializes `expected_joining_date` and `joining_readiness_status = pending`.
+- **Accepted** (from Sent only): records acceptance, **keeps candidate in Offer/JOL**, initializes `expected_joining_date` from the offer’s proposed joining date and `joining_readiness_status = pending`. Accepted offer status distinguishes this from Draft/Sent; do not treat Accepted + Offer/JOL as an error.
 - **Rejected** (from Sent only): reason + decision date, offer preserved as Rejected, candidate → Rejected with `pre_rejection_stage = offer_jol`. Does **not** set `interview_outcome = not_selected`.
 - **Revise** (manage + revise + reason):
   - Creates a new Draft revision and returns candidate to Offer/JOL.
   - **Joined candidate protection**: Offer revision is strictly rejected when candidate stage is `Joined` (enforced in `CandidateWorkflowAuthorization`, `ReviseCandidateOffer`, `ReviseCandidateOfferRequest`, and UI `can_revise` permission). Joining data and joined counts remain preserved. Revising requires first using the audited Undo Joined flow (`CorrectCandidateJoined`), which retains its downstream `employee_id` conversion safeguard.
   - **Employee conversion protection**: Offer revision is also rejected whenever `employee_id` is set, regardless of candidate stage. The workflow capability and locked action both enforce this safeguard.
 
-### Phase 3 (Joining Readiness, Confirmation & Reminders)
+### Phase 3 (Joining Preparation inside Offer/JOL, Confirmation & Reminders)
 
 - **Date-Only Timezone Handling**:
   - `offer_date`, `expected_joining_date`, and `actual_joining_date` extract pure calendar `Y-m-d` before constructing `!Y-m-d` CarbonImmutable instances in company timezone. This eliminates timezone shifts (e.g. UTC 00:00 shifting to previous-day evening in UTC-4/UTC-5).
   - Joining countdowns in `CandidatePresenter` compare start-of-day calendar dates in company timezone using `(int) round($today->floatDiffInDays($expected, false))` to prevent fractional-day truncation during 23h/25h DST transitions and midnight boundaries.
-- **Joining Section**: compact section on Candidate detail showing expected joining date, actual joining date, readiness status (`Pending` / `Ready`), optional readiness notes and blocker notes.
+- **Joining preparation** (Offer/JOL panel): expected joining date, readiness status (`Pending` / `Ready`), optional readiness notes and blocker notes. Editable only while stage is Offer/JOL **and** the current offer is Accepted. Draft/Sent/Rejected offers cannot update readiness.
 - Readiness edits are audited with actor, timestamp, and reason without altering accepted offer terms.
-- **Confirm Joined**: explicit action requiring current Accepted offer, stage Joining, valid parents, and readiness = Ready. Requires actual joining date (historical valid, no future relative to company timezone, on/after offer acceptance date). Moves candidate to `Joined` with immutable transition record.
-- **Undo Joined**: audited management-only correction path (`manage` + reason) reverting candidate to `Joining`. Blocked if downstream employee conversion exists (`employee_id !== null`).
+- **Confirm Joined**: explicit action requiring current Accepted offer, stage Offer/JOL, valid parents, and readiness = Ready. Requires actual joining date (historical valid, no future relative to company timezone, on/after offer acceptance date). Moves candidate **Offer/JOL → Joined** with immutable transition record. Accepted offers alone never count as Joined.
+- **Undo Joined**: audited management-only correction path (`manage` + reason) reverting candidate to **Offer/JOL**, preserving Accepted offer and readiness fields while clearing actual joining confirmation data. Blocked if downstream employee conversion exists (`employee_id !== null`).
 - **Joining Action Error Handling**:
   - `joining-form-errors.ts` maps backend validation errors (`candidate`, `stage`, `offer`, `readiness_status`, `lock_version`, `notes`, `reason`) to banner and field alerts with an unrendered fallback.
   - Action dialogs preserve user inputs and remain open on failure, clearing stale errors when reopened. Action buttons disable during submission.
@@ -105,8 +108,9 @@ Forward path (manual only; no Client Approval stage):
 - Headcount reductions in `ChangeHeadcountAction` and `ApproveHeadcountRevisionAction` are strictly guarded against dropping below confirmed joined count.
 - **Internal Reminders**:
   - Interview: 1 day before and day of (scheduled date).
-  - Joining: 7 days before, 3 days before, and day of (expected joining date).
-  - Overdue joining: once daily up to 7 days overdue.
+  - Joining: 7 days before, 3 days before, and day of (expected joining date) for Offer/JOL candidates with an Accepted current offer.
+  - Overdue joining: once daily up to 7 days overdue for the same eligibility.
+  - Reminders stop after Confirm Joined (or when the candidate/offer is no longer eligible).
   - **Delivery Recipient Revalidation**: `DeliverCandidateInternalReminderJob` rechecks that recipients have active company membership via `ResolveCompanyAccess` and currently qualify as the assigned recruiter, submitter/creator fallback, or configured notification recipient. Removed CCs, former recruiters, and revoked memberships are skipped (`unqualified_recipient`, `revoked_membership`). Recipients are deduplicated; notification receipt grants no action permissions.
   - **Milestone Expiration**: Each milestone's intended delivery date is calculated in company timezone. If delivery is delayed past that date (`todayLocal > intendedDeliveryDate`), the reminder is skipped with `milestone_expired`. Rescheduled candidates skip with `joining_rescheduled` / `interview_rescheduled`.
   - **Independent Stale Record Recovery**: `recoverStaleRemindersForCompany` executes a bounded recovery sweep for stale `Pending` or `Queued` records independent of today's milestone candidate queries. Records are claimed under `lockForUpdate()`, skipping expired/obsolete records and re-queuing eligible ones idempotently.
@@ -135,8 +139,9 @@ Forward path (manual only; no Client Approval stage):
 - **Recruitment Report & Metrics**:
   - Navigation: Reports → Recruitment Report (`reports.recruitment.view`, `reports.recruitment.export`).
   - **Metric Definitions**:
-    - **Selected**: Defined by `interview_outcome = 'selected'`. Reflects all candidates with a Selected interview outcome within the active filter scope (including those in Interview stage and those progressed to Offer/Joining/Joined).
-    - **Pipeline Totals vs Position Fulfillment**: Separate metric scopes in UI. Pipeline cards (Applications, Selected, Joining, Joined, Rejected, Converted) reflect the active filter view. Position fulfillment (Headcount, Confirmed Joined, Remaining, Overfill) reflects total authorized slots and all confirmed Joined candidates for the scoped requirements and position lines, independent of candidate stage, search, conversion, or date filters.
+    - **Selected**: Defined by `interview_outcome = 'selected'`. Reflects all candidates with a Selected interview outcome within the active filter scope (including those in Interview stage and those progressed to Offer/JOL/Joined).
+    - **Awaiting join (`joining_count`)**: Offer/JOL candidates with an Accepted current offer (not a separate Joining stage). Joined remains the only stage counting toward confirmed requirement fulfillment.
+    - **Pipeline Totals vs Position Fulfillment**: Separate metric scopes in UI. Pipeline cards (Applications, Selected, Awaiting join, Joined, Rejected, Converted) reflect the active filter view. Position fulfillment (Headcount, Confirmed Joined, Remaining, Overfill) reflects total authorized slots and all confirmed Joined candidates for the scoped requirements and position lines, independent of candidate stage, search, conversion, or date filters.
     - **Per-Line Fulfillment**: Remaining and overfill are calculated per position line (`max(0, required - joined)` and `max(0, joined - required)`) and summed across scoped lines. An overfill in one position never cancels out a shortage in another position.
   - **Duration Calculations**:
     - Calendar durations (Time to Hire and Requirement Approval to Joined) use `actual_joining_date` in company timezone; `joined_at` serves strictly as audit confirmation time.
@@ -146,8 +151,8 @@ Forward path (manual only; no Client Approval stage):
 ## UI
 
 - Navigation: Recruitment → Candidates; Reports → Recruitment Report.
-- Index: Table and Kanban include Joined stage. Kanban columns are independently paginated with server stage totals and upcoming/overdue joining badges.
-- Candidate detail: Joining panel with status, dates, notes, and actions (Update Readiness, Confirm Joined, Undo Joined, Convert to Employee).
+- Index: Table and Kanban columns are Applied → Screening → Interview → Offer/JOL → Joined → Rejected (no Joining column). Kanban columns are independently paginated with server stage totals and upcoming/overdue joining badges for accepted Offer/JOL candidates.
+- Candidate detail: Offer/JOL panel plus joining preparation panel (after acceptance) with readiness, dates, notes, and actions (Update Readiness, Confirm Joined when Ready, Undo Joined, Convert to Employee).
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 
 ## Out of scope

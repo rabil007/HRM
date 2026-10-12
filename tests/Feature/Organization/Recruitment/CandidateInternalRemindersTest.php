@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateReminderScheduleType;
 use App\Enums\Recruitment\CandidateReminderStatus;
 use App\Enums\Recruitment\CandidateStage;
@@ -13,6 +14,7 @@ use App\Models\Currency;
 use App\Models\Position;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateInternalReminder;
+use App\Models\RecruitmentCandidateOffer;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\RecruitmentRequirementNotificationRecipient;
@@ -114,6 +116,23 @@ beforeEach(function (): void {
     ]);
 });
 
+function createAcceptedCurrentOfferForReminders(RecruitmentCandidate $candidate): RecruitmentCandidateOffer
+{
+    return RecruitmentCandidateOffer::query()->create([
+        'company_id' => (int) $candidate->company_id,
+        'recruitment_candidate_id' => (int) $candidate->id,
+        'revision_number' => 1,
+        'is_current' => true,
+        'status' => CandidateOfferStatus::Accepted,
+        'salary_amount' => '10000',
+        'salary_currency_code' => 'AED',
+        'offer_date' => '2026-10-01',
+        'proposed_joining_date' => $candidate->expected_joining_date?->toDateString() ?? '2026-10-15',
+        'accepted_at' => now(),
+        'lock_version' => 1,
+    ]);
+}
+
 test('interview reminders are dispatched 1 day before and day of in company timezone with deduplicated recipients', function (): void {
     Queue::fake();
 
@@ -181,12 +200,13 @@ test('joining reminders are dispatched 7 days before, 3 days before, and day of'
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Joining Day Of',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candDayOf);
 
     // Candidate 2: Joining in 3 days (2026-10-18)
     $cand3Days = RecruitmentCandidate::query()->create([
@@ -194,12 +214,13 @@ test('joining reminders are dispatched 7 days before, 3 days before, and day of'
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Joining 3 Days',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-18',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($cand3Days);
 
     // Candidate 3: Joining in 7 days (2026-10-22)
     $cand7Days = RecruitmentCandidate::query()->create([
@@ -207,12 +228,13 @@ test('joining reminders are dispatched 7 days before, 3 days before, and day of'
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Joining 7 Days',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-22',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($cand7Days);
 
     $dispatcher = app(DispatchCandidateInternalReminders::class);
     $result = $dispatcher->forCompany($this->company->id, force: true);
@@ -233,12 +255,13 @@ test('overdue joining reminders are dispatched daily up to 7 days overdue', func
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Overdue 2 Days',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-13',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candOverdue2);
 
     // Candidate overdue by 8 days (> 7 days, should NOT receive overdue reminder)
     $candOverdue8 = RecruitmentCandidate::query()->create([
@@ -246,12 +269,13 @@ test('overdue joining reminders are dispatched daily up to 7 days overdue', func
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Overdue 8 Days',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-07',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candOverdue8);
 
     $dispatcher = app(DispatchCandidateInternalReminders::class);
     $result = $dispatcher->forCompany($this->company->id, force: true);
@@ -283,12 +307,13 @@ test('DeliverCandidateInternalReminderJob delivers successfully and idempotently
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Diana Prince',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -334,12 +359,13 @@ test('DeliverCandidateInternalReminderJob skips delivery if interview or joining
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Clark Kent',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-20', // Rescheduled to 20th!
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     // Old reminder for 2026-10-15
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -417,12 +443,13 @@ test('reclaims stale queued reminder records', function (): void {
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Barry Allen',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     // Created 30 minutes ago and stuck in Queued status
     $staleReminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -462,12 +489,13 @@ test('delivered internal reminder appears in unified feed and can be marked as r
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Arthur Curry',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -517,12 +545,13 @@ test('revalidates recipient qualification at delivery and skips reassigned recru
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Recipient Test Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     // 1. Reassigned recruiter: Reminder was queued for recruiter, but requirement was reassigned to submitter
     $recruiterReminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -631,12 +660,13 @@ test('revalidates recipient qualification at delivery and skips reassigned recru
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Recipient Test Candidate 2',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate2);
 
     $qualifyingReminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -671,12 +701,13 @@ test('expires outdated queued reminders when delivered after milestone date acro
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Delayed Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-14', // Milestone date was yesterday!
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     // Queued reminder whose intended delivery was day_of 2026-10-14 (yesterday)
     $expiredReminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -737,24 +768,26 @@ test('independent recovery sweep re-queues eligible records and skips expired or
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Sweep Today Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidateToday);
 
     $candidateYesterday = RecruitmentCandidate::query()->create([
         'company_id' => $this->company->id,
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Sweep Yesterday Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-14',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidateYesterday);
 
     // 1. Record stranded overnight from yesterday: stuck in Queued
     $strandedReminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -848,12 +881,13 @@ test('competing claims allow only the first claimant to enqueue delivery and ter
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Competing Claim Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -919,12 +953,13 @@ test('stale dispatcher racing with delivery does not overwrite terminal Sent or 
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Racing Delivery Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     $sentReminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -987,12 +1022,13 @@ test('repeated recovery sweeps do not publish duplicate notifications', function
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Repeated Recovery Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     // Record stuck in Queued from 15 minutes ago (eligible for recovery)
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
@@ -1052,12 +1088,13 @@ test('enqueue failure rolls back claim transaction preserving record status for 
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Enqueue Failure Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     $reminder = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -1105,17 +1142,18 @@ test('enqueue failure rolls back claim transaction preserving record status for 
 test('normal enqueue failure propagates error count through forCompany and dispatchAll, and command exits with failure', function (): void {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 08:00:00', 'UTC'));
 
-    RecruitmentCandidate::query()->create([
+    $errorCandidate = RecruitmentCandidate::query()->create([
         'company_id' => $this->company->id,
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Error Dispatch Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($errorCandidate);
 
     $originalDispatcher = app(Dispatcher::class);
     $mockDispatcher = Mockery::mock(Dispatcher::class);
@@ -1152,12 +1190,13 @@ test('recovery failure propagates error count through forCompany and dispatchAll
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Recovery Error Candidate',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate);
 
     RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
@@ -1203,12 +1242,13 @@ test('mixed results accurately report enqueued, skipped, and error counts and su
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Candidate Will Fail',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate1);
     $reminder1 = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
         'recruitment_candidate_id' => $candidate1->id,
@@ -1227,12 +1267,13 @@ test('mixed results accurately report enqueued, skipped, and error counts and su
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Candidate Already Skipped',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate2);
     $reminder2 = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
         'recruitment_candidate_id' => $candidate2->id,
@@ -1252,12 +1293,13 @@ test('mixed results accurately report enqueued, skipped, and error counts and su
         'recruitment_requirement_id' => $this->requirement->id,
         'recruitment_requirement_line_id' => $this->line->id,
         'name' => 'Candidate Will Succeed',
-        'stage' => CandidateStage::Joining,
+        'stage' => CandidateStage::OfferJol,
         'expected_joining_date' => '2026-10-15',
         'lock_version' => 1,
         'position_title_snapshot' => 'Engineer',
         'requirement_number_snapshot' => 'REQ-REM-1',
     ]);
+    createAcceptedCurrentOfferForReminders($candidate3);
     $reminder3 = RecruitmentCandidateInternalReminder::query()->create([
         'company_id' => $this->company->id,
         'recruitment_candidate_id' => $candidate3->id,
