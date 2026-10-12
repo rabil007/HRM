@@ -16,6 +16,19 @@ export type PrimaryAction =
           kind: 'destination';
           label: string;
           destination: CandidateMoveDestination;
+      }
+    | {
+          kind: 'select';
+          label: string;
+      }
+    | {
+          kind: 'prepare_offer';
+          label: string;
+      }
+    | {
+          kind: 'update_readiness';
+          label: string;
+          href: string;
       };
 
 /**
@@ -41,9 +54,8 @@ export function resolvePrimaryAction(
 
     if (candidate.can_select) {
         return {
-            kind: 'post',
+            kind: 'select',
             label: 'Mark Selected',
-            url: `/organization/recruitment/candidates/${candidate.id}/select`,
         };
     }
 
@@ -52,18 +64,9 @@ export function resolvePrimaryAction(
             (destination) => destination.kind === 'prepare_offer',
         );
 
-        if (prepare) {
-            return {
-                kind: 'destination',
-                label: prepare.label || 'Prepare Offer',
-                destination: prepare,
-            };
-        }
-
         return {
-            kind: 'link',
-            label: 'Prepare Offer',
-            href: candidateDetailSectionHref(candidate.id, 'offer-jol'),
+            kind: 'prepare_offer',
+            label: prepare?.label || 'Prepare Offer',
         };
     }
 
@@ -106,7 +109,7 @@ export function resolvePrimaryAction(
 
         if (candidate.can_update_readiness) {
             return {
-                kind: 'link',
+                kind: 'update_readiness',
                 label: 'Update Readiness',
                 href: candidateDetailSectionHref(candidate.id, 'joining'),
             };

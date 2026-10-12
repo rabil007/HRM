@@ -24,10 +24,16 @@ type ReasonAction = 'reject' | 'reopen' | null;
 export function CandidateRecruiterNextActionPanel({
     candidate,
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
+    onRequestReadiness,
     className,
 }: {
     candidate: CandidateDetail;
     onRequestMove?: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateDetail) => void;
+    onRequestPrepareOffer?: (candidate: CandidateDetail) => void;
+    onRequestReadiness?: (candidate: CandidateDetail) => void;
     className?: string;
 }) {
     const model = buildRecruiterNextAction(candidate);
@@ -72,6 +78,30 @@ export function CandidateRecruiterNextActionPanel({
             return;
         }
 
+        if (recommended.kind === 'select') {
+            onRequestSelect?.(candidate);
+
+            return;
+        }
+
+        if (recommended.kind === 'prepare_offer') {
+            onRequestPrepareOffer?.(candidate);
+
+            return;
+        }
+
+        if (recommended.kind === 'update_readiness') {
+            if (onRequestReadiness) {
+                onRequestReadiness(candidate);
+
+                return;
+            }
+
+            router.visit(recommended.href);
+
+            return;
+        }
+
         if (recommended.kind === 'link') {
             router.visit(recommended.href);
 
@@ -80,6 +110,12 @@ export function CandidateRecruiterNextActionPanel({
 
         if (recommended.kind === 'post') {
             post(recommended.url);
+
+            return;
+        }
+
+        if (recommended.destination.kind === 'prepare_offer') {
+            onRequestPrepareOffer?.(candidate);
 
             return;
         }
@@ -111,6 +147,32 @@ export function CandidateRecruiterNextActionPanel({
             return;
         }
 
+        if (action.kind === 'select') {
+            onRequestSelect?.(candidate);
+
+            return;
+        }
+
+        if (action.kind === 'prepare_offer') {
+            onRequestPrepareOffer?.(candidate);
+
+            return;
+        }
+
+        if (action.kind === 'update_readiness') {
+            if (onRequestReadiness) {
+                onRequestReadiness(candidate);
+
+                return;
+            }
+
+            if (action.href) {
+                router.visit(action.href);
+            }
+
+            return;
+        }
+
         if (action.kind === 'link' && action.href) {
             router.visit(action.href);
 
@@ -130,9 +192,17 @@ export function CandidateRecruiterNextActionPanel({
                     item.kind === action.destinationKind,
             );
 
-            if (destination) {
-                onRequestMove?.({ candidate, destination });
+            if (!destination) {
+                return;
             }
+
+            if (destination.kind === 'prepare_offer') {
+                onRequestPrepareOffer?.(candidate);
+
+                return;
+            }
+
+            onRequestMove?.({ candidate, destination });
         }
     };
 

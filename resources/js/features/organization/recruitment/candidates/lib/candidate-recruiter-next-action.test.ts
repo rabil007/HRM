@@ -30,6 +30,7 @@ function row(overrides: Partial<CandidateIndexRow> = {}): CandidateIndexRow {
         nationality: null,
         has_cv: true,
         interview_scheduled_at: null,
+        interview_feedback: null,
         expected_joining_date: null,
         actual_joining_date: null,
         joining_readiness_status: null,

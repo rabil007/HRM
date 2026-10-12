@@ -51,6 +51,9 @@ export function CandidateKanbanBoard({
     stageTotals,
     onLoadMore,
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
+    onRequestReadiness,
 }: {
     stages: CandidateStage[];
     rejectedStage: CandidateStage | null;
@@ -58,6 +61,9 @@ export function CandidateKanbanBoard({
     stageTotals: Record<string, number>;
     onLoadMore: (stage: CandidateStage, page: number) => void;
     onRequestMove: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateIndexRow) => void;
+    onRequestPrepareOffer?: (candidate: CandidateIndexRow) => void;
+    onRequestReadiness?: (candidate: CandidateIndexRow) => void;
 }) {
     const [rejectedOpen, setRejectedOpen] = useState(false);
     const [activeDrag, setActiveDrag] = useState<DragCandidateData | null>(
@@ -184,6 +190,9 @@ export function CandidateKanbanBoard({
                                 total={total}
                                 onLoadMore={onLoadMore}
                                 onRequestMove={onRequestMove}
+                                onRequestSelect={onRequestSelect}
+                                onRequestPrepareOffer={onRequestPrepareOffer}
+                                onRequestReadiness={onRequestReadiness}
                                 compact={
                                     focusingRejected || stages.length === 1
                                 }
@@ -213,6 +222,9 @@ export function CandidateKanbanBoard({
                                 total={rejectedTotal}
                                 onLoadMore={onLoadMore}
                                 onRequestMove={onRequestMove}
+                                onRequestSelect={onRequestSelect}
+                                onRequestPrepareOffer={onRequestPrepareOffer}
+                                onRequestReadiness={onRequestReadiness}
                                 compact
                                 dropHighlight={dropHighlight(rejectedStage)}
                             />

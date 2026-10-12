@@ -61,4 +61,23 @@ describe('kanban-card-interaction', () => {
             false,
         );
     });
+
+    it('treats keyboard drag handles as interactive so Enter does not navigate', () => {
+        const dragHandle = {
+            closest: (selector: string) =>
+                selector.includes('[data-kanban-interactive="true"]')
+                    ? {}
+                    : null,
+        };
+
+        assert.equal(isInteractiveKanbanTarget(dragHandle), true);
+        assert.equal(
+            shouldNavigateKanbanCardClick({
+                isDragging: false,
+                didDrag: false,
+                target: dragHandle,
+            }),
+            false,
+        );
+    });
 });

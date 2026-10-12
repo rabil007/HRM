@@ -2,13 +2,13 @@ import { useForm } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-    Sheet,
-    SheetContent,
-    SheetDescription,
-    SheetFooter,
-    SheetHeader,
-    SheetTitle,
-} from '@/components/ui/sheet';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { nowInCompanyDate } from '@/lib/company-timezone';
 import {
     offerKnownGeneralError,
@@ -44,7 +44,7 @@ function defaultPrepareData(
     };
 }
 
-export function CandidatePrepareOfferSheet({
+export function CandidatePrepareOfferDialog({
     open,
     onOpenChange,
     candidate,
@@ -72,7 +72,7 @@ export function CandidatePrepareOfferSheet({
             form.setData(defaultPrepareData(candidate, options, timezone));
             form.clearErrors();
         }
-        // Reset only when the sheet opens for a candidate.
+        // Reset only when the dialog opens for a candidate.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional open/id trigger
     }, [open, candidate?.id, timezone]);
 
@@ -122,16 +122,18 @@ export function CandidatePrepareOfferSheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent
-                side="right"
-                className="flex w-full flex-col rounded-none p-0 sm:max-w-xl"
-            >
-                <SheetHeader className="border-b border-border/60 p-6">
-                    <SheetTitle className="text-xl font-bold tracking-tight">
-                        Prepare Offer/JOL
-                    </SheetTitle>
-                    <SheetDescription className="mt-1 space-y-1 text-xs text-muted-foreground/80">
+        <Dialog
+            open={open}
+            onOpenChange={(next) => {
+                if (!next && !form.processing) {
+                    onOpenChange(false);
+                }
+            }}
+        >
+            <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+                <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4">
+                    <DialogTitle>Prepare Offer/JOL</DialogTitle>
+                    <DialogDescription className="space-y-1">
                         <span className="block font-medium text-foreground">
                             {candidate.name}
                         </span>
@@ -143,10 +145,10 @@ export function CandidatePrepareOfferSheet({
                             Creates a Draft offer and moves the candidate to
                             Offer/JOL after a successful save.
                         </span>
-                    </SheetDescription>
-                </SheetHeader>
+                    </DialogDescription>
+                </DialogHeader>
 
-                <div className="flex-1 space-y-4 overflow-y-auto p-6">
+                <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
                     {generalError ? (
                         <p className="text-sm text-destructive" role="alert">
                             {generalError}
@@ -171,7 +173,7 @@ export function CandidatePrepareOfferSheet({
                     />
                 </div>
 
-                <SheetFooter className="border-t border-border/60 p-6">
+                <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
                     <Button
                         type="button"
                         variant="outline"
@@ -187,8 +189,8 @@ export function CandidatePrepareOfferSheet({
                     >
                         {form.processing ? 'Preparing…' : 'Prepare Offer/JOL'}
                     </Button>
-                </SheetFooter>
-            </SheetContent>
-        </Sheet>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

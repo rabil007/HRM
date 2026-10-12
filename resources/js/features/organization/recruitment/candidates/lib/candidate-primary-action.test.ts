@@ -27,6 +27,7 @@ function row(overrides: Partial<CandidateIndexRow> = {}): CandidateIndexRow {
         nationality: null,
         has_cv: false,
         interview_scheduled_at: null,
+        interview_feedback: null,
         expected_joining_date: null,
         actual_joining_date: null,
         joining_readiness_status: null,
@@ -94,15 +95,27 @@ describe('resolvePrimaryAction', () => {
             }),
         );
 
-        assert.equal(action?.kind, 'link');
+        assert.equal(action?.kind, 'update_readiness');
         assert.equal(action?.label, 'Update Readiness');
         assert.equal(
-            action?.kind === 'link' ? action.href : null,
+            action?.kind === 'update_readiness' ? action.href : null,
             '/organization/recruitment/candidates/42#joining',
         );
     });
 
-    it('opens Prepare Offer through the prepare_offer destination when present', () => {
+    it('opens Mark Selected through the select action kind', () => {
+        const action = resolvePrimaryAction(
+            row({
+                stage: 'interview',
+                can_select: true,
+            }),
+        );
+
+        assert.equal(action?.kind, 'select');
+        assert.equal(action?.label, 'Mark Selected');
+    });
+
+    it('opens Prepare Offer through the prepare_offer action kind', () => {
         const action = resolvePrimaryAction(
             row({
                 stage: 'interview',
@@ -119,12 +132,8 @@ describe('resolvePrimaryAction', () => {
             }),
         );
 
-        assert.equal(action?.kind, 'destination');
+        assert.equal(action?.kind, 'prepare_offer');
         assert.equal(action?.label, 'Prepare Offer');
-        assert.equal(
-            action?.kind === 'destination' ? action.destination.kind : null,
-            'prepare_offer',
-        );
     });
 
     it('shows Complete Draft Offer before readiness actions', () => {

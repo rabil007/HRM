@@ -16,8 +16,9 @@ import { CandidateMovementActions } from './components/candidate-movement-action
 import { CandidateMovementHistory } from './components/candidate-movement-history';
 import { CandidateOfferPanel } from './components/candidate-offer-panel';
 import { CandidatePipelineProgress } from './components/candidate-pipeline-progress';
-import { CandidatePrepareOfferSheet } from './components/candidate-prepare-offer-sheet';
+import { CandidatePrepareOfferDialog } from './components/candidate-prepare-offer-dialog';
 import { CandidateRecruiterNextActionPanel } from './components/candidate-recruiter-next-action-panel';
+import { CandidateSelectDialog } from './components/candidate-select-dialog';
 import {
     CandidateOfferStatusBadge,
     CandidateOutcomeBadge,
@@ -74,14 +75,27 @@ export function CandidatesShowContent({
     const [editOpen, setEditOpen] = useState(false);
     const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
     const [prepareOfferOpen, setPrepareOfferOpen] = useState(false);
+    const [selectOpen, setSelectOpen] = useState(false);
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
     );
+
     const [sectionOpen, setSectionOpen] = useState<SectionOpenState>(() =>
         initialSectionOpenState(
             typeof window === 'undefined' ? null : window.location.hash,
         ),
     );
+
+    const handleRequestMove = (intent: StageMoveIntent) => {
+        if (intent.destination.kind === 'prepare_offer') {
+            setPrepareOfferOpen(true);
+            setSectionOpen((previous) => ({ ...previous, offer: true }));
+
+            return;
+        }
+
+        setMoveIntent(intent);
+    };
     const profileForm = useForm<CandidateFormData>(
         candidateFormFromRow(candidate),
     );
@@ -215,9 +229,17 @@ export function CandidatesShowContent({
         <CandidateOfferPanel
             candidate={candidate}
             options={options}
-            onPrepareOffer={() => setPrepareOfferOpen(true)}
+            onPrepareOffer={() => {
+                setPrepareOfferOpen(true);
+                setSection('offer', true);
+            }}
         />
     ) : null;
+
+    const acceptedOfferTitle =
+        candidate.current_offer?.status === 'accepted'
+            ? 'Offer/JOL — Accepted'
+            : 'Offer / JOL';
 
     const joiningPanel = showJoining ? (
         <CandidateJoiningPanel candidate={candidate} />
@@ -287,7 +309,12 @@ export function CandidatesShowContent({
                     <div className="flex flex-col items-stretch gap-2 sm:items-end">
                         <CandidateMovementActions
                             candidate={candidate}
-                            onRequestMove={setMoveIntent}
+                            onRequestMove={handleRequestMove}
+                            onRequestSelect={() => setSelectOpen(true)}
+                            onRequestPrepareOffer={() => {
+                                setPrepareOfferOpen(true);
+                                setSection('offer', true);
+                            }}
                             showPrimary={false}
                             showSecondaryButtons={false}
                         />
@@ -336,7 +363,12 @@ export function CandidatesShowContent({
                 <div className="lg:hidden">
                     <CandidateRecruiterNextActionPanel
                         candidate={candidate}
-                        onRequestMove={setMoveIntent}
+                        onRequestMove={handleRequestMove}
+                        onRequestSelect={() => setSelectOpen(true)}
+                        onRequestPrepareOffer={() => {
+                            setPrepareOfferOpen(true);
+                            setSection('offer', true);
+                        }}
                     />
                 </div>
             </div>
@@ -402,7 +434,19 @@ export function CandidatesShowContent({
                         {offerInPrimary && prioritizeJoiningPrep ? (
                             <>
                                 {joiningPanel}
-                                {offerPanel}
+                                {offerPanel ? (
+                                    <CandidateWorkspaceSection
+                                        title={acceptedOfferTitle}
+                                        description="Accepted offer details, documents, and revision history."
+                                        collapsible
+                                        open={sectionOpen.offer}
+                                        onOpenChange={(open) =>
+                                            setSection('offer', open)
+                                        }
+                                    >
+                                        {offerPanel}
+                                    </CandidateWorkspaceSection>
+                                ) : null}
                             </>
                         ) : null}
 
@@ -413,9 +457,24 @@ export function CandidatesShowContent({
                             </>
                         ) : null}
 
-                        {prioritizeJoined && !offerInPrimary
-                            ? joiningPanel
-                            : null}
+                        {prioritizeJoined && !offerInPrimary ? (
+                            <>
+                                {joiningPanel}
+                                {offerPanel ? (
+                                    <CandidateWorkspaceSection
+                                        title={acceptedOfferTitle}
+                                        description="Historical Offer/JOL details."
+                                        collapsible
+                                        open={sectionOpen.offer}
+                                        onOpenChange={(open) =>
+                                            setSection('offer', open)
+                                        }
+                                    >
+                                        {offerPanel}
+                                    </CandidateWorkspaceSection>
+                                ) : null}
+                            </>
+                        ) : null}
                     </CandidateWorkspaceSection>
 
                     {!interviewInPrimary && interviewPanel ? (
@@ -432,7 +491,7 @@ export function CandidatesShowContent({
                         </CandidateWorkspaceSection>
                     ) : null}
 
-                    {!offerInPrimary && offerPanel ? (
+                    {!offerInPrimary && !prioritizeJoined && offerPanel ? (
                         <CandidateWorkspaceSection
                             title="Offer / JOL"
                             description="Offer preparation, decisions, and documents."
@@ -479,7 +538,12 @@ export function CandidatesShowContent({
 
                 <CandidateDetailSidebar
                     candidate={candidate}
-                    onRequestMove={setMoveIntent}
+                    onRequestMove={handleRequestMove}
+                    onRequestSelect={() => setSelectOpen(true)}
+                    onRequestPrepareOffer={() => {
+                        setPrepareOfferOpen(true);
+                        setSection('offer', true);
+                    }}
                 />
             </div>
 
@@ -500,10 +564,15 @@ export function CandidatesShowContent({
                     interview_modes: options.interview_modes,
                     interviewers: options.interviewers,
                 }}
-                onPrepareOffer={() => setPrepareOfferOpen(true)}
             />
 
-            <CandidatePrepareOfferSheet
+            <CandidateSelectDialog
+                open={selectOpen}
+                onOpenChange={setSelectOpen}
+                candidate={candidate}
+            />
+
+            <CandidatePrepareOfferDialog
                 open={prepareOfferOpen}
                 onOpenChange={setPrepareOfferOpen}
                 candidate={candidate}

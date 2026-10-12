@@ -43,12 +43,18 @@ export function CandidateMovementActions({
     candidate,
     density = 'comfortable',
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
+    onRequestReadiness,
     showPrimary = true,
     showSecondaryButtons = true,
 }: {
     candidate: CandidateIndexRow;
     density?: 'comfortable' | 'compact';
     onRequestMove?: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateIndexRow) => void;
+    onRequestPrepareOffer?: (candidate: CandidateIndexRow) => void;
+    onRequestReadiness?: (candidate: CandidateIndexRow) => void;
     /** When false, hide the primary CTA (e.g. detail page uses Recruiter Next Action). */
     showPrimary?: boolean;
     /** When false, hide Reject / Undo / Reopen outline buttons (keep overflow menu). */
@@ -103,6 +109,12 @@ export function CandidateMovementActions({
         : [];
 
     const requestMove = (destination: CandidateMoveDestination) => {
+        if (destination.kind === 'prepare_offer') {
+            onRequestPrepareOffer?.(candidate);
+
+            return;
+        }
+
         if (!onRequestMove) {
             return;
         }
@@ -151,6 +163,50 @@ export function CandidateMovementActions({
         });
     }
 
+    const runPrimary = () => {
+        if (!primary) {
+            return;
+        }
+
+        if (primary.kind === 'select') {
+            onRequestSelect?.(candidate);
+
+            return;
+        }
+
+        if (primary.kind === 'prepare_offer') {
+            onRequestPrepareOffer?.(candidate);
+
+            return;
+        }
+
+        if (primary.kind === 'update_readiness') {
+            if (onRequestReadiness) {
+                onRequestReadiness(candidate);
+
+                return;
+            }
+
+            router.visit(primary.href);
+
+            return;
+        }
+
+        if (primary.kind === 'link') {
+            router.visit(primary.href);
+
+            return;
+        }
+
+        if (primary.kind === 'destination') {
+            requestMove(primary.destination);
+
+            return;
+        }
+
+        post(primary.url);
+    };
+
     const renderPrimary = () => {
         if (!primary) {
             if (blockedHint) {
@@ -180,31 +236,18 @@ export function CandidateMovementActions({
             return isCompact ? <span className="flex-1" /> : null;
         }
 
-        if (primary.kind === 'link') {
-            return (
-                <Button
-                    size="sm"
-                    className={cn(isCompact && 'h-8 flex-1 text-xs')}
-                    variant={isCompact ? 'default' : 'outline'}
-                    asChild
-                >
-                    <a href={primary.href}>{primary.label}</a>
-                </Button>
-            );
+        if (
+            primary.kind === 'select' &&
+            typeof onRequestSelect !== 'function'
+        ) {
+            return isCompact ? <span className="flex-1" /> : null;
         }
 
-        if (primary.kind === 'destination') {
-            return (
-                <Button
-                    size="sm"
-                    className={cn(isCompact && 'h-8 flex-1 text-xs')}
-                    variant={isCompact ? 'default' : 'outline'}
-                    disabled={processing}
-                    onClick={() => requestMove(primary.destination)}
-                >
-                    {primary.label}
-                </Button>
-            );
+        if (
+            primary.kind === 'prepare_offer' &&
+            typeof onRequestPrepareOffer !== 'function'
+        ) {
+            return isCompact ? <span className="flex-1" /> : null;
         }
 
         return (
@@ -212,10 +255,12 @@ export function CandidateMovementActions({
                 size="sm"
                 className={cn(isCompact && 'h-8 flex-1 text-xs')}
                 variant={
-                    primary.label === 'Mark Selected' ? 'default' : 'outline'
+                    primary.label === 'Mark Selected' || isCompact
+                        ? 'default'
+                        : 'outline'
                 }
                 disabled={processing}
-                onClick={() => post(primary.url)}
+                onClick={runPrimary}
             >
                 {primary.label}
             </Button>

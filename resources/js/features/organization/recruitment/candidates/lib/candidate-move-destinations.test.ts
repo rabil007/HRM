@@ -34,6 +34,7 @@ function row(
         nationality: null,
         has_cv: false,
         interview_scheduled_at: null,
+        interview_feedback: null,
         expected_joining_date: null,
         actual_joining_date: null,
         joining_readiness_status: null,

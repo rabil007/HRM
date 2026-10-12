@@ -40,6 +40,7 @@ function row(
         nationality: null,
         has_cv: false,
         interview_scheduled_at: null,
+        interview_feedback: null,
         lock_version: 0,
         created_at: null,
         parents_valid: true,

@@ -8,7 +8,13 @@ import {
 export type RecruiterOtherAction = {
     key: string;
     label: string;
-    kind: 'post' | 'destination' | 'link';
+    kind:
+        | 'post'
+        | 'destination'
+        | 'link'
+        | 'select'
+        | 'prepare_offer'
+        | 'update_readiness';
     url?: string;
     href?: string;
     destinationStage?: string;
@@ -194,9 +200,17 @@ export function resolveOtherActions(
         }
 
         if (
+            recommended?.kind === 'prepare_offer' &&
+            destination.kind === 'prepare_offer'
+        ) {
+            continue;
+        }
+
+        if (
             recommendedLabel &&
             destination.label === recommendedLabel &&
-            recommended?.kind === 'destination'
+            (recommended?.kind === 'destination' ||
+                recommended?.kind === 'prepare_offer')
         ) {
             continue;
         }
@@ -244,7 +258,7 @@ export function resolveOtherActions(
         actions.push({
             key: 'update-readiness',
             label: 'Update Readiness',
-            kind: 'link',
+            kind: 'update_readiness',
             href: `/organization/recruitment/candidates/${candidate.id}#joining`,
         });
     }

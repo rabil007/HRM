@@ -16,7 +16,7 @@ import {
     candidateNeedsAttention,
 } from '../lib/candidate-attention';
 import { shouldNavigateKanbanCardClick } from '../lib/kanban-card-interaction';
-import { daysInStageLabel, STAGE_COLORS } from '../lib/kanban-stage-meta';
+import { STAGE_COLORS } from '../lib/kanban-stage-meta';
 import type { CandidateIndexRow, CandidateStage } from '../types';
 import { CandidateMovementActions } from './candidate-movement-actions';
 import {
@@ -30,15 +30,20 @@ export function CandidateKanbanCard({
     candidate,
     stage,
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
+    onRequestReadiness,
     isDragOverlay = false,
 }: {
     candidate: CandidateIndexRow;
     stage: CandidateStage;
     onRequestMove?: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateIndexRow) => void;
+    onRequestPrepareOffer?: (candidate: CandidateIndexRow) => void;
+    onRequestReadiness?: (candidate: CandidateIndexRow) => void;
     isDragOverlay?: boolean;
 }) {
     const stageColor = STAGE_COLORS[stage];
-    const ageLabel = daysInStageLabel(candidate.days_in_stage);
     const needsAttention = candidateNeedsAttention(candidate);
     const stalled = candidateIsStalled(candidate);
     const title = `${candidate.name} — ${candidate.position_title}`;
@@ -93,8 +98,22 @@ export function CandidateKanbanCard({
         router.visit(detailHref);
     };
 
-    const dragProps =
-        canDrag && !isDragOverlay ? { ...listeners, ...attributes } : {};
+    // Pointer drag on the whole card; keyboard drag activators stay on the handle
+    // so Enter on the card can open detail without conflicting with @dnd-kit.
+    const listenerRecord = (listeners ?? {}) as Record<string, unknown>;
+    const { onKeyDown: dragKeyDown, ...pointerListeners } = listenerRecord;
+
+    const dragHandleProps =
+        canDrag && !isDragOverlay
+            ? {
+                  ...attributes,
+                  onKeyDown: dragKeyDown as
+                      | ((event: KeyboardEvent) => void)
+                      | undefined,
+              }
+            : {};
+
+    const cardPointerProps = canDrag && !isDragOverlay ? pointerListeners : {};
 
     return (
         <article
@@ -112,13 +131,14 @@ export function CandidateKanbanCard({
                 canDrag && 'cursor-grab touch-none active:cursor-grabbing',
                 !canDrag && !isDragOverlay && 'cursor-pointer',
             )}
-            {...dragProps}
+            {...cardPointerProps}
             onClick={isDragOverlay ? undefined : openDetail}
             onKeyDown={
                 isDragOverlay
                     ? undefined
                     : (event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
+                          // Enter opens detail; Space is reserved for keyboard drag on the handle.
+                          if (event.key === 'Enter') {
                               if (
                                   shouldNavigateKanbanCardClick({
                                       isDragging,
@@ -147,12 +167,16 @@ export function CandidateKanbanCard({
             <div className="space-y-1.5 pl-2">
                 <div className="flex items-start gap-1">
                     {canDrag || isDragOverlay ? (
-                        <span
-                            className="mt-0.5 rounded p-0.5 text-muted-foreground/60"
-                            aria-hidden
+                        <button
+                            type="button"
+                            className="mt-0.5 rounded p-0.5 text-muted-foreground/60 hover:bg-muted/60 hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            aria-label={`Move ${candidate.name} with keyboard`}
+                            data-kanban-interactive="true"
+                            {...dragHandleProps}
+                            onClick={(event) => event.stopPropagation()}
                         >
-                            <GripVertical className="h-3.5 w-3.5" />
-                        </span>
+                            <GripVertical className="h-3.5 w-3.5" aria-hidden />
+                        </button>
                     ) : null}
                     <div className="min-w-0 flex-1">
                         <Tooltip>
@@ -178,19 +202,6 @@ export function CandidateKanbanCard({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1">
-                    {ageLabel ? (
-                        <Badge
-                            variant="outline"
-                            className={cn(
-                                'h-5 border-border/70 px-1.5 text-[10px] font-normal text-muted-foreground',
-                                stalled &&
-                                    'border-amber-500/40 text-amber-800 dark:text-amber-300',
-                            )}
-                        >
-                            {ageLabel}
-                        </Badge>
-                    ) : null}
-
                     {stage === 'interview' ? (
                         <>
                             <CandidateOutcomeBadge
@@ -294,6 +305,9 @@ export function CandidateKanbanCard({
                             candidate={candidate}
                             density="compact"
                             onRequestMove={onRequestMove}
+                            onRequestSelect={onRequestSelect}
+                            onRequestPrepareOffer={onRequestPrepareOffer}
+                            onRequestReadiness={onRequestReadiness}
                         />
                     </div>
                 ) : null}

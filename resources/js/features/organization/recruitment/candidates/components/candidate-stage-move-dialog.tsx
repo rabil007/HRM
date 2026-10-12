@@ -52,14 +52,17 @@ export function CandidateStageMoveDialog({
     intent,
     onClose,
     interviewOptions,
-    onPrepareOffer,
 }: {
     intent: StageMoveIntent | null;
     onClose: () => void;
     interviewOptions?: StageMoveInterviewOptions | null;
-    onPrepareOffer?: (candidate: CandidateIndexRow) => void;
 }) {
     if (!intent) {
+        return null;
+    }
+
+    // Prepare Offer opens its own dialog; never show this intermediate step.
+    if (intent.destination.kind === 'prepare_offer') {
         return null;
     }
 
@@ -69,7 +72,6 @@ export function CandidateStageMoveDialog({
             intent={intent}
             onClose={onClose}
             interviewOptions={interviewOptions ?? null}
-            onPrepareOffer={onPrepareOffer}
         />
     );
 }
@@ -78,12 +80,10 @@ function StageMoveDialogBody({
     intent,
     onClose,
     interviewOptions,
-    onPrepareOffer,
 }: {
     intent: StageMoveIntent;
     onClose: () => void;
     interviewOptions: StageMoveInterviewOptions | null;
-    onPrepareOffer?: (candidate: CandidateIndexRow) => void;
 }) {
     const { candidate, destination } = intent;
     const [reason, setReason] = useState('');
@@ -117,8 +117,8 @@ function StageMoveDialogBody({
     const isConfirmJoined = destination.kind === 'confirm_joined';
     const isCorrectJoined = destination.kind === 'correct_joined';
     const isReopen = destination.kind === 'reopen';
-    const isPrepareOffer = destination.kind === 'prepare_offer';
     const reasonRequired = isBackward || isCorrectJoined || isReopen;
+    const showReasonField = reasonRequired || isConfirmJoined;
 
     const post = (url: string, data: Record<string, unknown>) => {
         setProcessing(true);
@@ -143,19 +143,8 @@ function StageMoveDialogBody({
     };
 
     const confirm = () => {
-        if (isPrepareOffer) {
-            onClose();
-            onPrepareOffer?.(candidate);
-
-            return;
-        }
-
         if (destination.kind === 'forward') {
             const payload: Record<string, unknown> = {};
-
-            if (reason.trim() !== '') {
-                payload.reason = reason.trim();
-            }
 
             if (isForwardToInterview) {
                 if (interviewScheduledAt) {
@@ -493,20 +482,12 @@ function StageMoveDialogBody({
                         </div>
                     ) : null}
 
-                    {isPrepareOffer ? (
-                        <p className="text-sm text-muted-foreground">
-                            Opens the Prepare Offer/JOL sheet to enter salary,
-                            currency, offer date, proposed joining date, and
-                            optional document details.
-                        </p>
-                    ) : null}
-
-                    {!isPrepareOffer ? (
+                    {showReasonField ? (
                         <div className="space-y-1.5">
                             <Label htmlFor="move_reason">
                                 {reasonRequired
                                     ? 'Correction reason'
-                                    : 'Note (optional)'}
+                                    : 'Notes (optional)'}
                                 <RequiredIndicator show={reasonRequired} />
                             </Label>
                             <Textarea
@@ -571,9 +552,7 @@ function StageMoveDialogBody({
                         disabled={confirmDisabled}
                         onClick={confirm}
                     >
-                        {isPrepareOffer
-                            ? 'Open Prepare Offer sheet'
-                            : 'Confirm'}
+                        Confirm
                     </Button>
                 </DialogFooter>
             </DialogContent>

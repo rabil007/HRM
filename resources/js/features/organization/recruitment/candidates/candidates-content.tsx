@@ -34,7 +34,9 @@ import { cn } from '@/lib/utils';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateKanbanBoard } from './components/candidate-kanban-board';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
-import { CandidatePrepareOfferSheet } from './components/candidate-prepare-offer-sheet';
+import { CandidatePrepareOfferDialog } from './components/candidate-prepare-offer-dialog';
+import { CandidateReadinessDialog } from './components/candidate-readiness-dialog';
+import { CandidateSelectDialog } from './components/candidate-select-dialog';
 import {
     CandidateJoiningScheduleBadge,
     CandidateOfferStatusBadge,
@@ -86,6 +88,20 @@ export function CandidatesContent({
     const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
     const [prepareOfferCandidate, setPrepareOfferCandidate] =
         useState<CandidateIndexRow | null>(null);
+    const [selectCandidate, setSelectCandidate] =
+        useState<CandidateIndexRow | null>(null);
+    const [readinessCandidate, setReadinessCandidate] =
+        useState<CandidateIndexRow | null>(null);
+
+    const handleRequestMove = (intent: StageMoveIntent) => {
+        if (intent.destination.kind === 'prepare_offer') {
+            setPrepareOfferCandidate(intent.candidate);
+
+            return;
+        }
+
+        setMoveIntent(intent);
+    };
     const [pinnedView, pinView] = useCandidatesViewPreference('table');
     const appliedPreferredView = useRef(false);
     const attention = Boolean(filters.attention);
@@ -821,7 +837,10 @@ export function CandidatesContent({
                             accumulatedKanban={accumulatedKanban}
                             stageTotals={stage_totals}
                             onLoadMore={loadMoreKanban}
-                            onRequestMove={setMoveIntent}
+                            onRequestMove={handleRequestMove}
+                            onRequestSelect={setSelectCandidate}
+                            onRequestPrepareOffer={setPrepareOfferCandidate}
+                            onRequestReadiness={setReadinessCandidate}
                         />
                     </div>
                 ) : !isKanban && rows.length === 0 ? (
@@ -940,7 +959,18 @@ export function CandidatesContent({
                                         >
                                             <CandidateMovementActions
                                                 candidate={candidate}
-                                                onRequestMove={setMoveIntent}
+                                                onRequestMove={
+                                                    handleRequestMove
+                                                }
+                                                onRequestSelect={
+                                                    setSelectCandidate
+                                                }
+                                                onRequestPrepareOffer={
+                                                    setPrepareOfferCandidate
+                                                }
+                                                onRequestReadiness={
+                                                    setReadinessCandidate
+                                                }
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -977,12 +1007,19 @@ export function CandidatesContent({
                         interview_modes: options.interview_modes,
                         interviewers: options.interviewers,
                     }}
-                    onPrepareOffer={(candidate) =>
-                        setPrepareOfferCandidate(candidate)
-                    }
                 />
 
-                <CandidatePrepareOfferSheet
+                <CandidateSelectDialog
+                    open={selectCandidate !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSelectCandidate(null);
+                        }
+                    }}
+                    candidate={selectCandidate}
+                />
+
+                <CandidatePrepareOfferDialog
                     open={prepareOfferCandidate !== null}
                     onOpenChange={(open) => {
                         if (!open) {
@@ -992,6 +1029,16 @@ export function CandidatesContent({
                     candidate={prepareOfferCandidate}
                     options={options}
                     timezone={timezone}
+                />
+
+                <CandidateReadinessDialog
+                    open={readinessCandidate !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setReadinessCandidate(null);
+                        }
+                    }}
+                    candidate={readinessCandidate}
                 />
             </TooltipProvider>
         </Main>

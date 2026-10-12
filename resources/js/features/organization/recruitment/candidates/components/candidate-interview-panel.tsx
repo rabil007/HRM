@@ -265,33 +265,39 @@ export function CandidateInterviewPanel({
                         )}
                     />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="interview_feedback">
-                        Interview feedback
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                        Evaluation and observations recorded after the
-                        interview.
-                    </p>
-                    <Textarea
-                        id="interview_feedback"
-                        value={form.data.interview_feedback}
-                        disabled={!canEdit}
-                        onChange={(event) =>
-                            form.setData(
-                                'interview_feedback',
-                                event.target.value,
-                            )
-                        }
-                    />
-                    <InputError
-                        className="text-xs"
-                        message={interviewFieldError(
-                            interviewErrors,
-                            'interview_feedback',
-                        )}
-                    />
-                </div>
+                {candidate.interview_outcome === null && canEdit ? (
+                    <div className="space-y-2 rounded-lg border border-dashed border-border/70 bg-muted/20 px-3 py-2 md:col-span-2">
+                        <p className="text-sm font-medium text-foreground">
+                            Interview feedback
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            Optional final feedback is captured when you Mark
+                            Selected. It is not edited here while the outcome is
+                            still pending.
+                        </p>
+                        {form.data.interview_feedback.trim() !== '' ? (
+                            <div className="rounded-md border border-border/60 bg-background px-3 py-2 text-sm whitespace-pre-wrap">
+                                {form.data.interview_feedback}
+                            </div>
+                        ) : null}
+                    </div>
+                ) : (
+                    <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="interview_feedback">
+                            Interview feedback
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            Evaluation and observations recorded with or after
+                            selection.
+                        </p>
+                        <Textarea
+                            id="interview_feedback"
+                            value={form.data.interview_feedback}
+                            disabled
+                            readOnly
+                        />
+                    </div>
+                )}
             </div>
         </section>
     );

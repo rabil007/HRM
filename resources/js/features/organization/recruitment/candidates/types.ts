@@ -59,6 +59,7 @@ export type CandidateIndexRow = {
     nationality: string | null;
     has_cv: boolean;
     interview_scheduled_at: string | null;
+    interview_feedback?: string | null;
     expected_joining_date: string | null;
     actual_joining_date: string | null;
     joining_readiness_status: CandidateJoiningReadinessStatus;
@@ -100,6 +101,41 @@ export type CandidateIndexRow = {
     joined_at: string | null;
 };
 
+export type CandidateInterviewCycleSnapshot = {
+    interview_scheduled_at: string | null;
+    interviewer_user_id: number | null;
+    external_interviewer_name: string | null;
+    interview_mode: string | null;
+    interview_mode_label: string | null;
+    interview_location: string | null;
+    interview_notes: string | null;
+    interview_feedback: string | null;
+    interview_outcome: string | null;
+    interview_outcome_label: string | null;
+};
+
+export type CandidateMovementContext = {
+    interview_cycle_snapshot?: CandidateInterviewCycleSnapshot | null;
+    prior_interview_cycle_snapshot?: CandidateInterviewCycleSnapshot | null;
+    interview_feedback?: {
+        from: string | null;
+        to: string | null;
+    } | null;
+    cleared_selection?: boolean;
+    cleared_interview_outcome?: string | null;
+    notes?: string | null;
+    revision_number?: number | null;
+    offer_id?: number | null;
+    offer_status?: string | null;
+    readiness_status?: string | null;
+    expected_joining_date?: string | null;
+    actual_joining_date?: string | null;
+    employee_id?: number | null;
+    employee_no?: string | null;
+    employee_name?: string | null;
+    employee_url?: string | null;
+};
+
 export type CandidateMovementEvent = {
     id: number;
     action: string;
@@ -113,7 +149,7 @@ export type CandidateMovementEvent = {
     to_outcome: string | null;
     to_outcome_label: string | null;
     reason: string | null;
-    context: Record<string, unknown> | null;
+    context: CandidateMovementContext | null;
     performed_by: number | null;
     performed_by_name: string | null;
     created_at: string | null;

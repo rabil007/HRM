@@ -20,9 +20,13 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function CandidateDetailSidebar({
     candidate,
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
 }: {
     candidate: CandidateDetail;
     onRequestMove?: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateDetail) => void;
+    onRequestPrepareOffer?: (candidate: CandidateDetail) => void;
 }) {
     return (
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
@@ -30,6 +34,8 @@ export function CandidateDetailSidebar({
                 <CandidateRecruiterNextActionPanel
                     candidate={candidate}
                     onRequestMove={onRequestMove}
+                    onRequestSelect={onRequestSelect}
+                    onRequestPrepareOffer={onRequestPrepareOffer}
                 />
             </div>
 

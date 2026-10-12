@@ -3,7 +3,11 @@ import { Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { STAGE_COLORS, STAGE_HINTS } from '../lib/kanban-stage-meta';
-import type { CandidateKanbanColumn, CandidateStage } from '../types';
+import type {
+    CandidateIndexRow,
+    CandidateKanbanColumn,
+    CandidateStage,
+} from '../types';
 import { CANDIDATE_STAGE_LABELS } from '../types';
 import { CandidateKanbanCard } from './candidate-kanban-card';
 import type { StageMoveIntent } from './candidate-stage-move-dialog';
@@ -14,6 +18,9 @@ export function CandidateKanbanColumnView({
     total,
     onLoadMore,
     onRequestMove,
+    onRequestSelect,
+    onRequestPrepareOffer,
+    onRequestReadiness,
     compact = false,
     dropHighlight = null,
 }: {
@@ -22,6 +29,9 @@ export function CandidateKanbanColumnView({
     total: number;
     onLoadMore: (stage: CandidateStage, page: number) => void;
     onRequestMove: (intent: StageMoveIntent) => void;
+    onRequestSelect?: (candidate: CandidateIndexRow) => void;
+    onRequestPrepareOffer?: (candidate: CandidateIndexRow) => void;
+    onRequestReadiness?: (candidate: CandidateIndexRow) => void;
     compact?: boolean;
     dropHighlight?: 'valid' | 'invalid' | null;
 }) {
@@ -104,6 +114,9 @@ export function CandidateKanbanColumnView({
                         candidate={candidate}
                         stage={stage}
                         onRequestMove={onRequestMove}
+                        onRequestSelect={onRequestSelect}
+                        onRequestPrepareOffer={onRequestPrepareOffer}
+                        onRequestReadiness={onRequestReadiness}
                     />
                 ))}
             </div>
