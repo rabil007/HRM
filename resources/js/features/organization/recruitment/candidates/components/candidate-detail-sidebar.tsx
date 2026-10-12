@@ -3,6 +3,8 @@ import { Download, FileWarning } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import type { CandidateDetail } from '../types';
+import { CandidateRecruiterNextActionPanel } from './candidate-recruiter-next-action-panel';
+import type { StageMoveIntent } from './candidate-stage-move-dialog';
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
     return (
@@ -17,11 +19,20 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 export function CandidateDetailSidebar({
     candidate,
+    onRequestMove,
 }: {
     candidate: CandidateDetail;
+    onRequestMove?: (intent: StageMoveIntent) => void;
 }) {
     return (
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+            <div className="hidden lg:block">
+                <CandidateRecruiterNextActionPanel
+                    candidate={candidate}
+                    onRequestMove={onRequestMove}
+                />
+            </div>
+
             <section className="rounded-xl border border-border/60 bg-card p-4">
                 <h2 className="mb-3 text-sm font-semibold tracking-wide uppercase">
                     Candidate

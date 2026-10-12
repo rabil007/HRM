@@ -1,7 +1,9 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { Link } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { AlertTriangle, Calendar, GripVertical } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
     Tooltip,
@@ -13,6 +15,7 @@ import {
     candidateIsStalled,
     candidateNeedsAttention,
 } from '../lib/candidate-attention';
+import { shouldNavigateKanbanCardClick } from '../lib/kanban-card-interaction';
 import { daysInStageLabel, STAGE_COLORS } from '../lib/kanban-stage-meta';
 import type { CandidateIndexRow, CandidateStage } from '../types';
 import { CandidateMovementActions } from './candidate-movement-actions';
@@ -39,6 +42,8 @@ export function CandidateKanbanCard({
     const needsAttention = candidateNeedsAttention(candidate);
     const stalled = candidateIsStalled(candidate);
     const title = `${candidate.name} — ${candidate.position_title}`;
+    const detailHref = `/organization/recruitment/candidates/${candidate.id}`;
+    const didDragRef = useRef(false);
     const canDrag =
         !isDragOverlay &&
         (candidate.move_destinations ?? []).some(
@@ -54,9 +59,42 @@ export function CandidateKanbanCard({
             disabled: !canDrag,
         });
 
+    useEffect(() => {
+        if (isDragging) {
+            didDragRef.current = true;
+        }
+    }, [isDragging]);
+
+    useEffect(() => {
+        if (!isDragging && didDragRef.current) {
+            const timer = window.setTimeout(() => {
+                didDragRef.current = false;
+            }, 0);
+
+            return () => window.clearTimeout(timer);
+        }
+    }, [isDragging]);
+
     const style = transform
         ? { transform: CSS.Translate.toString(transform) }
         : undefined;
+
+    const openDetail = (event: MouseEvent | KeyboardEvent) => {
+        if (
+            !shouldNavigateKanbanCardClick({
+                isDragging,
+                didDrag: didDragRef.current,
+                target: event.target,
+            })
+        ) {
+            return;
+        }
+
+        router.visit(detailHref);
+    };
+
+    const dragProps =
+        canDrag && !isDragOverlay ? { ...listeners, ...attributes } : {};
 
     return (
         <article
@@ -71,7 +109,32 @@ export function CandidateKanbanCard({
                     'border-l-2 border-l-amber-400/80',
                 isDragging && 'opacity-40',
                 isDragOverlay && 'shadow-lg ring-1 ring-primary/30',
+                canDrag && 'cursor-grab touch-none active:cursor-grabbing',
+                !canDrag && !isDragOverlay && 'cursor-pointer',
             )}
+            {...dragProps}
+            onClick={isDragOverlay ? undefined : openDetail}
+            onKeyDown={
+                isDragOverlay
+                    ? undefined
+                    : (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                              if (
+                                  shouldNavigateKanbanCardClick({
+                                      isDragging,
+                                      didDrag: didDragRef.current,
+                                      target: event.target,
+                                  })
+                              ) {
+                                  event.preventDefault();
+                                  router.visit(detailHref);
+                              }
+                          }
+                      }
+            }
+            role={isDragOverlay ? undefined : 'link'}
+            tabIndex={isDragOverlay ? undefined : 0}
+            aria-label={`${candidate.name}, open candidate details`}
         >
             <div
                 className={cn(
@@ -84,32 +147,22 @@ export function CandidateKanbanCard({
             <div className="space-y-1.5 pl-2">
                 <div className="flex items-start gap-1">
                     {canDrag || isDragOverlay ? (
-                        <button
-                            type="button"
-                            className="mt-0.5 touch-none rounded p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground"
-                            aria-label={`Drag ${candidate.name}`}
-                            {...(isDragOverlay
-                                ? {}
-                                : { ...listeners, ...attributes })}
+                        <span
+                            className="mt-0.5 rounded p-0.5 text-muted-foreground/60"
+                            aria-hidden
                         >
                             <GripVertical className="h-3.5 w-3.5" />
-                        </button>
+                        </span>
                     ) : null}
                     <div className="min-w-0 flex-1">
                         <Tooltip>
                             <TooltipTrigger asChild>
-                                <Link
-                                    href={`/organization/recruitment/candidates/${candidate.id}`}
-                                    className="block truncate text-sm leading-snug font-semibold text-foreground hover:text-primary hover:underline"
+                                <p
+                                    className="truncate text-sm leading-snug font-semibold text-foreground"
                                     title={title}
-                                    onClick={(event) => {
-                                        if (isDragging) {
-                                            event.preventDefault();
-                                        }
-                                    }}
                                 >
                                     {candidate.name}
-                                </Link>
+                                </p>
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                                 {title}
@@ -230,7 +283,13 @@ export function CandidateKanbanCard({
                 ) : null}
 
                 {!isDragOverlay ? (
-                    <div className="border-t border-border/40 pt-2">
+                    <div
+                        className="border-t border-border/40 pt-2"
+                        data-kanban-interactive="true"
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                    >
                         <CandidateMovementActions
                             candidate={candidate}
                             density="compact"

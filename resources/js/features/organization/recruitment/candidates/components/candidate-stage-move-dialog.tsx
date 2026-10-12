@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { RequiredIndicator } from '@/pages/organization/_components/record-form-field';
 import { candidateDetailSectionHref } from '../lib/candidate-section-hash';
 import {
     stageMoveFieldError,
@@ -459,11 +460,20 @@ function StageMoveDialogBody({
                         <div className="space-y-1.5">
                             <Label htmlFor="actual_joining_date">
                                 Actual joining date
+                                <RequiredIndicator show />
                             </Label>
                             <Input
                                 id="actual_joining_date"
                                 type="date"
                                 value={actualJoiningDate}
+                                required
+                                aria-required
+                                aria-invalid={Boolean(
+                                    stageMoveFieldError(
+                                        errors,
+                                        'actual_joining_date',
+                                    ),
+                                )}
                                 onChange={(event) =>
                                     setActualJoiningDate(event.target.value)
                                 }
@@ -496,10 +506,16 @@ function StageMoveDialogBody({
                                 {reasonRequired
                                     ? 'Correction reason'
                                     : 'Note (optional)'}
+                                <RequiredIndicator show={reasonRequired} />
                             </Label>
                             <Textarea
                                 id="move_reason"
                                 value={reason}
+                                required={reasonRequired}
+                                aria-required={reasonRequired || undefined}
+                                aria-invalid={Boolean(
+                                    stageMoveFieldError(errors, 'reason'),
+                                )}
                                 onChange={(event) =>
                                     setReason(event.target.value)
                                 }

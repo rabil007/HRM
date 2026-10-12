@@ -16,6 +16,7 @@ import { CandidateMovementActions } from './components/candidate-movement-action
 import { CandidateMovementHistory } from './components/candidate-movement-history';
 import { CandidateOfferPanel } from './components/candidate-offer-panel';
 import { CandidatePipelineProgress } from './components/candidate-pipeline-progress';
+import { CandidateRecruiterNextActionPanel } from './components/candidate-recruiter-next-action-panel';
 import {
     CandidateOfferStatusBadge,
     CandidateOutcomeBadge,
@@ -280,6 +281,8 @@ export function CandidatesShowContent({
                         <CandidateMovementActions
                             candidate={candidate}
                             onRequestMove={setMoveIntent}
+                            showPrimary={false}
+                            showSecondaryButtons={false}
                         />
                         <div className="flex flex-wrap justify-end gap-2">
                             {candidate.can_update ? (
@@ -323,6 +326,12 @@ export function CandidatesShowContent({
                         restored.
                     </p>
                 ) : null}
+                <div className="lg:hidden">
+                    <CandidateRecruiterNextActionPanel
+                        candidate={candidate}
+                        onRequestMove={setMoveIntent}
+                    />
+                </div>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
@@ -461,7 +470,10 @@ export function CandidatesShowContent({
                     ) : null}
                 </div>
 
-                <CandidateDetailSidebar candidate={candidate} />
+                <CandidateDetailSidebar
+                    candidate={candidate}
+                    onRequestMove={setMoveIntent}
+                />
             </div>
 
             <CandidateFormSheet

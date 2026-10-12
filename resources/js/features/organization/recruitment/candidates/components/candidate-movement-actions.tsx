@@ -28,6 +28,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { RequiredIndicator } from '@/pages/organization/_components/record-form-field';
 import { actionableDestinations } from '../lib/candidate-move-destinations';
 import {
     blockedNextStepHint,
@@ -42,10 +43,16 @@ export function CandidateMovementActions({
     candidate,
     density = 'comfortable',
     onRequestMove,
+    showPrimary = true,
+    showSecondaryButtons = true,
 }: {
     candidate: CandidateIndexRow;
     density?: 'comfortable' | 'compact';
     onRequestMove?: (intent: StageMoveIntent) => void;
+    /** When false, hide the primary CTA (e.g. detail page uses Recruiter Next Action). */
+    showPrimary?: boolean;
+    /** When false, hide Reject / Undo / Reopen outline buttons (keep overflow menu). */
+    showSecondaryButtons?: boolean;
 }) {
     const [reasonAction, setReasonAction] = useState<ReasonAction>(null);
     const [reason, setReason] = useState('');
@@ -228,9 +235,11 @@ export function CandidateMovementActions({
                     isCompact ? 'w-full' : 'flex-wrap',
                 )}
             >
-                {renderPrimary()}
+                {showPrimary ? renderPrimary() : null}
 
-                {!isCompact && candidate.can_undo_selected ? (
+                {showSecondaryButtons &&
+                !isCompact &&
+                candidate.can_undo_selected ? (
                     <Button
                         size="sm"
                         variant="outline"
@@ -245,7 +254,7 @@ export function CandidateMovementActions({
                     </Button>
                 ) : null}
 
-                {!isCompact && candidate.can_reject ? (
+                {showSecondaryButtons && !isCompact && candidate.can_reject ? (
                     <Button
                         size="sm"
                         variant="destructive"
@@ -259,7 +268,7 @@ export function CandidateMovementActions({
                     </Button>
                 ) : null}
 
-                {!isCompact && candidate.can_reopen ? (
+                {showSecondaryButtons && !isCompact && candidate.can_reopen ? (
                     <Button
                         size="sm"
                         variant="outline"
@@ -362,9 +371,16 @@ export function CandidateMovementActions({
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2">
-                        <Label>Reason</Label>
+                        <Label htmlFor="movement-reason">
+                            Reason
+                            <RequiredIndicator show />
+                        </Label>
                         <Textarea
+                            id="movement-reason"
                             value={reason}
+                            required
+                            aria-required
+                            aria-invalid={Boolean(errors.reason)}
                             onChange={(event) => setReason(event.target.value)}
                         />
                         {errors.reason ? (
