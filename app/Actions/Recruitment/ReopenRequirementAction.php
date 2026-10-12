@@ -93,19 +93,25 @@ final class ReopenRequirementAction
                     ]);
             } elseif ($fromStatus === RequirementStatus::Cancelled) {
                 // Cancelled requirements: restore only lines closed by the requirement-level cancellation.
+                $hasCancelledLines = $locked->lines()
+                    ->where('status', RequirementLineStatus::Cancelled)
+                    ->exists();
+
                 $linesToReopen = $this->resolveLinesToReopenFromCancelled($locked, $originalCancelledAt);
-                if ($linesToReopen->isEmpty()) {
+                if ($hasCancelledLines && $linesToReopen->isEmpty()) {
                     throw ValidationException::withMessages([
                         'status' => 'Cannot reopen requirement because all position lines were deliberately cancelled prior to requirement cancellation.',
                     ]);
                 }
 
-                $locked->lines()
-                    ->whereIn('id', $linesToReopen->pluck('id'))
-                    ->where('status', RequirementLineStatus::Cancelled)
-                    ->update([
-                        'status' => RequirementLineStatus::Open,
-                    ]);
+                if ($linesToReopen->isNotEmpty()) {
+                    $locked->lines()
+                        ->whereIn('id', $linesToReopen->pluck('id'))
+                        ->where('status', RequirementLineStatus::Cancelled)
+                        ->update([
+                            'status' => RequirementLineStatus::Open,
+                        ]);
+                }
             }
 
             RecordRequirementStatusTransition::handle(
