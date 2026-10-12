@@ -4,7 +4,7 @@ Leave Balance Report is a ledger of persisted `LeaveBalance` rows. It is separat
 
 Opening the report does not call `ensureEmployeeYear()` and does not create or repair missing balances on **GET**. The optional **Sync Missing Balances** action (see below) creates only missing current-year rows for eligible employees. If a balance does not exist, the report table does not invent entitlement from `LeaveType.days_per_year`.
 
-Authorized users with `reports.leave_balance.update_opening` can record **Previous Used** (opening/current-year migration usage) for the company's current business year. That value is stored independently of OMS-HRM leave requests and is never rebuilt by `leave-balances:sync`.
+The report shows **Previous Used** as the combined total of opening/current-year migration usage and approved OMS-HRM request usage. Authorized users with `reports.leave_balance.update_opening` can edit only the opening portion for the company's current business year; the request-derived portion is stored independently and recalculated by the existing leave sync workflow.
 
 ## Source of truth
 
@@ -15,10 +15,9 @@ One row is one persisted balance for an employee, leave type, and year in the ac
 | Base Entitlement | `entitled_days` |
 | Carried | `carried_days` |
 | Total Available | base + carry |
-| Previous Used | `opening_used_days` (pre-OMS / opening usage for the year) |
-| HRM Used | `used_days` (approved Leave Requests tracked in OMS-HRM) |
+| Previous Used | `opening_used_days + used_days` (prior/opening usage plus approved OMS-HRM Leave Request usage) |
 | Pending | `pending_days` |
-| Remaining | stored generated `remaining_days` = base + carry − previous used − HRM used − pending |
+| Remaining | stored generated `remaining_days` = base + carry − combined Previous Used − pending |
 
 Inactive employees, terminated employees, inactive leave types, and soft-deleted leave types remain visible when a historical balance references them. Those rows are not editable from the report.
 
@@ -85,12 +84,12 @@ The top of the page shows filterable leave-type cards. Selecting a card applies 
 
 The **Employee** column shows name, employee number, status, and department together. Export still keeps Employee and Department as separate columns.
 
-When the user can edit opening balances, an Actions column shows **Edit Opening Balance** on editable rows only.
+The table shows a single **Previous Used** column (the combined opening and approved HRM usage). When the user can edit opening balances, an Actions column shows **Edit Opening Balance** on editable rows only. The dialog edits only the pre-HRM opening portion, not the entire displayed total.
 
 ## Export
 
 Excel and CSV use the same filters and visibility as the web report.
 
-Columns: Employee No, Employee, Department, Employee Status, Leave Type, Leave Category, Year, Base Entitlement, Carried Days, Total Available, Previous Used Days, HRM Used Days, Pending Days, Remaining Days.
+Columns: Employee No, Employee, Department, Employee Status, Leave Type, Leave Category, Year, Base Entitlement, Carried Days, Total Available, Previous Used Days, Pending Days, Remaining Days.
 
 Filenames: `leave-balance-report-YYYY-MM-DD.xlsx` and `leave-balance-report-YYYY-MM-DD.csv`.

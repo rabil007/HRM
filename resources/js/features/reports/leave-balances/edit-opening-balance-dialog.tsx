@@ -143,7 +143,7 @@ export function EditOpeningBalanceDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="opening_used_days">
-                                Previous used days
+                                Opening used days (before HRM)
                             </Label>
                             <Input
                                 id="opening_used_days"
