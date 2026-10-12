@@ -28,10 +28,9 @@ import { candidateFormFromRow } from './lib/candidate-form';
 import {
     parseCandidateDetailHash,
     scrollToCandidateSection,
-    sectionKeyForHash
-    
+    sectionKeyForHash,
 } from './lib/candidate-section-hash';
-import type {CandidateDetailSectionKey} from './lib/candidate-section-hash';
+import type { CandidateDetailSectionKey } from './lib/candidate-section-hash';
 import {
     hasInterviewDetails,
     resolveWorkspaceFocus,
