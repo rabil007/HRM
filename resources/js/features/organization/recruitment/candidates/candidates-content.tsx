@@ -1,5 +1,13 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import {
+    FileText,
+    Kanban,
+    LayoutList,
+    Mail,
+    Phone,
+    Plus,
+    Users,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -15,6 +23,7 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +32,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { cn } from '@/lib/utils';
 import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
@@ -49,6 +65,59 @@ import type {
     CandidateStage,
 } from './types';
 import { CANDIDATE_KANBAN_STAGES, CANDIDATE_STAGE_LABELS } from './types';
+
+/** Per-stage accent palette for column top borders, count badges, and card left borders. */
+const STAGE_COLORS: Record<
+    CandidateStage,
+    { border: string; badge: string; header: string }
+> = {
+    applied: {
+        border: 'border-l-slate-400',
+        badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+        header: 'border-t-slate-400',
+    },
+    screening: {
+        border: 'border-l-blue-500',
+        badge: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+        header: 'border-t-blue-500',
+    },
+    interview: {
+        border: 'border-l-violet-500',
+        badge: 'bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+        header: 'border-t-violet-500',
+    },
+    offer_jol: {
+        border: 'border-l-amber-500',
+        badge: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
+        header: 'border-t-amber-500',
+    },
+    joining: {
+        border: 'border-l-orange-500',
+        badge: 'bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+        header: 'border-t-orange-500',
+    },
+    joined: {
+        border: 'border-l-emerald-500',
+        badge: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+        header: 'border-t-emerald-500',
+    },
+    rejected: {
+        border: 'border-l-red-400',
+        badge: 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300',
+        header: 'border-t-red-400',
+    },
+};
+
+/** Derive two-letter initials from a candidate name. */
+function getInitials(name: string): string {
+    const parts = name.trim().split(/\s+/);
+
+    if (parts.length === 1) {
+        return parts[0].slice(0, 2).toUpperCase();
+    }
+
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 export function CandidatesContent({
     candidates,
@@ -340,40 +409,56 @@ export function CandidatesContent({
                 }
             />
 
+            {/* Search + view toggle */}
             <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <SearchBar
                     value={list.searchInput}
                     onChange={list.onSearchChange}
-                    placeholder="Search name, contact, requirement…"
+                    placeholder="Search name, contact, requirement..."
                     className="mb-0 flex-1"
                 />
                 <div className="flex items-center gap-2">
-                    <Button
-                        size="sm"
-                        variant={
-                            filters.view === 'table' ? 'default' : 'outline'
-                        }
-                        onClick={() => setView('table')}
-                    >
-                        Table
-                    </Button>
-                    <Button
-                        size="sm"
-                        variant={
-                            filters.view === 'kanban' ? 'default' : 'outline'
-                        }
-                        onClick={() => setView('kanban')}
-                    >
-                        Kanban
-                    </Button>
+                    {/* Segmented view toggle */}
+                    <div className="flex items-center overflow-hidden rounded-md border border-border">
+                        <button
+                            type="button"
+                            className={cn(
+                                'flex items-center gap-1.5 px-3 py-1.5 text-sm transition-colors',
+                                filters.view === 'table'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
+                            onClick={() => setView('table')}
+                            aria-label="Table view"
+                        >
+                            <LayoutList className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Table</span>
+                        </button>
+                        <button
+                            type="button"
+                            className={cn(
+                                'flex items-center gap-1.5 border-l border-border px-3 py-1.5 text-sm transition-colors',
+                                filters.view === 'kanban'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
+                            onClick={() => setView('kanban')}
+                            aria-label="Kanban view"
+                        >
+                            <Kanban className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Kanban</span>
+                        </button>
+                    </div>
                     {activeFilterCount > 0 ? (
                         <Badge variant="secondary">
-                            {activeFilterCount} filters
+                            {activeFilterCount} filter
+                            {activeFilterCount !== 1 ? 's' : ''}
                         </Badge>
                     ) : null}
                 </div>
             </div>
 
+            {/* Filters row */}
             <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <AppSelect
                     value={
@@ -472,126 +557,129 @@ export function CandidatesContent({
                 </AppSelect>
             </div>
 
-            <div className="mb-4 flex flex-wrap gap-2">
-                {CANDIDATE_KANBAN_STAGES.map((stage) => (
-                    <Badge key={stage} variant="outline">
-                        {CANDIDATE_STAGE_LABELS[stage]}:{' '}
-                        {stage_totals[stage] ?? 0}
-                    </Badge>
-                ))}
-            </div>
-
-            {filters.view === 'kanban' && accumulatedKanban ? (
-                <div
-                    className={`grid gap-4 ${kanbanStages.length === 1 ? 'lg:grid-cols-1' : kanbanStages.length <= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3 xl:grid-cols-6'}`}
-                >
-                    {kanbanStages.map((stage) => {
-                        const column = accumulatedKanban[stage];
-
-                        return (
-                            <div
-                                key={stage}
-                                className="rounded-xl border border-border/60 bg-card/40 p-3"
-                            >
-                                <div className="mb-3 flex items-center justify-between">
-                                    <h3 className="text-sm font-semibold">
-                                        {CANDIDATE_STAGE_LABELS[stage]}
-                                    </h3>
-                                    <Badge variant="secondary">
-                                        {stage_totals[stage] ??
-                                            column?.total ??
-                                            0}
-                                    </Badge>
-                                </div>
-                                <div className="space-y-2">
-                                    {(column?.data ?? []).map((candidate) => (
-                                        <div
-                                            key={candidate.id}
-                                            className="rounded-lg border border-border/50 bg-background p-3"
-                                        >
-                                            <Link
-                                                href={`/organization/recruitment/candidates/${candidate.id}`}
-                                                className="font-medium hover:underline"
-                                            >
-                                                {candidate.name}
-                                            </Link>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {candidate.requirement_number} ·{' '}
-                                                {candidate.position_title}
-                                            </p>
-                                            <div className="mt-2 flex flex-wrap items-center gap-1">
-                                                <CandidateOutcomeBadge
-                                                    outcome={
-                                                        candidate.interview_outcome
-                                                    }
-                                                    label={
-                                                        candidate.interview_outcome_label
-                                                    }
-                                                />
-                                                <CandidateOfferStatusBadge
-                                                    status={
-                                                        candidate.offer_status
-                                                    }
-                                                    label={
-                                                        candidate.offer_status_label
-                                                    }
-                                                />
-                                                {candidate.joining_schedule_label ? (
-                                                    <CandidateJoiningScheduleBadge
-                                                        urgency={
-                                                            candidate.joining_schedule_urgency
-                                                        }
-                                                        label={
-                                                            candidate.joining_schedule_label
-                                                        }
-                                                    />
-                                                ) : null}
-                                                {candidate.stage === 'joined' &&
-                                                candidate.actual_joining_date ? (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="border-emerald-600/30 text-emerald-600 dark:text-emerald-400"
-                                                    >
-                                                        Joined:{' '}
-                                                        {
-                                                            candidate.actual_joining_date
-                                                        }
-                                                    </Badge>
-                                                ) : null}
-                                            </div>
-                                            <div className="mt-2">
-                                                <CandidateMovementActions
-                                                    candidate={candidate}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {(column?.data ?? []).length === 0 ? (
-                                        <p className="text-xs text-muted-foreground">
-                                            No candidates
-                                        </p>
-                                    ) : null}
-                                </div>
-                                {column &&
-                                column.current_page < column.last_page ? (
-                                    <Button
-                                        className="mt-3 w-full"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() =>
-                                            loadMoreKanban(
-                                                stage,
-                                                column.current_page + 1,
-                                            )
-                                        }
-                                    >
-                                        Load more
-                                    </Button>
-                                ) : null}
-                            </div>
-                        );
-                    })}
+            {/* Stage summary pills — shown in table view as clickable stage filters */}
+            {filters.view === 'table' && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                    {CANDIDATE_KANBAN_STAGES.map((stage) => (
+                        <button
+                            key={stage}
+                            type="button"
+                            onClick={() =>
+                                list.applyFilters({
+                                    ...listFiltersForApply(),
+                                    stage: filters.stage === stage ? '' : stage,
+                                })
+                            }
+                            className={cn(
+                                'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                                filters.stage === stage
+                                    ? cn(
+                                          STAGE_COLORS[stage].badge,
+                                          'border-transparent ring-1 ring-current/40',
+                                      )
+                                    : 'border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                            )}
+                        >
+                            {CANDIDATE_STAGE_LABELS[stage]}
+                            <span className="tabular-nums">
+                                {stage_totals[stage] ?? 0}
+                            </span>
+                        </button>
+                    ))}
                 </div>
+            )}
+
+            {/* Kanban board */}
+            {filters.view === 'kanban' && accumulatedKanban ? (
+                <TooltipProvider>
+                    <div
+                        className={cn(
+                            'grid gap-3',
+                            kanbanStages.length === 1
+                                ? 'lg:grid-cols-1'
+                                : kanbanStages.length <= 4
+                                  ? 'lg:grid-cols-4'
+                                  : 'lg:grid-cols-3 xl:grid-cols-6',
+                        )}
+                    >
+                        {kanbanStages.map((stage) => {
+                            const column = accumulatedKanban[stage];
+                            const stageColor = STAGE_COLORS[stage];
+                            const total =
+                                stage_totals[stage] ?? column?.total ?? 0;
+                            const cards = column?.data ?? [];
+
+                            return (
+                                <div
+                                    key={stage}
+                                    className={cn(
+                                        'flex flex-col rounded-xl border border-t-2 border-border/60 bg-muted/30 dark:bg-muted/10',
+                                        stageColor.header,
+                                    )}
+                                >
+                                    {/* Column header */}
+                                    <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                                        <h3 className="text-sm font-semibold tracking-tight">
+                                            {CANDIDATE_STAGE_LABELS[stage]}
+                                        </h3>
+                                        <span
+                                            className={cn(
+                                                'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
+                                                stageColor.badge,
+                                            )}
+                                        >
+                                            {total}
+                                        </span>
+                                    </div>
+
+                                    {/* Scrollable cards */}
+                                    <div
+                                        className="flex-1 space-y-2 overflow-y-auto px-2 pb-2"
+                                        style={{ maxHeight: '70vh' }}
+                                    >
+                                        {cards.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/50 py-8 text-center">
+                                                <Users className="h-6 w-6 text-muted-foreground/40" />
+                                                <p className="text-xs text-muted-foreground">
+                                                    No candidates
+                                                </p>
+                                            </div>
+                                        ) : null}
+
+                                        {cards.map((candidate) => (
+                                            <KanbanCard
+                                                key={candidate.id}
+                                                candidate={candidate}
+                                                stage={stage}
+                                                stageColor={stageColor}
+                                            />
+                                        ))}
+
+                                        {column &&
+                                        column.current_page <
+                                            column.last_page ? (
+                                            <Button
+                                                className="mt-1 w-full text-xs"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() =>
+                                                    loadMoreKanban(
+                                                        stage,
+                                                        column.current_page + 1,
+                                                    )
+                                                }
+                                            >
+                                                Load{' '}
+                                                {column.total - cards.length}{' '}
+                                                more...
+                                            </Button>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </TooltipProvider>
             ) : rows.length === 0 ? (
                 <EmptyState
                     title="No candidates yet"
@@ -633,7 +721,7 @@ export function CandidatesContent({
                                         <div className="text-xs text-muted-foreground">
                                             {candidate.email ||
                                                 candidate.phone ||
-                                                '—'}
+                                                '\u2014'}
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
@@ -713,5 +801,120 @@ export function CandidatesContent({
                 duplicateMessage={duplicateMessage}
             />
         </Main>
+    );
+}
+
+/** A rich kanban card for a single candidate. */
+function KanbanCard({
+    candidate,
+    stage,
+    stageColor,
+}: {
+    candidate: CandidateIndexRow;
+    stage: CandidateStage;
+    stageColor: { border: string; badge: string; header: string };
+}) {
+    const initials = getInitials(candidate.name);
+
+    return (
+        <div
+            className={cn(
+                'group relative flex flex-col gap-2 rounded-lg border border-l-2 border-border/60 bg-background p-3 shadow-xs transition-shadow hover:border-border hover:shadow-sm',
+                stageColor.border,
+            )}
+        >
+            {/* Top row: avatar + name + CV indicator */}
+            <div className="flex items-start gap-2">
+                <Avatar className="mt-0.5 size-7 shrink-0">
+                    <AvatarFallback className="text-[10px] font-semibold">
+                        {initials}
+                    </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                    <Link
+                        href={`/organization/recruitment/candidates/${candidate.id}`}
+                        className="block truncate text-sm leading-tight font-semibold text-foreground hover:text-primary hover:underline"
+                    >
+                        {candidate.name}
+                    </Link>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {candidate.position_title}
+                    </p>
+                </div>
+                {candidate.has_cv ? (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span className="mt-0.5 shrink-0 cursor-default text-muted-foreground/50 hover:text-muted-foreground">
+                                <FileText className="h-3.5 w-3.5" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent>CV attached</TooltipContent>
+                    </Tooltip>
+                ) : null}
+            </div>
+
+            {/* Requirement + source */}
+            <p className="truncate text-xs text-muted-foreground">
+                <span className="font-medium text-foreground/70">
+                    {candidate.requirement_number}
+                </span>
+                {candidate.source_label ? (
+                    <span className="ml-1 text-muted-foreground/60">
+                        · {candidate.source_label}
+                    </span>
+                ) : null}
+            </p>
+
+            {/* Contact info */}
+            {candidate.email || candidate.phone ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {candidate.email ? (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="max-w-[120px] truncate">
+                                {candidate.email}
+                            </span>
+                        </span>
+                    ) : null}
+                    {candidate.phone ? (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {candidate.phone}
+                        </span>
+                    ) : null}
+                </div>
+            ) : null}
+
+            {/* Status badges */}
+            <div className="flex flex-wrap items-center gap-1">
+                <CandidateOutcomeBadge
+                    outcome={candidate.interview_outcome}
+                    label={candidate.interview_outcome_label}
+                />
+                <CandidateOfferStatusBadge
+                    status={candidate.offer_status}
+                    label={candidate.offer_status_label}
+                />
+                {stage === 'joining' ? (
+                    <CandidateJoiningScheduleBadge
+                        urgency={candidate.joining_schedule_urgency}
+                        label={candidate.joining_schedule_label}
+                    />
+                ) : null}
+                {stage === 'joined' && candidate.actual_joining_date ? (
+                    <Badge
+                        variant="outline"
+                        className="border-emerald-600/30 text-emerald-600 dark:text-emerald-400"
+                    >
+                        Joined: {candidate.actual_joining_date}
+                    </Badge>
+                ) : null}
+            </div>
+
+            {/* Movement actions separated by a hairline divider */}
+            <div className="border-t border-border/40 pt-2">
+                <CandidateMovementActions candidate={candidate} />
+            </div>
+        </div>
     );
 }

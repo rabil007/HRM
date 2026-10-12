@@ -12,6 +12,7 @@ use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Models\User;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Recruitment\RecruiterOptionsQuery;
 use App\Support\Reports\Recruitment\RecruitmentReportFilters;
 use App\Support\Reports\Recruitment\RecruitmentReportPresenter;
 use App\Support\Reports\Recruitment\RecruitmentReportQuery;
@@ -88,13 +89,10 @@ class RecruitmentReportController extends Controller
                         'label' => $p->title,
                     ])
                     ->all(),
-                'recruiters' => fn () => User::query()
-                    ->where('company_id', $companyId)
-                    ->orderBy('name')
-                    ->get(['id', 'name'])
-                    ->map(fn (User $u) => [
-                        'value' => (string) $u->id,
-                        'label' => $u->name,
+                'recruiters' => fn () => collect(RecruiterOptionsQuery::forCompany($companyId))
+                    ->map(fn (array $u) => [
+                        'value' => (string) $u['id'],
+                        'label' => $u['name'],
                     ])
                     ->all(),
                 'stages' => collect(CandidateStage::activeStages())->map(fn (CandidateStage $stage) => [

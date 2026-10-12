@@ -294,16 +294,15 @@ final class RecruitmentReportQuery
             return null;
         }
 
-        $createdDate = CarbonImmutable::parse($candidate->created_at)->timezone($timezone)->startOfDay();
-        $joinedDate = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, $timezone)->startOfDay();
+        $createdCalendar = CarbonImmutable::parse($candidate->created_at)->timezone($timezone)->format('Y-m-d');
+        $createdStart = CarbonImmutable::createFromFormat('!Y-m-d', $createdCalendar, 'UTC');
+        $joinedStart = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, 'UTC');
 
-        $days = (int) $createdDate->diffInDays($joinedDate, false);
-
-        if ($days < 0) {
+        if ($joinedStart->lt($createdStart)) {
             return null;
         }
 
-        return $days;
+        return (int) $createdStart->diffInDays($joinedStart, false);
     }
 
     /**
@@ -331,15 +330,14 @@ final class RecruitmentReportQuery
             return null;
         }
 
-        $approvalDate = CarbonImmutable::parse($approvedAt)->timezone($timezone)->startOfDay();
-        $joinedDate = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, $timezone)->startOfDay();
+        $approvalCalendar = CarbonImmutable::parse($approvedAt)->timezone($timezone)->format('Y-m-d');
+        $approvalStart = CarbonImmutable::createFromFormat('!Y-m-d', $approvalCalendar, 'UTC');
+        $joinedStart = CarbonImmutable::createFromFormat('!Y-m-d', $joiningDateString, 'UTC');
 
-        $days = (int) $approvalDate->diffInDays($joinedDate, false);
-
-        if ($days < 0) {
+        if ($joinedStart->lt($approvalStart)) {
             return null;
         }
 
-        return $days;
+        return (int) $approvalStart->diffInDays($joinedStart, false);
     }
 }

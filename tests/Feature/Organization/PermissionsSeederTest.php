@@ -268,11 +268,13 @@ test('roles page exposes all recruitment requirement permissions under Recruitme
                 $options = collect($permissions)->keyBy('name');
                 $recruitmentOptions = collect($permissions)->where('group', 'Recruitment');
 
-                return $recruitmentOptions->count() === 26
+                return $recruitmentOptions->count() === 27
                     && $options->has('recruitment.requirements.view')
                     && $options->has('recruitment.requirements.create')
                     && $options->has('recruitment.requirements.update')
                     && $options->has('recruitment.requirements.close')
+                    && $options->has('recruitment.requirements.override_fill')
+                    && $options->get('recruitment.requirements.override_fill')['group'] === 'Recruitment'
                     && $options->has('recruitment.requirements.cancel')
                     && $options->has('recruitment.requirements.reopen')
                     && $options->has('recruitment.requirements.attachments.download')
