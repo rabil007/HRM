@@ -16,6 +16,7 @@ import { CandidateMovementActions } from './components/candidate-movement-action
 import { CandidateMovementHistory } from './components/candidate-movement-history';
 import { CandidateOfferPanel } from './components/candidate-offer-panel';
 import { CandidatePipelineProgress } from './components/candidate-pipeline-progress';
+import { CandidatePrepareOfferSheet } from './components/candidate-prepare-offer-sheet';
 import { CandidateRecruiterNextActionPanel } from './components/candidate-recruiter-next-action-panel';
 import {
     CandidateOfferStatusBadge,
@@ -68,9 +69,11 @@ export function CandidatesShowContent({
     can,
     recent_activity,
     can_view_audit,
+    timezone,
 }: CandidateShowProps) {
     const [editOpen, setEditOpen] = useState(false);
     const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
+    const [prepareOfferOpen, setPrepareOfferOpen] = useState(false);
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
     );
@@ -209,7 +212,11 @@ export function CandidatesShowContent({
     ) : null;
 
     const offerPanel = showOffer ? (
-        <CandidateOfferPanel candidate={candidate} options={options} />
+        <CandidateOfferPanel
+            candidate={candidate}
+            options={options}
+            onPrepareOffer={() => setPrepareOfferOpen(true)}
+        />
     ) : null;
 
     const joiningPanel = showJoining ? (
@@ -493,6 +500,15 @@ export function CandidatesShowContent({
                     interview_modes: options.interview_modes,
                     interviewers: options.interviewers,
                 }}
+                onPrepareOffer={() => setPrepareOfferOpen(true)}
+            />
+
+            <CandidatePrepareOfferSheet
+                open={prepareOfferOpen}
+                onOpenChange={setPrepareOfferOpen}
+                candidate={candidate}
+                options={options}
+                timezone={timezone || candidate.timezone}
             />
         </Main>
     );

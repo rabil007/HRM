@@ -48,6 +48,18 @@ export function resolvePrimaryAction(
     }
 
     if (candidate.can_prepare_offer) {
+        const prepare = (candidate.move_destinations ?? []).find(
+            (destination) => destination.kind === 'prepare_offer',
+        );
+
+        if (prepare) {
+            return {
+                kind: 'destination',
+                label: prepare.label || 'Prepare Offer',
+                destination: prepare,
+            };
+        }
+
         return {
             kind: 'link',
             label: 'Prepare Offer',

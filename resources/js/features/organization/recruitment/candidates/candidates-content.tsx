@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateKanbanBoard } from './components/candidate-kanban-board';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
+import { CandidatePrepareOfferSheet } from './components/candidate-prepare-offer-sheet';
 import {
     CandidateJoiningScheduleBadge,
     CandidateOfferStatusBadge,
@@ -73,6 +74,7 @@ export function CandidatesContent({
     options,
     browse_options,
     can,
+    timezone,
 }: CandidateIndexProps) {
     const isKanban = filters.view === 'kanban';
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -82,6 +84,8 @@ export function CandidatesContent({
     );
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
+    const [prepareOfferCandidate, setPrepareOfferCandidate] =
+        useState<CandidateIndexRow | null>(null);
     const [pinnedView, pinView] = useCandidatesViewPreference('table');
     const appliedPreferredView = useRef(false);
     const attention = Boolean(filters.attention);
@@ -973,6 +977,21 @@ export function CandidatesContent({
                         interview_modes: options.interview_modes,
                         interviewers: options.interviewers,
                     }}
+                    onPrepareOffer={(candidate) =>
+                        setPrepareOfferCandidate(candidate)
+                    }
+                />
+
+                <CandidatePrepareOfferSheet
+                    open={prepareOfferCandidate !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setPrepareOfferCandidate(null);
+                        }
+                    }}
+                    candidate={prepareOfferCandidate}
+                    options={options}
+                    timezone={timezone}
                 />
             </TooltipProvider>
         </Main>

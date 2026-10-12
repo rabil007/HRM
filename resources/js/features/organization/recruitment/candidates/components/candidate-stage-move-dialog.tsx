@@ -20,7 +20,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { RequiredIndicator } from '@/pages/organization/_components/record-form-field';
-import { candidateDetailSectionHref } from '../lib/candidate-section-hash';
 import {
     stageMoveFieldError,
     stageMoveKnownGeneralError,
@@ -53,10 +52,12 @@ export function CandidateStageMoveDialog({
     intent,
     onClose,
     interviewOptions,
+    onPrepareOffer,
 }: {
     intent: StageMoveIntent | null;
     onClose: () => void;
     interviewOptions?: StageMoveInterviewOptions | null;
+    onPrepareOffer?: (candidate: CandidateIndexRow) => void;
 }) {
     if (!intent) {
         return null;
@@ -68,6 +69,7 @@ export function CandidateStageMoveDialog({
             intent={intent}
             onClose={onClose}
             interviewOptions={interviewOptions ?? null}
+            onPrepareOffer={onPrepareOffer}
         />
     );
 }
@@ -76,10 +78,12 @@ function StageMoveDialogBody({
     intent,
     onClose,
     interviewOptions,
+    onPrepareOffer,
 }: {
     intent: StageMoveIntent;
     onClose: () => void;
     interviewOptions: StageMoveInterviewOptions | null;
+    onPrepareOffer?: (candidate: CandidateIndexRow) => void;
 }) {
     const { candidate, destination } = intent;
     const [reason, setReason] = useState('');
@@ -140,11 +144,8 @@ function StageMoveDialogBody({
 
     const confirm = () => {
         if (isPrepareOffer) {
-            window.location.href = candidateDetailSectionHref(
-                candidate.id,
-                'offer-jol',
-            );
             onClose();
+            onPrepareOffer?.(candidate);
 
             return;
         }
@@ -494,9 +495,9 @@ function StageMoveDialogBody({
 
                     {isPrepareOffer ? (
                         <p className="text-sm text-muted-foreground">
-                            Continue on the candidate page to enter salary,
-                            currency, proposed joining date, and other offer
-                            details.
+                            Opens the Prepare Offer/JOL sheet to enter salary,
+                            currency, offer date, proposed joining date, and
+                            optional document details.
                         </p>
                     ) : null}
 
@@ -570,7 +571,9 @@ function StageMoveDialogBody({
                         disabled={confirmDisabled}
                         onClick={confirm}
                     >
-                        {isPrepareOffer ? 'Open offer workflow' : 'Confirm'}
+                        {isPrepareOffer
+                            ? 'Open Prepare Offer sheet'
+                            : 'Confirm'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

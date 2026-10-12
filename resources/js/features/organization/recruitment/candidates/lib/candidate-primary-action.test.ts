@@ -102,20 +102,28 @@ describe('resolvePrimaryAction', () => {
         );
     });
 
-    it('points Prepare Offer at the offer-jol section hash', () => {
+    it('opens Prepare Offer through the prepare_offer destination when present', () => {
         const action = resolvePrimaryAction(
             row({
                 stage: 'interview',
                 interview_outcome: 'selected',
                 can_prepare_offer: true,
+                move_destinations: [
+                    {
+                        stage: 'offer_jol',
+                        kind: 'prepare_offer',
+                        label: 'Prepare Offer',
+                        blocked_reason: null,
+                    },
+                ],
             }),
         );
 
-        assert.equal(action?.kind, 'link');
+        assert.equal(action?.kind, 'destination');
         assert.equal(action?.label, 'Prepare Offer');
         assert.equal(
-            action?.kind === 'link' ? action.href : null,
-            '/organization/recruitment/candidates/42#offer-jol',
+            action?.kind === 'destination' ? action.destination.kind : null,
+            'prepare_offer',
         );
     });
 
