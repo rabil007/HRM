@@ -68,6 +68,17 @@ export function shouldPrioritizeOffer(candidate: CandidateDetail): boolean {
     return resolveWorkspaceFocus(candidate.stage) === 'offer_jol';
 }
 
+/** Accepted Offer/JOL candidates should lead with joining preparation. */
+export function shouldPrioritizeJoiningPrep(
+    candidate: CandidateDetail,
+): boolean {
+    return (
+        shouldPrioritizeOffer(candidate) &&
+        (candidate.offer_status === 'accepted' ||
+            candidate.current_offer?.status === 'accepted')
+    );
+}
+
 export function shouldPrioritizeJoined(candidate: CandidateDetail): boolean {
     return resolveWorkspaceFocus(candidate.stage) === 'joined';
 }

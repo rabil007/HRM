@@ -7,6 +7,7 @@ import {
     hasInterviewDetails,
     resolveWorkspaceFocus,
     shouldPrioritizeInterview,
+    shouldPrioritizeJoiningPrep,
     shouldPrioritizeOffer,
     shouldShowJoiningPanel,
     shouldShowOfferPanel,
@@ -134,6 +135,27 @@ describe('candidate-stage-workspace', () => {
                         id: 1,
                         status: 'accepted',
                     } as CandidateDetail['current_offer'],
+                }),
+            ),
+            true,
+        );
+    });
+
+    it('prioritizes joining prep only after an accepted offer', () => {
+        assert.equal(
+            shouldPrioritizeJoiningPrep(
+                detail({
+                    stage: 'offer_jol',
+                    offer_status: 'sent',
+                }),
+            ),
+            false,
+        );
+        assert.equal(
+            shouldPrioritizeJoiningPrep(
+                detail({
+                    stage: 'offer_jol',
+                    offer_status: 'accepted',
                 }),
             ),
             true,

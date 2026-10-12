@@ -1,4 +1,5 @@
 import type { CandidateIndexRow, CandidateMoveDestination } from '../types';
+import { candidateDetailSectionHref } from './candidate-section-hash.ts';
 
 export type PrimaryAction =
     | {
@@ -50,7 +51,7 @@ export function resolvePrimaryAction(
         return {
             kind: 'link',
             label: 'Prepare Offer',
-            href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+            href: candidateDetailSectionHref(candidate.id, 'offer-jol'),
         };
     }
 
@@ -59,7 +60,7 @@ export function resolvePrimaryAction(
             return {
                 kind: 'link',
                 label: 'Complete Draft Offer',
-                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+                href: candidateDetailSectionHref(candidate.id, 'offer-jol'),
             };
         }
 
@@ -67,7 +68,7 @@ export function resolvePrimaryAction(
             return {
                 kind: 'link',
                 label: 'Review Sent Offer',
-                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+                href: candidateDetailSectionHref(candidate.id, 'offer-jol'),
             };
         }
 
@@ -87,7 +88,7 @@ export function resolvePrimaryAction(
             return {
                 kind: 'link',
                 label: 'Confirm Joined',
-                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+                href: candidateDetailSectionHref(candidate.id, 'joining'),
             };
         }
 
@@ -95,7 +96,7 @@ export function resolvePrimaryAction(
             return {
                 kind: 'link',
                 label: 'Update Readiness',
-                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+                href: candidateDetailSectionHref(candidate.id, 'joining'),
             };
         }
     }
@@ -104,7 +105,7 @@ export function resolvePrimaryAction(
         return {
             kind: 'link',
             label: 'Confirm Joined',
-            href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+            href: candidateDetailSectionHref(candidate.id, 'joining'),
         };
     }
 

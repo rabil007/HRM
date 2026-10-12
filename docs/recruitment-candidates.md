@@ -179,7 +179,7 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
   - Compact header: identity, position, requirement, stage/outcome/offer badges, days in stage, shared next-action controls (`CandidateMovementActions` + `CandidateStageMoveDialog`), Edit profile, and CV access (or a clear missing-CV indicator).
   - Compact pipeline progress: Applied → Screening → Interview → Offer/JOL → Joined (Rejected called out separately; not an unrestricted stage editor).
   - Desktop two-column layout: primary current-stage workflow (~2/3) and sticky summary/requirement/document sidebar (~1/3). Mobile stacks naturally.
-  - Stage priority: Applied/Screening guidance → Interview form when Interview → Offer/JOL (+ joining prep after Accepted) → Joined conversion/confirmation → Rejected reason/reopen. Non-current panels remain available collapsed when historical data exists.
+  - Stage priority: Applied/Screening guidance → Interview form when Interview → Offer/JOL Draft/Sent first → Accepted Offer/JOL leads with Joining & Readiness then accepted offer details → Joined conversion/confirmation → Rejected reason/reopen. Historical Interview/Offer/Joining panels stay collapsed by default and expand for `#interview`, `#offer-jol`, and `#joining` hash links (including Prepare Offer / Update Readiness from Kanban/Table).
   - Recruitment movement history (timeline) stays separate from general profile audit activity; both remain permission-gated.
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 

@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Download, FileWarning, Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { RecentActivityCard } from '@/components/recent-activity-card';
@@ -26,10 +26,18 @@ import type { StageMoveIntent } from './components/candidate-stage-move-dialog';
 import { CandidateWorkspaceSection } from './components/candidate-workspace-section';
 import { candidateFormFromRow } from './lib/candidate-form';
 import {
+    parseCandidateDetailHash,
+    scrollToCandidateSection,
+    sectionKeyForHash
+    
+} from './lib/candidate-section-hash';
+import type {CandidateDetailSectionKey} from './lib/candidate-section-hash';
+import {
     hasInterviewDetails,
     resolveWorkspaceFocus,
     shouldPrioritizeInterview,
     shouldPrioritizeJoined,
+    shouldPrioritizeJoiningPrep,
     shouldPrioritizeOffer,
     shouldPrioritizeRejected,
     shouldShowJoiningPanel,
@@ -38,6 +46,21 @@ import {
 } from './lib/candidate-stage-workspace';
 import { daysInStageLabel } from './lib/kanban-stage-meta';
 import type { CandidateFormData, CandidateShowProps } from './types';
+
+type SectionOpenState = Record<CandidateDetailSectionKey, boolean>;
+
+function initialSectionOpenState(
+    hash: string | null | undefined,
+): SectionOpenState {
+    const parsed = parseCandidateDetailHash(hash);
+    const forced = parsed ? sectionKeyForHash(parsed) : null;
+
+    return {
+        interview: forced === 'interview',
+        offer: forced === 'offer',
+        joining: forced === 'joining',
+    };
+}
 
 export function CandidatesShowContent({
     candidate,
@@ -50,6 +73,11 @@ export function CandidatesShowContent({
     const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
+    );
+    const [sectionOpen, setSectionOpen] = useState<SectionOpenState>(() =>
+        initialSectionOpenState(
+            typeof window === 'undefined' ? null : window.location.hash,
+        ),
     );
     const profileForm = useForm<CandidateFormData>(
         candidateFormFromRow(candidate),
@@ -72,12 +100,46 @@ export function CandidatesShowContent({
     const ageLabel = daysInStageLabel(candidate.days_in_stage);
     const prioritizeInterview = shouldPrioritizeInterview(candidate);
     const prioritizeOffer = shouldPrioritizeOffer(candidate);
+    const prioritizeJoiningPrep = shouldPrioritizeJoiningPrep(candidate);
     const prioritizeJoined = shouldPrioritizeJoined(candidate);
     const prioritizeRejected = shouldPrioritizeRejected(candidate);
     const showOffer = shouldShowOfferPanel(candidate);
     const showJoining = shouldShowJoiningPanel(candidate);
     const showInterview = prioritizeInterview || hasInterviewDetails(candidate);
     const canViewMovementHistory = can.view_audit || can_view_audit;
+    const offerInPrimary = prioritizeOffer;
+    const joiningInPrimary = prioritizeJoined || prioritizeJoiningPrep;
+    const interviewInPrimary = prioritizeInterview;
+
+    useEffect(() => {
+        const applyHash = (behavior: ScrollBehavior = 'smooth') => {
+            const parsed = parseCandidateDetailHash(window.location.hash);
+
+            if (!parsed) {
+                return;
+            }
+
+            const key = sectionKeyForHash(parsed);
+            setSectionOpen((previous) =>
+                previous[key] ? previous : { ...previous, [key]: true },
+            );
+
+            window.requestAnimationFrame(() => {
+                window.setTimeout(() => {
+                    scrollToCandidateSection(parsed, behavior);
+                }, 40);
+            });
+        };
+
+        const onHashChange = () => applyHash('smooth');
+
+        applyHash('auto');
+        window.addEventListener('hashchange', onHashChange);
+
+        return () => {
+            window.removeEventListener('hashchange', onHashChange);
+        };
+    }, [candidate.id]);
 
     const openEdit = () => {
         profileForm.setData(candidateFormFromRow(candidate));
@@ -130,6 +192,10 @@ export function CandidatesShowContent({
                 onFinish: () => interviewForm.transform((data) => data),
             },
         );
+    };
+
+    const setSection = (key: CandidateDetailSectionKey, open: boolean) => {
+        setSectionOpen((previous) => ({ ...previous, [key]: open }));
     };
 
     const interviewPanel = showInterview ? (
@@ -302,53 +368,73 @@ export function CandidatesShowContent({
                             <section className="rounded-xl border border-border/60 bg-card p-5">
                                 <p className="text-sm text-muted-foreground">
                                     {focus === 'applied'
-                                        ? 'Review the candidate profile and CV, then move to Screening when ready.'
+                                        ? 'Review the candidate profile and documents, then move to Screening when ready.'
                                         : 'Complete screening review, then move to Interview or correct back to Applied if needed.'}
                                 </p>
                                 {!candidate.has_cv ? (
                                     <p className="mt-3 inline-flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
                                         <FileWarning className="mt-0.5 h-4 w-4 shrink-0" />
-                                        No CV is on file for this candidate.
+                                        No CV uploaded. Add a CV if required for
+                                        this candidate.
                                     </p>
                                 ) : null}
                             </section>
                         ) : null}
 
-                        {prioritizeInterview ? interviewPanel : null}
-                        {prioritizeOffer ? (
+                        {interviewInPrimary ? interviewPanel : null}
+
+                        {offerInPrimary && prioritizeJoiningPrep ? (
+                            <>
+                                {joiningPanel}
+                                {offerPanel}
+                            </>
+                        ) : null}
+
+                        {offerInPrimary && !prioritizeJoiningPrep ? (
                             <>
                                 {offerPanel}
                                 {joiningPanel}
                             </>
                         ) : null}
-                        {prioritizeJoined ? joiningPanel : null}
+
+                        {prioritizeJoined && !offerInPrimary
+                            ? joiningPanel
+                            : null}
                     </CandidateWorkspaceSection>
 
-                    {!prioritizeInterview && interviewPanel ? (
+                    {!interviewInPrimary && interviewPanel ? (
                         <CandidateWorkspaceSection
                             title="Interview details"
                             description="Historical or supporting interview information."
-                            defaultOpen={hasInterviewDetails(candidate)}
+                            collapsible
+                            open={sectionOpen.interview}
+                            onOpenChange={(open) =>
+                                setSection('interview', open)
+                            }
                         >
                             {interviewPanel}
                         </CandidateWorkspaceSection>
                     ) : null}
 
-                    {!prioritizeOffer && offerPanel ? (
+                    {!offerInPrimary && offerPanel ? (
                         <CandidateWorkspaceSection
                             title="Offer / JOL"
-                            description="Offer history and documents."
-                            defaultOpen={false}
+                            description="Offer preparation, decisions, and documents."
+                            collapsible
+                            open={sectionOpen.offer}
+                            onOpenChange={(open) => setSection('offer', open)}
                         >
                             {offerPanel}
                         </CandidateWorkspaceSection>
                     ) : null}
 
-                    {!prioritizeOffer && !prioritizeJoined && joiningPanel ? (
+                    {!joiningInPrimary && joiningPanel ? (
                         <CandidateWorkspaceSection
                             title="Joining"
                             description="Joining readiness and confirmation."
-                            defaultOpen={false}
+                            collapsible
+                            open={sectionOpen.joining}
+                            onOpenChange={(open) => setSection('joining', open)}
                         >
                             {joiningPanel}
                         </CandidateWorkspaceSection>

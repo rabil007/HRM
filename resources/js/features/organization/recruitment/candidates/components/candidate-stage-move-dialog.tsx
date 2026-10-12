@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { candidateDetailSectionHref } from '../lib/candidate-section-hash';
 import {
     stageMoveFieldError,
     stageMoveKnownGeneralError,
@@ -138,7 +139,10 @@ function StageMoveDialogBody({
 
     const confirm = () => {
         if (isPrepareOffer) {
-            window.location.href = `/organization/recruitment/candidates/${candidate.id}#offer-jol`;
+            window.location.href = candidateDetailSectionHref(
+                candidate.id,
+                'offer-jol',
+            );
             onClose();
 
             return;

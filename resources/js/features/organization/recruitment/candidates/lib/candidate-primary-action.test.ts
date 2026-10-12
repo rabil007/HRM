@@ -95,6 +95,27 @@ describe('resolvePrimaryAction', () => {
 
         assert.equal(action?.kind, 'link');
         assert.equal(action?.label, 'Update Readiness');
+        assert.equal(
+            action?.kind === 'link' ? action.href : null,
+            '/organization/recruitment/candidates/42#joining',
+        );
+    });
+
+    it('points Prepare Offer at the offer-jol section hash', () => {
+        const action = resolvePrimaryAction(
+            row({
+                stage: 'interview',
+                interview_outcome: 'selected',
+                can_prepare_offer: true,
+            }),
+        );
+
+        assert.equal(action?.kind, 'link');
+        assert.equal(action?.label, 'Prepare Offer');
+        assert.equal(
+            action?.kind === 'link' ? action.href : null,
+            '/organization/recruitment/candidates/42#offer-jol',
+        );
     });
 
     it('shows Complete Draft Offer before readiness actions', () => {

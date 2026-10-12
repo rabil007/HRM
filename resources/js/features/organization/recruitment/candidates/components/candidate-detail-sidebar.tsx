@@ -124,8 +124,7 @@ export function CandidateDetailSidebar({
                         <div>
                             <p className="font-medium">No CV uploaded</p>
                             <p className="text-xs opacity-90">
-                                Edit the profile to attach a CV before
-                                progressing.
+                                Add a CV if required for this candidate.
                             </p>
                         </div>
                     </div>

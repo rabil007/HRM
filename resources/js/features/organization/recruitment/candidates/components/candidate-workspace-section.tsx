@@ -10,17 +10,21 @@ import { cn } from '@/lib/utils';
 export function CandidateWorkspaceSection({
     title,
     description,
-    defaultOpen = true,
     children,
     className,
+    collapsible = false,
+    open = true,
+    onOpenChange,
 }: {
     title: string;
     description?: string;
-    defaultOpen?: boolean;
     children: ReactNode;
     className?: string;
+    collapsible?: boolean;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }) {
-    if (defaultOpen) {
+    if (!collapsible) {
         return (
             <section className={cn('space-y-3', className)}>
                 <div>
@@ -39,7 +43,11 @@ export function CandidateWorkspaceSection({
     }
 
     return (
-        <Collapsible defaultOpen={false} className={cn('space-y-2', className)}>
+        <Collapsible
+            open={open}
+            onOpenChange={onOpenChange}
+            className={cn('space-y-2', className)}
+        >
             <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left text-sm font-medium hover:bg-muted/40">
                 <span>
                     {title}
@@ -49,7 +57,12 @@ export function CandidateWorkspaceSection({
                         </span>
                     ) : null}
                 </span>
-                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <ChevronDown
+                    className={cn(
+                        'h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                        open && 'rotate-180',
+                    )}
+                />
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 pt-1">
                 {children}
