@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
@@ -43,41 +44,141 @@ final class CrewAssignmentOverlapDetector
      */
     public function operationalStartDate(CrewAssignment $activeAssignment, string $timezone): string
     {
-        $candidates = [];
+        $start = $this->operationalStartInstant($activeAssignment);
 
-        $lifecycle = $activeAssignment->started_at ?? $activeAssignment->planned_join_at;
-
-        if ($lifecycle instanceof CarbonInterface) {
-            $candidates[] = $lifecycle->copy()->timezone($timezone)->toDateString();
+        if ($start instanceof CarbonInterface) {
+            return $start->copy()->timezone($timezone)->toDateString();
         }
 
-        $earliestActual = $this->earliestActualPhaseStart($activeAssignment);
+        $lifecycle = $activeAssignment->planned_join_at;
+
+        if ($lifecycle instanceof CarbonInterface) {
+            return $lifecycle->copy()->timezone($timezone)->toDateString();
+        }
+
+        return CarbonImmutable::now($timezone)->toDateString();
+    }
+
+    /**
+     * Authoritative operational occupancy start (instant).
+     *
+     * Uses the earlier of lifecycle started_at and the earliest recorded phase
+     * actual_start_at. Planned/forecast dates are never treated as occupancy.
+     */
+    public function operationalStartInstant(CrewAssignment $assignment): ?CarbonInterface
+    {
+        $candidates = [];
+
+        if ($assignment->started_at instanceof CarbonInterface) {
+            $candidates[] = $assignment->started_at;
+        }
+
+        $earliestActual = $this->earliestActualPhaseStart($assignment);
 
         if ($earliestActual instanceof CarbonInterface) {
-            $candidates[] = $earliestActual->copy()->timezone($timezone)->toDateString();
+            $candidates[] = $earliestActual;
         }
 
         if ($candidates === []) {
-            return CarbonImmutable::now($timezone)->toDateString();
+            return null;
         }
 
-        sort($candidates);
+        $earliest = $candidates[0];
 
-        return $candidates[0];
+        foreach (array_slice($candidates, 1) as $candidate) {
+            if ($candidate->lt($earliest)) {
+                $earliest = $candidate;
+            }
+        }
+
+        return $earliest;
+    }
+
+    /**
+     * Authoritative operational occupancy end (instant).
+     *
+     * Active assignments are open-ended (null). Closed assignments use closed_at
+     * when present, otherwise the latest phase actual_end_at. An open phase keeps
+     * the interval open even if the assignment status is no longer Active.
+     */
+    public function operationalEndInstant(CrewAssignment $assignment): ?CarbonInterface
+    {
+        if ($assignment->status === CrewAssignmentStatus::Active) {
+            return null;
+        }
+
+        $phases = $this->phasesFor($assignment);
+
+        foreach ($phases as $phase) {
+            if ($phase instanceof CrewAssignmentPhase
+                && $phase->actual_start_at !== null
+                && $phase->actual_end_at === null) {
+                return null;
+            }
+        }
+
+        if ($assignment->closed_at instanceof CarbonInterface) {
+            return $assignment->closed_at;
+        }
+
+        $latestEnd = null;
+
+        foreach ($phases as $phase) {
+            if (! $phase instanceof CrewAssignmentPhase || $phase->actual_end_at === null) {
+                continue;
+            }
+
+            if ($latestEnd === null || $phase->actual_end_at->gt($latestEnd)) {
+                $latestEnd = $phase->actual_end_at;
+            }
+        }
+
+        return $latestEnd ?? $this->operationalStartInstant($assignment);
+    }
+
+    /**
+     * Authoritative operational occupancy interval from lifecycle + phase actuals.
+     *
+     * @return array{start: CarbonInterface, end: CarbonInterface|null}|null
+     */
+    public function operationalOccupancyInterval(CrewAssignment $assignment): ?array
+    {
+        $start = $this->operationalStartInstant($assignment);
+
+        if ($start === null) {
+            return null;
+        }
+
+        return [
+            'start' => $start,
+            'end' => $this->operationalEndInstant($assignment),
+        ];
+    }
+
+    /**
+     * Day-grain occupancy window in the company timezone.
+     *
+     * @return array{start: string, end: string|null}|null
+     */
+    public function operationalOccupancyDateWindow(CrewAssignment $assignment, string $timezone): ?array
+    {
+        $interval = $this->operationalOccupancyInterval($assignment);
+
+        if ($interval === null) {
+            return null;
+        }
+
+        return [
+            'start' => $interval['start']->copy()->timezone($timezone)->toDateString(),
+            'end' => $interval['end']?->copy()->timezone($timezone)->toDateString(),
+        ];
     }
 
     private function earliestActualPhaseStart(CrewAssignment $assignment): ?CarbonInterface
     {
-        $phases = $assignment->relationLoaded('phases')
-            ? $assignment->phases
-            : CrewAssignmentPhase::query()
-                ->where('company_id', $assignment->company_id)
-                ->where('crew_assignment_id', $assignment->id)
-                ->get(['id', 'crew_assignment_id', 'actual_start_at']);
-
         $earliest = null;
 
-        foreach ($phases as $phase) {
+        foreach ($this->phasesFor($assignment) as $phase) {
             if (! $phase instanceof CrewAssignmentPhase || $phase->actual_start_at === null) {
                 continue;
             }
@@ -88,6 +189,21 @@ final class CrewAssignmentOverlapDetector
         }
 
         return $earliest;
+    }
+
+    /**
+     * @return iterable<int, CrewAssignmentPhase>
+     */
+    private function phasesFor(CrewAssignment $assignment): iterable
+    {
+        if ($assignment->relationLoaded('phases')) {
+            return $assignment->phases;
+        }
+
+        return CrewAssignmentPhase::query()
+            ->where('company_id', $assignment->company_id)
+            ->where('crew_assignment_id', $assignment->id)
+            ->get(['id', 'crew_assignment_id', 'actual_start_at', 'actual_end_at']);
     }
 
     /**

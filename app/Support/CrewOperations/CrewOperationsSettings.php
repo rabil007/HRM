@@ -107,9 +107,17 @@ final class CrewOperationsSettings
     /**
      * Testing override: when ON, actual movement timestamps may be in the future.
      * Defaults to OFF when the company has no settings row yet.
+     *
+     * Production always returns false regardless of the stored company setting so
+     * Phase 1 testing overrides cannot record future actuals in live environments.
+     * Prefer Schedule for Later for future movements.
      */
     public static function allowFutureActualMovementDates(int $companyId): bool
     {
+        if (! self::futureActualOverrideEnvironmentsAllowed()) {
+            return false;
+        }
+
         $setting = self::findForCompany($companyId);
 
         if ($setting === null) {
@@ -117,6 +125,14 @@ final class CrewOperationsSettings
         }
 
         return (bool) $setting->allow_future_actual_movement_dates;
+    }
+
+    /**
+     * Phase 1 future-actual override is permitted only outside production.
+     */
+    public static function futureActualOverrideEnvironmentsAllowed(): bool
+    {
+        return ! app()->environment('production');
     }
 
     /**
@@ -297,9 +313,19 @@ final class CrewOperationsSettings
                 ? (bool) $actualOptions['sync_training_to_employee_training']
                 : $previousTrainingSync;
 
-            $allowFutureActual = array_key_exists('allow_future_actual_movement_dates', $actualOptions)
+            $explicitAllowFutureActual = array_key_exists('allow_future_actual_movement_dates', $actualOptions)
                 ? (bool) $actualOptions['allow_future_actual_movement_dates']
-                : $previousAllowFutureActual;
+                : null;
+
+            $allowFutureActual = $explicitAllowFutureActual ?? $previousAllowFutureActual;
+
+            // Reject only explicit enable attempts in production. Legacy stored true
+            // remains in the DB for compatibility but is never effective at runtime.
+            if ($explicitAllowFutureActual === true && ! self::futureActualOverrideEnvironmentsAllowed()) {
+                throw ValidationException::withMessages([
+                    'allow_future_actual_movement_dates' => 'The future actual movement dates testing override cannot be enabled in production. Use Schedule for Later instead.',
+                ]);
+            }
 
             $recipientIds = array_key_exists('notification_recipient_user_ids', $actualOptions)
                 ? self::normalizeRecipientUserIds(

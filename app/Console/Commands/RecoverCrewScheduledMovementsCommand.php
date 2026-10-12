@@ -13,14 +13,17 @@ use Illuminate\Console\Command;
  * Support recovery path for overdue / stale schedules.
  * Not a product UI manual confirmation mode. Operators still use Record Now
  * or reschedule after reviewing Needs Attention items.
+ *
+ * Defaults without --company: inspects / recovers across all companies
+ * (support-wide). Prefer --company in multi-tenant production support.
  */
 class RecoverCrewScheduledMovementsCommand extends Command
 {
     protected $signature = 'crew:recover-scheduled-movements
-                            {--company= : Limit to one company id}
-                            {--list : List overdue and needs-attention schedules without executing}
-                            {--process-due : Also run the normal due processor after recovery}
-                            {--stale-seconds=300 : Mark processing rows older than this as Needs Attention}';
+                            {--company= : Limit to one company id (recommended for production support)}
+                            {--list : List overdue and needs-attention schedules without modifying any records}
+                            {--process-due : Also run the normal due processor after recovery (ignored with --list)}
+                            {--stale-seconds=300 : Mark processing rows older than this as Needs Attention (ignored with --list)}';
 
     protected $description = 'List or recover overdue / stale scheduled crew movements for support use';
 
@@ -30,11 +33,25 @@ class RecoverCrewScheduledMovementsCommand extends Command
     ): int {
         $now = CrewScheduledMovementTimestamp::nowUtc();
         $nowSql = CrewScheduledMovementTimestamp::sqlUtc($now);
-        $companyId = $this->option('company');
+        $companyOption = $this->option('company');
+        $companyId = $companyOption !== null && $companyOption !== ''
+            ? (int) $companyOption
+            : null;
+        $listOnly = (bool) $this->option('list');
         $staleSeconds = max(60, (int) $this->option('stale-seconds'));
 
-        $recovered = $executor->recoverStaleProcessing($now, $staleSeconds);
-        $this->info("Recovered {$recovered} stale processing row(s).");
+        if ($companyId !== null) {
+            $this->info("Scoped to company id {$companyId}.");
+        } else {
+            $this->warn('No --company filter: operating across all companies.');
+        }
+
+        if ($listOnly) {
+            $this->info('Read-only mode (--list): no records will be modified.');
+        } else {
+            $recovered = $executor->recoverStaleProcessing($now, $staleSeconds, $companyId);
+            $this->info("Recovered {$recovered} stale processing row(s).");
+        }
 
         $query = CrewScheduledMovement::query()
             ->where(function ($q) use ($nowSql): void {
@@ -46,8 +63,8 @@ class RecoverCrewScheduledMovementsCommand extends Command
             })
             ->orderBy('scheduled_at');
 
-        if (is_string($companyId) && $companyId !== '') {
-            $query->where('company_id', (int) $companyId);
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
         }
 
         $rows = $query->limit(100)->get([
@@ -61,7 +78,7 @@ class RecoverCrewScheduledMovementsCommand extends Command
             'last_error_message',
         ]);
 
-        if ($this->option('list') || $rows->isNotEmpty()) {
+        if ($listOnly || $rows->isNotEmpty()) {
             $this->table(
                 ['id', 'company', 'assignment', 'action', 'status', 'scheduled_at', 'error'],
                 $rows->map(fn (CrewScheduledMovement $row): array => [
@@ -74,10 +91,23 @@ class RecoverCrewScheduledMovementsCommand extends Command
                     $row->last_error_code,
                 ])->all(),
             );
+            $this->info($listOnly
+                ? "Inspected {$rows->count()} overdue / needs-attention row(s) (no modifications)."
+                : "Listed {$rows->count()} overdue / needs-attention row(s).");
+        } elseif ($listOnly) {
+            $this->info('No overdue or needs-attention schedules found (no modifications).');
+        }
+
+        if ($listOnly) {
+            if ($this->option('process-due')) {
+                $this->warn('--process-due is ignored while --list is set (read-only).');
+            }
+
+            return self::SUCCESS;
         }
 
         if ($this->option('process-due')) {
-            $result = $processor->handle(25, $now);
+            $result = $processor->handle(25, $now, $companyId);
             $this->info(sprintf(
                 'Processed due: claimed %d, executed %d, needs attention %d.',
                 $result['claimed'],

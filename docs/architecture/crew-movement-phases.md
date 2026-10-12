@@ -211,6 +211,8 @@ A Planning record is **not** required before starting an operational assignment.
 
 **Assignment lifecycle vs payroll:** `CrewAssignment.started_at` and `closed_at` describe the assignment record lifecycle (when the operational cycle was started or closed in OMS). They are **not** Crew payroll inputs. Crew payroll is derived only from eligible actual `CrewAssignmentPhase.actual_start_at` / `actual_end_at` dates. Expected Vessel Join, Planned Sign-Off, Planned Travel Home, and Crew Planning dates are never payable movement dates.
 
+**Operational occupancy for overlap checks:** Availability / historical overlap validation uses `CrewAssignmentOverlapDetector`’s authoritative occupancy interval — the earlier of lifecycle `started_at` and the earliest phase `actual_start_at`, through `closed_at` (or latest phase actual end / open-ended for Active). Forecast dates never count as actual occupancy. Completed historical checks use half-open day semantics so legitimate same-day vessel transfers / redeployments at a shared boundary do not false-overlap.
+
 ```text
 Named Crew Planning
 ↓ Start Mobilisation
@@ -575,8 +577,12 @@ Cleanup flags cannot bypass non-negotiable operational and accounting protection
 - `payroll_applied` / `payroll_protected` — Applied, Submitted/Approved Crew Timesheet prep, reserved/approved/paid work allocations, or timesheet segments on Processing/Approved/Paid periods
 - `protected_dependency_exists` — timesheet segments on non-Draft periods that are not already covered by `payroll_protected` (for example Cancelled)
 - `linked_assignment_exists` — transfer/redeploy children via `previous_assignment_id`, incoming relief assignments via `relieves_crew_assignment_id`, and active relief planning rows that relieve the source (message names the dependent record and relationship; dependents are never auto-deleted or reparented). Derived planning bars owned by the assignment (`crew_assignment_id`) remain soft-deleted by existing void cleanup and are not blockers.
+- `unresolved_scheduled_movement` — pending / processing / needs-attention `CrewScheduledMovement` rows must be cancelled or resolved before void (included in Void Impact Preview; never auto-cancelled)
+- `pending_correction` — pending `CrewMovementCorrection` requests must be approved, rejected, or cancelled before void (history is never silently deleted)
 - `already_voided` / `cross_company`
 - Cleanup-eligible until confirmed: `sea_service_exists`, `draft_timesheet_exists`, `accommodation_history_exists`
+
+Unresolved schedules and pending corrections are revalidated inside the final locked void transaction. Scheduled execution refuses voided assignments (`assignment_voided` Needs Attention) if a race leaves an unresolved schedule.
 
 ### All-or-Nothing Transactional Execution
 

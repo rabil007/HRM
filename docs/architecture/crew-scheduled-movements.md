@@ -46,6 +46,7 @@ Not scheduled: Plan Sign-off, Cancel Assignment, Correct Movement, Void.
 - Manage permission required
 - Update reuses the same Form Request action-field rules as create
 - Edit / Reschedule UI submits only action-relevant allowlisted `action_fields` (not the full generic movement form)
+- Quick date-only reschedule and full Edit / Reschedule both apply auto-linked hotel checkout synchronization **before** validating the final payload
 - Existing payload fields are preserved when omitted; auto-synced hotel checkout dates follow the new schedule; manual overrides stay
 - Persistence uses normalized validated fields, not raw nested input
 - Assignment eligibility and one-unresolved uniqueness are rechecked on update
@@ -54,10 +55,12 @@ Not scheduled: Plan Sign-off, Cancel Assignment, Correct Movement, Void.
 ## Automatic execution
 
 - Cron: `crew:process-scheduled-movements` every minute (`routes/console.php`)
-- Support: `crew:recover-scheduled-movements --list` / `--process-due`
+- Support: `crew:recover-scheduled-movements --list` / `--process-due` (see runbook for company scoping)
 - Cron-compatible inline processor (`ProcessDueCrewScheduledMovements`) — does not require a long-lived queue worker
 - Claim → validate snapshot/eligibility/conflicts → `CrewMovementService::perform` with system actor (`null`) → mark executed
+- Each due movement captures a **fresh** UTC execution timestamp at claim/execute time (slow batches do not reuse a stale batch-start clock for later rows)
 - Lateness policy: if processing starts more than **15 minutes** after `scheduled_at`, mark Needs Attention (do not silently backdate)
+- Voided / soft-deleted assignments cannot execute; schedules become Needs Attention with `assignment_voided`
 - Unexpected / DB exceptions never expose SQL or internal details to operators
 
 ## Needs Attention notifications
@@ -76,7 +79,11 @@ Granted from existing assignment view / movement perform roles via migration.
 
 ## Phase 1 Testing Override
 
-`allow_future_actual_movement_dates` remains in the database for compatibility but the settings UI no longer offers enabling it for normal production. Operators should use Schedule for Later. Record Now rejects future actual timestamps when the override is off.
+`allow_future_actual_movement_dates` remains in the database for compatibility. Runtime behaviour:
+
+- **Production:** the override is never effective (`CrewOperationsSettings::allowFutureActualMovementDates()` always returns false). Direct HTTP or Support-layer attempts to enable it are rejected.
+- **Non-production:** authorized operators may still enable it for testing; the settings UI only offers a disable control when a legacy stored true remains.
+- Operators should use Schedule for Later for future events. Record Now rejects future actual timestamps when the override is off or unavailable.
 
 ## Related
 

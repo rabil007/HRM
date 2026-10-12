@@ -10,6 +10,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\Vessel;
+use App\Support\CrewMovements\Historical\HistoricalAssignmentIntervalOverlap;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
@@ -511,10 +512,14 @@ final class CrewAssignmentConflictEvaluator
             ->where('company_id', $context->companyId)
             ->where('employee_id', $context->employeeId)
             ->where('status', CrewAssignmentStatus::Completed)
-            ->whereNotNull('started_at')
-            ->whereNotNull('closed_at')
+            ->whereNull('voided_at')
             ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
+            ->with([
+                'vessel:id,name',
+                'position:id,title',
+                'employee:id,name',
+                'phases:id,crew_assignment_id,actual_start_at,actual_end_at',
+            ]);
 
         if ($withLock) {
             $query->lockForUpdate();
@@ -523,31 +528,41 @@ final class CrewAssignmentConflictEvaluator
         $completed = $query->get();
 
         foreach ($completed as $past) {
-            $hStart = $past->started_at->copy()->timezone($timezone)->toDateString();
-            $hEnd = $past->closed_at->copy()->timezone($timezone)->toDateString();
+            $window = $this->overlapDetector->operationalOccupancyDateWindow($past, $timezone);
 
-            if ($reqStart <= $hEnd && $hStart <= $reqEnd) {
-                $existingVessel = $past->vessel?->name ?? 'historical vessel';
-
-                return CrewAssignmentConflictResult::blocking(
-                    code: 'historical_overlap',
-                    message: "Requested dates ({$reqStart} - {$reqEnd}) overlap completed historical assignment {$past->assignment_no} on {$existingVessel} ({$hStart} - {$hEnd}). Historical operational dates cannot be overwritten.",
-                    existingAssignment: [
-                        'id' => $past->id,
-                        'assignment_no' => $past->assignment_no,
-                        'vessel_id' => $past->vessel_id,
-                        'vessel_name' => $existingVessel,
-                        'status' => $past->status->value,
-                        'start_date' => $hStart,
-                        'end_date' => $hEnd,
-                    ],
-                    affectedDates: [
-                        'start' => max($reqStart, $hStart),
-                        'end' => min($reqEnd, $hEnd),
-                    ],
-                    allowedActions: ['cancel'],
-                );
+            if ($window === null || $window['end'] === null) {
+                continue;
             }
+
+            $hStart = $window['start'];
+            $hEnd = $window['end'];
+
+            // Half-open day semantics: touching boundaries (end == start) do not overlap,
+            // preserving legitimate same-day vessel transfers / redeployments.
+            if (! HistoricalAssignmentIntervalOverlap::dateStringsOverlap($reqStart, $reqEnd, $hStart, $hEnd)) {
+                continue;
+            }
+
+            $existingVessel = $past->vessel?->name ?? 'historical vessel';
+
+            return CrewAssignmentConflictResult::blocking(
+                code: 'historical_overlap',
+                message: "Requested dates ({$reqStart} - {$reqEnd}) overlap completed historical assignment {$past->assignment_no} on {$existingVessel} ({$hStart} - {$hEnd}). Historical operational dates cannot be overwritten.",
+                existingAssignment: [
+                    'id' => $past->id,
+                    'assignment_no' => $past->assignment_no,
+                    'vessel_id' => $past->vessel_id,
+                    'vessel_name' => $existingVessel,
+                    'status' => $past->status->value,
+                    'start_date' => $hStart,
+                    'end_date' => $hEnd,
+                ],
+                affectedDates: [
+                    'start' => max($reqStart, $hStart),
+                    'end' => min($reqEnd, $hEnd),
+                ],
+                allowedActions: ['cancel'],
+            );
         }
 
         return null;

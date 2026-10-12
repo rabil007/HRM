@@ -18,6 +18,7 @@ enum CrewScheduledMovementErrorCode: string
     case NotSchedulable = 'not_schedulable';
     case ScheduledAtNotFuture = 'scheduled_at_not_future';
     case StaleProcessing = 'stale_processing';
+    case AssignmentVoided = 'assignment_voided';
 
     public function label(): string
     {
@@ -36,6 +37,7 @@ enum CrewScheduledMovementErrorCode: string
             self::NotSchedulable => 'Action cannot be scheduled',
             self::ScheduledAtNotFuture => 'Scheduled time must be in the future',
             self::StaleProcessing => 'Stale processing recovered',
+            self::AssignmentVoided => 'Assignment voided',
         };
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Organization\CrewOperations;
 
+use App\Support\CrewOperations\CrewOperationsSettings;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateCrewOperationsSettingsRequest extends FormRequest
 {
@@ -62,5 +64,22 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
             'notification_email_digest_at' => ['required', 'string', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
             'notification_email_critical_immediate' => ['required', 'boolean'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if (! $this->has('allow_future_actual_movement_dates')) {
+                return;
+            }
+
+            if ($this->boolean('allow_future_actual_movement_dates')
+                && ! CrewOperationsSettings::futureActualOverrideEnvironmentsAllowed()) {
+                $validator->errors()->add(
+                    'allow_future_actual_movement_dates',
+                    'The future actual movement dates testing override cannot be enabled in production. Use Schedule for Later instead.',
+                );
+            }
+        });
     }
 }
