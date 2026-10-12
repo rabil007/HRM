@@ -18,9 +18,9 @@ describe('joining-form-errors', () => {
 
         assert.equal(
             joiningKnownGeneralError({
-                stage: 'Candidate joining readiness can only be updated in Joining stage.',
+                stage: 'Candidate joining readiness can only be updated in Offer/JOL after the offer is accepted.',
             }),
-            'Candidate joining readiness can only be updated in Joining stage.',
+            'Candidate joining readiness can only be updated in Offer/JOL after the offer is accepted.',
         );
 
         assert.equal(

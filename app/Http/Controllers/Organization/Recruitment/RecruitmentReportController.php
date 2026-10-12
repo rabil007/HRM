@@ -95,7 +95,7 @@ class RecruitmentReportController extends Controller
                         'label' => $u['name'],
                     ])
                     ->all(),
-                'stages' => collect(CandidateStage::cases())->map(fn (CandidateStage $stage) => [
+                'stages' => collect(CandidateStage::activeStages())->map(fn (CandidateStage $stage) => [
                     'value' => $stage->value,
                     'label' => $stage->label(),
                 ])->all(),

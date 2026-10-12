@@ -58,7 +58,7 @@ class CandidateJoiningController extends Controller
 
         $action->handle($user, $candidate, $request->validated());
 
-        return back()->with('success', 'Candidate joining corrected.');
+        return back()->with('success', 'Candidate joining undone. Candidate returned to Offer/JOL.');
     }
 
     public function linkEmployee(

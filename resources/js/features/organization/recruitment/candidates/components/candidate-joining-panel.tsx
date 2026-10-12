@@ -40,13 +40,13 @@ export function CandidateJoiningPanel({
 }) {
     const joining = candidate.joining;
     const isJoined = candidate.stage === 'joined';
-    const isJoiningStage = candidate.stage === 'joining';
+    const hasAcceptedOffer = candidate.current_offer?.status === 'accepted';
+    const isOfferJolAwaitingJoin =
+        candidate.stage === 'offer_jol' && hasAcceptedOffer;
 
-    // Show joining panel if candidate has reached Joining or Joined stage, or has an accepted offer
+    // Joining preparation lives inside Offer/JOL after acceptance; Joined shows confirmation details.
     const shouldDisplay =
-        isJoiningStage ||
-        isJoined ||
-        candidate.current_offer?.status === 'accepted';
+        isOfferJolAwaitingJoin || isJoined || hasAcceptedOffer;
 
     const [isReadinessOpen, setIsReadinessOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
@@ -211,40 +211,41 @@ export function CandidateJoiningPanel({
                     </CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isJoiningStage && candidate.can_update_readiness && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                readinessForm.clearErrors();
-                                readinessForm.setData({
-                                    expected_joining_date:
-                                        joining?.expected_joining_date ??
-                                        candidate.expected_joining_date ??
-                                        '',
-                                    joining_readiness_status:
-                                        joining?.readiness_status ??
-                                        candidate.joining_readiness_status ??
-                                        'pending',
-                                    joining_readiness_notes:
-                                        joining?.readiness_notes ??
-                                        candidate.joining_readiness_notes ??
-                                        '',
-                                    joining_blocker_notes:
-                                        joining?.blocker_notes ??
-                                        candidate.joining_blocker_notes ??
-                                        '',
-                                    reason: '',
-                                    lock_version: candidate.lock_version,
-                                });
-                                setIsReadinessOpen(true);
-                            }}
-                        >
-                            Update Readiness
-                        </Button>
-                    )}
+                    {isOfferJolAwaitingJoin &&
+                        candidate.can_update_readiness && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    readinessForm.clearErrors();
+                                    readinessForm.setData({
+                                        expected_joining_date:
+                                            joining?.expected_joining_date ??
+                                            candidate.expected_joining_date ??
+                                            '',
+                                        joining_readiness_status:
+                                            joining?.readiness_status ??
+                                            candidate.joining_readiness_status ??
+                                            'pending',
+                                        joining_readiness_notes:
+                                            joining?.readiness_notes ??
+                                            candidate.joining_readiness_notes ??
+                                            '',
+                                        joining_blocker_notes:
+                                            joining?.blocker_notes ??
+                                            candidate.joining_blocker_notes ??
+                                            '',
+                                        reason: '',
+                                        lock_version: candidate.lock_version,
+                                    });
+                                    setIsReadinessOpen(true);
+                                }}
+                            >
+                                Update Readiness
+                            </Button>
+                        )}
 
-                    {isJoiningStage && candidate.can_confirm_joined && (
+                    {isOfferJolAwaitingJoin && candidate.can_confirm_joined && (
                         <Button
                             variant="default"
                             size="sm"
@@ -266,6 +267,19 @@ export function CandidateJoiningPanel({
                             Confirm Joined
                         </Button>
                     )}
+
+                    {isOfferJolAwaitingJoin &&
+                        !candidate.can_confirm_joined &&
+                        !isReady && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300">
+                                <AlertTriangle className="size-3.5 shrink-0" />
+                                Confirm Joined requires readiness = Ready
+                                {(joining?.blocker_notes ??
+                                candidate.joining_blocker_notes)
+                                    ? `: ${joining?.blocker_notes ?? candidate.joining_blocker_notes}`
+                                    : ''}
+                            </span>
+                        )}
 
                     {isJoined &&
                         canConvert &&
@@ -814,8 +828,8 @@ export function CandidateJoiningPanel({
                                 Correct / Undo Joined Status
                             </DialogTitle>
                             <DialogDescription>
-                                Revert candidate back to Joining stage. Requires
-                                a management audit reason.
+                                Revert candidate back to Offer/JOL. Requires a
+                                management audit reason.
                             </DialogDescription>
                         </DialogHeader>
 

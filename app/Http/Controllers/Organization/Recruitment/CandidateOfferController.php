@@ -66,7 +66,7 @@ class CandidateOfferController extends Controller
         $this->assertCompanyOffer($request, $candidate, $offer);
         $action->handle($request->user(), $candidate, $offer, $request->validated());
 
-        return back()->with('success', 'Offer accepted. Candidate moved to Joining.');
+        return back()->with('success', 'Offer accepted. Candidate remains in Offer/JOL for joining preparation.');
     }
 
     public function reject(

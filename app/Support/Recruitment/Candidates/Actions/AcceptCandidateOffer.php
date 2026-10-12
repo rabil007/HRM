@@ -117,8 +117,10 @@ final class AcceptCandidateOffer
                     'lock_version' => (int) $lockedOffer->lock_version + 1,
                 ])->save();
 
+                // Acceptance keeps the candidate in Offer/JOL; joining preparation
+                // continues here until Confirm Joined advances to Joined.
                 $locked->fill([
-                    'stage' => CandidateStage::Joining,
+                    'stage' => CandidateStage::OfferJol,
                     'expected_joining_date' => $lockedOffer->proposed_joining_date?->toDateString(),
                     'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending,
                     'updated_by' => $actor->id,
@@ -129,7 +131,7 @@ final class AcceptCandidateOffer
                     $locked,
                     CandidateTransitionAction::OfferAccepted,
                     $fromStage,
-                    CandidateStage::Joining,
+                    CandidateStage::OfferJol,
                     $locked->interview_outcome,
                     $locked->interview_outcome,
                     (int) $actor->id,
@@ -137,6 +139,8 @@ final class AcceptCandidateOffer
                     [
                         'offer_id' => $lockedOffer->id,
                         'accepted_at' => optional($lockedOffer->accepted_at)?->toIso8601String(),
+                        'joining_readiness_status' => CandidateJoiningReadinessStatus::Pending->value,
+                        'expected_joining_date' => $locked->expected_joining_date?->toDateString(),
                     ],
                 );
 

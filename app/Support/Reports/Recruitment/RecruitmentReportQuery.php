@@ -3,6 +3,7 @@
 namespace App\Support\Reports\Recruitment;
 
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentRequirement;
@@ -179,17 +180,26 @@ final class RecruitmentReportQuery
 
         $this->applyFilters($base);
 
+        // joining_count = Offer/JOL candidates with an Accepted current offer awaiting Confirm Joined
         $counts = (clone $base)
             ->selectRaw('
                 COUNT(*) as applications_total,
                 SUM(CASE WHEN recruitment_candidates.interview_outcome = ? THEN 1 ELSE 0 END) as selected_count,
-                SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as joining_count,
+                SUM(CASE WHEN recruitment_candidates.stage = ?
+                    AND EXISTS (
+                        SELECT 1 FROM recruitment_candidate_offers
+                        WHERE recruitment_candidate_offers.recruitment_candidate_id = recruitment_candidates.id
+                          AND recruitment_candidate_offers.is_current = 1
+                          AND recruitment_candidate_offers.status = ?
+                    )
+                    THEN 1 ELSE 0 END) as joining_count,
                 SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as joined_count,
                 SUM(CASE WHEN recruitment_candidates.stage = ? THEN 1 ELSE 0 END) as rejected_count,
                 SUM(CASE WHEN recruitment_candidates.employee_id IS NOT NULL THEN 1 ELSE 0 END) as converted_count
             ', [
                 CandidateInterviewOutcome::Selected->value,
-                CandidateStage::Joining->value,
+                CandidateStage::OfferJol->value,
+                CandidateOfferStatus::Accepted->value,
                 CandidateStage::Joined->value,
                 CandidateStage::Rejected->value,
             ])

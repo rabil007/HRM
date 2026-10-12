@@ -157,7 +157,6 @@ describe('kanban accumulate helpers', () => {
             'screening',
             'interview',
             'offer_jol',
-            'joining',
             'joined',
             'rejected',
         ]);
@@ -192,7 +191,6 @@ describe('kanban accumulate helpers', () => {
                 'screening',
                 'interview',
                 'offer_jol',
-                'joining',
                 'rejected',
             ],
         });
@@ -210,7 +208,6 @@ describe('kanban accumulate helpers', () => {
                 'screening',
                 'interview',
                 'offer_jol',
-                'joining',
                 'rejected',
             ]),
             { through_page_applied: 2 },
@@ -242,7 +239,6 @@ describe('kanban accumulate helpers', () => {
                 'screening',
                 'interview',
                 'offer_jol',
-                'joining',
                 'rejected',
             ],
         });
@@ -278,7 +274,6 @@ describe('kanban accumulate helpers', () => {
                 'screening',
                 'interview',
                 'offer_jol',
-                'joining',
                 'rejected',
             ],
         });

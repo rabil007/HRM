@@ -3,6 +3,7 @@
 namespace App\Support\Recruitment\Candidates\Actions;
 
 use App\Enums\Recruitment\CandidateJoiningReadinessStatus;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
@@ -46,13 +47,21 @@ final class UpdateCandidateJoiningReadiness
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
                 array_key_exists('lock_version', $data) ? (int) $data['lock_version'] : null,
-                $data['expected_stage'] ?? CandidateStage::Joining->value,
+                $data['expected_stage'] ?? CandidateStage::OfferJol->value,
                 null,
             );
 
-            if ($locked->stage !== CandidateStage::Joining) {
+            if ($locked->stage !== CandidateStage::OfferJol) {
                 throw ValidationException::withMessages([
-                    'stage' => 'Candidate joining readiness can only be updated in Joining stage.',
+                    'stage' => 'Candidate joining readiness can only be updated in Offer/JOL after the offer is accepted.',
+                ]);
+            }
+
+            $locked->loadMissing('currentOffer');
+            $currentOffer = $locked->currentOffer;
+            if ($currentOffer === null || $currentOffer->status !== CandidateOfferStatus::Accepted) {
+                throw ValidationException::withMessages([
+                    'offer' => 'Joining readiness can only be updated when the current Offer/JOL is Accepted.',
                 ]);
             }
 

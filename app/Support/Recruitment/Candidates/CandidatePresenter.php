@@ -298,7 +298,7 @@ final class CandidatePresenter
             ->where('recruitment_requirement_id', $requirementId);
 
         $byStage = [];
-        foreach (CandidateStage::cases() as $stage) {
+        foreach (CandidateStage::activeStages() as $stage) {
             $byStage[$stage->value] = (clone $base)->where('stage', $stage->value)->count();
         }
 
@@ -332,7 +332,10 @@ final class CandidatePresenter
      */
     public static function resolveJoiningScheduleInfo(RecruitmentCandidate $candidate, string $timezone): array
     {
-        if ($candidate->stage !== CandidateStage::Joining || $candidate->expected_joining_date === null) {
+        if (
+            ! CandidateWorkflowAuthorization::isAwaitingJoiningConfirmation($candidate)
+            || $candidate->expected_joining_date === null
+        ) {
             return [
                 'urgency' => null,
                 'days_diff' => null,

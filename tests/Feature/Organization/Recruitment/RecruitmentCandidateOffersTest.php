@@ -227,7 +227,7 @@ test('selected interview candidate can prepare draft offer and move to offer_jol
         ->and($this->line->fresh()->salary_min)->toBe('4000.00');
 });
 
-test('full offer flow draft to sent to accepted moves candidate to joining without email side effects', function () {
+test('full offer flow draft to sent to accepted keeps candidate in offer/jol without email side effects', function () {
     $candidate = createSelectedInterviewCandidate(
         $this->companyA,
         $this->requirement,
@@ -274,7 +274,7 @@ test('full offer flow draft to sent to accepted moves candidate to joining witho
     $offer->refresh();
     $candidate->refresh();
     expect($offer->status)->toBe(CandidateOfferStatus::Accepted)
-        ->and($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($candidate->interview_outcome)->toBe(CandidateInterviewOutcome::Selected);
 });
 
@@ -614,7 +614,7 @@ test('private offer documents download with permission and stay company scoped',
         ->assertNotFound();
 });
 
-test('kanban includes offer_jol and joining stages and through_page refresh after offer action', function () {
+test('kanban includes offer_jol without joining and through_page refresh after offer action', function () {
     foreach (range(1, 16) as $index) {
         RecruitmentCandidate::query()->create([
             'company_id' => $this->companyA->id,
@@ -641,7 +641,6 @@ test('kanban includes offer_jol and joining stages and through_page refresh afte
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('kanban.offer_jol')
-            ->has('kanban.joining')
             ->where('stage_totals.interview', 16)
         );
 
@@ -1180,7 +1179,7 @@ test('allows valid historical offer chronology in company timezone', function ()
     $candidate->refresh();
 
     expect($offer->status)->toBe(CandidateOfferStatus::Accepted)
-        ->and($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($offer->offer_date->toDateString())->toBe($histOfferDate)
         ->and($offer->sent_at->setTimezone('Asia/Dubai')->toDateString())->toBe($histSentDate)
         ->and($offer->accepted_at->setTimezone('Asia/Dubai')->toDateString())->toBe($histAcceptedDate);
@@ -1297,7 +1296,7 @@ test('accept candidate offer attaches signed document and transitions candidate'
     $candidate->refresh();
 
     expect($offer->status)->toBe(CandidateOfferStatus::Accepted)
-        ->and($candidate->stage)->toBe(CandidateStage::Joining)
+        ->and($candidate->stage)->toBe(CandidateStage::OfferJol)
         ->and($offer->acceptance_document_path)->not->toBeNull()
         ->and(Storage::disk('local')->exists($offer->acceptance_document_path))->toBeTrue();
 });
