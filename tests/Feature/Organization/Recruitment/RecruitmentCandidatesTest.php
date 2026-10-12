@@ -1970,6 +1970,7 @@ test('movement history presents sanitized interview cycle snapshots', function (
         'interview_outcome' => CandidateInterviewOutcome::Selected,
         'interview_notes' => 'Prep notes',
         'interview_feedback' => 'Cycle feedback',
+        'interviewer_user_id' => $this->recruiterA->id,
         'external_interviewer_name' => 'Panel Lead',
         'interview_mode' => 'video',
         'lock_version' => 1,
@@ -1987,6 +1988,15 @@ test('movement history presents sanitized interview cycle snapshots', function (
             'expected_outcome' => 'selected',
         ])
         ->assertRedirect();
+
+    $stored = RecruitmentCandidateStageTransition::query()
+        ->where('recruitment_candidate_id', $candidate->id)
+        ->where('action', CandidateTransitionAction::StageCorrected)
+        ->latest('id')
+        ->first();
+
+    expect($stored->context['interview_cycle_snapshot']['interviewer_user_id'] ?? null)->toBe($this->recruiterA->id)
+        ->and($stored->context['interview_cycle_snapshot']['interviewer_user_name'] ?? null)->toBe($this->recruiterA->name);
 
     $auditor = createCandidateTestUser($this->companyA, [
         'recruitment.candidates.view',
@@ -2014,8 +2024,80 @@ test('movement history presents sanitized interview cycle snapshots', function (
                     && ($snapshot['interview_feedback'] ?? null) === 'Cycle feedback'
                     && ($snapshot['interview_notes'] ?? null) === 'Prep notes'
                     && ($snapshot['external_interviewer_name'] ?? null) === 'Panel Lead'
+                    && ($snapshot['interviewer_user_name'] ?? null) === $this->recruiterA->name
                     && ($snapshot['interview_mode_label'] ?? null) === 'Video'
                     && ! array_key_exists('secret_token', $snapshot);
+            })
+        );
+});
+
+test('movement history resolves legacy interviewer ids company-scoped without leaking foreign users', function () {
+    $candidate = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Legacy Snapshot',
+        'email' => 'legacy-snapshot@example.com',
+        'email_normalized' => 'legacy-snapshot@example.com',
+        'stage' => CandidateStage::Screening,
+        'lock_version' => 2,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    RecruitmentCandidateStageTransition::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_candidate_id' => $candidate->id,
+        'action' => CandidateTransitionAction::StageCorrected,
+        'from_stage' => CandidateStage::Interview,
+        'to_stage' => CandidateStage::Screening,
+        'from_outcome' => CandidateInterviewOutcome::Selected,
+        'to_outcome' => null,
+        'reason' => 'Legacy correction',
+        'context' => [
+            'correction' => true,
+            'interview_cycle_snapshot' => [
+                'interview_scheduled_at' => null,
+                'interviewer_user_id' => $this->recruiterA->id,
+                // Intentionally omit interviewer_user_name to simulate older rows.
+                'external_interviewer_name' => null,
+                'interview_mode' => 'phone',
+                'interview_location' => null,
+                'interview_notes' => null,
+                'interview_feedback' => 'Legacy feedback',
+                'interview_outcome' => 'selected',
+            ],
+            'prior_interview_cycle_snapshot' => [
+                'interviewer_user_id' => $this->recruiterB->id,
+                'interview_feedback' => 'Foreign company interviewer',
+            ],
+        ],
+        'performed_by' => $this->recruiterA->id,
+    ]);
+
+    $auditor = createCandidateTestUser($this->companyA, [
+        'recruitment.candidates.view',
+        'audit.view',
+    ]);
+
+    $this->actingAs($auditor)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get("/organization/recruitment/candidates/{$candidate->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('candidate.movement_history', function ($history) {
+                $events = collect($history);
+                $correction = $events->firstWhere('action', 'stage_corrected');
+                $snapshot = $correction['context']['interview_cycle_snapshot'] ?? null;
+                $prior = $correction['context']['prior_interview_cycle_snapshot'] ?? null;
+
+                return is_array($snapshot)
+                    && ($snapshot['interviewer_user_name'] ?? null) === $this->recruiterA->name
+                    && is_array($prior)
+                    && ($prior['interviewer_user_id'] ?? null) === $this->recruiterB->id
+                    && ($prior['interviewer_user_name'] ?? null) === null;
             })
         );
 });

@@ -50,6 +50,7 @@ function SnapshotDetails({
     const [open, setOpen] = useState(false);
     const hasContent = Boolean(
         snapshot.interview_scheduled_at ||
+        snapshot.interviewer_user_name ||
         snapshot.external_interviewer_name ||
         snapshot.interview_mode_label ||
         snapshot.interview_location ||
@@ -88,10 +89,18 @@ function SnapshotDetails({
                         {snapshot.interview_mode_label}
                     </p>
                 ) : null}
+                {snapshot.interviewer_user_name ? (
+                    <p>
+                        <span className="text-muted-foreground">
+                            Internal interviewer:{' '}
+                        </span>
+                        {snapshot.interviewer_user_name}
+                    </p>
+                ) : null}
                 {snapshot.external_interviewer_name ? (
                     <p>
                         <span className="text-muted-foreground">
-                            Interviewer:{' '}
+                            External interviewer:{' '}
                         </span>
                         {snapshot.external_interviewer_name}
                     </p>

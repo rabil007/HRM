@@ -104,6 +104,7 @@ export type CandidateIndexRow = {
 export type CandidateInterviewCycleSnapshot = {
     interview_scheduled_at: string | null;
     interviewer_user_id: number | null;
+    interviewer_user_name: string | null;
     external_interviewer_name: string | null;
     interview_mode: string | null;
     interview_mode_label: string | null;

@@ -80,4 +80,27 @@ describe('kanban-card-interaction', () => {
             false,
         );
     });
+
+    it('allows plain card body clicks to navigate after distinguishing from drag', () => {
+        const cardBody = {
+            closest: () => null,
+        };
+
+        assert.equal(
+            shouldNavigateKanbanCardClick({
+                isDragging: false,
+                didDrag: false,
+                target: cardBody,
+            }),
+            true,
+        );
+        assert.equal(
+            shouldNavigateKanbanCardClick({
+                isDragging: false,
+                didDrag: true,
+                target: cardBody,
+            }),
+            false,
+        );
+    });
 });

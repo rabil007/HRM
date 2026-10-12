@@ -270,14 +270,23 @@ final class CandidatePresenter
         $transitions = [];
 
         if ($includeMovementHistory) {
-            $transitions = $candidate->stageTransitions
+            $companyId = (int) $candidate->company_id;
+            $sortedTransitions = $candidate->stageTransitions
                 ->sortBy('created_at')
-                ->values()
+                ->values();
+            $interviewerNamesById = CandidateInterviewCycle::resolveInterviewerNamesForCompany(
+                CandidateInterviewCycle::collectInterviewerIdsFromContexts(
+                    $sortedTransitions->map(static fn (RecruitmentCandidateStageTransition $t) => $t->context),
+                ),
+                $companyId,
+            );
+            $transitions = $sortedTransitions
                 ->map(fn (RecruitmentCandidateStageTransition $t): array => self::transitionToArray(
                     $t,
                     $timezone,
                     $user,
-                    (int) $candidate->company_id,
+                    $companyId,
+                    $interviewerNamesById,
                 ))
                 ->all();
         }
@@ -367,11 +376,15 @@ final class CandidatePresenter
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @param  array<int, string>  $interviewerNamesById
+     */
     public static function transitionToArray(
         RecruitmentCandidateStageTransition $transition,
         string $timezone,
         ?User $user = null,
         ?int $companyId = null,
+        array $interviewerNamesById = [],
     ): array {
         $action = $transition->action;
         $context = $transition->context;
@@ -445,6 +458,7 @@ final class CandidatePresenter
             'context' => self::sanitizeTransitionContext(
                 is_array($context) ? $context : null,
                 $timezone,
+                $interviewerNamesById,
             ),
             'performed_by' => $transition->performed_by,
             'performed_by_name' => $transition->performer?->name,
@@ -459,10 +473,14 @@ final class CandidatePresenter
      * keep those keys (including nulls) so redaction remains explicit rather than omitted.
      *
      * @param  array<string, mixed>|null  $context
+     * @param  array<int, string>  $interviewerNamesById
      * @return array<string, mixed>|null
      */
-    private static function sanitizeTransitionContext(?array $context, string $timezone): ?array
-    {
+    private static function sanitizeTransitionContext(
+        ?array $context,
+        string $timezone,
+        array $interviewerNamesById = [],
+    ): ?array {
         if ($context === null || $context === []) {
             return null;
         }
@@ -473,6 +491,7 @@ final class CandidatePresenter
             $sanitized['interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
                 $context['interview_cycle_snapshot'],
                 $timezone,
+                $interviewerNamesById,
             );
         }
 
@@ -480,6 +499,7 @@ final class CandidatePresenter
             $sanitized['prior_interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
                 $context['prior_interview_cycle_snapshot'],
                 $timezone,
+                $interviewerNamesById,
             );
         }
 
@@ -520,10 +540,14 @@ final class CandidatePresenter
 
     /**
      * @param  array<string, mixed>  $snapshot
+     * @param  array<int, string>  $interviewerNamesById
      * @return array<string, mixed>
      */
-    private static function presentInterviewCycleSnapshot(array $snapshot, string $timezone): array
-    {
+    private static function presentInterviewCycleSnapshot(
+        array $snapshot,
+        string $timezone,
+        array $interviewerNamesById = [],
+    ): array {
         $mode = null;
         $modeLabel = null;
 
@@ -554,11 +578,23 @@ final class CandidatePresenter
             }
         }
 
+        $interviewerUserId = isset($snapshot['interviewer_user_id'])
+            ? (is_numeric($snapshot['interviewer_user_id']) ? (int) $snapshot['interviewer_user_id'] : null)
+            : null;
+
+        // Prefer the name frozen at snapshot time; fall back to company-scoped resolution for older rows.
+        $interviewerUserName = null;
+        if (isset($snapshot['interviewer_user_name']) && is_string($snapshot['interviewer_user_name']) && $snapshot['interviewer_user_name'] !== '') {
+            $interviewerUserName = $snapshot['interviewer_user_name'];
+        } elseif ($interviewerUserId !== null && isset($interviewerNamesById[$interviewerUserId])) {
+            $name = $interviewerNamesById[$interviewerUserId];
+            $interviewerUserName = $name !== '' ? $name : null;
+        }
+
         return [
             'interview_scheduled_at' => $scheduledAt,
-            'interviewer_user_id' => isset($snapshot['interviewer_user_id'])
-                ? (is_numeric($snapshot['interviewer_user_id']) ? (int) $snapshot['interviewer_user_id'] : null)
-                : null,
+            'interviewer_user_id' => $interviewerUserId,
+            'interviewer_user_name' => $interviewerUserName,
             'external_interviewer_name' => isset($snapshot['external_interviewer_name']) && is_string($snapshot['external_interviewer_name'])
                 ? $snapshot['external_interviewer_name']
                 : null,
