@@ -49,7 +49,6 @@ final class LeaveBalanceReportExport implements FromQuery, WithHeadings, WithMap
             'Carried Days',
             'Total Available',
             'Previous Used Days',
-            'HRM Used Days',
             'Pending Days',
             'Remaining Days',
         ];
@@ -74,8 +73,7 @@ final class LeaveBalanceReportExport implements FromQuery, WithHeadings, WithMap
             $row['base_entitlement'],
             $row['carried_days'],
             $row['total_available'],
-            $row['opening_used_days'],
-            $row['used_days'],
+            $row['total_used_days'],
             $row['pending_days'],
             $row['remaining_days'],
         ];

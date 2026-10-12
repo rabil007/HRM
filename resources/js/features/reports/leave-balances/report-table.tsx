@@ -167,7 +167,7 @@ export function LeaveBalanceReportTable({
     return (
         <>
             <OrganizationDataTable
-                minWidth={hasAnyRowAction ? 'min-w-[1180px]' : 'min-w-[1100px]'}
+                minWidth={hasAnyRowAction ? 'min-w-[1080px]' : 'min-w-[1000px]'}
                 compact
             >
                 <TableHeader>
@@ -188,9 +188,6 @@ export function LeaveBalanceReportTable({
                         </DataTableHead>
                         <DataTableHead className="text-right">
                             Previous Used
-                        </DataTableHead>
-                        <DataTableHead className="text-right">
-                            HRM Used
                         </DataTableHead>
                         <DataTableHead className="text-right">
                             Pending
@@ -238,8 +235,7 @@ export function LeaveBalanceReportTable({
                                 value={row.total_available}
                                 className="font-medium"
                             />
-                            <DaysCell value={row.opening_used_days} />
-                            <DaysCell value={row.used_days} />
+                            <DaysCell value={row.total_used_days} />
                             <DaysCell
                                 value={row.pending_days}
                                 className={
