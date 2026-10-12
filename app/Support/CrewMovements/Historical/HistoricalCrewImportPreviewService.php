@@ -72,7 +72,7 @@ final class HistoricalCrewImportPreviewService
             $evaluated[] = $this->evaluateRow($parsedRow, $companyId, $timezone, $actor, $lookups, $bulk);
         }
 
-        $this->applyWorkbookConflicts($evaluated);
+        $this->applyWorkbookConflicts($evaluated, $timezone);
 
         $ready = 0;
         $warning = 0;
@@ -454,7 +454,7 @@ final class HistoricalCrewImportPreviewService
     /**
      * @param  list<array<string, mixed>>  $evaluated
      */
-    private function applyWorkbookConflicts(array &$evaluated): void
+    private function applyWorkbookConflicts(array &$evaluated, string $timezone): void
     {
         $byExactKey = [];
 
@@ -560,7 +560,7 @@ final class HistoricalCrewImportPreviewService
 
             for ($i = 0; $i < $count; $i++) {
                 $left = $evaluated[$indexes[$i]];
-                $leftInterval = $this->workbookNormalizedInterval($left);
+                $leftInterval = $this->workbookNormalizedInterval($left, $timezone);
 
                 if ($leftInterval === null) {
                     continue;
@@ -568,7 +568,7 @@ final class HistoricalCrewImportPreviewService
 
                 for ($j = $i + 1; $j < $count; $j++) {
                     $right = $evaluated[$indexes[$j]];
-                    $rightInterval = $this->workbookNormalizedInterval($right);
+                    $rightInterval = $this->workbookNormalizedInterval($right, $timezone);
 
                     if ($rightInterval === null) {
                         continue;
@@ -607,13 +607,13 @@ final class HistoricalCrewImportPreviewService
      * Normalize a workbook row to the half-open occupancy interval used for overlap checks.
      *
      * Prefers reconstructed positive-duration (or open) timestamps. Falls back to the
-     * calendar-day reservation policy for date-only / zero-duration bounds so same-day
-     * date-only rows reserve a full local day instead of collapsing to an empty interval.
+     * company-local calendar-day reservation policy for date-only / zero-duration bounds
+     * so same-day date-only rows reserve a full company-local day.
      *
      * @param  array<string, mixed>  $row
      * @return array{start: CarbonInterface, end: CarbonInterface|null}|null
      */
-    private function workbookNormalizedInterval(array $row): ?array
+    private function workbookNormalizedInterval(array $row, string $timezone): ?array
     {
         $data = $row['data'] ?? null;
 
@@ -641,7 +641,7 @@ final class HistoricalCrewImportPreviewService
         return HistoricalAssignmentIntervalOverlap::calendarDayReservationInterval(
             (string) $startDate,
             $endDate !== null ? (string) $endDate : null,
-            'UTC',
+            $timezone,
         );
     }
 
@@ -649,10 +649,10 @@ final class HistoricalCrewImportPreviewService
      * @param  array<string, mixed>  $left
      * @param  array<string, mixed>  $right
      */
-    private function workbookRowsOverlap(array $left, array $right): bool
+    private function workbookRowsOverlap(array $left, array $right, string $timezone): bool
     {
-        $leftInterval = $this->workbookNormalizedInterval($left);
-        $rightInterval = $this->workbookNormalizedInterval($right);
+        $leftInterval = $this->workbookNormalizedInterval($left, $timezone);
+        $rightInterval = $this->workbookNormalizedInterval($right, $timezone);
 
         if ($leftInterval === null || $rightInterval === null) {
             return false;
