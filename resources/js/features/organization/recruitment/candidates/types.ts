@@ -265,6 +265,8 @@ export type CandidateFilters = {
     position_id: number | null;
     stage: string | null;
     outcome: string | null;
+    /** Joining urgency, blockers, or pending conversion — server-side. */
+    attention: boolean;
 };
 
 export type CandidateFormData = {
@@ -353,12 +355,18 @@ export type CandidateRequirementSummary = {
     recent: CandidateIndexRow[];
 };
 
-export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
+/** Primary pipeline columns shown on the board by default. */
+export const CANDIDATE_ACTIVE_PIPELINE_STAGES: CandidateStage[] = [
     'applied',
     'screening',
     'interview',
     'offer_jol',
     'joined',
+];
+
+/** All stages with independent kanban pagination / stage totals (includes Rejected). */
+export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
+    ...CANDIDATE_ACTIVE_PIPELINE_STAGES,
     'rejected',
 ];
 

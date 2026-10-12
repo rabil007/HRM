@@ -41,7 +41,7 @@ export const STAGE_HINTS: Record<CandidateStage, string> = {
     interview: 'Select or reject',
     offer_jol: 'Offer → join prep → Confirm Joined',
     joining: 'Confirm joining',
-    joined: 'Convert to employee when ready',
+    joined: 'Convert when ready',
     rejected: 'Reopen if needed',
 };
 
@@ -66,5 +66,9 @@ export function daysInStageLabel(
         return 'Today';
     }
 
-    return `${days}d in stage`;
+    if (days === 1) {
+        return '1d waiting';
+    }
+
+    return `${days}d waiting`;
 }

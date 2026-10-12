@@ -158,8 +158,16 @@ describe('kanban accumulate helpers', () => {
             'interview',
             'offer_jol',
             'joined',
+        ]);
+        assert.deepEqual(visibleKanbanStages(null, { includeRejected: true }), [
+            'applied',
+            'screening',
+            'interview',
+            'offer_jol',
+            'joined',
             'rejected',
         ]);
+        assert.deepEqual(visibleKanbanStages('rejected'), ['rejected']);
     });
 
     it('after loading two pages and a candidate action, keeps earlier cards via through refresh', () => {

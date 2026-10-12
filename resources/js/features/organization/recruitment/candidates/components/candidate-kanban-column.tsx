@@ -11,19 +11,30 @@ export function CandidateKanbanColumnView({
     column,
     total,
     onLoadMore,
+    compact = false,
 }: {
     stage: CandidateStage;
     column: CandidateKanbanColumn | undefined;
     total: number;
     onLoadMore: (stage: CandidateStage, page: number) => void;
+    compact?: boolean;
 }) {
     const stageColor = STAGE_COLORS[stage];
     const cards = column?.data ?? [];
     const hint = STAGE_HINTS[stage];
+    const loaded = cards.length;
 
     return (
-        <div className="flex w-[280px] shrink-0 flex-col rounded-xl border border-border/60 bg-muted/20 dark:bg-muted/10">
-            <div className="space-y-1 border-b border-border/50 px-3 py-3">
+        <section
+            className={cn(
+                'flex min-h-0 min-w-[220px] flex-col rounded-xl border border-border/60 bg-muted/20 dark:bg-muted/10',
+                compact
+                    ? 'w-[260px] shrink-0'
+                    : 'w-[260px] flex-1 shrink-0 basis-0 lg:min-w-[200px]',
+            )}
+            aria-label={`${CANDIDATE_STAGE_LABELS[stage]} column`}
+        >
+            <header className="shrink-0 space-y-0.5 border-b border-border/50 px-3 py-2.5">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                         <span
@@ -51,14 +62,11 @@ export function CandidateKanbanColumnView({
                         {hint}
                     </p>
                 ) : null}
-            </div>
+            </header>
 
-            <div
-                className="flex-1 space-y-2 overflow-y-auto px-2 py-2"
-                style={{ maxHeight: '70vh' }}
-            >
+            <div className="min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-2 py-2">
                 {cards.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/50 py-10 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/50 py-8 text-center">
                         <Users className="h-5 w-5 text-muted-foreground/35" />
                         <p className="text-xs text-muted-foreground">
                             No candidates
@@ -73,20 +81,26 @@ export function CandidateKanbanColumnView({
                         stage={stage}
                     />
                 ))}
+            </div>
 
+            <footer className="shrink-0 border-t border-border/40 px-2 py-2">
                 {column && column.current_page < column.last_page ? (
                     <Button
-                        className="mt-1 w-full text-xs"
+                        className="w-full text-xs"
                         size="sm"
                         variant="ghost"
                         onClick={() =>
                             onLoadMore(stage, column.current_page + 1)
                         }
                     >
-                        Load {column.total - cards.length} more…
+                        Load {Math.max(0, total - loaded)} more
                     </Button>
-                ) : null}
-            </div>
-        </div>
+                ) : (
+                    <p className="px-1 text-center text-[11px] text-muted-foreground tabular-nums">
+                        {loaded}/{total}
+                    </p>
+                )}
+            </footer>
+        </section>
     );
 }

@@ -7,7 +7,8 @@ describe('kanban-stage-meta', () => {
         assert.equal(daysInStageLabel(null), null);
         assert.equal(daysInStageLabel(undefined), null);
         assert.equal(daysInStageLabel(0), 'Today');
-        assert.equal(daysInStageLabel(3), '3d in stage');
+        assert.equal(daysInStageLabel(1), '1d waiting');
+        assert.equal(daysInStageLabel(3), '3d waiting');
     });
 
     it('derives initials from names', () => {

@@ -2,8 +2,11 @@
 
 namespace App\Support\Recruitment\Candidates;
 
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Models\RecruitmentCandidate;
+use App\Support\Settings\CompanyTimezone;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -31,14 +34,37 @@ final class CandidateBrowseQuery
         $stage = self::nullableString($request->input('stage'));
         $outcome = self::nullableString($request->input('outcome'));
         $lineId = self::nullableInt($request->input('requirement_line_id'));
+        $attention = self::truthy($request->input('attention'));
+        $timezone = CompanyTimezone::forCompany($companyId);
 
-        $base = self::baseQuery($companyId, $search, $requirementId, $positionId, $lineId, $outcome);
+        $base = self::baseQuery(
+            $companyId,
+            $search,
+            $requirementId,
+            $positionId,
+            $lineId,
+            $outcome,
+            $attention,
+            $timezone,
+        );
         $stageFilter = $stage !== null && CandidateStage::tryFrom($stage) !== null ? $stage : null;
 
         $stageTotals = [];
         foreach (CandidateStage::kanbanColumns() as $column) {
             $stageTotals[$column->value] = (clone $base)->where('stage', $column->value)->count();
         }
+
+        $filters = [
+            'view' => $mode,
+            'search' => $search,
+            'per_page' => $perPage,
+            'requirement_id' => $requirementId,
+            'requirement_line_id' => $lineId,
+            'position_id' => $positionId,
+            'stage' => $stageFilter,
+            'outcome' => $outcome,
+            'attention' => $attention,
+        ];
 
         if ($mode === 'kanban') {
             $kanban = [];
@@ -102,16 +128,7 @@ final class CandidateBrowseQuery
                 'paginator' => null,
                 'kanban' => $kanban,
                 'stage_totals' => $stageTotals,
-                'filters' => [
-                    'view' => 'kanban',
-                    'search' => $search,
-                    'per_page' => $perPage,
-                    'requirement_id' => $requirementId,
-                    'requirement_line_id' => $lineId,
-                    'position_id' => $positionId,
-                    'stage' => $stageFilter,
-                    'outcome' => $outcome,
-                ],
+                'filters' => $filters,
                 'search' => $search,
             ];
         }
@@ -132,16 +149,7 @@ final class CandidateBrowseQuery
             'paginator' => $paginator,
             'kanban' => null,
             'stage_totals' => $stageTotals,
-            'filters' => [
-                'view' => 'table',
-                'search' => $search,
-                'per_page' => $perPage,
-                'requirement_id' => $requirementId,
-                'requirement_line_id' => $lineId,
-                'position_id' => $positionId,
-                'stage' => $stageFilter,
-                'outcome' => $outcome,
-            ],
+            'filters' => $filters,
             'search' => $search,
         ];
     }
@@ -153,6 +161,8 @@ final class CandidateBrowseQuery
         ?int $positionId,
         ?int $lineId,
         ?string $outcome,
+        bool $attention,
+        string $timezone,
     ): Builder {
         $query = RecruitmentCandidate::query()
             ->forCompany($companyId)
@@ -197,7 +207,42 @@ final class CandidateBrowseQuery
             });
         }
 
+        if ($attention) {
+            self::applyNeedsAttentionFilter($query, $timezone);
+        }
+
         return $query;
+    }
+
+    /**
+     * Reliable attention signals: joining overdue/today, recorded blockers, pending conversion.
+     */
+    private static function applyNeedsAttentionFilter(Builder $query, string $timezone): void
+    {
+        $today = CarbonImmutable::now($timezone)->toDateString();
+
+        $query->where(function (Builder $attention) use ($today): void {
+            $attention
+                ->where(function (Builder $blockers): void {
+                    $blockers->whereNotNull('joining_blocker_notes')
+                        ->where('joining_blocker_notes', '!=', '');
+                })
+                ->orWhere(function (Builder $pendingConversion): void {
+                    $pendingConversion->where('stage', CandidateStage::Joined->value)
+                        ->whereNull('employee_id');
+                })
+                ->orWhere(function (Builder $joiningDue) use ($today): void {
+                    $joiningDue->where('stage', CandidateStage::OfferJol->value)
+                        ->whereNotNull('expected_joining_date')
+                        ->whereDate('expected_joining_date', '<=', $today)
+                        ->whereHas(
+                            'currentOffer',
+                            fn (Builder $offer) => $offer
+                                ->where('is_current', true)
+                                ->where('status', CandidateOfferStatus::Accepted->value),
+                        );
+                });
+        });
     }
 
     private static function resolvePerPage(int $perPage): int
@@ -223,5 +268,18 @@ final class CandidateBrowseQuery
         }
 
         return (string) $value;
+    }
+
+    private static function truthy(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
     }
 }

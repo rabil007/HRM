@@ -583,6 +583,68 @@ test('kanban view returns independent stage column totals', function () {
             ->where('stage_totals.interview', 1)
             ->has('kanban.applied.data', 1)
             ->where('kanban.applied.data.0.days_in_stage', 0)
+            ->where('filters.attention', false)
+            ->has('kanban.rejected')
+        );
+});
+
+test('needs attention filter returns blockers and pending conversion candidates', function () {
+    $blocked = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Blocked Candidate',
+        'email' => 'blocked-attention@example.com',
+        'email_normalized' => 'blocked-attention@example.com',
+        'stage' => CandidateStage::OfferJol,
+        'interview_outcome' => CandidateInterviewOutcome::Selected,
+        'joining_blocker_notes' => 'Visa pending',
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $pendingConversion = RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Pending Conversion',
+        'email' => 'pending-conversion@example.com',
+        'email_normalized' => 'pending-conversion@example.com',
+        'stage' => CandidateStage::Joined,
+        'interview_outcome' => CandidateInterviewOutcome::Selected,
+        'actual_joining_date' => now()->toDateString(),
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $this->requirement->id,
+        'recruitment_requirement_line_id' => $this->line->id,
+        'requirement_number_snapshot' => $this->requirement->requirement_number,
+        'position_title_snapshot' => 'Chief Officer',
+        'name' => 'Quiet Candidate',
+        'email' => 'quiet-attention@example.com',
+        'email_normalized' => 'quiet-attention@example.com',
+        'stage' => CandidateStage::Applied,
+        'created_by' => $this->recruiterA->id,
+        'updated_by' => $this->recruiterA->id,
+    ]);
+
+    $this->actingAs($this->recruiterA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->get('/organization/recruitment/candidates?view=table&attention=1')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/candidates/index')
+            ->where('filters.attention', true)
+            ->where('candidates.total', 2)
+            ->has('candidates.data', 2)
+            ->where('candidates.data', fn ($rows) => collect($rows)->pluck('id')->sort()->values()->all() === collect([$blocked->id, $pendingConversion->id])->sort()->values()->all())
         );
 });
 

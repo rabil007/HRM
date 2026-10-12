@@ -163,7 +163,12 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
 ## UI
 
 - Navigation: Recruitment → Candidates; Reports → Recruitment Report.
-- Index: Table and Kanban columns are Applied → Screening → Interview → Offer/JOL → Joined → Rejected (no Joining column). Kanban columns are independently paginated with server stage totals and upcoming/overdue joining badges for accepted Offer/JOL candidates.
+- Index workspace:
+  - Table and Kanban views share the same server filters (search, requirement, position, stage, interview outcome, needs-attention).
+  - Kanban is a viewport-fitted board (`Main fixed`): sticky toolbar, independently scrolling columns, sticky column headers. Active pipeline columns are Applied → Screening → Interview → Offer/JOL → Joined. Rejected remains fully accessible via a collapsible secondary lane and the Rejected pipeline chip (no Joining column).
+  - Compact cards show stage-relevant cues (days waiting, interview date, offer/joining urgency, blockers, conversion) plus a primary next action and overflow menu. Moves stay button-based (no drag-and-drop).
+  - Table/Kanban toggle changes the current view only. Pin saves the default to `localStorage` (`recruitment-candidates:view`). Explicit `?view=` overrides the pin; visits without `view` apply the pinned default.
+  - Optional Focus board hides nonessential chrome in Kanban mode (session-scoped). Needs attention filters joining due/overdue, recorded blockers, and joined-but-not-converted candidates.
 - Candidate detail: Offer/JOL panel plus joining preparation panel (after acceptance) with readiness, dates, notes, and actions (Update Readiness, Confirm Joined when Ready, Undo Joined, Convert to Employee).
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 

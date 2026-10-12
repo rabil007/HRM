@@ -19,23 +19,45 @@ const notify = (): void => listeners.forEach((listener) => listener());
 const isValid = (value: string | null): value is CandidatesViewPreference =>
     value === 'table' || value === 'kanban';
 
-export function useCandidatesViewPreference(
-    defaultValue: CandidatesViewPreference = 'table',
-) {
-    const getSnapshot = (): CandidatesViewPreference => {
-        if (typeof window === 'undefined') {
-            return defaultValue;
-        }
+function readStoredPreference(
+    defaultValue: CandidatesViewPreference,
+): CandidatesViewPreference {
+    if (typeof window === 'undefined') {
+        return defaultValue;
+    }
 
+    try {
         const stored = localStorage.getItem(CANDIDATES_VIEW_STORAGE_KEY);
 
         return isValid(stored) ? stored : defaultValue;
-    };
+    } catch {
+        return defaultValue;
+    }
+}
 
-    const setView = (next: CandidatesViewPreference) => {
+export function getPinnedCandidatesView(
+    defaultValue: CandidatesViewPreference = 'table',
+): CandidatesViewPreference {
+    return readStoredPreference(defaultValue);
+}
+
+export function pinCandidatesView(next: CandidatesViewPreference): void {
+    try {
         localStorage.setItem(CANDIDATES_VIEW_STORAGE_KEY, next);
         notify();
-    };
+    } catch {
+        // Private mode / blocked storage — preference is best-effort only.
+    }
+}
+
+/**
+ * Reads the pinned default view. Toggle does not write — only `pinCandidatesView` does.
+ */
+export function useCandidatesViewPreference(
+    defaultValue: CandidatesViewPreference = 'table',
+) {
+    const getSnapshot = (): CandidatesViewPreference =>
+        readStoredPreference(defaultValue);
 
     const view = useSyncExternalStore(
         subscribe,
@@ -43,5 +65,5 @@ export function useCandidatesViewPreference(
         () => defaultValue,
     );
 
-    return [view, setView] as const;
+    return [view, pinCandidatesView] as const;
 }

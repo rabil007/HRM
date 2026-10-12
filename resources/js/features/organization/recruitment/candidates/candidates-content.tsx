@@ -1,5 +1,12 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import { Plus, X } from 'lucide-react';
+import {
+    Filter,
+    Maximize2,
+    Minimize2,
+    Plus,
+    TriangleAlert,
+    X,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -17,6 +24,11 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import {
     TableBody,
     TableCell,
@@ -53,7 +65,32 @@ import type {
     CandidateKanbanColumn,
     CandidateStage,
 } from './types';
-import { CANDIDATE_KANBAN_STAGES, CANDIDATE_STAGE_LABELS } from './types';
+import {
+    CANDIDATE_ACTIVE_PIPELINE_STAGES,
+    CANDIDATE_STAGE_LABELS,
+} from './types';
+
+const FOCUS_BOARD_KEY = 'recruitment-candidates:focus-board';
+
+function readFocusBoard(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    try {
+        return sessionStorage.getItem(FOCUS_BOARD_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function writeFocusBoard(next: boolean): void {
+    try {
+        sessionStorage.setItem(FOCUS_BOARD_KEY, next ? '1' : '0');
+    } catch {
+        // ignore
+    }
+}
 
 export function CandidatesContent({
     candidates,
@@ -65,15 +102,17 @@ export function CandidatesContent({
     browse_options,
     can,
 }: CandidateIndexProps) {
+    const isKanban = filters.view === 'kanban';
     const [sheetOpen, setSheetOpen] = useState(false);
     const [editing, setEditing] = useState<CandidateIndexRow | null>(null);
     const [duplicateMessage, setDuplicateMessage] = useState<string | null>(
         null,
     );
-    const [preferredView, setPreferredView] = useCandidatesViewPreference(
-        filters.view,
-    );
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [focusBoard, setFocusBoard] = useState(readFocusBoard);
+    const [pinnedView, pinView] = useCandidatesViewPreference('table');
     const appliedPreferredView = useRef(false);
+    const attention = Boolean(filters.attention);
     const filterKey = candidateKanbanFilterKey(filters, search);
     const [kanbanFilterKey, setKanbanFilterKey] = useState(filterKey);
     const [pendingAppendStage, setPendingAppendStage] =
@@ -89,9 +128,28 @@ export function CandidatesContent({
     > | null>(() => mergeKanbanBoard(null, kanban, null));
     const [syncedKanban, setSyncedKanban] = useState(kanban);
 
-    const kanbanStages = visibleKanbanStages(filters.stage);
+    const pipelineStages = visibleKanbanStages(filters.stage);
+    const showRejectedLane =
+        isKanban &&
+        filters.stage !== 'rejected' &&
+        (filters.stage === null || filters.stage === undefined);
+    // Always request rejected column data for the secondary lane totals/load-more.
+    const kanbanSyncStages = useMemo(() => {
+        if (!isKanban) {
+            return pipelineStages;
+        }
 
-    // Adjust accumulated pages when filters change or Inertia returns a fresh board.
+        if (filters.stage === 'rejected') {
+            return ['rejected'] as CandidateStage[];
+        }
+
+        if (filters.stage) {
+            return pipelineStages;
+        }
+
+        return [...pipelineStages, 'rejected' as CandidateStage];
+    }, [filters.stage, isKanban, pipelineStages]);
+
     if (filterKey !== kanbanFilterKey) {
         setKanbanFilterKey(filterKey);
         setSyncedKanban(kanban);
@@ -107,7 +165,7 @@ export function CandidatesContent({
             incoming: kanban,
             appendStage: pendingAppendStage,
             isThroughRefresh: pendingThroughRefresh,
-            stages: kanbanStages,
+            stages: kanbanSyncStages,
         });
 
         setAccumulatedKanban(plan.next);
@@ -119,7 +177,7 @@ export function CandidatesContent({
                 nonce: (previous?.nonce ?? 0) + 1,
                 params: buildKanbanThroughPageParams(
                     accumulatedKanban,
-                    kanbanStages,
+                    kanbanSyncStages,
                 ),
             }));
         } else {
@@ -146,6 +204,7 @@ export function CandidatesContent({
             position_id: filters.position_id,
             stage: filters.stage,
             outcome: filters.outcome,
+            attention: attention ? '1' : null,
             ...throughRefreshRequest.params,
         };
 
@@ -164,6 +223,7 @@ export function CandidatesContent({
         filters.position_id,
         filters.stage,
         filters.outcome,
+        attention,
     ]);
 
     const pagination = candidates
@@ -198,6 +258,7 @@ export function CandidatesContent({
             requirement_line_id: filters.requirement_line_id
                 ? String(filters.requirement_line_id)
                 : '',
+            attention: attention ? '1' : '',
         },
         pagination,
     });
@@ -219,10 +280,10 @@ export function CandidatesContent({
             return;
         }
 
-        if (preferredView !== filters.view) {
-            list.visit({ view: preferredView, page: null });
+        if (pinnedView !== filters.view) {
+            list.visit({ view: pinnedView, page: null });
         }
-        // Apply stored preference only on first land without an explicit view query.
+        // Apply pinned preference only once when the URL has no explicit view.
         // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only preference sync
     }, []);
 
@@ -292,10 +353,11 @@ export function CandidatesContent({
         requirement_line_id: filters.requirement_line_id
             ? String(filters.requirement_line_id)
             : '',
+        attention: attention ? '1' : '',
     });
 
+    /** Toggle view only — does not write the pinned preference. */
     const setView = (view: 'table' | 'kanban') => {
-        setPreferredView(view);
         setPendingAppendStage(null);
         setPendingThroughRefresh(false);
         setThroughRefreshRequest(null);
@@ -313,10 +375,11 @@ export function CandidatesContent({
             position_id: filters.position_id,
             stage: filters.stage,
             outcome: filters.outcome,
+            attention: attention ? '1' : null,
             [`page_${stage}`]: page,
         };
 
-        for (const columnStage of visibleKanbanStages(filters.stage)) {
+        for (const columnStage of kanbanSyncStages) {
             if (columnStage === stage) {
                 continue;
             }
@@ -412,8 +475,16 @@ export function CandidatesContent({
             });
         }
 
+        if (attention) {
+            chips.push({
+                key: 'attention',
+                label: 'Needs attention',
+                clear: { attention: '' },
+            });
+        }
+
         return chips;
-    }, [filters, selectedRequirement, positionOptions]);
+    }, [filters, selectedRequirement, positionOptions, attention]);
 
     const clearAllFilters = () => {
         list.applyFilters({
@@ -423,6 +494,7 @@ export function CandidatesContent({
             position_id: '',
             stage: '',
             outcome: '',
+            attention: '',
         });
     };
 
@@ -456,229 +528,390 @@ export function CandidatesContent({
         });
     };
 
+    const toggleFocusBoard = () => {
+        setFocusBoard((previous) => {
+            const next = !previous;
+            writeFocusBoard(next);
+
+            return next;
+        });
+    };
+
+    const secondaryFilterCount = [filters.outcome, attention ? '1' : ''].filter(
+        Boolean,
+    ).length;
+
+    const showChrome = !isKanban || !focusBoard;
+
     return (
-        <Main>
+        <Main fixed={isKanban} className={cn(isKanban && 'gap-0 p-0')}>
             <TooltipProvider>
-                <RecruitmentBreadcrumbs
-                    items={[
-                        {
-                            title: 'Candidates',
-                            href: '/organization/recruitment/candidates',
-                        },
-                    ]}
-                />
-                <PageHeader
-                    title="Candidates"
-                    description="Screen and interview applicants linked to open requirements."
-                    right={
-                        can.create ? (
-                            <Button onClick={openCreate}>
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add Candidate
-                            </Button>
-                        ) : null
-                    }
-                />
-
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <SearchBar
-                        value={list.searchInput}
-                        onChange={list.onSearchChange}
-                        placeholder="Search name, contact, requirement..."
-                        className="mb-0 flex-1"
-                    />
-                    <div className="flex items-center gap-2">
-                        <CandidatesViewToggle
-                            value={filters.view}
-                            onChange={setView}
-                            onPin={setPreferredView}
-                        />
-                        {activeFilters.length > 0 ? (
-                            <Badge variant="secondary">
-                                {activeFilters.length} filter
-                                {activeFilters.length !== 1 ? 's' : ''}
-                            </Badge>
-                        ) : null}
-                    </div>
-                </div>
-
-                <div className="mb-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <AppSelect
-                        value={
-                            filters.requirement_id
-                                ? String(filters.requirement_id)
-                                : 'all'
-                        }
-                        onValueChange={onRequirementChange}
-                        placeholder="Requirement"
-                    >
-                        <AppSelectItem value="all">
-                            All requirements
-                        </AppSelectItem>
-                        {filterRequirements.map((requirement) => (
-                            <AppSelectItem
-                                key={requirement.id}
-                                value={String(requirement.id)}
-                            >
-                                {requirement.requirement_number}
-                                {requirement.status_label
-                                    ? ` (${requirement.status_label})`
-                                    : ''}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                    <AppSelect
-                        value={
-                            filters.position_id
-                                ? String(filters.position_id)
-                                : 'all'
-                        }
-                        onValueChange={(value) =>
-                            list.applyFilters({
-                                ...listFiltersForApply(),
-                                position_id: value === 'all' ? '' : value,
-                            })
-                        }
-                        placeholder={
-                            filters.requirement_id
-                                ? 'Position'
-                                : 'Position (pick requirement)'
-                        }
-                        disabled={!filters.requirement_id}
-                    >
-                        <AppSelectItem value="all">All positions</AppSelectItem>
-                        {positionOptions.map(([positionId, title]) => (
-                            <AppSelectItem
-                                key={positionId}
-                                value={String(positionId)}
-                            >
-                                {title}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                    <AppSelect
-                        value={filters.outcome ?? 'all'}
-                        onValueChange={(value) =>
-                            list.applyFilters({
-                                ...listFiltersForApply(),
-                                outcome: value === 'all' ? '' : value,
-                            })
-                        }
-                        placeholder="Interview outcome"
-                    >
-                        <AppSelectItem value="all">
-                            All interview outcomes
-                        </AppSelectItem>
-                        <AppSelectItem value="pending">Pending</AppSelectItem>
-                        <AppSelectItem value="selected">Selected</AppSelectItem>
-                        <AppSelectItem value="not_selected">
-                            Not Selected
-                        </AppSelectItem>
-                    </AppSelect>
-                </div>
-
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="mr-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                        Pipeline
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() =>
-                            list.applyFilters({
-                                ...listFiltersForApply(),
-                                stage: '',
-                            })
-                        }
+                {showChrome ? (
+                    <div
                         className={cn(
-                            'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                            !filters.stage
-                                ? 'border-foreground/20 bg-foreground/5 text-foreground'
-                                : 'border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                            'shrink-0',
+                            isKanban && 'border-b border-border/50 px-4 pt-4',
                         )}
                     >
-                        All
-                        <span className="text-muted-foreground tabular-nums">
-                            {Object.values(stage_totals).reduce(
-                                (a, b) => a + b,
-                                0,
-                            )}
-                        </span>
-                    </button>
-                    {CANDIDATE_KANBAN_STAGES.map((stage) => (
+                        <RecruitmentBreadcrumbs
+                            items={[
+                                {
+                                    title: 'Candidates',
+                                    href: '/organization/recruitment/candidates',
+                                },
+                            ]}
+                        />
+                        {!isKanban ? (
+                            <PageHeader
+                                title="Candidates"
+                                description="Screen and interview applicants linked to open requirements."
+                                right={
+                                    can.create ? (
+                                        <Button onClick={openCreate}>
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Add Candidate
+                                        </Button>
+                                    ) : null
+                                }
+                            />
+                        ) : null}
+                    </div>
+                ) : null}
+
+                <div
+                    className={cn(
+                        'shrink-0 space-y-2',
+                        isKanban ? 'px-4 py-2' : 'mb-4',
+                    )}
+                >
+                    <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                        <SearchBar
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                            placeholder="Search candidates…"
+                            className="mb-0 min-w-0 flex-1"
+                        />
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <div className="min-w-[160px] flex-1 sm:w-[180px] sm:flex-none">
+                                <AppSelect
+                                    value={
+                                        filters.requirement_id
+                                            ? String(filters.requirement_id)
+                                            : 'all'
+                                    }
+                                    onValueChange={onRequirementChange}
+                                    placeholder="Requirement"
+                                >
+                                    <AppSelectItem value="all">
+                                        All requirements
+                                    </AppSelectItem>
+                                    {filterRequirements.map((requirement) => (
+                                        <AppSelectItem
+                                            key={requirement.id}
+                                            value={String(requirement.id)}
+                                        >
+                                            {requirement.requirement_number}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            </div>
+                            <div className="min-w-[140px] flex-1 sm:w-[160px] sm:flex-none">
+                                <AppSelect
+                                    value={
+                                        filters.position_id
+                                            ? String(filters.position_id)
+                                            : 'all'
+                                    }
+                                    onValueChange={(value) =>
+                                        list.applyFilters({
+                                            ...listFiltersForApply(),
+                                            position_id:
+                                                value === 'all' ? '' : value,
+                                        })
+                                    }
+                                    placeholder="Position"
+                                    disabled={!filters.requirement_id}
+                                >
+                                    <AppSelectItem value="all">
+                                        All positions
+                                    </AppSelectItem>
+                                    {positionOptions.map(
+                                        ([positionId, title]) => (
+                                            <AppSelectItem
+                                                key={positionId}
+                                                value={String(positionId)}
+                                            >
+                                                {title}
+                                            </AppSelectItem>
+                                        ),
+                                    )}
+                                </AppSelect>
+                            </div>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant={attention ? 'default' : 'outline'}
+                                className="h-9 gap-1.5"
+                                onClick={() =>
+                                    list.applyFilters({
+                                        ...listFiltersForApply(),
+                                        attention: attention ? '' : '1',
+                                    })
+                                }
+                                aria-pressed={attention}
+                                title="Joining due/overdue, blockers, or pending conversion"
+                            >
+                                <TriangleAlert className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">
+                                    Needs attention
+                                </span>
+                            </Button>
+                            <Popover
+                                open={filtersOpen}
+                                onOpenChange={setFiltersOpen}
+                            >
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-9 gap-1.5"
+                                    >
+                                        <Filter className="h-3.5 w-3.5" />
+                                        Filters
+                                        {secondaryFilterCount > 0 ? (
+                                            <Badge
+                                                variant="secondary"
+                                                className="h-5 px-1.5"
+                                            >
+                                                {secondaryFilterCount}
+                                            </Badge>
+                                        ) : null}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    align="end"
+                                    className="w-72 space-y-3"
+                                >
+                                    <div className="space-y-1.5">
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                            Interview outcome
+                                        </p>
+                                        <AppSelect
+                                            value={filters.outcome ?? 'all'}
+                                            onValueChange={(value) =>
+                                                list.applyFilters({
+                                                    ...listFiltersForApply(),
+                                                    outcome:
+                                                        value === 'all'
+                                                            ? ''
+                                                            : value,
+                                                })
+                                            }
+                                            placeholder="Interview outcome"
+                                        >
+                                            <AppSelectItem value="all">
+                                                All outcomes
+                                            </AppSelectItem>
+                                            <AppSelectItem value="pending">
+                                                Pending
+                                            </AppSelectItem>
+                                            <AppSelectItem value="selected">
+                                                Selected
+                                            </AppSelectItem>
+                                            <AppSelectItem value="not_selected">
+                                                Not Selected
+                                            </AppSelectItem>
+                                        </AppSelect>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => {
+                                            clearAllFilters();
+                                            setFiltersOpen(false);
+                                        }}
+                                    >
+                                        Clear all filters
+                                    </Button>
+                                </PopoverContent>
+                            </Popover>
+                            <CandidatesViewToggle
+                                value={filters.view}
+                                pinnedValue={pinnedView}
+                                onChange={setView}
+                                onPin={pinView}
+                            />
+                            {isKanban ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-9 gap-1.5"
+                                    onClick={toggleFocusBoard}
+                                    title={
+                                        focusBoard
+                                            ? 'Exit focus board'
+                                            : 'Focus board'
+                                    }
+                                    aria-pressed={focusBoard}
+                                >
+                                    {focusBoard ? (
+                                        <Minimize2 className="h-3.5 w-3.5" />
+                                    ) : (
+                                        <Maximize2 className="h-3.5 w-3.5" />
+                                    )}
+                                    <span className="hidden md:inline">
+                                        {focusBoard ? 'Exit focus' : 'Focus'}
+                                    </span>
+                                </Button>
+                            ) : null}
+                            {can.create ? (
+                                <Button
+                                    size="sm"
+                                    className="h-9"
+                                    onClick={openCreate}
+                                >
+                                    <Plus className="mr-1 h-4 w-4" />
+                                    Add
+                                </Button>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
                         <button
-                            key={stage}
                             type="button"
                             onClick={() =>
                                 list.applyFilters({
                                     ...listFiltersForApply(),
-                                    stage: filters.stage === stage ? '' : stage,
+                                    stage: '',
                                 })
                             }
                             className={cn(
-                                'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-                                filters.stage === stage
-                                    ? 'border-foreground/25 bg-foreground/5 text-foreground ring-1 ring-foreground/10'
-                                    : 'border-border bg-transparent text-muted-foreground hover:border-foreground/30 hover:text-foreground',
+                                'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                !filters.stage
+                                    ? 'border-foreground/20 bg-foreground/5 text-foreground'
+                                    : 'border-border text-muted-foreground hover:text-foreground',
                             )}
                         >
-                            {CANDIDATE_STAGE_LABELS[stage]}
+                            All
                             <span className="text-muted-foreground tabular-nums">
-                                {stage_totals[stage] ?? 0}
+                                {Object.values(stage_totals).reduce(
+                                    (a, b) => a + b,
+                                    0,
+                                )}
                             </span>
                         </button>
-                    ))}
-                </div>
-
-                {activeFilters.length > 0 ? (
-                    <div className="mb-4 flex flex-wrap items-center gap-2">
-                        {activeFilters.map((chip) => (
+                        {CANDIDATE_ACTIVE_PIPELINE_STAGES.map((stage) => (
                             <button
-                                key={chip.key}
+                                key={stage}
                                 type="button"
                                 onClick={() =>
                                     list.applyFilters({
                                         ...listFiltersForApply(),
-                                        ...chip.clear,
+                                        stage:
+                                            filters.stage === stage
+                                                ? ''
+                                                : stage,
                                     })
                                 }
-                                className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-muted"
+                                className={cn(
+                                    'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                    filters.stage === stage
+                                        ? 'border-foreground/25 bg-foreground/5 text-foreground'
+                                        : 'border-border text-muted-foreground hover:text-foreground',
+                                )}
                             >
-                                {chip.label}
-                                <X className="h-3 w-3 text-muted-foreground" />
+                                {CANDIDATE_STAGE_LABELS[stage]}
+                                <span className="text-muted-foreground tabular-nums">
+                                    {stage_totals[stage] ?? 0}
+                                </span>
                             </button>
                         ))}
-                        <Button
+                        <button
                             type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={clearAllFilters}
+                            onClick={() =>
+                                list.applyFilters({
+                                    ...listFiltersForApply(),
+                                    stage:
+                                        filters.stage === 'rejected'
+                                            ? ''
+                                            : 'rejected',
+                                })
+                            }
+                            className={cn(
+                                'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors',
+                                filters.stage === 'rejected'
+                                    ? 'border-rose-500/40 bg-rose-500/10 text-foreground'
+                                    : 'border-border text-muted-foreground hover:text-foreground',
+                            )}
                         >
-                            Clear all
-                        </Button>
+                            Rejected
+                            <span className="text-muted-foreground tabular-nums">
+                                {stage_totals.rejected ?? 0}
+                            </span>
+                        </button>
                     </div>
-                ) : null}
 
-                {filters.view === 'kanban' && accumulatedKanban ? (
-                    <CandidateKanbanBoard
-                        stages={kanbanStages}
-                        accumulatedKanban={accumulatedKanban}
-                        stageTotals={stage_totals}
-                        onLoadMore={loadMoreKanban}
-                    />
-                ) : rows.length === 0 ? (
-                    <EmptyState
-                        title="No candidates yet"
-                        description="Add a candidate to an Open requirement to begin screening."
-                        action={
-                            can.create ? (
-                                <Button onClick={openCreate}>
-                                    Add Candidate
-                                </Button>
-                            ) : undefined
-                        }
-                    />
-                ) : (
+                    {activeFilters.length > 0 ? (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {activeFilters.map((chip) => (
+                                <button
+                                    key={chip.key}
+                                    type="button"
+                                    onClick={() =>
+                                        list.applyFilters({
+                                            ...listFiltersForApply(),
+                                            ...chip.clear,
+                                        })
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-foreground hover:bg-muted"
+                                >
+                                    {chip.label}
+                                    <X className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-[11px]"
+                                onClick={clearAllFilters}
+                            >
+                                Clear all
+                            </Button>
+                        </div>
+                    ) : null}
+                </div>
+
+                {isKanban && accumulatedKanban ? (
+                    <div className="relative flex min-h-0 flex-1 overflow-hidden px-4 pb-3">
+                        <CandidateKanbanBoard
+                            stages={pipelineStages}
+                            rejectedStage={showRejectedLane ? 'rejected' : null}
+                            accumulatedKanban={accumulatedKanban}
+                            stageTotals={stage_totals}
+                            onLoadMore={loadMoreKanban}
+                        />
+                    </div>
+                ) : !isKanban && rows.length === 0 ? (
+                    <div className={cn(isKanban ? 'px-4' : undefined)}>
+                        <EmptyState
+                            title="No candidates yet"
+                            description="Add a candidate to an Open requirement to begin screening."
+                            action={
+                                can.create ? (
+                                    <Button onClick={openCreate}>
+                                        Add Candidate
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    </div>
+                ) : !isKanban ? (
                     <>
                         <OrganizationDataTable minWidth="min-w-[980px]">
                             <TableHeader>
@@ -773,18 +1006,6 @@ export function CandidatesContent({
                                                         }
                                                     />
                                                 ) : null}
-                                                {candidate.stage === 'joined' &&
-                                                candidate.actual_joining_date ? (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="border-emerald-600/30 text-emerald-600 dark:text-emerald-400"
-                                                    >
-                                                        Joined:{' '}
-                                                        {
-                                                            candidate.actual_joining_date
-                                                        }
-                                                    </Badge>
-                                                ) : null}
                                             </div>
                                         </TableCell>
                                         <TableCell
@@ -800,6 +1021,13 @@ export function CandidatesContent({
                         </OrganizationDataTable>
                         <Pagination {...list.paginationProps} />
                     </>
+                ) : (
+                    <div className="px-4 pb-4">
+                        <EmptyState
+                            title="No candidates in this board"
+                            description="Adjust filters or add a candidate to an Open requirement."
+                        />
+                    </div>
                 )}
 
                 <CandidateFormSheet
