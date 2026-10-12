@@ -452,17 +452,12 @@ final class CrewAssignmentConflictEvaluator
 
             $pStart = ($planningAssignment->planned_arrival_date ?? $planningAssignment->planned_join_date)?->toDateString();
             $pEnd = $planningAssignment->planned_leave_date?->toDateString();
-            $effectivePEnd = $pEnd ?? $pStart;
-
-            if ($reqEnd === null) {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = $effectivePEnd;
-                $reqEndLabel = 'open-ended';
-            } else {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = min($reqEnd, $effectivePEnd);
-                $reqEndLabel = $reqEnd;
-            }
+            $reqEndLabel = $reqEnd ?? 'open-ended';
+            $pEndLabel = $pEnd ?? 'open-ended';
+            $overlapStart = max($reqStart, (string) $pStart);
+            $overlapEnd = $reqEnd !== null && $pEnd !== null
+                ? min($reqEnd, $pEnd)
+                : ($reqEnd ?? $pEnd);
 
             $employeeName = $planningAssignment->employee?->name ?? 'Employee';
             $existingVessel = $planningAssignment->vessel?->name ?? 'Unassigned Vessel';
@@ -470,7 +465,9 @@ final class CrewAssignmentConflictEvaluator
 
             return CrewAssignmentConflictResult::blocking(
                 code: 'planned_planned_overlap',
-                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
+                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$pEndLabel}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart}"
+                    .($overlapEnd !== null ? " to {$overlapEnd}" : ' onward')
+                    .'.',
                 existingAssignment: [
                     'id' => $planningAssignment->id,
                     'assignment_no' => null,
@@ -480,7 +477,7 @@ final class CrewAssignmentConflictEvaluator
                     'position_name' => $planningAssignment->position?->title,
                     'status' => 'planned',
                     'start_date' => $pStart,
-                    'end_date' => $effectivePEnd,
+                    'end_date' => $pEnd,
                 ],
                 newAssignment: [
                     'vessel_id' => $context->vesselId,

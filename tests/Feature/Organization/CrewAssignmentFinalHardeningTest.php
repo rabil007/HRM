@@ -15,6 +15,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewOperationsSetting;
+use App\Models\CrewPlanningAssignment;
 use App\Models\CrewScheduledMovement;
 use App\Models\Currency;
 use App\Models\Employee;
@@ -1140,4 +1141,126 @@ test('overlap hardening does not mutate existing payroll or sea service records'
         ->and($priorFresh->status)->toBe(CrewAssignmentStatus::Completed)
         ->and($phaseFresh->actual_start_at?->toIso8601String())->toBe($phaseStart)
         ->and($phaseFresh->actual_end_at?->toIso8601String())->toBe($phaseEnd);
+});
+
+test('crew planning shared boundary day is allowed under calendar-day reservation policy', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Planning Boundary Vessel', $fixtures['company']);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $fixtures['rank']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-10-20',
+    ]);
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $adjacent = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-15', 'Asia/Dubai'),
+    ));
+
+    $overlapping = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-19', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-15', 'Asia/Dubai'),
+    ));
+
+    $sameDay = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+    ));
+
+    expect($adjacent->blocking)->toBeFalse()
+        ->and($overlapping->blocking)->toBeTrue()
+        ->and($overlapping->code)->toBe('planned_planned_overlap')
+        // Same-day plan on the exclusive boundary day reserves that full day only and does not
+        // overlap the prior plan's [01 Oct, 20 Oct) reservation.
+        ->and($sameDay->blocking)->toBeFalse();
+});
+
+test('crew planning open-ended reservation conflicts with later plans and matches detector helpers', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Open Plan Vessel', $fixtures['company']);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $fixtures['rank']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => null,
+    ]);
+
+    $detector = new CrewAssignmentOverlapDetector;
+    $openPlan = CrewPlanningAssignment::query()
+        ->where('company_id', $fixtures['company']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->firstOrFail();
+
+    expect($detector->overlapsPlannedPlanningAssignment('2026-11-01', '2026-11-30', $openPlan))->toBeTrue()
+        ->and($detector->windowsOverlap('2026-10-01', '2026-10-20', '2026-10-20', '2026-11-01'))->toBeFalse()
+        ->and($detector->windowsOverlap('2026-10-10', '2026-10-10', '2026-10-10', '2026-10-10'))->toBeTrue();
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-11-01', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-30', 'Asia/Dubai'),
+    ));
+
+    expect($result->blocking)->toBeTrue()
+        ->and($result->code)->toBe('planned_planned_overlap');
+});
+
+test('plan versus active shared planned-signoff boundary follows calendar-day reservation', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Active Boundary Vessel', $fixtures['company']);
+
+    $active = app(CrewMovementService::class)->startAssignment(
+        $fixtures['company']->id,
+        $fixtures['employee']->id,
+        [
+            'position_id' => $fixtures['rank']->id,
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-09-15',
+            'planned_signoff_at' => '2026-10-20',
+            'stage_started_at' => '2026-09-15 08:00:00',
+        ],
+        $fixtures['user']->id,
+    );
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $adjacent = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-15', 'Asia/Dubai'),
+    ));
+
+    $overlapping = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-19', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-15', 'Asia/Dubai'),
+    ));
+
+    expect($active->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($adjacent->blocking)->toBeFalse()
+        ->and($overlapping->blocking)->toBeTrue()
+        ->and($overlapping->code)->toBe('active_planned_overlap');
 });

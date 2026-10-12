@@ -14,6 +14,11 @@ final class CrewAssignmentOverlapDetector
 {
     /**
      * Determine if a candidate date window overlaps an active assignment.
+     *
+     * Uses operational start (actual occupancy) with planned sign-off as the
+     * forecast end of the active reservation window. Date-only bounds follow the
+     * calendar-day reservation policy so shared transfer/sign-off boundaries match
+     * historical half-open semantics.
      */
     public function overlapsActive(
         string $candidateStart,
@@ -29,11 +34,12 @@ final class CrewAssignmentOverlapDetector
             return true;
         }
 
-        if ($candidateEnd === null) {
-            return $candidateStart <= $activeEnd;
-        }
-
-        return $candidateStart <= $activeEnd && $activeStart <= $candidateEnd;
+        return HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+            $candidateStart,
+            $candidateEnd,
+            $activeStart,
+            $activeEnd,
+        );
     }
 
     /**
@@ -282,6 +288,10 @@ final class CrewAssignmentOverlapDetector
 
     /**
      * Determine if a candidate date window overlaps a planned crew planning assignment.
+     *
+     * Crew Planning date-only windows use the same calendar-day reservation policy as
+     * historical workbook bounds: exclusive end when start < end (shared join/leave
+     * boundary allowed), full local day when start == end, null leave = open-ended.
      */
     public function overlapsPlannedPlanningAssignment(
         string $candidateStart,
@@ -294,13 +304,14 @@ final class CrewAssignmentOverlapDetector
             return false;
         }
 
-        $effectivePEnd = $plan->planned_leave_date?->toDateString() ?? $pStart;
+        $pEnd = $plan->planned_leave_date?->toDateString();
 
-        if ($candidateEnd === null) {
-            return $candidateStart <= $effectivePEnd;
-        }
-
-        return max($candidateStart, $pStart) <= min($candidateEnd, $effectivePEnd);
+        return HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+            $candidateStart,
+            $candidateEnd,
+            $pStart,
+            $pEnd,
+        );
     }
 
     /**
@@ -324,7 +335,7 @@ final class CrewAssignmentOverlapDetector
     }
 
     /**
-     * Determine if two date windows overlap.
+     * Determine if two date-only windows overlap under the calendar-day reservation policy.
      */
     public function windowsOverlap(
         string $startA,
@@ -332,18 +343,11 @@ final class CrewAssignmentOverlapDetector
         string $startB,
         ?string $endB,
     ): bool {
-        if ($endA === null && $endB === null) {
-            return true;
-        }
-
-        if ($endA === null) {
-            return $startA <= $endB;
-        }
-
-        if ($endB === null) {
-            return $startB <= $endA;
-        }
-
-        return max($startA, $startB) <= min($endA, $endB);
+        return HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+            $startA,
+            $endA,
+            $startB,
+            $endB,
+        );
     }
 }

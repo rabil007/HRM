@@ -566,16 +566,23 @@ final class HistoricalCrewImportPreviewService
                     $leftEnd = $left['interval_end'];
                     $rightEnd = $right['interval_end'];
 
-                    if ($leftEnd !== null && (string) $right['interval_start'] >= (string) $leftEnd) {
-                        break;
+                    // Early-exit must use the calendar-day reservation exclusive end, not the raw
+                    // end date string. Same-day rows (start == end) reserve [start, start+1day), so
+                    // right.start == left.end must still be compared.
+                    if ($leftEnd !== null) {
+                        $leftExclusiveEnd = HistoricalAssignmentIntervalOverlap::calendarDayReservationInterval(
+                            (string) $left['interval_start'],
+                            (string) $leftEnd,
+                            'UTC',
+                        )['end'];
+
+                        if ($leftExclusiveEnd !== null
+                            && (string) $right['interval_start'] >= $leftExclusiveEnd->toDateString()) {
+                            break;
+                        }
                     }
 
-                    if (HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
-                        (string) $left['interval_start'],
-                        $leftEnd !== null ? (string) $leftEnd : null,
-                        (string) $right['interval_start'],
-                        $rightEnd !== null ? (string) $rightEnd : null,
-                    )) {
+                    if ($this->workbookRowsOverlap($left, $right)) {
                         $leftEndLabel = $leftEnd ?? 'Current';
                         $rightEndLabel = $rightEnd ?? 'Current';
                         $leftMsg = "Overlaps workbook row {$right['row_number']} ({$right['interval_start']} → {$rightEndLabel}).";
@@ -592,6 +599,55 @@ final class HistoricalCrewImportPreviewService
                 }
             }
         }
+    }
+
+    /**
+     * Prefer actual timestamps when both rows reconstructed successfully with
+     * positive-duration (or open) intervals; otherwise apply the date-only
+     * calendar-day reservation policy (so same-day date-only rows are not treated
+     * as empty midnight→midnight intervals).
+     *
+     * @param  array<string, mixed>  $left
+     * @param  array<string, mixed>  $right
+     */
+    private function workbookRowsOverlap(array $left, array $right): bool
+    {
+        $leftData = $left['data'] ?? null;
+        $rightData = $right['data'] ?? null;
+
+        if ($leftData instanceof HistoricalCrewAssignmentData
+            && $rightData instanceof HistoricalCrewAssignmentData) {
+            try {
+                $leftStart = $leftData->earliestActualStart();
+                $leftEnd = $leftData->intervalEnd();
+                $rightStart = $rightData->earliestActualStart();
+                $rightEnd = $rightData->intervalEnd();
+
+                $leftPositive = $leftEnd === null || $leftEnd->gt($leftStart);
+                $rightPositive = $rightEnd === null || $rightEnd->gt($rightStart);
+
+                if ($leftPositive && $rightPositive) {
+                    return HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+                        $leftStart,
+                        $leftEnd,
+                        $rightStart,
+                        $rightEnd,
+                    );
+                }
+            } catch (\InvalidArgumentException) {
+                // Fall through to date-string comparison when reconstruction bounds are incomplete.
+            }
+        }
+
+        $leftEnd = $left['interval_end'] ?? null;
+        $rightEnd = $right['interval_end'] ?? null;
+
+        return HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+            (string) $left['interval_start'],
+            $leftEnd !== null ? (string) $leftEnd : null,
+            (string) $right['interval_start'],
+            $rightEnd !== null ? (string) $rightEnd : null,
+        );
     }
 
     /**
