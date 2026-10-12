@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { useEffect, useRef } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +13,19 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { RequiredIndicator } from '@/pages/organization/_components/record-form-field';
 import type {
     CandidateFormData,
     CandidateFormOptions,
     CandidateIndexRow,
 } from '../types';
+
+function fieldInvalidClass(hasError: boolean): string {
+    return hasError
+        ? 'border-destructive focus-visible:ring-destructive/30'
+        : '';
+}
 
 export function CandidateFormSheet({
     open,
@@ -49,6 +58,22 @@ export function CandidateFormSheet({
     const lineLocked = lockedLineId != null;
     const formErrors = form.errors as Record<string, string>;
     const generalFormError = formErrors.candidate || formErrors.lock_version;
+    const firstErrorRef = useRef<HTMLDivElement | null>(null);
+    const errorKeys = Object.keys(form.errors);
+    const errorSignature = errorKeys.join('|');
+
+    useEffect(() => {
+        if (errorSignature === '' || !open) {
+            return;
+        }
+
+        firstErrorRef.current?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+        });
+    }, [errorSignature, open]);
+
+    const contactHintId = 'candidate-contact-requirement';
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -68,11 +93,26 @@ export function CandidateFormSheet({
                 </SheetHeader>
 
                 <div className="flex-1 space-y-5 overflow-y-auto p-6">
+                    {errorKeys.length > 0 ? (
+                        <div
+                            ref={firstErrorRef}
+                            className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+                            role="alert"
+                            aria-live="assertive"
+                        >
+                            Fix the highlighted fields before saving.
+                        </div>
+                    ) : null}
+
                     {!isEdit ? (
                         <>
                             <div className="space-y-2">
-                                <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                                <Label
+                                    htmlFor="candidate_requirement"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
                                     Requirement
+                                    <RequiredIndicator show />
                                 </Label>
                                 <AppSelect
                                     value={
@@ -91,6 +131,9 @@ export function CandidateFormSheet({
                                     }}
                                     placeholder="Select requirement"
                                     disabled={requirementLocked}
+                                    invalid={Boolean(
+                                        form.errors.recruitment_requirement_id,
+                                    )}
                                 >
                                     <AppSelectItem value="none">
                                         Select requirement…
@@ -117,6 +160,7 @@ export function CandidateFormSheet({
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
                                     Position
+                                    <RequiredIndicator show />
                                 </Label>
                                 <AppSelect
                                     value={
@@ -134,6 +178,10 @@ export function CandidateFormSheet({
                                     disabled={
                                         lineLocked || !selectedRequirement
                                     }
+                                    invalid={Boolean(
+                                        form.errors
+                                            .recruitment_requirement_line_id,
+                                    )}
                                 >
                                     <AppSelectItem value="none">
                                         Select position…
@@ -160,15 +208,26 @@ export function CandidateFormSheet({
                     ) : null}
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        <Label
+                            htmlFor="candidate_name"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                        >
                             Name
+                            <RequiredIndicator show />
                         </Label>
                         <Input
+                            id="candidate_name"
                             value={form.data.name}
+                            required
+                            aria-required
+                            aria-invalid={Boolean(form.errors.name)}
                             onChange={(event) =>
                                 form.setData('name', event.target.value)
                             }
-                            className="h-11 rounded-xl"
+                            className={cn(
+                                'h-11 rounded-xl',
+                                fieldInvalidClass(Boolean(form.errors.name)),
+                            )}
                         />
                         {form.errors.name ? (
                             <p className="text-xs text-destructive">
@@ -177,43 +236,82 @@ export function CandidateFormSheet({
                         ) : null}
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Email
-                            </Label>
-                            <Input
-                                type="email"
-                                value={form.data.email}
-                                onChange={(event) =>
-                                    form.setData('email', event.target.value)
-                                }
-                                className="h-11 rounded-xl"
-                            />
-                            {form.errors.email ? (
-                                <p className="text-xs text-destructive">
-                                    {form.errors.email}
-                                </p>
-                            ) : null}
+                    <fieldset className="space-y-3 rounded-xl border border-border/60 p-3">
+                        <legend className="px-1 text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                            Contact information
+                        </legend>
+                        <p
+                            id={contactHintId}
+                            className="text-xs text-muted-foreground"
+                        >
+                            Provide at least one: Email or Phone.
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="candidate_email"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Email
+                                </Label>
+                                <Input
+                                    id="candidate_email"
+                                    type="email"
+                                    value={form.data.email}
+                                    aria-describedby={contactHintId}
+                                    aria-invalid={Boolean(form.errors.email)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'email',
+                                            event.target.value,
+                                        )
+                                    }
+                                    className={cn(
+                                        'h-11 rounded-xl',
+                                        fieldInvalidClass(
+                                            Boolean(form.errors.email),
+                                        ),
+                                    )}
+                                />
+                                {form.errors.email ? (
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.email}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="candidate_phone"
+                                    className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                                >
+                                    Phone
+                                </Label>
+                                <Input
+                                    id="candidate_phone"
+                                    value={form.data.phone}
+                                    aria-describedby={contactHintId}
+                                    aria-invalid={Boolean(form.errors.phone)}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'phone',
+                                            event.target.value,
+                                        )
+                                    }
+                                    className={cn(
+                                        'h-11 rounded-xl',
+                                        fieldInvalidClass(
+                                            Boolean(form.errors.phone),
+                                        ),
+                                    )}
+                                />
+                                {form.errors.phone ? (
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.phone}
+                                    </p>
+                                ) : null}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Phone
-                            </Label>
-                            <Input
-                                value={form.data.phone}
-                                onChange={(event) =>
-                                    form.setData('phone', event.target.value)
-                                }
-                                className="h-11 rounded-xl"
-                            />
-                            {form.errors.phone ? (
-                                <p className="text-xs text-destructive">
-                                    {form.errors.phone}
-                                </p>
-                            ) : null}
-                        </div>
-                    </div>
+                    </fieldset>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="space-y-2">
@@ -273,10 +371,14 @@ export function CandidateFormSheet({
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        <Label
+                            htmlFor="candidate_notes"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                        >
                             Notes
                         </Label>
                         <Textarea
+                            id="candidate_notes"
                             value={form.data.notes}
                             onChange={(event) =>
                                 form.setData('notes', event.target.value)
@@ -286,19 +388,30 @@ export function CandidateFormSheet({
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
+                        <Label
+                            htmlFor="candidate_cv"
+                            className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase"
+                        >
                             CV
                         </Label>
                         <Input
+                            id="candidate_cv"
                             type="file"
                             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                            aria-invalid={Boolean(form.errors.cv)}
                             onChange={(event) =>
                                 form.setData(
                                     'cv',
                                     event.target.files?.[0] ?? null,
                                 )
                             }
+                            className={fieldInvalidClass(
+                                Boolean(form.errors.cv),
+                            )}
                         />
+                        <p className="text-xs text-muted-foreground">
+                            Optional. PDF, Word, or image up to 10 MB.
+                        </p>
                         {form.errors.cv ? (
                             <p className="text-xs text-destructive">
                                 {form.errors.cv}
@@ -322,7 +435,7 @@ export function CandidateFormSheet({
                     </div>
 
                     {generalFormError ? (
-                        <p className="text-sm text-destructive">
+                        <p className="text-sm text-destructive" role="alert">
                             {generalFormError}
                         </p>
                     ) : null}
@@ -354,6 +467,7 @@ export function CandidateFormSheet({
                         type="button"
                         variant="outline"
                         onClick={() => onOpenChange(false)}
+                        disabled={form.processing}
                     >
                         Cancel
                     </Button>
@@ -362,7 +476,11 @@ export function CandidateFormSheet({
                         onClick={() => onSubmit(false)}
                         disabled={form.processing}
                     >
-                        {isEdit ? 'Save changes' : 'Add candidate'}
+                        {form.processing
+                            ? 'Saving…'
+                            : isEdit
+                              ? 'Save changes'
+                              : 'Add candidate'}
                     </Button>
                 </SheetFooter>
             </SheetContent>

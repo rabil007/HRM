@@ -24,6 +24,7 @@ class UpdateCandidateInterviewRequest extends FormRequest
             'external_interviewer_name' => ['nullable', 'string', 'max:200'],
             'interview_mode' => ['nullable', 'string', Rule::in(CandidateInterviewMode::values())],
             'interview_location' => ['nullable', 'string', 'max:300'],
+            'interview_notes' => ['nullable', 'string', 'max:10000'],
             'interview_feedback' => ['nullable', 'string', 'max:10000'],
             'lock_version' => ['required', 'integer', 'min:0'],
             'expected_stage' => ['nullable', 'string', 'max:30'],

@@ -15,7 +15,12 @@ use Illuminate\Validation\ValidationException;
 final class SelectCandidate
 {
     /**
-     * @param  array{lock_version?: int|null, expected_stage?: string|null, expected_outcome?: string|null}  $guard
+     * @param  array{
+     *     lock_version?: int|null,
+     *     expected_stage?: string|null,
+     *     expected_outcome?: string|null,
+     *     interview_feedback?: string|null,
+     * }  $guard
      */
     public function handle(User $actor, RecruitmentCandidate $candidate, array $guard = []): RecruitmentCandidate
     {
@@ -46,12 +51,38 @@ final class SelectCandidate
                 ]);
             }
 
+            $previousFeedback = $locked->interview_feedback;
+            $feedbackChanged = false;
+            $nextFeedback = $previousFeedback;
+
+            // Empty optional feedback must never wipe existing notes.
+            if (array_key_exists('interview_feedback', $guard)) {
+                $submitted = trim((string) ($guard['interview_feedback'] ?? ''));
+
+                if ($submitted !== '' && $submitted !== (string) ($previousFeedback ?? '')) {
+                    $nextFeedback = $submitted;
+                    $feedbackChanged = true;
+                }
+            }
+
             $locked->fill([
                 'interview_outcome' => CandidateInterviewOutcome::Selected,
+                'interview_feedback' => $nextFeedback,
                 'updated_by' => $actor->id,
                 'lock_version' => (int) $locked->lock_version + 1,
             ]);
             $locked->save();
+
+            $context = null;
+
+            if ($feedbackChanged) {
+                $context = [
+                    'interview_feedback' => [
+                        'from' => $previousFeedback,
+                        'to' => $nextFeedback,
+                    ],
+                ];
+            }
 
             RecordCandidateStageTransition::handle(
                 $locked,
@@ -61,6 +92,8 @@ final class SelectCandidate
                 null,
                 CandidateInterviewOutcome::Selected,
                 (int) $actor->id,
+                null,
+                $context,
             );
 
             return $locked->refresh();

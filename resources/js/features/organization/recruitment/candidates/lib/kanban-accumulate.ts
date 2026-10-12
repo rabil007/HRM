@@ -3,7 +3,10 @@ import type {
     CandidateKanbanColumn,
     CandidateStage,
 } from '../types.ts';
-import { CANDIDATE_KANBAN_STAGES } from '../types.ts';
+import {
+    CANDIDATE_ACTIVE_PIPELINE_STAGES,
+    CANDIDATE_KANBAN_STAGES,
+} from '../types.ts';
 
 export function candidateKanbanFilterKey(
     filters: Pick<
@@ -15,6 +18,7 @@ export function candidateKanbanFilterKey(
         | 'stage'
         | 'outcome'
         | 'per_page'
+        | 'attention'
     >,
     search: string,
 ): string {
@@ -26,6 +30,7 @@ export function candidateKanbanFilterKey(
         stage: filters.stage,
         outcome: filters.outcome,
         per_page: filters.per_page,
+        attention: Boolean(filters.attention),
     });
 }
 
@@ -104,6 +109,7 @@ export function mergeKanbanBoard(
 
 export function visibleKanbanStages(
     stageFilter: string | null | undefined,
+    options: { includeRejected?: boolean } = {},
 ): CandidateStage[] {
     if (
         stageFilter &&
@@ -112,7 +118,11 @@ export function visibleKanbanStages(
         return [stageFilter as CandidateStage];
     }
 
-    return CANDIDATE_KANBAN_STAGES;
+    if (options.includeRejected) {
+        return CANDIDATE_KANBAN_STAGES;
+    }
+
+    return CANDIDATE_ACTIVE_PIPELINE_STAGES;
 }
 
 /** True when any visible column has accumulated more than the first page. */

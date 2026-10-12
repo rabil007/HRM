@@ -9,6 +9,23 @@ export type CandidateStage =
 
 export type CandidateInterviewOutcome = 'selected' | 'not_selected' | null;
 
+export type CandidateMoveDestinationKind =
+    | 'forward'
+    | 'backward'
+    | 'prepare_offer'
+    | 'confirm_joined'
+    | 'correct_joined'
+    | 'reopen'
+    | 'select_required'
+    | 'blocked';
+
+export type CandidateMoveDestination = {
+    stage: string;
+    kind: CandidateMoveDestinationKind;
+    label: string;
+    blocked_reason: string | null;
+};
+
 export type CandidateOfferStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
 
 export type CandidateJoiningReadinessStatus = 'pending' | 'ready' | null;
@@ -42,19 +59,27 @@ export type CandidateIndexRow = {
     nationality: string | null;
     has_cv: boolean;
     interview_scheduled_at: string | null;
+    interview_feedback?: string | null;
     expected_joining_date: string | null;
     actual_joining_date: string | null;
     joining_readiness_status: CandidateJoiningReadinessStatus;
+    joining_readiness_label?: string | null;
+    joining_readiness_badge?: string | null;
     joining_readiness_notes: string | null;
     joining_blocker_notes: string | null;
     joining_schedule_urgency: CandidateJoiningScheduleUrgency;
+    joining_schedule_days_diff?: number | null;
     joining_schedule_label: string | null;
+    days_in_stage: number;
     lock_version: number;
     created_at: string | null;
     parents_valid: boolean;
     can_update: boolean;
+    can_update_interview: boolean;
     can_move: boolean;
     can_move_forward: boolean;
+    can_correct_stage: boolean;
+    move_destinations: CandidateMoveDestination[];
     can_reject: boolean;
     can_select: boolean;
     can_undo_selected: boolean;
@@ -76,6 +101,41 @@ export type CandidateIndexRow = {
     joined_at: string | null;
 };
 
+export type CandidateInterviewCycleSnapshot = {
+    interview_scheduled_at: string | null;
+    interviewer_user_id: number | null;
+    external_interviewer_name: string | null;
+    interview_mode: string | null;
+    interview_mode_label: string | null;
+    interview_location: string | null;
+    interview_notes: string | null;
+    interview_feedback: string | null;
+    interview_outcome: string | null;
+    interview_outcome_label: string | null;
+};
+
+export type CandidateMovementContext = {
+    interview_cycle_snapshot?: CandidateInterviewCycleSnapshot | null;
+    prior_interview_cycle_snapshot?: CandidateInterviewCycleSnapshot | null;
+    interview_feedback?: {
+        from: string | null;
+        to: string | null;
+    } | null;
+    cleared_selection?: boolean;
+    cleared_interview_outcome?: string | null;
+    notes?: string | null;
+    revision_number?: number | null;
+    offer_id?: number | null;
+    offer_status?: string | null;
+    readiness_status?: string | null;
+    expected_joining_date?: string | null;
+    actual_joining_date?: string | null;
+    employee_id?: number | null;
+    employee_no?: string | null;
+    employee_name?: string | null;
+    employee_url?: string | null;
+};
+
 export type CandidateMovementEvent = {
     id: number;
     action: string;
@@ -89,7 +149,7 @@ export type CandidateMovementEvent = {
     to_outcome: string | null;
     to_outcome_label: string | null;
     reason: string | null;
-    context: Record<string, unknown> | null;
+    context: CandidateMovementContext | null;
     performed_by: number | null;
     performed_by_name: string | null;
     created_at: string | null;
@@ -182,7 +242,10 @@ export type CandidateDetail = CandidateIndexRow & {
         mode: string | null;
         mode_label: string | null;
         location: string | null;
+        notes: string | null;
         feedback: string | null;
+        can_edit: boolean;
+        edit_blocked_reason: string | null;
     };
     requirement: {
         id: number;
@@ -261,6 +324,8 @@ export type CandidateFilters = {
     position_id: number | null;
     stage: string | null;
     outcome: string | null;
+    /** Joining urgency, blockers, or pending conversion — server-side. */
+    attention: boolean;
 };
 
 export type CandidateFormData = {
@@ -349,12 +414,18 @@ export type CandidateRequirementSummary = {
     recent: CandidateIndexRow[];
 };
 
-export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
+/** Primary pipeline columns shown on the board by default. */
+export const CANDIDATE_ACTIVE_PIPELINE_STAGES: CandidateStage[] = [
     'applied',
     'screening',
     'interview',
     'offer_jol',
     'joined',
+];
+
+/** All stages with independent kanban pagination / stage totals (includes Rejected). */
+export const CANDIDATE_KANBAN_STAGES: CandidateStage[] = [
+    ...CANDIDATE_ACTIVE_PIPELINE_STAGES,
     'rejected',
 ];
 

@@ -40,10 +40,12 @@ function row(
         nationality: null,
         has_cv: false,
         interview_scheduled_at: null,
+        interview_feedback: null,
         lock_version: 0,
         created_at: null,
         parents_valid: true,
         can_update: true,
+        can_update_interview: true,
         can_move: true,
         can_move_forward: true,
         can_reject: true,
@@ -158,8 +160,16 @@ describe('kanban accumulate helpers', () => {
             'interview',
             'offer_jol',
             'joined',
+        ]);
+        assert.deepEqual(visibleKanbanStages(null, { includeRejected: true }), [
+            'applied',
+            'screening',
+            'interview',
+            'offer_jol',
+            'joined',
             'rejected',
         ]);
+        assert.deepEqual(visibleKanbanStages('rejected'), ['rejected']);
     });
 
     it('after loading two pages and a candidate action, keeps earlier cards via through refresh', () => {

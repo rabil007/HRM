@@ -23,6 +23,7 @@ final class UpdateCandidateInterview
      *     external_interviewer_name?: string|null,
      *     interview_mode?: string|null,
      *     interview_location?: string|null,
+     *     interview_notes?: string|null,
      *     interview_feedback?: string|null,
      *     lock_version?: int|null,
      *     expected_stage?: string|null,
@@ -30,13 +31,15 @@ final class UpdateCandidateInterview
      */
     public function handle(User $actor, RecruitmentCandidate $candidate, array $data): RecruitmentCandidate
     {
-        CandidateWorkflowAuthorization::assertCanUpdate($actor, $candidate);
+        $candidate->loadMissing('currentOffer', 'requirement');
+        CandidateWorkflowAuthorization::assertCanEditInterviewDetails($actor, $candidate);
 
         return DB::transaction(function () use ($actor, $candidate, $data): RecruitmentCandidate {
             $graph = CandidateWorkflowAuthorization::lockCandidateGraph($candidate);
             $locked = $graph['candidate'];
+            $locked->loadMissing('currentOffer', 'requirement');
 
-            CandidateWorkflowAuthorization::assertCanUpdate($actor, $locked);
+            CandidateWorkflowAuthorization::assertCanEditInterviewDetails($actor, $locked);
             CandidateWorkflowAuthorization::assertOpenParentsForWorkflow($locked, (int) $locked->company_id);
             CandidateWorkflowAuthorization::assertExpectedLock(
                 $locked,
@@ -90,6 +93,10 @@ final class UpdateCandidateInterview
                 ? (trim((string) ($data['interview_location'] ?? '')) ?: null)
                 : $locked->interview_location;
 
+            $notes = array_key_exists('interview_notes', $data)
+                ? (trim((string) ($data['interview_notes'] ?? '')) ?: null)
+                : $locked->interview_notes;
+
             $feedback = array_key_exists('interview_feedback', $data)
                 ? (trim((string) ($data['interview_feedback'] ?? '')) ?: null)
                 : $locked->interview_feedback;
@@ -112,6 +119,7 @@ final class UpdateCandidateInterview
                 'external_interviewer_name' => [$locked->external_interviewer_name, $externalName],
                 'interview_mode' => [$locked->interview_mode?->value, $mode?->value],
                 'interview_location' => [$locked->interview_location, $location],
+                'interview_notes' => [$locked->interview_notes, $notes],
                 'interview_feedback' => [$locked->interview_feedback, $feedback],
             ];
 
@@ -131,6 +139,7 @@ final class UpdateCandidateInterview
                 'external_interviewer_name' => $externalName,
                 'interview_mode' => $mode,
                 'interview_location' => $location,
+                'interview_notes' => $notes,
                 'interview_feedback' => $feedback,
                 'updated_by' => $actor->id,
                 'lock_version' => (int) $locked->lock_version + 1,

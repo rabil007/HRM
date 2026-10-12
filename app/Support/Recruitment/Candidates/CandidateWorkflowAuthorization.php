@@ -57,6 +57,29 @@ final class CandidateWorkflowAuthorization
             && self::hasOwnershipOrManage($user, $candidate->requirement);
     }
 
+    public static function canCorrectStage(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return self::canMove($user, $candidate)
+            && self::hasValidParentsForActions($candidate)
+            && in_array($candidate->stage, [CandidateStage::Screening, CandidateStage::Interview], true)
+            && $candidate->currentOffer === null;
+    }
+
+    public static function assertCanCorrectStage(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! self::canMove($user, $candidate)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to correct this candidate stage.',
+            ]);
+        }
+
+        if (! self::hasValidParentsForActions($candidate)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'The linked requirement or position line is not open for workflow actions.',
+            ]);
+        }
+    }
+
     public static function canReopenRejected(User $user, RecruitmentCandidate $candidate): bool
     {
         return $user->can('recruitment.candidates.move')
@@ -242,6 +265,67 @@ final class CandidateWorkflowAuthorization
                 'candidate' => 'Only the assigned recruiter (or a user with management override) can update this candidate.',
             ]);
         }
+    }
+
+    /**
+     * Routine interview scheduling/details edits are only allowed while Interview is still pending.
+     */
+    public static function assertCanEditInterviewDetails(User $user, RecruitmentCandidate $candidate): void
+    {
+        self::assertCanUpdate($user, $candidate);
+
+        if (! self::canEditInterviewDetails($candidate)) {
+            throw ValidationException::withMessages([
+                'interview' => self::interviewEditBlockedReason($candidate)
+                    ?? 'Interview details cannot be edited in the current state.',
+            ]);
+        }
+    }
+
+    public static function canEditInterviewDetails(RecruitmentCandidate $candidate): bool
+    {
+        if ($candidate->stage !== CandidateStage::Interview) {
+            return false;
+        }
+
+        if ($candidate->interview_outcome !== null) {
+            return false;
+        }
+
+        if ($candidate->currentOffer !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function interviewEditBlockedReason(RecruitmentCandidate $candidate): ?string
+    {
+        if ($candidate->stage === CandidateStage::Rejected) {
+            return 'Interview details cannot be edited after rejection. Reopen the candidate first if a correction is required.';
+        }
+
+        if ($candidate->stage === CandidateStage::Joined || $candidate->stage === CandidateStage::OfferJol) {
+            return 'Interview details are locked after Offer/JOL preparation or joining. Use the authorized correction workflows instead.';
+        }
+
+        if ($candidate->stage !== CandidateStage::Interview) {
+            return 'Interview details can only be edited while the candidate is in Interview.';
+        }
+
+        if ($candidate->currentOffer !== null) {
+            return 'Interview details are locked after Offer/JOL preparation. Use Undo Selected is no longer available; revise the offer workflow instead.';
+        }
+
+        if ($candidate->interview_outcome === CandidateInterviewOutcome::Selected) {
+            return 'Interview details are locked after selection. Use Undo Selected, then update the interview, then select again if still appropriate.';
+        }
+
+        if ($candidate->interview_outcome !== null) {
+            return 'Interview details are locked after an interview outcome is recorded.';
+        }
+
+        return null;
     }
 
     public static function assertCanMove(User $user, RecruitmentCandidate $candidate): void

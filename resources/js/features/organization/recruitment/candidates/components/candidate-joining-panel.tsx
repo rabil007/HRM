@@ -8,8 +8,7 @@ import {
     User,
     Link2,
 } from 'lucide-react';
-import { useState } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { useEffect, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,7 @@ import {
     joiningUnrenderedErrors,
 } from '../lib/joining-form-errors';
 import type { CandidateDetail } from '../types';
+import { CandidateReadinessFields } from './candidate-readiness-fields';
 import { CandidateJoiningScheduleBadge } from './candidate-stage-badge';
 
 export function CandidateJoiningPanel({
@@ -48,7 +48,6 @@ export function CandidateJoiningPanel({
     const shouldDisplay =
         isOfferJolAwaitingJoin || isJoined || hasAcceptedOffer;
 
-    const [isReadinessOpen, setIsReadinessOpen] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
     const [isCorrectOpen, setIsCorrectOpen] = useState(false);
     const [isLinkOpen, setIsLinkOpen] = useState(false);
@@ -109,20 +108,60 @@ export function CandidateJoiningPanel({
         lock_version: candidate.lock_version,
     });
 
+    useEffect(() => {
+        readinessForm.setData({
+            expected_joining_date:
+                joining?.expected_joining_date ??
+                candidate.expected_joining_date ??
+                '',
+            joining_readiness_status:
+                joining?.readiness_status ??
+                candidate.joining_readiness_status ??
+                'pending',
+            joining_readiness_notes:
+                joining?.readiness_notes ??
+                candidate.joining_readiness_notes ??
+                '',
+            joining_blocker_notes:
+                joining?.blocker_notes ?? candidate.joining_blocker_notes ?? '',
+            reason: '',
+            lock_version: candidate.lock_version,
+        });
+        readinessForm.clearErrors();
+        // Sync when server props refresh after save.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional candidate snapshot sync
+    }, [
+        candidate.id,
+        candidate.lock_version,
+        joining?.expected_joining_date,
+        joining?.readiness_status,
+        joining?.readiness_notes,
+        joining?.blocker_notes,
+    ]);
+
     if (!shouldDisplay) {
         return null;
     }
 
+    const canEditReadiness =
+        isOfferJolAwaitingJoin && candidate.can_update_readiness;
+
     const handleReadinessSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        readinessForm.transform((data) => ({
+            expected_joining_date: data.expected_joining_date || null,
+            joining_readiness_status: data.joining_readiness_status,
+            joining_readiness_notes: data.joining_readiness_notes || null,
+            joining_blocker_notes: data.joining_blocker_notes || null,
+            reason: data.reason || null,
+            lock_version: candidate.lock_version,
+            expected_stage: candidate.stage,
+        }));
         readinessForm.post(
             `/organization/recruitment/candidates/${candidate.id}/joining-readiness`,
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    setIsReadinessOpen(false);
-                    readinessForm.reset('reason');
-                },
+                onFinish: () => readinessForm.transform((data) => data),
             },
         );
     };
@@ -202,7 +241,7 @@ export function CandidateJoiningPanel({
     const isReady = readinessStatus === 'ready';
 
     return (
-        <Card>
+        <Card id="joining" className="scroll-mt-4">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-2">
                     <CalendarCheck className="size-5 text-muted-foreground" />
@@ -211,40 +250,6 @@ export function CandidateJoiningPanel({
                     </CardTitle>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isOfferJolAwaitingJoin &&
-                        candidate.can_update_readiness && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    readinessForm.clearErrors();
-                                    readinessForm.setData({
-                                        expected_joining_date:
-                                            joining?.expected_joining_date ??
-                                            candidate.expected_joining_date ??
-                                            '',
-                                        joining_readiness_status:
-                                            joining?.readiness_status ??
-                                            candidate.joining_readiness_status ??
-                                            'pending',
-                                        joining_readiness_notes:
-                                            joining?.readiness_notes ??
-                                            candidate.joining_readiness_notes ??
-                                            '',
-                                        joining_blocker_notes:
-                                            joining?.blocker_notes ??
-                                            candidate.joining_blocker_notes ??
-                                            '',
-                                        reason: '',
-                                        lock_version: candidate.lock_version,
-                                    });
-                                    setIsReadinessOpen(true);
-                                }}
-                            >
-                                Update Readiness
-                            </Button>
-                        )}
-
                     {isOfferJolAwaitingJoin && candidate.can_confirm_joined && (
                         <Button
                             variant="default"
@@ -341,122 +346,192 @@ export function CandidateJoiningPanel({
             </CardHeader>
 
             <CardContent className="space-y-4 pt-1">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">
-                            Readiness Status
-                        </span>
-                        <div>
-                            {isJoined ? (
-                                <Badge
-                                    variant="default"
-                                    className="bg-emerald-600 text-white"
-                                >
-                                    Joined Confirmed
-                                </Badge>
-                            ) : (
-                                <Badge
-                                    variant={isReady ? 'default' : 'secondary'}
-                                    className={
-                                        isReady
-                                            ? 'bg-emerald-600 text-white hover:bg-emerald-600'
-                                            : 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-200'
-                                    }
-                                >
-                                    {isReady ? 'Ready' : 'Pending'}
-                                </Badge>
-                            )}
-                        </div>
-                    </div>
+                {canEditReadiness ? (
+                    <form
+                        onSubmit={handleReadinessSubmit}
+                        className="space-y-4"
+                    >
+                        {readinessGeneralError ? (
+                            <p
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                                role="alert"
+                            >
+                                {readinessGeneralError}
+                            </p>
+                        ) : null}
+                        {readinessUnrenderedErrors.map((msg) => (
+                            <p
+                                key={msg}
+                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
+                                role="alert"
+                            >
+                                {msg}
+                            </p>
+                        ))}
+                        {readinessForm.recentlySuccessful &&
+                        Object.keys(readinessForm.errors).length === 0 ? (
+                            <p
+                                className="text-sm text-muted-foreground"
+                                aria-live="polite"
+                            >
+                                Joining readiness saved.
+                            </p>
+                        ) : null}
 
-                    <div className="space-y-1">
-                        <span className="text-xs font-medium text-muted-foreground">
-                            Expected Joining Date
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                                {joining?.expected_joining_date ??
-                                    candidate.expected_joining_date ??
-                                    '—'}
-                            </span>
-                            {!isJoined && (
-                                <CandidateJoiningScheduleBadge
-                                    urgency={
-                                        joining?.schedule_urgency ??
-                                        candidate.joining_schedule_urgency
-                                    }
-                                    label={
-                                        joining?.schedule_label ??
-                                        candidate.joining_schedule_label
-                                    }
-                                />
-                            )}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <CandidateJoiningScheduleBadge
+                                urgency={
+                                    joining?.schedule_urgency ??
+                                    candidate.joining_schedule_urgency
+                                }
+                                label={
+                                    joining?.schedule_label ??
+                                    candidate.joining_schedule_label
+                                }
+                            />
                         </div>
-                    </div>
 
-                    {isJoined && (
-                        <>
+                        <CandidateReadinessFields
+                            form={readinessForm}
+                            idPrefix={`joining-inline-${candidate.id}`}
+                            twoColumn
+                        />
+
+                        <div className="flex justify-end">
+                            <Button
+                                type="submit"
+                                size="sm"
+                                disabled={readinessForm.processing}
+                            >
+                                {readinessForm.processing
+                                    ? 'Saving…'
+                                    : 'Save Readiness'}
+                            </Button>
+                        </div>
+                    </form>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                             <div className="space-y-1">
                                 <span className="text-xs font-medium text-muted-foreground">
-                                    Actual Joining Date
+                                    Readiness Status
                                 </span>
                                 <div>
-                                    <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                                        {joining?.actual_joining_date ??
-                                            candidate.actual_joining_date ??
-                                            '—'}
-                                    </span>
+                                    {isJoined ? (
+                                        <Badge
+                                            variant="default"
+                                            className="bg-emerald-600 text-white"
+                                        >
+                                            Joined Confirmed
+                                        </Badge>
+                                    ) : (
+                                        <Badge
+                                            variant={
+                                                isReady
+                                                    ? 'default'
+                                                    : 'secondary'
+                                            }
+                                            className={
+                                                isReady
+                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-600'
+                                                    : 'bg-amber-100 text-amber-800 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-200'
+                                            }
+                                        >
+                                            {isReady ? 'Ready' : 'Pending'}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <span className="text-xs font-medium text-muted-foreground">
-                                    Confirmed By
+                                    Expected Joining Date
                                 </span>
-                                <div>
-                                    <span className="text-sm">
-                                        {joining?.joined_by_name ??
-                                            candidate.joined_by_name ??
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">
+                                        {joining?.expected_joining_date ??
+                                            candidate.expected_joining_date ??
                                             '—'}
                                     </span>
+                                    {!isJoined && (
+                                        <CandidateJoiningScheduleBadge
+                                            urgency={
+                                                joining?.schedule_urgency ??
+                                                candidate.joining_schedule_urgency
+                                            }
+                                            label={
+                                                joining?.schedule_label ??
+                                                candidate.joining_schedule_label
+                                            }
+                                        />
+                                    )}
                                 </div>
                             </div>
-                        </>
-                    )}
-                </div>
 
-                {/* Readiness notes or blocker notes */}
-                {(joining?.readiness_notes ||
-                    candidate.joining_readiness_notes ||
-                    joining?.blocker_notes ||
-                    candidate.joining_blocker_notes) && (
-                    <div className="grid grid-cols-1 gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+                            {isJoined && (
+                                <>
+                                    <div className="space-y-1">
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            Actual Joining Date
+                                        </span>
+                                        <div>
+                                            <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                                                {joining?.actual_joining_date ??
+                                                    candidate.actual_joining_date ??
+                                                    '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            Confirmed By
+                                        </span>
+                                        <div>
+                                            <span className="text-sm">
+                                                {joining?.joined_by_name ??
+                                                    candidate.joined_by_name ??
+                                                    '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
                         {(joining?.readiness_notes ||
-                            candidate.joining_readiness_notes) && (
-                            <div>
-                                <span className="text-xs font-medium text-muted-foreground">
-                                    Readiness Notes:
-                                </span>
-                                <p className="mt-0.5 text-xs text-foreground">
-                                    {joining?.readiness_notes ??
-                                        candidate.joining_readiness_notes}
-                                </p>
-                            </div>
-                        )}
-                        {(joining?.blocker_notes ||
+                            candidate.joining_readiness_notes ||
+                            joining?.blocker_notes ||
                             candidate.joining_blocker_notes) && (
-                            <div>
-                                <div className="flex items-center gap-1 text-xs font-medium text-destructive">
-                                    <AlertTriangle className="size-3.5" />
-                                    <span>Blocker Notes:</span>
-                                </div>
-                                <p className="mt-0.5 text-xs text-foreground">
-                                    {joining?.blocker_notes ??
-                                        candidate.joining_blocker_notes}
-                                </p>
+                            <div className="grid grid-cols-1 gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-2">
+                                {(joining?.readiness_notes ||
+                                    candidate.joining_readiness_notes) && (
+                                    <div>
+                                        <span className="text-xs font-medium text-muted-foreground">
+                                            Readiness Notes:
+                                        </span>
+                                        <p className="mt-0.5 text-xs text-foreground">
+                                            {joining?.readiness_notes ??
+                                                candidate.joining_readiness_notes}
+                                        </p>
+                                    </div>
+                                )}
+                                {(joining?.blocker_notes ||
+                                    candidate.joining_blocker_notes) && (
+                                    <div>
+                                        <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+                                            <AlertTriangle className="size-3.5" />
+                                            <span>Blocker Notes:</span>
+                                        </div>
+                                        <p className="mt-0.5 text-xs text-foreground">
+                                            {joining?.blocker_notes ??
+                                                candidate.joining_blocker_notes}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
-                    </div>
+                    </>
                 )}
 
                 {isJoined && (
@@ -510,198 +585,6 @@ export function CandidateJoiningPanel({
                     </div>
                 )}
             </CardContent>
-
-            {/* Dialog: Update Readiness */}
-            <Dialog
-                open={isReadinessOpen}
-                onOpenChange={(open) => {
-                    setIsReadinessOpen(open);
-
-                    if (!open) {
-                        readinessForm.clearErrors();
-                    }
-                }}
-            >
-                <DialogContent className="sm:max-w-lg">
-                    <form
-                        onSubmit={handleReadinessSubmit}
-                        className="space-y-4"
-                    >
-                        <DialogHeader>
-                            <DialogTitle>Update Joining Readiness</DialogTitle>
-                            <DialogDescription>
-                                Set operational readiness status and adjust
-                                expected joining schedule.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        {readinessGeneralError && (
-                            <div className="rounded-md bg-destructive/15 p-2 text-xs text-destructive">
-                                {readinessGeneralError}
-                            </div>
-                        )}
-
-                        {readinessUnrenderedErrors.map((msg, idx) => (
-                            <div
-                                key={idx}
-                                className="rounded-md bg-destructive/15 p-2 text-xs text-destructive"
-                            >
-                                {msg}
-                            </div>
-                        ))}
-
-                        <div className="space-y-3">
-                            <div className="space-y-1">
-                                <Label htmlFor="expected_joining_date">
-                                    Expected Joining Date
-                                </Label>
-                                <Input
-                                    id="expected_joining_date"
-                                    type="date"
-                                    value={
-                                        readinessForm.data.expected_joining_date
-                                    }
-                                    onChange={(e) =>
-                                        readinessForm.setData(
-                                            'expected_joining_date',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={
-                                        readinessForm.errors
-                                            .expected_joining_date
-                                    }
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="joining_readiness_status">
-                                    Readiness Status *
-                                </Label>
-                                <AppSelect
-                                    value={
-                                        readinessForm.data
-                                            .joining_readiness_status
-                                    }
-                                    onValueChange={(val) =>
-                                        readinessForm.setData(
-                                            'joining_readiness_status',
-                                            val as 'pending' | 'ready',
-                                        )
-                                    }
-                                >
-                                    <AppSelectItem value="pending">
-                                        Pending
-                                    </AppSelectItem>
-                                    <AppSelectItem value="ready">
-                                        Ready
-                                    </AppSelectItem>
-                                </AppSelect>
-                                <InputError
-                                    message={
-                                        readinessForm.errors
-                                            .joining_readiness_status
-                                    }
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="joining_readiness_notes">
-                                    Readiness Notes
-                                </Label>
-                                <Textarea
-                                    id="joining_readiness_notes"
-                                    rows={2}
-                                    placeholder="e.g. Visa processed, flight booked, accommodation assigned."
-                                    value={
-                                        readinessForm.data
-                                            .joining_readiness_notes
-                                    }
-                                    onChange={(e) =>
-                                        readinessForm.setData(
-                                            'joining_readiness_notes',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={
-                                        readinessForm.errors
-                                            .joining_readiness_notes
-                                    }
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="joining_blocker_notes">
-                                    Blocker Notes (if any)
-                                </Label>
-                                <Textarea
-                                    id="joining_blocker_notes"
-                                    rows={2}
-                                    placeholder="e.g. Medical clearance pending, missing original passport."
-                                    value={
-                                        readinessForm.data.joining_blocker_notes
-                                    }
-                                    onChange={(e) =>
-                                        readinessForm.setData(
-                                            'joining_blocker_notes',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={
-                                        readinessForm.errors
-                                            .joining_blocker_notes
-                                    }
-                                />
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label htmlFor="readiness_reason">
-                                    Audit Reason for Change
-                                </Label>
-                                <Input
-                                    id="readiness_reason"
-                                    placeholder="Optional reason for audit trail"
-                                    value={readinessForm.data.reason}
-                                    onChange={(e) =>
-                                        readinessForm.setData(
-                                            'reason',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={readinessForm.errors.reason}
-                                />
-                            </div>
-                        </div>
-
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                disabled={readinessForm.processing}
-                                onClick={() => setIsReadinessOpen(false)}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={readinessForm.processing}
-                            >
-                                {readinessForm.processing
-                                    ? 'Saving...'
-                                    : 'Save Readiness'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
 
             {/* Dialog: Confirm Joined */}
             <Dialog

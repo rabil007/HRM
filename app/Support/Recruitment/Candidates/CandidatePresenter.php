@@ -2,13 +2,16 @@
 
 namespace App\Support\Recruitment\Candidates;
 
+use App\Enums\Recruitment\CandidateInterviewMode;
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Recruitment\Candidates\Actions\CorrectCandidateStage;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -39,6 +42,7 @@ final class CandidatePresenter
         $canUpdateReadiness = CandidateWorkflowAuthorization::canUpdateReadiness($user, $candidate);
 
         $scheduleInfo = self::resolveJoiningScheduleInfo($candidate, $timezone);
+        $daysInStage = self::resolveDaysInStage($candidate, $timezone);
 
         return [
             'id' => (int) $candidate->id,
@@ -63,20 +67,26 @@ final class CandidatePresenter
             'nationality' => $candidate->nationality?->name,
             'has_cv' => $candidate->hasCv(),
             'interview_scheduled_at' => self::formatDateTime($candidate->interview_scheduled_at, $timezone),
+            'interview_feedback' => $candidate->interview_feedback,
             'expected_joining_date' => $candidate->expected_joining_date?->toDateString(),
             'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
             'joining_readiness_status' => $candidate->joining_readiness_status?->value,
             'joining_readiness_label' => $candidate->joining_readiness_status?->label(),
             'joining_readiness_badge' => $candidate->joining_readiness_status?->badgeVariant(),
+            'joining_readiness_notes' => $candidate->joining_readiness_notes,
+            'joining_blocker_notes' => $candidate->joining_blocker_notes,
             'joining_schedule_urgency' => $scheduleInfo['urgency'],
             'joining_schedule_days_diff' => $scheduleInfo['days_diff'],
             'joining_schedule_label' => $scheduleInfo['label'],
+            'days_in_stage' => $daysInStage,
             'lock_version' => (int) $candidate->lock_version,
             'created_at' => self::formatDateTime($candidate->created_at, $timezone),
             'parents_valid' => $parentsValid,
             'can_update' => $canUpdate,
+            'can_update_interview' => $canUpdate && CandidateWorkflowAuthorization::canEditInterviewDetails($candidate),
             'can_move' => $canMove,
             'can_move_forward' => $canMove && $candidate->stage->allowsForwardMove() && $candidate->interview_outcome === null,
+            'can_correct_stage' => CandidateWorkflowAuthorization::canCorrectStage($user, $candidate),
             'can_reject' => $canMove && CandidateWorkflowAuthorization::canReject($candidate),
             'can_select' => $canMove && CandidateWorkflowAuthorization::canSelect($candidate),
             'can_undo_selected' => $canMove && CandidateWorkflowAuthorization::canUndoSelected($candidate),
@@ -91,8 +101,156 @@ final class CandidatePresenter
             'can_correct_joined' => $canCorrectJoined,
             'can_convert' => self::canConvert($user, $candidate),
             'conversion_status' => self::resolveConversionStatus($candidate),
+            'move_destinations' => self::resolveMoveDestinations(
+                $candidate,
+                $user,
+                $canMove,
+                $canPrepareOffer,
+                $canConfirmJoined,
+                $canUpdateReadiness,
+                $canCorrectJoined,
+            ),
             'employee_id' => ($user->can('employees.view') && $candidate->employee_id !== null && EmployeeVisibilityScope::canAccessId($user, (int) $candidate->employee_id, (int) $candidate->company_id)) ? $candidate->employee_id : null,
         ];
+    }
+
+    /**
+     * Server-authoritative destinations for drag-and-drop / Move to Stage menus.
+     *
+     * @return list<array{stage: string, kind: string, label: string, blocked_reason: string|null}>
+     */
+    public static function resolveMoveDestinations(
+        RecruitmentCandidate $candidate,
+        User $user,
+        bool $canMove,
+        bool $canPrepareOffer,
+        bool $canConfirmJoined,
+        bool $canUpdateReadiness,
+        bool $canCorrectJoined,
+    ): array {
+        $destinations = [];
+        $parentsValid = CandidateWorkflowAuthorization::hasValidParentsForActions($candidate);
+        $currentOffer = $candidate->relationLoaded('currentOffer')
+            ? $candidate->currentOffer
+            : $candidate->currentOffer()->first();
+
+        if ($canMove && $parentsValid && $candidate->stage->allowsForwardMove() && $candidate->interview_outcome === null) {
+            $next = $candidate->stage->nextStage();
+            if ($next !== null) {
+                $destinations[] = [
+                    'stage' => $next->value,
+                    'kind' => 'forward',
+                    'label' => 'Move to '.$next->label(),
+                    'blocked_reason' => null,
+                ];
+            }
+        }
+
+        if (CandidateWorkflowAuthorization::canCorrectStage($user, $candidate)) {
+            foreach (CorrectCandidateStage::allowedDestinations($candidate->stage) as $stage) {
+                $destinations[] = [
+                    'stage' => $stage->value,
+                    'kind' => 'backward',
+                    'label' => 'Correct to '.$stage->label(),
+                    'blocked_reason' => null,
+                ];
+            }
+        }
+
+        if ($candidate->stage === CandidateStage::Interview) {
+            if ($canPrepareOffer) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'prepare_offer',
+                    'label' => 'Prepare Offer/JOL',
+                    'blocked_reason' => null,
+                ];
+            } elseif ($canMove && $candidate->interview_outcome === null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'select_required',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'Mark the candidate as Selected before preparing an offer.',
+                ];
+            } elseif ($currentOffer !== null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'blocked',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'An offer already exists. Open the candidate to continue the offer workflow.',
+                ];
+            }
+        }
+
+        if ($candidate->stage === CandidateStage::OfferJol) {
+            if ($canConfirmJoined) {
+                $destinations[] = [
+                    'stage' => CandidateStage::Joined->value,
+                    'kind' => 'confirm_joined',
+                    'label' => 'Confirm Joined',
+                    'blocked_reason' => null,
+                ];
+            } else {
+                $reason = 'Complete offer acceptance and joining readiness before confirming joined.';
+                if ($currentOffer === null) {
+                    $reason = 'Prepare and accept an offer before confirming joined.';
+                } elseif ($currentOffer->status === CandidateOfferStatus::Draft) {
+                    $reason = 'Complete and send the draft offer, then record acceptance.';
+                } elseif ($currentOffer->status === CandidateOfferStatus::Sent) {
+                    $reason = 'Record offer acceptance before joining confirmation.';
+                } elseif ($canUpdateReadiness) {
+                    $reason = 'Update joining readiness to Ready before confirming joined.';
+                }
+
+                $destinations[] = [
+                    'stage' => CandidateStage::Joined->value,
+                    'kind' => 'blocked',
+                    'label' => 'Joined',
+                    'blocked_reason' => $reason,
+                ];
+            }
+
+            $destinations[] = [
+                'stage' => CandidateStage::Interview->value,
+                'kind' => 'blocked',
+                'label' => 'Interview',
+                'blocked_reason' => 'Offer/JOL cannot move back to Interview with a free correction. Revise or manage the offer through the dedicated workflow.',
+            ];
+        }
+
+        if ($candidate->stage === CandidateStage::Joined) {
+            if ($canCorrectJoined) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'correct_joined',
+                    'label' => 'Undo Joined',
+                    'blocked_reason' => null,
+                ];
+            } elseif ($candidate->employee_id !== null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'blocked',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'Cannot undo joining after an employee record is linked.',
+                ];
+            }
+        }
+
+        if (
+            $candidate->stage === CandidateStage::Rejected
+            && $canMove
+            && $user->can('recruitment.candidates.manage')
+            && $parentsValid
+        ) {
+            $destinations[] = [
+                'stage' => 'pre_rejection',
+                'kind' => 'reopen',
+                'label' => 'Reopen to previous stage',
+                'blocked_reason' => null,
+            ];
+        }
+
+        return $destinations;
     }
 
     /**
@@ -139,7 +297,10 @@ final class CandidatePresenter
                 'mode' => $candidate->interview_mode?->value,
                 'mode_label' => $candidate->interview_mode?->label(),
                 'location' => $candidate->interview_location,
+                'notes' => $candidate->interview_notes,
                 'feedback' => $candidate->interview_feedback,
+                'can_edit' => (bool) ($row['can_update_interview'] ?? false),
+                'edit_blocked_reason' => CandidateWorkflowAuthorization::interviewEditBlockedReason($candidate),
             ],
             'requirement' => $requirement === null ? null : [
                 'id' => (int) $requirement->id,
@@ -221,6 +382,8 @@ final class CandidatePresenter
             CandidateTransitionAction::EmployeeLinked,
         ], true) || (is_array($context) && (array_key_exists('employee_id', $context) || array_key_exists('employee_no', $context)));
 
+        $canViewEmployee = true;
+
         if ($isEmployeeAction) {
             $employeeId = is_array($context) && ! empty($context['employee_id'])
                 ? (int) $context['employee_id']
@@ -228,14 +391,14 @@ final class CandidatePresenter
 
             $resolvedCompanyId = $companyId ?? (int) ($transition->company_id ?? $transition->candidate?->company_id ?? 0);
 
-            $canView = false;
+            $canViewEmployee = false;
             if ($user !== null && $resolvedCompanyId > 0 && $user->can('employees.view')) {
                 if ($employeeId > 0) {
-                    $canView = EmployeeVisibilityScope::canAccessId($user, $employeeId, $resolvedCompanyId);
+                    $canViewEmployee = EmployeeVisibilityScope::canAccessId($user, $employeeId, $resolvedCompanyId);
                 }
             }
 
-            if (! $canView) {
+            if (! $canViewEmployee) {
                 if ($action === CandidateTransitionAction::EmployeeConverted) {
                     $reason = 'Candidate converted to employee';
                 } elseif ($action === CandidateTransitionAction::EmployeeLinked) {
@@ -279,10 +442,139 @@ final class CandidatePresenter
             'to_outcome' => $transition->to_outcome?->value,
             'to_outcome_label' => $transition->to_outcome?->label(),
             'reason' => $reason,
-            'context' => $context,
+            'context' => self::sanitizeTransitionContext(
+                is_array($context) ? $context : null,
+                $timezone,
+            ),
             'performed_by' => $transition->performed_by,
             'performed_by_name' => $transition->performer?->name,
             'created_at' => self::formatDateTime($transition->created_at, $timezone),
+        ];
+    }
+
+    /**
+     * Expose only approved transition context fields for recruitment movement history.
+     *
+     * Employee identifiers may already be nullified by the caller for unauthorized viewers;
+     * keep those keys (including nulls) so redaction remains explicit rather than omitted.
+     *
+     * @param  array<string, mixed>|null  $context
+     * @return array<string, mixed>|null
+     */
+    private static function sanitizeTransitionContext(?array $context, string $timezone): ?array
+    {
+        if ($context === null || $context === []) {
+            return null;
+        }
+
+        $sanitized = [];
+
+        if (array_key_exists('interview_cycle_snapshot', $context) && is_array($context['interview_cycle_snapshot'])) {
+            $sanitized['interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
+                $context['interview_cycle_snapshot'],
+                $timezone,
+            );
+        }
+
+        if (array_key_exists('prior_interview_cycle_snapshot', $context) && is_array($context['prior_interview_cycle_snapshot'])) {
+            $sanitized['prior_interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
+                $context['prior_interview_cycle_snapshot'],
+                $timezone,
+            );
+        }
+
+        if (array_key_exists('interview_feedback', $context) && is_array($context['interview_feedback'])) {
+            $sanitized['interview_feedback'] = [
+                'from' => isset($context['interview_feedback']['from'])
+                    ? (is_string($context['interview_feedback']['from']) ? $context['interview_feedback']['from'] : null)
+                    : null,
+                'to' => isset($context['interview_feedback']['to'])
+                    ? (is_string($context['interview_feedback']['to']) ? $context['interview_feedback']['to'] : null)
+                    : null,
+            ];
+        }
+
+        foreach ([
+            'cleared_selection',
+            'cleared_interview_outcome',
+            'notes',
+            'reason',
+            'revision_number',
+            'offer_id',
+            'offer_status',
+            'readiness_status',
+            'expected_joining_date',
+            'actual_joining_date',
+            'employee_id',
+            'employee_no',
+            'employee_name',
+            'employee_url',
+        ] as $key) {
+            if (array_key_exists($key, $context)) {
+                $sanitized[$key] = $context[$key];
+            }
+        }
+
+        return $sanitized === [] ? null : $sanitized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, mixed>
+     */
+    private static function presentInterviewCycleSnapshot(array $snapshot, string $timezone): array
+    {
+        $mode = null;
+        $modeLabel = null;
+
+        if (isset($snapshot['interview_mode']) && is_string($snapshot['interview_mode']) && $snapshot['interview_mode'] !== '') {
+            $mode = $snapshot['interview_mode'];
+            $modeEnum = CandidateInterviewMode::tryFrom($mode);
+            $modeLabel = $modeEnum?->label();
+        }
+
+        $outcome = null;
+        $outcomeLabel = null;
+
+        if (isset($snapshot['interview_outcome']) && is_string($snapshot['interview_outcome']) && $snapshot['interview_outcome'] !== '') {
+            $outcome = $snapshot['interview_outcome'];
+            $outcomeEnum = CandidateInterviewOutcome::tryFrom($outcome);
+            $outcomeLabel = $outcomeEnum?->label();
+        }
+
+        $scheduledAt = null;
+        $scheduledRaw = $snapshot['interview_scheduled_at'] ?? null;
+
+        if (is_string($scheduledRaw) && $scheduledRaw !== '') {
+            try {
+                $scheduledAt = self::formatDateTime(Carbon::parse($scheduledRaw, $timezone), $timezone)
+                    ?? self::formatDateTime(Carbon::parse($scheduledRaw), $timezone);
+            } catch (\Throwable) {
+                $scheduledAt = $scheduledRaw;
+            }
+        }
+
+        return [
+            'interview_scheduled_at' => $scheduledAt,
+            'interviewer_user_id' => isset($snapshot['interviewer_user_id'])
+                ? (is_numeric($snapshot['interviewer_user_id']) ? (int) $snapshot['interviewer_user_id'] : null)
+                : null,
+            'external_interviewer_name' => isset($snapshot['external_interviewer_name']) && is_string($snapshot['external_interviewer_name'])
+                ? $snapshot['external_interviewer_name']
+                : null,
+            'interview_mode' => $mode,
+            'interview_mode_label' => $modeLabel,
+            'interview_location' => isset($snapshot['interview_location']) && is_string($snapshot['interview_location'])
+                ? $snapshot['interview_location']
+                : null,
+            'interview_notes' => isset($snapshot['interview_notes']) && is_string($snapshot['interview_notes'])
+                ? $snapshot['interview_notes']
+                : null,
+            'interview_feedback' => isset($snapshot['interview_feedback']) && is_string($snapshot['interview_feedback'])
+                ? $snapshot['interview_feedback']
+                : null,
+            'interview_outcome' => $outcome,
+            'interview_outcome_label' => $outcomeLabel,
         ];
     }
 
@@ -321,6 +613,26 @@ final class CandidatePresenter
             'selected' => $selected,
             'recent' => $recent,
         ];
+    }
+
+    /**
+     * Calendar days since the candidate entered the current stage (latest transition, else created_at).
+     */
+    public static function resolveDaysInStage(RecruitmentCandidate $candidate, string $timezone): int
+    {
+        $raw = $candidate->getAttribute('stage_transitions_max_created_at');
+
+        if ($raw === null) {
+            $enteredAt = $candidate->created_at ?? CarbonImmutable::now($timezone);
+        } else {
+            $enteredAt = CarbonImmutable::parse((string) $raw, config('app.timezone'))
+                ->timezone($timezone);
+        }
+
+        $today = CarbonImmutable::now($timezone)->startOfDay();
+        $enteredDay = $enteredAt->startOfDay();
+
+        return max(0, (int) round($enteredDay->floatDiffInDays($today, false)));
     }
 
     /**
