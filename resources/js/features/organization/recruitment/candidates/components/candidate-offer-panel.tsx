@@ -198,7 +198,7 @@ export function CandidateOfferPanel({
     return (
         <section
             id="offer-jol"
-            className="rounded-xl border border-border/60 p-5 lg:col-span-2"
+            className="scroll-mt-4 rounded-xl border border-border/60 bg-card p-5"
         >
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-semibold tracking-wide uppercase">

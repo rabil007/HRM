@@ -175,7 +175,12 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
   - Compact cards show stage-relevant cues (days waiting, interview date, offer/joining urgency, blockers, conversion) plus primary next actions. Offer/JOL priority is Confirm Joined (when permitted) before Update Readiness, then Review Sent / Complete Draft / Convert to Employee as applicable.
   - Table/Kanban toggle changes the current view only. Pin saves the default to `localStorage` (`recruitment-candidates:view`). Explicit `?view=` overrides the pin; visits without `view` apply the pinned default.
   - **Needs attention** (server filter + card highlight) = joining due/overdue, recorded blockers, or joined-but-not-converted. **Stalled** is a separate client-only age cue (`days_in_stage ≥ 7`) and is not a domain status.
-- Candidate detail: Offer/JOL panel plus joining preparation panel (after acceptance) with readiness, dates, notes, and actions (Update Readiness, Confirm Joined when Ready, Undo Joined, Convert to Employee).
+- Candidate detail (stage-aware recruiter workspace):
+  - Compact header: identity, position, requirement, stage/outcome/offer badges, days in stage, shared next-action controls (`CandidateMovementActions` + `CandidateStageMoveDialog`), Edit profile, and CV access (or a clear missing-CV indicator).
+  - Compact pipeline progress: Applied → Screening → Interview → Offer/JOL → Joined (Rejected called out separately; not an unrestricted stage editor).
+  - Desktop two-column layout: primary current-stage workflow (~2/3) and sticky summary/requirement/document sidebar (~1/3). Mobile stacks naturally.
+  - Stage priority: Applied/Screening guidance → Interview form when Interview → Offer/JOL (+ joining prep after Accepted) → Joined conversion/confirmation → Rejected reason/reopen. Non-current panels remain available collapsed when historical data exists.
+  - Recruitment movement history (timeline) stays separate from general profile audit activity; both remain permission-gated.
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 
 ## Out of scope

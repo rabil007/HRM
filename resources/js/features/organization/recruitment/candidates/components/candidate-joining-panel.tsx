@@ -202,7 +202,7 @@ export function CandidateJoiningPanel({
     const isReady = readinessStatus === 'ready';
 
     return (
-        <Card>
+        <Card id="joining" className="scroll-mt-4">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="flex items-center gap-2">
                     <CalendarCheck className="size-5 text-muted-foreground" />
