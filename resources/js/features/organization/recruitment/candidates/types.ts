@@ -9,6 +9,23 @@ export type CandidateStage =
 
 export type CandidateInterviewOutcome = 'selected' | 'not_selected' | null;
 
+export type CandidateMoveDestinationKind =
+    | 'forward'
+    | 'backward'
+    | 'prepare_offer'
+    | 'confirm_joined'
+    | 'correct_joined'
+    | 'reopen'
+    | 'select_required'
+    | 'blocked';
+
+export type CandidateMoveDestination = {
+    stage: string;
+    kind: CandidateMoveDestinationKind;
+    label: string;
+    blocked_reason: string | null;
+};
+
 export type CandidateOfferStatus = 'draft' | 'sent' | 'accepted' | 'rejected';
 
 export type CandidateJoiningReadinessStatus = 'pending' | 'ready' | null;
@@ -59,6 +76,8 @@ export type CandidateIndexRow = {
     can_update: boolean;
     can_move: boolean;
     can_move_forward: boolean;
+    can_correct_stage: boolean;
+    move_destinations: CandidateMoveDestination[];
     can_reject: boolean;
     can_select: boolean;
     can_undo_selected: boolean;

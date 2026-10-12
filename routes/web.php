@@ -190,6 +190,7 @@ use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\PreviewVoidCrewAssignmentsController;
 use App\Http\Controllers\Organization\Recruitment\CandidateCheckDuplicatesController;
 use App\Http\Controllers\Organization\Recruitment\CandidateController;
+use App\Http\Controllers\Organization\Recruitment\CandidateCorrectStageController;
 use App\Http\Controllers\Organization\Recruitment\CandidateCvDownloadController;
 use App\Http\Controllers\Organization\Recruitment\CandidateJoiningController;
 use App\Http\Controllers\Organization\Recruitment\CandidateMoveController;
@@ -643,6 +644,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/recruitment/candidates/{candidate}/move', CandidateMoveController::class)
         ->middleware('can:recruitment.candidates.move')
         ->name('organization.recruitment.candidates.move');
+    Route::post('organization/recruitment/candidates/{candidate}/correct-stage', CandidateCorrectStageController::class)
+        ->middleware('can:recruitment.candidates.move')
+        ->name('organization.recruitment.candidates.correct-stage');
     Route::post('organization/recruitment/candidates/{candidate}/reject', CandidateRejectController::class)
         ->middleware('can:recruitment.candidates.move')
         ->name('organization.recruitment.candidates.reject');

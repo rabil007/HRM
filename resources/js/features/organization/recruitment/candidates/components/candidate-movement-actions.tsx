@@ -14,6 +14,10 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
@@ -24,7 +28,9 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { CandidateIndexRow } from '../types';
+import { actionableDestinations } from '../lib/candidate-move-destinations';
+import type { CandidateIndexRow, CandidateMoveDestination } from '../types';
+import type { StageMoveIntent } from './candidate-stage-move-dialog';
 
 type ReasonAction = 'reject' | 'reopen' | null;
 
@@ -38,20 +44,28 @@ type PrimaryAction =
           kind: 'link';
           label: string;
           href: string;
+      }
+    | {
+          kind: 'destination';
+          label: string;
+          destination: CandidateMoveDestination;
       };
 
 function resolvePrimaryAction(
     candidate: CandidateIndexRow,
 ): PrimaryAction | null {
     if (candidate.can_move_forward) {
-        return {
-            kind: 'post',
-            label:
-                candidate.stage === 'applied'
-                    ? 'Move to Screening'
-                    : 'Move to Interview',
-            url: `/organization/recruitment/candidates/${candidate.id}/move`,
-        };
+        const forward = (candidate.move_destinations ?? []).find(
+            (destination) => destination.kind === 'forward',
+        );
+
+        if (forward) {
+            return {
+                kind: 'destination',
+                label: forward.label,
+                destination: forward,
+            };
+        }
     }
 
     if (candidate.can_select) {
@@ -70,6 +84,46 @@ function resolvePrimaryAction(
         };
     }
 
+    if (candidate.stage === 'offer_jol') {
+        if (candidate.offer_status === 'draft') {
+            return {
+                kind: 'link',
+                label: 'Complete Draft Offer',
+                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+            };
+        }
+
+        if (candidate.offer_status === 'sent') {
+            return {
+                kind: 'link',
+                label: 'Review Sent Offer',
+                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+            };
+        }
+
+        if (candidate.can_update_readiness) {
+            return {
+                kind: 'link',
+                label: 'Update Readiness',
+                href: `/organization/recruitment/candidates/${candidate.id}#offer-jol`,
+            };
+        }
+
+        if (candidate.can_confirm_joined) {
+            const confirm = (candidate.move_destinations ?? []).find(
+                (destination) => destination.kind === 'confirm_joined',
+            );
+
+            if (confirm) {
+                return {
+                    kind: 'destination',
+                    label: 'Confirm Joined',
+                    destination: confirm,
+                };
+            }
+        }
+    }
+
     if (candidate.can_confirm_joined) {
         return {
             kind: 'link',
@@ -78,20 +132,30 @@ function resolvePrimaryAction(
         };
     }
 
+    if (candidate.can_convert) {
+        return {
+            kind: 'link',
+            label: 'Convert to Employee',
+            href: `/organization/employees/create?candidate_id=${candidate.id}`,
+        };
+    }
+
     return null;
 }
 
 function blockedNextStepHint(candidate: CandidateIndexRow): string | null {
-    if (
-        candidate.can_move_forward ||
-        candidate.can_select ||
-        candidate.can_prepare_offer ||
-        candidate.can_confirm_joined ||
-        candidate.can_reject ||
-        candidate.can_undo_selected ||
-        candidate.can_reopen
-    ) {
+    if (resolvePrimaryAction(candidate)) {
         return null;
+    }
+
+    const blocked = (candidate.move_destinations ?? []).find(
+        (destination) =>
+            destination.kind === 'blocked' ||
+            destination.kind === 'select_required',
+    );
+
+    if (blocked?.blocked_reason) {
+        return blocked.blocked_reason;
     }
 
     if (!candidate.parents_valid) {
@@ -102,27 +166,17 @@ function blockedNextStepHint(candidate: CandidateIndexRow): string | null {
         return 'You need move permission and ownership of this requirement.';
     }
 
-    if (candidate.stage === 'offer_jol') {
-        return 'Complete offer acceptance and joining readiness on the candidate page.';
-    }
-
-    if (candidate.stage === 'joined') {
-        return 'No further stage moves — convert on the candidate page if needed.';
-    }
-
-    if (candidate.stage === 'rejected') {
-        return 'Reopen requires manage permission.';
-    }
-
-    return 'No move actions available for this candidate.';
+    return null;
 }
 
 export function CandidateMovementActions({
     candidate,
     density = 'comfortable',
+    onRequestMove,
 }: {
     candidate: CandidateIndexRow;
     density?: 'comfortable' | 'compact';
+    onRequestMove?: (intent: StageMoveIntent) => void;
 }) {
     const [reasonAction, setReasonAction] = useState<ReasonAction>(null);
     const [reason, setReason] = useState('');
@@ -167,6 +221,11 @@ export function CandidateMovementActions({
     const primary = resolvePrimaryAction(candidate);
     const blockedHint = blockedNextStepHint(candidate);
     const isCompact = density === 'compact';
+    const moveOptions = actionableDestinations(candidate);
+
+    const requestMove = (destination: CandidateMoveDestination) => {
+        onRequestMove?.({ candidate, destination });
+    };
 
     const overflowItems: Array<{
         key: string;
@@ -209,152 +268,184 @@ export function CandidateMovementActions({
         });
     }
 
+    const renderPrimary = () => {
+        if (!primary) {
+            if (blockedHint) {
+                return (
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                className={cn(
+                                    'text-xs text-muted-foreground',
+                                    isCompact && 'flex-1 truncate',
+                                )}
+                            >
+                                Needs follow-up
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                            {blockedHint}
+                        </TooltipContent>
+                    </Tooltip>
+                );
+            }
+
+            return isCompact ? <span className="flex-1" /> : null;
+        }
+
+        if (primary.kind === 'link') {
+            return (
+                <Button
+                    size="sm"
+                    className={cn(isCompact && 'h-8 flex-1 text-xs')}
+                    variant={isCompact ? 'default' : 'outline'}
+                    asChild
+                >
+                    <a href={primary.href}>{primary.label}</a>
+                </Button>
+            );
+        }
+
+        if (primary.kind === 'destination') {
+            return (
+                <Button
+                    size="sm"
+                    className={cn(isCompact && 'h-8 flex-1 text-xs')}
+                    variant={isCompact ? 'default' : 'outline'}
+                    disabled={processing}
+                    onClick={() => requestMove(primary.destination)}
+                >
+                    {primary.label}
+                </Button>
+            );
+        }
+
+        return (
+            <Button
+                size="sm"
+                className={cn(isCompact && 'h-8 flex-1 text-xs')}
+                variant={
+                    primary.label === 'Mark Selected' ? 'default' : 'outline'
+                }
+                disabled={processing}
+                onClick={() => post(primary.url)}
+            >
+                {primary.label}
+            </Button>
+        );
+    };
+
     return (
         <>
-            {isCompact ? (
-                <div className="flex w-full items-center gap-1.5">
-                    {primary ? (
-                        primary.kind === 'link' ? (
-                            <Button
-                                size="sm"
-                                className="h-8 flex-1 text-xs"
-                                asChild
-                            >
-                                <a href={primary.href}>{primary.label}</a>
-                            </Button>
-                        ) : (
-                            <Button
-                                size="sm"
-                                className="h-8 flex-1 text-xs"
-                                disabled={processing}
-                                onClick={() => post(primary.url)}
-                            >
-                                {primary.label}
-                            </Button>
-                        )
-                    ) : blockedHint ? (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="flex-1 truncate text-xs text-muted-foreground">
-                                    Next step blocked
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                                {blockedHint}
-                            </TooltipContent>
-                        </Tooltip>
-                    ) : (
-                        <span className="flex-1" />
-                    )}
+            <div
+                className={cn(
+                    'flex items-center gap-1.5',
+                    isCompact ? 'w-full' : 'flex-wrap',
+                )}
+            >
+                {renderPrimary()}
 
-                    {overflowItems.length > 0 ? (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-8 w-8 shrink-0 px-0"
-                                    disabled={processing}
-                                    aria-label="More actions"
-                                >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                {overflowItems.map((item) => (
-                                    <DropdownMenuItem
-                                        key={item.key}
-                                        variant={
-                                            item.destructive
-                                                ? 'destructive'
-                                                : 'default'
-                                        }
-                                        onSelect={item.onSelect}
-                                    >
-                                        {item.label}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    ) : null}
-                </div>
-            ) : (
-                <div className="flex flex-wrap gap-2">
-                    {primary ? (
-                        primary.kind === 'link' ? (
-                            <Button size="sm" variant="outline" asChild>
-                                <a href={primary.href}>{primary.label}</a>
-                            </Button>
-                        ) : (
+                {!isCompact && candidate.can_undo_selected ? (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={processing}
+                        onClick={() =>
+                            post(
+                                `/organization/recruitment/candidates/${candidate.id}/undo-select`,
+                            )
+                        }
+                    >
+                        Undo Selected
+                    </Button>
+                ) : null}
+
+                {!isCompact && candidate.can_reject ? (
+                    <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={processing}
+                        onClick={() => {
+                            setErrors({});
+                            setReasonAction('reject');
+                        }}
+                    >
+                        Reject
+                    </Button>
+                ) : null}
+
+                {!isCompact && candidate.can_reopen ? (
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={processing}
+                        onClick={() => {
+                            setErrors({});
+                            setReasonAction('reopen');
+                        }}
+                    >
+                        Reopen
+                    </Button>
+                ) : null}
+
+                {(isCompact || moveOptions.length > 0) &&
+                (overflowItems.length > 0 ||
+                    moveOptions.length > 0 ||
+                    isCompact) ? (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                             <Button
+                                type="button"
                                 size="sm"
-                                variant={
-                                    primary.label === 'Mark Selected'
-                                        ? 'default'
-                                        : 'outline'
-                                }
+                                variant="ghost"
+                                className="h-8 w-8 shrink-0 px-0"
                                 disabled={processing}
-                                onClick={() => post(primary.url)}
+                                aria-label="More actions"
                             >
-                                {primary.label}
+                                <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                        )
-                    ) : null}
-                    {candidate.can_undo_selected ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={processing}
-                            onClick={() =>
-                                post(
-                                    `/organization/recruitment/candidates/${candidate.id}/undo-select`,
-                                )
-                            }
-                        >
-                            Undo Selected
-                        </Button>
-                    ) : null}
-                    {candidate.can_reject ? (
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            disabled={processing}
-                            onClick={() => {
-                                setErrors({});
-                                setReasonAction('reject');
-                            }}
-                        >
-                            Reject
-                        </Button>
-                    ) : null}
-                    {candidate.can_reopen ? (
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={processing}
-                            onClick={() => {
-                                setErrors({});
-                                setReasonAction('reopen');
-                            }}
-                        >
-                            Reopen
-                        </Button>
-                    ) : null}
-                    {!primary && blockedHint ? (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="text-xs text-muted-foreground">
-                                    Next step blocked
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                                {blockedHint}
-                            </TooltipContent>
-                        </Tooltip>
-                    ) : null}
-                </div>
-            )}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {moveOptions.length > 0 ? (
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        Move to Stage
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                        {moveOptions.map((destination) => (
+                                            <DropdownMenuItem
+                                                key={`${destination.kind}-${destination.stage}`}
+                                                onSelect={() =>
+                                                    requestMove(destination)
+                                                }
+                                            >
+                                                {destination.label}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            ) : null}
+                            {moveOptions.length > 0 &&
+                            overflowItems.length > 0 ? (
+                                <DropdownMenuSeparator />
+                            ) : null}
+                            {overflowItems.map((item) => (
+                                <DropdownMenuItem
+                                    key={item.key}
+                                    variant={
+                                        item.destructive
+                                            ? 'destructive'
+                                            : 'default'
+                                    }
+                                    onSelect={item.onSelect}
+                                >
+                                    {item.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                ) : null}
+            </div>
 
             {reasonAction === null && generalError ? (
                 <p
@@ -397,17 +488,6 @@ export function CandidateMovementActions({
                         {errors.reason ? (
                             <p className="text-xs text-destructive">
                                 {errors.reason}
-                            </p>
-                        ) : null}
-                        {errors.lock_version ||
-                        errors.candidate ||
-                        errors.stage ||
-                        errors.interview_outcome ? (
-                            <p className="text-xs text-destructive">
-                                {errors.lock_version ||
-                                    errors.candidate ||
-                                    errors.stage ||
-                                    errors.interview_outcome}
                             </p>
                         ) : null}
                     </div>

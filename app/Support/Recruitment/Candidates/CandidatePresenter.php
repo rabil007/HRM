@@ -3,12 +3,14 @@
 namespace App\Support\Recruitment\Candidates;
 
 use App\Enums\Recruitment\CandidateInterviewOutcome;
+use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
 use App\Enums\Recruitment\CandidateTransitionAction;
 use App\Models\RecruitmentCandidate;
 use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Recruitment\Candidates\Actions\CorrectCandidateStage;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -81,6 +83,7 @@ final class CandidatePresenter
             'can_update' => $canUpdate,
             'can_move' => $canMove,
             'can_move_forward' => $canMove && $candidate->stage->allowsForwardMove() && $candidate->interview_outcome === null,
+            'can_correct_stage' => CandidateWorkflowAuthorization::canCorrectStage($user, $candidate),
             'can_reject' => $canMove && CandidateWorkflowAuthorization::canReject($candidate),
             'can_select' => $canMove && CandidateWorkflowAuthorization::canSelect($candidate),
             'can_undo_selected' => $canMove && CandidateWorkflowAuthorization::canUndoSelected($candidate),
@@ -95,8 +98,156 @@ final class CandidatePresenter
             'can_correct_joined' => $canCorrectJoined,
             'can_convert' => self::canConvert($user, $candidate),
             'conversion_status' => self::resolveConversionStatus($candidate),
+            'move_destinations' => self::resolveMoveDestinations(
+                $candidate,
+                $user,
+                $canMove,
+                $canPrepareOffer,
+                $canConfirmJoined,
+                $canUpdateReadiness,
+                $canCorrectJoined,
+            ),
             'employee_id' => ($user->can('employees.view') && $candidate->employee_id !== null && EmployeeVisibilityScope::canAccessId($user, (int) $candidate->employee_id, (int) $candidate->company_id)) ? $candidate->employee_id : null,
         ];
+    }
+
+    /**
+     * Server-authoritative destinations for drag-and-drop / Move to Stage menus.
+     *
+     * @return list<array{stage: string, kind: string, label: string, blocked_reason: string|null}>
+     */
+    public static function resolveMoveDestinations(
+        RecruitmentCandidate $candidate,
+        User $user,
+        bool $canMove,
+        bool $canPrepareOffer,
+        bool $canConfirmJoined,
+        bool $canUpdateReadiness,
+        bool $canCorrectJoined,
+    ): array {
+        $destinations = [];
+        $parentsValid = CandidateWorkflowAuthorization::hasValidParentsForActions($candidate);
+        $currentOffer = $candidate->relationLoaded('currentOffer')
+            ? $candidate->currentOffer
+            : $candidate->currentOffer()->first();
+
+        if ($canMove && $parentsValid && $candidate->stage->allowsForwardMove() && $candidate->interview_outcome === null) {
+            $next = $candidate->stage->nextStage();
+            if ($next !== null) {
+                $destinations[] = [
+                    'stage' => $next->value,
+                    'kind' => 'forward',
+                    'label' => 'Move to '.$next->label(),
+                    'blocked_reason' => null,
+                ];
+            }
+        }
+
+        if (CandidateWorkflowAuthorization::canCorrectStage($user, $candidate)) {
+            foreach (CorrectCandidateStage::allowedDestinations($candidate->stage) as $stage) {
+                $destinations[] = [
+                    'stage' => $stage->value,
+                    'kind' => 'backward',
+                    'label' => 'Correct to '.$stage->label(),
+                    'blocked_reason' => null,
+                ];
+            }
+        }
+
+        if ($candidate->stage === CandidateStage::Interview) {
+            if ($canPrepareOffer) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'prepare_offer',
+                    'label' => 'Prepare Offer/JOL',
+                    'blocked_reason' => null,
+                ];
+            } elseif ($canMove && $candidate->interview_outcome === null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'select_required',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'Mark the candidate as Selected before preparing an offer.',
+                ];
+            } elseif ($currentOffer !== null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'blocked',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'An offer already exists. Open the candidate to continue the offer workflow.',
+                ];
+            }
+        }
+
+        if ($candidate->stage === CandidateStage::OfferJol) {
+            if ($canConfirmJoined) {
+                $destinations[] = [
+                    'stage' => CandidateStage::Joined->value,
+                    'kind' => 'confirm_joined',
+                    'label' => 'Confirm Joined',
+                    'blocked_reason' => null,
+                ];
+            } else {
+                $reason = 'Complete offer acceptance and joining readiness before confirming joined.';
+                if ($currentOffer === null) {
+                    $reason = 'Prepare and accept an offer before confirming joined.';
+                } elseif ($currentOffer->status === CandidateOfferStatus::Draft) {
+                    $reason = 'Complete and send the draft offer, then record acceptance.';
+                } elseif ($currentOffer->status === CandidateOfferStatus::Sent) {
+                    $reason = 'Record offer acceptance before joining confirmation.';
+                } elseif ($canUpdateReadiness) {
+                    $reason = 'Update joining readiness to Ready before confirming joined.';
+                }
+
+                $destinations[] = [
+                    'stage' => CandidateStage::Joined->value,
+                    'kind' => 'blocked',
+                    'label' => 'Joined',
+                    'blocked_reason' => $reason,
+                ];
+            }
+
+            $destinations[] = [
+                'stage' => CandidateStage::Interview->value,
+                'kind' => 'blocked',
+                'label' => 'Interview',
+                'blocked_reason' => 'Offer/JOL cannot move back to Interview with a free correction. Revise or manage the offer through the dedicated workflow.',
+            ];
+        }
+
+        if ($candidate->stage === CandidateStage::Joined) {
+            if ($canCorrectJoined) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'correct_joined',
+                    'label' => 'Undo Joined',
+                    'blocked_reason' => null,
+                ];
+            } elseif ($candidate->employee_id !== null) {
+                $destinations[] = [
+                    'stage' => CandidateStage::OfferJol->value,
+                    'kind' => 'blocked',
+                    'label' => 'Offer/JOL',
+                    'blocked_reason' => 'Cannot undo joining after an employee record is linked.',
+                ];
+            }
+        }
+
+        if (
+            $candidate->stage === CandidateStage::Rejected
+            && $canMove
+            && $user->can('recruitment.candidates.manage')
+            && $parentsValid
+        ) {
+            $destinations[] = [
+                'stage' => 'pre_rejection',
+                'kind' => 'reopen',
+                'label' => 'Reopen to previous stage',
+                'blocked_reason' => null,
+            ];
+        }
+
+        return $destinations;
     }
 
     /**

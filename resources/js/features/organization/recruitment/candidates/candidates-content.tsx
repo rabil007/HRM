@@ -1,12 +1,5 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import {
-    Filter,
-    Maximize2,
-    Minimize2,
-    Plus,
-    TriangleAlert,
-    X,
-} from 'lucide-react';
+import { Filter, Plus, TriangleAlert, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -38,7 +31,6 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { cn } from '@/lib/utils';
-import { RecruitmentBreadcrumbs } from '../components/recruitment-breadcrumbs';
 import { CandidateFormSheet } from './components/candidate-form-sheet';
 import { CandidateKanbanBoard } from './components/candidate-kanban-board';
 import { CandidateMovementActions } from './components/candidate-movement-actions';
@@ -48,6 +40,8 @@ import {
     CandidateOutcomeBadge,
     CandidateStageBadge,
 } from './components/candidate-stage-badge';
+import { CandidateStageMoveDialog } from './components/candidate-stage-move-dialog';
+import type { StageMoveIntent } from './components/candidate-stage-move-dialog';
 import { CandidatesViewToggle } from './components/candidates-view-toggle';
 import { emptyCandidateForm } from './lib/candidate-form';
 import {
@@ -70,28 +64,6 @@ import {
     CANDIDATE_STAGE_LABELS,
 } from './types';
 
-const FOCUS_BOARD_KEY = 'recruitment-candidates:focus-board';
-
-function readFocusBoard(): boolean {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-
-    try {
-        return sessionStorage.getItem(FOCUS_BOARD_KEY) === '1';
-    } catch {
-        return false;
-    }
-}
-
-function writeFocusBoard(next: boolean): void {
-    try {
-        sessionStorage.setItem(FOCUS_BOARD_KEY, next ? '1' : '0');
-    } catch {
-        // ignore
-    }
-}
-
 export function CandidatesContent({
     candidates,
     kanban,
@@ -109,7 +81,7 @@ export function CandidatesContent({
         null,
     );
     const [filtersOpen, setFiltersOpen] = useState(false);
-    const [focusBoard, setFocusBoard] = useState(readFocusBoard);
+    const [moveIntent, setMoveIntent] = useState<StageMoveIntent | null>(null);
     const [pinnedView, pinView] = useCandidatesViewPreference('table');
     const appliedPreferredView = useRef(false);
     const attention = Boolean(filters.attention);
@@ -528,53 +500,27 @@ export function CandidatesContent({
         });
     };
 
-    const toggleFocusBoard = () => {
-        setFocusBoard((previous) => {
-            const next = !previous;
-            writeFocusBoard(next);
-
-            return next;
-        });
-    };
-
     const secondaryFilterCount = [filters.outcome, attention ? '1' : ''].filter(
         Boolean,
     ).length;
 
-    const showChrome = !isKanban || !focusBoard;
-
     return (
         <Main fixed={isKanban} className={cn(isKanban && 'gap-0 p-0')}>
             <TooltipProvider>
-                {showChrome ? (
-                    <div
-                        className={cn(
-                            'shrink-0',
-                            isKanban && 'border-b border-border/50 px-4 pt-4',
-                        )}
-                    >
-                        <RecruitmentBreadcrumbs
-                            items={[
-                                {
-                                    title: 'Candidates',
-                                    href: '/organization/recruitment/candidates',
-                                },
-                            ]}
+                {!isKanban ? (
+                    <div className="shrink-0">
+                        <PageHeader
+                            title="Candidates"
+                            description="Screen and interview applicants linked to open requirements."
+                            right={
+                                can.create ? (
+                                    <Button onClick={openCreate}>
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add Candidate
+                                    </Button>
+                                ) : null
+                            }
                         />
-                        {!isKanban ? (
-                            <PageHeader
-                                title="Candidates"
-                                description="Screen and interview applicants linked to open requirements."
-                                right={
-                                    can.create ? (
-                                        <Button onClick={openCreate}>
-                                            <Plus className="mr-2 h-4 w-4" />
-                                            Add Candidate
-                                        </Button>
-                                    ) : null
-                                }
-                            />
-                        ) : null}
                     </div>
                 ) : null}
 
@@ -744,30 +690,6 @@ export function CandidatesContent({
                                 onChange={setView}
                                 onPin={pinView}
                             />
-                            {isKanban ? (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-9 gap-1.5"
-                                    onClick={toggleFocusBoard}
-                                    title={
-                                        focusBoard
-                                            ? 'Exit focus board'
-                                            : 'Focus board'
-                                    }
-                                    aria-pressed={focusBoard}
-                                >
-                                    {focusBoard ? (
-                                        <Minimize2 className="h-3.5 w-3.5" />
-                                    ) : (
-                                        <Maximize2 className="h-3.5 w-3.5" />
-                                    )}
-                                    <span className="hidden md:inline">
-                                        {focusBoard ? 'Exit focus' : 'Focus'}
-                                    </span>
-                                </Button>
-                            ) : null}
                             {can.create ? (
                                 <Button
                                     size="sm"
@@ -895,6 +817,7 @@ export function CandidatesContent({
                             accumulatedKanban={accumulatedKanban}
                             stageTotals={stage_totals}
                             onLoadMore={loadMoreKanban}
+                            onRequestMove={setMoveIntent}
                         />
                     </div>
                 ) : !isKanban && rows.length === 0 ? (
@@ -1013,6 +936,7 @@ export function CandidatesContent({
                                         >
                                             <CandidateMovementActions
                                                 candidate={candidate}
+                                                onRequestMove={setMoveIntent}
                                             />
                                         </TableCell>
                                     </TableRow>
@@ -1040,6 +964,11 @@ export function CandidatesContent({
                     lockedLineId={filters.requirement_line_id}
                     onSubmit={submitForm}
                     duplicateMessage={duplicateMessage}
+                />
+
+                <CandidateStageMoveDialog
+                    intent={moveIntent}
+                    onClose={() => setMoveIntent(null)}
                 />
             </TooltipProvider>
         </Main>

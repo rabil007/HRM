@@ -21,6 +21,7 @@ enum CandidateTransitionAction: string
     case Joined = 'joined';
     case JoiningReadinessUpdated = 'joining_readiness_updated';
     case JoiningCorrected = 'joining_corrected';
+    case StageCorrected = 'stage_corrected';
     case EmployeeConverted = 'employee_converted';
     case EmployeeLinked = 'employee_linked';
 
@@ -44,6 +45,7 @@ enum CandidateTransitionAction: string
             self::Joined => 'Confirmed joined',
             self::JoiningReadinessUpdated => 'Joining readiness updated',
             self::JoiningCorrected => 'Joining corrected',
+            self::StageCorrected => 'Stage corrected',
             self::EmployeeConverted => 'Converted to employee',
             self::EmployeeLinked => 'Linked to existing employee',
         };

@@ -38,7 +38,7 @@ Registered in `ApplicationPermissionDefinitions` and synced by `PermissionsSeede
 | `recruitment.candidates.view` | Company-wide list, Kanban, show |
 | `recruitment.candidates.create` | Add candidate (plus ownership) |
 | `recruitment.candidates.update` | Profile / interview / CV upload / readiness update (plus ownership) |
-| `recruitment.candidates.move` | Stage moves, select, interview-path reject, undo selected (plus ownership) |
+| `recruitment.candidates.move` | Stage moves, backward stage corrections, select, interview-path reject, undo selected (plus ownership) |
 | `recruitment.candidates.manage` | Ownership override only; also required with `offer.revise` and joining correction/undo |
 | `recruitment.candidates.cv.download` | Private CV download (also requires `view`) |
 | `recruitment.candidates.offer.prepare` | Prepare Draft Offer/JOL from Selected Interview (plus ownership) |
@@ -68,7 +68,10 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
 
 ### Phase 1 (screening / interview)
 
-- Forward only: Applied → Screening → Interview (explicit actions; no drag-and-drop).
+- Forward: Applied → Screening → Interview via authorized `move` (button, Move to Stage menu, or Kanban drag-and-drop). Drag/drop never writes the database; it opens the same movement dialog as the menu, and the board updates only after a successful backend response.
+- Optional interview fields (schedule, mode, interviewer, location, notes) may be submitted with Screening → Interview in a single transactional move.
+- **Backward corrections** (authorized `move`, audited `stage_corrected`): Screening → Applied; Interview → Screening or Applied. Mandatory correction reason (min 3 chars). Interview history/feedback is kept; a Selected outcome is cleared so the earlier stage is actionable again. Blocked when a current Offer/JOL exists — use offer revise / management workflows instead.
+- **Protected transitions**: Offer/JOL → Interview is not a free correction (blocked destination with explanation). Joined → Offer/JOL uses Undo Joined. Rejected → previous stage uses Reopen (recorded `pre_rejection_stage` only).
 - Reject from Applied, Screening, or Interview (reason required). Interview rejection sets `interview_outcome = not_selected`.
 - Select keeps stage = Interview with Selected badge until Offer/JOL is prepared.
 - Undo Selected clears outcome to pending (audited). Blocked after an Offer/JOL exists.
@@ -76,6 +79,7 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
 - Profile updates never change stage, outcome, or requirement links.
 - Interview field changes are audited separately.
 - Optimistic `lock_version` + expected stage/outcome guard concurrent updates.
+- Server-authored `move_destinations` drive valid Kanban drops and Move to Stage options (permissions + ownership + parent openness + stage state).
 
 ### Phase 2 (Offer/JOL) & Timezone Normalization
 
@@ -165,10 +169,11 @@ Joining preparation (expected date, readiness, blockers, reminders, Confirm Join
 - Navigation: Recruitment → Candidates; Reports → Recruitment Report.
 - Index workspace:
   - Table and Kanban views share the same server filters (search, requirement, position, stage, interview outcome, needs-attention).
-  - Kanban is a viewport-fitted board (`Main fixed`): sticky toolbar, independently scrolling columns, sticky column headers. Active pipeline columns are Applied → Screening → Interview → Offer/JOL → Joined. Rejected remains fully accessible via a collapsible secondary lane and the Rejected pipeline chip (no Joining column).
-  - Compact cards show stage-relevant cues (days waiting, interview date, offer/joining urgency, blockers, conversion) plus a primary next action and overflow menu. Moves stay button-based (no drag-and-drop).
+  - Kanban is a viewport-fitted board (`Main fixed`): sticky toolbar, independently scrolling columns, sticky column headers. Active pipeline columns are Applied → Screening → Interview → Offer/JOL → Joined. Rejected remains fully accessible via a collapsible secondary lane and the Rejected pipeline chip (no Joining column). Index has no Recruitment → Candidates breadcrumb row.
+  - Drag-and-drop (`@dnd-kit`) between permitted columns highlights valid/invalid destinations, supports empty columns and keyboard sensors, and opens movement dialogs on drop (cancel/validation keeps the card in its original stage). Card overflow **Move to Stage** mirrors the same destinations.
+  - Compact cards show stage-relevant cues (days waiting, interview date, offer/joining urgency, blockers, conversion) plus primary next actions (Prepare Offer / Complete Draft / Review Sent / Update Readiness / Confirm Joined / Convert to Employee when authorized) and overflow menu.
   - Table/Kanban toggle changes the current view only. Pin saves the default to `localStorage` (`recruitment-candidates:view`). Explicit `?view=` overrides the pin; visits without `view` apply the pinned default.
-  - Optional Focus board hides nonessential chrome in Kanban mode (session-scoped). Needs attention filters joining due/overdue, recorded blockers, and joined-but-not-converted candidates.
+  - **Needs attention** (server filter + card highlight) = joining due/overdue, recorded blockers, or joined-but-not-converted. **Stalled** is a separate client-only age cue (`days_in_stage ≥ 7`) and is not a domain status.
 - Candidate detail: Offer/JOL panel plus joining preparation panel (after acceptance) with readiness, dates, notes, and actions (Update Readiness, Confirm Joined when Ready, Undo Joined, Convert to Employee).
 - Requirement detail: Position lines card shows joined progress per position, target reached banner with Mark Filled suggestion, and links to filtered candidates by line.
 

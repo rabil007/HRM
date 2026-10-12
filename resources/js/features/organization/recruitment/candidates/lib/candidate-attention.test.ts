@@ -44,6 +44,8 @@ function row(overrides: Partial<CandidateIndexRow> = {}): CandidateIndexRow {
         can_update: true,
         can_move: true,
         can_move_forward: true,
+        can_correct_stage: false,
+        move_destinations: [],
         can_reject: true,
         can_select: false,
         can_undo_selected: false,

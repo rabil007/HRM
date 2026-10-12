@@ -57,6 +57,29 @@ final class CandidateWorkflowAuthorization
             && self::hasOwnershipOrManage($user, $candidate->requirement);
     }
 
+    public static function canCorrectStage(User $user, RecruitmentCandidate $candidate): bool
+    {
+        return self::canMove($user, $candidate)
+            && self::hasValidParentsForActions($candidate)
+            && in_array($candidate->stage, [CandidateStage::Screening, CandidateStage::Interview], true)
+            && $candidate->currentOffer === null;
+    }
+
+    public static function assertCanCorrectStage(User $user, RecruitmentCandidate $candidate): void
+    {
+        if (! self::canMove($user, $candidate)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'You do not have permission to correct this candidate stage.',
+            ]);
+        }
+
+        if (! self::hasValidParentsForActions($candidate)) {
+            throw ValidationException::withMessages([
+                'candidate' => 'The linked requirement or position line is not open for workflow actions.',
+            ]);
+        }
+    }
+
     public static function canReopenRejected(User $user, RecruitmentCandidate $candidate): bool
     {
         return $user->can('recruitment.candidates.move')
