@@ -18,6 +18,7 @@ use App\Models\CrewOperationsSetting;
 use App\Models\CrewScheduledMovement;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\EmployeeSeaService;
 use App\Models\Hotel;
 use App\Models\Position;
 use App\Models\User;
@@ -209,14 +210,15 @@ test('adjacent historical occupancy intervals do not false-overlap at the bounda
     $fixtures = makeCrewAssignmentFixtures();
     ['prior' => $prior] = makeHistoricalOccupancyPriorWithEarlierActual($fixtures);
 
-    // New window starts exactly at closed_at day (half-open end) — allowed.
+    // Date-only planning starts the next calendar day after closed_at (18:00 on Oct 25).
+    // Same calendar day would reserve midnight→midnight and correctly overlap the prior afternoon.
     $evaluator = new CrewAssignmentConflictEvaluator;
     $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
         companyId: $fixtures['company']->id,
         employeeId: $fixtures['employee']->id,
         action: 'plan',
-        plannedArrivalAt: CarbonImmutable::parse('2026-10-25', 'Asia/Dubai'),
-        plannedJoinAt: CarbonImmutable::parse('2026-10-25', 'Asia/Dubai'),
+        plannedArrivalAt: CarbonImmutable::parse('2026-10-26', 'Asia/Dubai'),
+        plannedJoinAt: CarbonImmutable::parse('2026-10-26', 'Asia/Dubai'),
         plannedSignoffAt: CarbonImmutable::parse('2026-11-10', 'Asia/Dubai'),
     ));
 
@@ -718,4 +720,424 @@ test('open-ended historical occupancy blocks overlapping candidates', function (
     expect($interval)->not->toBeNull()
         ->and($interval['start']->timezone('Asia/Dubai')->toDateString())->toBe('2026-10-05')
         ->and($interval['end'])->toBeNull();
+});
+
+function makeSameDayCompletedAssignment(
+    array $fixtures,
+    string $assignmentNo,
+    string $startAt,
+    string $endAt,
+    ?object $vessel = null,
+): CrewAssignment {
+    $vessel ??= makeCrewMovementVessel('Same Day Vessel '.$assignmentNo, $fixtures['company']);
+
+    $assignment = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => $assignmentNo,
+        'employee_id' => $fixtures['employee']->id,
+        'position_id' => $fixtures['rank']->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::parse($startAt, 'Asia/Dubai'),
+        'closed_at' => CarbonImmutable::parse($endAt, 'Asia/Dubai'),
+        'source' => 'manual',
+    ]);
+
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $assignment->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => CarbonImmutable::parse($startAt, 'Asia/Dubai'),
+        'actual_end_at' => CarbonImmutable::parse($endAt, 'Asia/Dubai'),
+    ]);
+
+    return $assignment->fresh(['phases']);
+}
+
+test('same-day overlapping assignments are rejected by timestamp occupancy', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    makeSameDayCompletedAssignment($fixtures, 'CA-SAME-DAY-A', '2026-10-10 08:00:00', '2026-10-10 18:00:00');
+
+    $data = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Same Day Overlap B', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 10:00:00',
+            'onsite_to' => '2026-10-10 16:00:00',
+            'home_available_from' => '2026-10-10 16:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+    );
+
+    $result = app(HistoricalCrewAssignmentValidator::class)->validate($data);
+
+    expect($result->valid)->toBeFalse()
+        ->and($result->errors)->toHaveKey('overlap');
+});
+
+test('same-day non-overlapping intervals are allowed', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    makeSameDayCompletedAssignment($fixtures, 'CA-SAME-DAY-OK-A', '2026-10-10 08:00:00', '2026-10-10 12:00:00');
+
+    $data = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Same Day OK B', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 12:00:00',
+            'onsite_to' => '2026-10-10 18:00:00',
+            'home_available_from' => '2026-10-10 18:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+    );
+
+    $result = app(HistoricalCrewAssignmentValidator::class)->validate($data);
+
+    expect($result->valid)->toBeTrue();
+});
+
+test('exact transfer redeployment boundary is allowed at shared instant', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $prior = makeSameDayCompletedAssignment($fixtures, 'CA-XFER-A', '2026-10-10 08:00:00', '2026-10-10 16:30:00');
+
+    $overlap = HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+        CarbonImmutable::parse('2026-10-10 16:30:00', 'Asia/Dubai'),
+        CarbonImmutable::parse('2026-10-10 22:00:00', 'Asia/Dubai'),
+        $prior->phases->first()->actual_start_at,
+        $prior->phases->first()->actual_end_at,
+    );
+
+    expect($overlap)->toBeFalse();
+
+    $data = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Transfer Vessel B', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 16:30:00',
+            'onsite_to' => '2026-10-10 22:00:00',
+            'home_available_from' => '2026-10-10 22:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+    );
+
+    expect(app(HistoricalCrewAssignmentValidator::class)->validate($data)->valid)->toBeTrue();
+});
+
+test('one-minute timestamp overlap is rejected', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    makeSameDayCompletedAssignment($fixtures, 'CA-1MIN-A', '2026-10-10 08:00:00', '2026-10-10 16:30:00');
+
+    $data = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('One Minute Overlap', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 16:29:00',
+            'onsite_to' => '2026-10-10 22:00:00',
+            'home_available_from' => '2026-10-10 22:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+    );
+
+    $result = app(HistoricalCrewAssignmentValidator::class)->validate($data);
+
+    expect($result->valid)->toBeFalse()
+        ->and($result->errors)->toHaveKey('overlap');
+});
+
+test('backdated initial arrival changes occupancy and blocks overlapping plans', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    ['prior' => $prior] = makeHistoricalOccupancyPriorWithEarlierActual($fixtures);
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-06', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-07', 'Asia/Dubai'),
+    ));
+
+    expect($result->blocking)->toBeTrue()
+        ->and($result->code)->toBe('historical_overlap')
+        ->and($prior->started_at->timezone('Asia/Dubai')->toDateString())->toBe('2026-10-08')
+        ->and($result->existingAssignment['start_date'] ?? null)->toBe('2026-10-05');
+});
+
+test('completed assignment with unfinished phase cannot bypass validation', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Unreliable Completed Vessel', $fixtures['company']);
+
+    $prior = CrewAssignment::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'assignment_no' => 'CA-UNREL-001',
+        'employee_id' => $fixtures['employee']->id,
+        'position_id' => $fixtures['rank']->id,
+        'vessel_id' => $vessel->id,
+        'status' => CrewAssignmentStatus::Completed,
+        'started_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'Asia/Dubai'),
+        'closed_at' => null,
+        'source' => 'manual',
+    ]);
+
+    CrewAssignmentPhase::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'crew_assignment_id' => $prior->id,
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'Asia/Dubai'),
+        'actual_end_at' => null,
+    ]);
+
+    $detector = new CrewAssignmentOverlapDetector;
+    expect($detector->hasUnreliableCompletedOccupancy($prior->fresh(['phases'])))->toBeTrue();
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-11-01', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-11-30', 'Asia/Dubai'),
+    ));
+
+    expect($result->blocking)->toBeTrue()
+        ->and($result->code)->toBe('historical_occupancy_unreliable');
+
+    $data = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Unreliable Manual', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-11-01 08:00:00',
+            'onsite_to' => '2026-11-10 18:00:00',
+            'home_available_from' => '2026-11-11 08:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+    );
+
+    $manualResult = app(HistoricalCrewAssignmentValidator::class)->validate($data);
+
+    expect($manualResult->valid)->toBeFalse()
+        ->and($manualResult->errors)->toHaveKey('overlap');
+});
+
+test('open-ended new assignment start checks completed historical occupancy', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    makeHistoricalOccupancyPriorWithEarlierActual($fixtures);
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'start',
+        operationalStartAt: CarbonImmutable::parse('2026-10-08 10:00:00', 'Asia/Dubai'),
+        plannedSignoffAt: null,
+    ));
+
+    expect($result->blocking)->toBeTrue()
+        ->and($result->code)->toBe('historical_overlap');
+});
+
+test('date-only planning same-day reservation follows calendar-day policy', function () {
+    expect(HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+        '2026-10-10',
+        '2026-10-10',
+        '2026-10-10',
+        '2026-10-10',
+    ))->toBeTrue();
+
+    expect(HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+        '2026-10-01',
+        '2026-10-10',
+        '2026-10-10',
+        '2026-10-20',
+    ))->toBeFalse();
+
+    $reservation = HistoricalAssignmentIntervalOverlap::calendarDayReservationInterval(
+        '2026-10-10',
+        '2026-10-10',
+        'Asia/Dubai',
+    );
+
+    expect($reservation['start']->toDateTimeString())->toBe('2026-10-10 00:00:00')
+        ->and($reservation['end']->toDateTimeString())->toBe('2026-10-11 00:00:00');
+
+    $fixtures = makeCrewAssignmentFixtures();
+    makeSameDayCompletedAssignment($fixtures, 'CA-DAY-RES-A', '2026-10-10 08:00:00', '2026-10-10 18:00:00');
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-10', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-10', 'Asia/Dubai'),
+    ));
+
+    expect($result->blocking)->toBeTrue()
+        ->and($result->code)->toBe('historical_overlap');
+});
+
+test('historical manual entry and excel-style date strings share overlap semantics', function () {
+    expect(HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
+        '2026-10-10',
+        '2026-10-10',
+        '2026-10-10',
+        '2026-10-20',
+    ))->toBeTrue();
+
+    $fixtures = makeCrewAssignmentFixtures();
+    makeSameDayCompletedAssignment($fixtures, 'CA-MANUAL-A', '2026-10-10 08:00:00', '2026-10-10 18:00:00');
+
+    $manual = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Manual Entry B', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 10:00:00',
+            'onsite_to' => '2026-10-10 16:00:00',
+            'home_available_from' => '2026-10-10 16:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+        source: HistoricalCrewAssignmentData::SOURCE_MANUAL,
+    );
+
+    $import = HistoricalCrewAssignmentData::fromArray(
+        data: [
+            'employee_id' => $fixtures['employee']->id,
+            'vessel_id' => makeCrewMovementVessel('Import Entry B', $fixtures['company'])->id,
+            'position_id' => $fixtures['rank']->id,
+            'onsite_from' => '2026-10-10 10:00:00',
+            'onsite_to' => '2026-10-10 16:00:00',
+            'home_available_from' => '2026-10-10 16:00:00',
+        ],
+        companyId: $fixtures['company']->id,
+        timezone: 'Asia/Dubai',
+        source: HistoricalCrewAssignmentData::SOURCE_IMPORT,
+    );
+
+    $validator = app(HistoricalCrewAssignmentValidator::class);
+    $manualResult = $validator->validate($manual);
+    $importResult = $validator->validate($import);
+
+    expect($manualResult->valid)->toBeFalse()
+        ->and($manualResult->errors)->toHaveKey('overlap')
+        ->and($importResult->valid)->toBeFalse()
+        ->and($importResult->errors)->toHaveKey('overlap');
+});
+
+test('historical overlap checks remain company-scoped', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    makeHistoricalOccupancyPriorWithEarlierActual($fixtures);
+
+    $other = makeCrewAssignmentFixtures();
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $result = $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $other['company']->id,
+        employeeId: $other['employee']->id,
+        action: 'plan',
+        plannedJoinAt: CarbonImmutable::parse('2026-10-06', 'Asia/Dubai'),
+        plannedSignoffAt: CarbonImmutable::parse('2026-10-07', 'Asia/Dubai'),
+    ));
+
+    expect($result->blocking)->toBeFalse();
+});
+
+test('midnight and company timezone boundaries use local calendar-day reservation', function () {
+    $tz = 'America/New_York';
+    $detector = new CrewAssignmentOverlapDetector;
+
+    $reservation = $detector->calendarDayReservationInterval('2026-10-10', '2026-10-10', $tz);
+    expect($reservation['start']->timezone($tz)->toDateTimeString())->toBe('2026-10-10 00:00:00')
+        ->and($reservation['end']->timezone($tz)->toDateTimeString())->toBe('2026-10-11 00:00:00')
+        // Absolute instants differ from UTC midnight.
+        ->and($reservation['start']->timezone('UTC')->toDateTimeString())->toBe('2026-10-10 04:00:00');
+
+    $start = CarbonImmutable::parse('2026-10-10 00:30:00', $tz);
+    $end = CarbonImmutable::parse('2026-10-10 23:30:00', $tz);
+
+    // Crossing local midnight into the next day must not false-overlap the prior closed_at.
+    expect(HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+        CarbonImmutable::parse('2026-10-11 00:00:00', $tz),
+        CarbonImmutable::parse('2026-10-20 00:00:00', $tz),
+        $start,
+        $end,
+    ))->toBeFalse();
+
+    // Same local morning is still occupied when compared with timezone-aware instants.
+    expect(HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+        $reservation['start'],
+        $reservation['end'],
+        $start,
+        $end,
+    ))->toBeTrue();
+
+    // DST spring-forward boundary: 2026-03-08 02:00 does not exist in America/New_York.
+    $beforeDst = CarbonImmutable::parse('2026-03-08 01:30:00', $tz);
+    $afterDst = CarbonImmutable::parse('2026-03-08 03:30:00', $tz);
+    expect(HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+        $beforeDst,
+        $afterDst,
+        CarbonImmutable::parse('2026-03-08 03:30:00', $tz),
+        CarbonImmutable::parse('2026-03-08 05:00:00', $tz),
+    ))->toBeFalse();
+});
+
+test('overlap hardening does not mutate existing payroll or sea service records', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    ['prior' => $prior] = makeHistoricalOccupancyPriorWithEarlierActual($fixtures);
+
+    $sea = EmployeeSeaService::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'vessel_id' => $prior->vessel_id,
+        'position_id' => $fixtures['rank']->id,
+        'start_date' => '2026-10-05',
+        'end_date' => '2026-10-25',
+        'total_months' => 0,
+        'total_days' => 21,
+    ]);
+
+    $seaId = $sea->id;
+    $seaStart = $sea->start_date?->toDateString();
+    $seaEnd = $sea->end_date?->toDateString();
+    $priorStarted = $prior->started_at?->toIso8601String();
+    $priorClosed = $prior->closed_at?->toIso8601String();
+    $phaseStart = $prior->phases->first()->actual_start_at?->toIso8601String();
+    $phaseEnd = $prior->phases->first()->actual_end_at?->toIso8601String();
+
+    $evaluator = new CrewAssignmentConflictEvaluator;
+    $evaluator->evaluate(new CrewAssignmentConflictContext(
+        companyId: $fixtures['company']->id,
+        employeeId: $fixtures['employee']->id,
+        action: 'start',
+        operationalStartAt: CarbonImmutable::parse('2026-10-08 10:00:00', 'Asia/Dubai'),
+        plannedSignoffAt: null,
+    ));
+
+    $seaFresh = $sea->fresh();
+    $priorFresh = $prior->fresh();
+    $phaseFresh = $prior->phases()->first();
+
+    expect($seaFresh->id)->toBe($seaId)
+        ->and($seaFresh->start_date?->toDateString())->toBe($seaStart)
+        ->and($seaFresh->end_date?->toDateString())->toBe($seaEnd)
+        ->and($priorFresh->started_at?->toIso8601String())->toBe($priorStarted)
+        ->and($priorFresh->closed_at?->toIso8601String())->toBe($priorClosed)
+        ->and($priorFresh->status)->toBe(CrewAssignmentStatus::Completed)
+        ->and($phaseFresh->actual_start_at?->toIso8601String())->toBe($phaseStart)
+        ->and($phaseFresh->actual_end_at?->toIso8601String())->toBe($phaseEnd);
 });

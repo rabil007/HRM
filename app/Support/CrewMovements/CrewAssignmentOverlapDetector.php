@@ -6,6 +6,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewMovements\Historical\HistoricalAssignmentIntervalOverlap;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -97,14 +98,20 @@ final class CrewAssignmentOverlapDetector
     /**
      * Authoritative operational occupancy end (instant).
      *
-     * Active assignments are open-ended (null). Closed assignments use closed_at
-     * when present, otherwise the latest phase actual_end_at. An open phase keeps
-     * the interval open even if the assignment status is no longer Active.
+     * Active assignments are open-ended (null). Non-active assignments prefer
+     * closed_at when present. Without closed_at, an unfinished phase cannot
+     * establish a reliable end (returns null for callers to fail safe).
+     * Otherwise the latest phase actual_end_at is used.
      */
     public function operationalEndInstant(CrewAssignment $assignment): ?CarbonInterface
     {
         if ($assignment->status === CrewAssignmentStatus::Active) {
             return null;
+        }
+
+        // closed_at is authoritative for completed / cancelled occupancy ends.
+        if ($assignment->closed_at instanceof CarbonInterface) {
+            return $assignment->closed_at;
         }
 
         $phases = $this->phasesFor($assignment);
@@ -113,12 +120,9 @@ final class CrewAssignmentOverlapDetector
             if ($phase instanceof CrewAssignmentPhase
                 && $phase->actual_start_at !== null
                 && $phase->actual_end_at === null) {
+                // Incomplete historical record without closed_at — unreliable.
                 return null;
             }
-        }
-
-        if ($assignment->closed_at instanceof CarbonInterface) {
-            return $assignment->closed_at;
         }
 
         $latestEnd = null;
@@ -134,6 +138,31 @@ final class CrewAssignmentOverlapDetector
         }
 
         return $latestEnd ?? $this->operationalStartInstant($assignment);
+    }
+
+    /**
+     * Completed / cancelled occupancy whose end cannot be established reliably
+     * (unfinished phase and no closed_at). Callers must fail safe rather than skip.
+     */
+    public function hasUnreliableCompletedOccupancy(CrewAssignment $assignment): bool
+    {
+        if ($assignment->status === CrewAssignmentStatus::Active) {
+            return false;
+        }
+
+        if ($assignment->closed_at instanceof CarbonInterface) {
+            return false;
+        }
+
+        foreach ($this->phasesFor($assignment) as $phase) {
+            if ($phase instanceof CrewAssignmentPhase
+                && $phase->actual_start_at !== null
+                && $phase->actual_end_at === null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -172,6 +201,51 @@ final class CrewAssignmentOverlapDetector
             'start' => $interval['start']->copy()->timezone($timezone)->toDateString(),
             'end' => $interval['end']?->copy()->timezone($timezone)->toDateString(),
         ];
+    }
+
+    /**
+     * Convert date-only planning / conflict bounds into a half-open instant interval.
+     *
+     * @return array{start: CarbonInterface, end: CarbonInterface|null}
+     */
+    public function calendarDayReservationInterval(
+        string $startDate,
+        ?string $endDate,
+        string $timezone,
+    ): array {
+        return HistoricalAssignmentIntervalOverlap::calendarDayReservationInterval(
+            $startDate,
+            $endDate,
+            $timezone,
+        );
+    }
+
+    /**
+     * Whether a candidate instant interval overlaps this assignment's operational occupancy.
+     *
+     * Returns null when occupancy cannot be established (caller should fail safe).
+     */
+    public function overlapsOperationalOccupancy(
+        CarbonInterface $candidateStart,
+        ?CarbonInterface $candidateEnd,
+        CrewAssignment $assignment,
+    ): ?bool {
+        if ($this->hasUnreliableCompletedOccupancy($assignment)) {
+            return null;
+        }
+
+        $interval = $this->operationalOccupancyInterval($assignment);
+
+        if ($interval === null) {
+            return false;
+        }
+
+        return HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+            $candidateStart,
+            $candidateEnd,
+            $interval['start'],
+            $interval['end'],
+        );
     }
 
     private function earliestActualPhaseStart(CrewAssignment $assignment): ?CarbonInterface

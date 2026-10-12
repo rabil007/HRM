@@ -242,6 +242,17 @@ final class HistoricalCrewAssignmentValidator
                     ->get();
 
             foreach ($existingAssignments as $existing) {
+                if ($this->overlapDetector->hasUnreliableCompletedOccupancy($existing)) {
+                    $noConflict = false;
+                    $conflictingAssignment = $existing;
+                    $conflictMessage = sprintf(
+                        'Completed assignment %s has an unfinished phase without a reliable occupancy end. Resolve it before recording overlapping history.',
+                        $existing->assignment_no,
+                    );
+                    $errors['overlap'] = $conflictMessage;
+                    break;
+                }
+
                 $interval = $this->overlapDetector->operationalOccupancyInterval($existing);
 
                 if ($interval === null) {
