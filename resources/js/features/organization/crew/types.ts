@@ -662,6 +662,21 @@ export type VoidDependentAssignment = {
     linked_crew_assignment_id?: number | null;
 };
 
+export type VoidUnresolvedScheduleImpact = {
+    id: number;
+    movement_action: string;
+    movement_action_label: string;
+    status: string;
+    status_label: string;
+    scheduled_at: string | null;
+};
+
+export type VoidPendingCorrectionImpact = {
+    id: number;
+    status: string;
+    requested_at: string | null;
+};
+
 export type VoidAssignmentImpactItem = {
     id: number;
     assignment_no: string;
@@ -680,8 +695,12 @@ export type VoidAssignmentImpactItem = {
     has_sea_service: boolean;
     has_draft_timesheet: boolean;
     has_accommodation: boolean;
+    has_unresolved_schedules?: boolean;
+    has_pending_corrections?: boolean;
     draft_timesheet: VoidDraftTimesheetImpact | null;
     accommodation: VoidAccommodationImpact | null;
+    unresolved_schedules?: VoidUnresolvedScheduleImpact[];
+    pending_corrections?: VoidPendingCorrectionImpact[];
     dependent_assignments: VoidDependentAssignment[];
 };
 
@@ -693,6 +712,8 @@ export type VoidImpactPreview = {
     total_draft_preparation_lines: number;
     total_draft_timesheet_periods: number;
     total_accommodation_records: number;
+    total_unresolved_schedules?: number;
+    total_pending_corrections?: number;
     can_delete_sea_service: boolean;
     can_delete_training: boolean;
     can_delete_draft_timesheet: boolean;
@@ -701,6 +722,8 @@ export type VoidImpactPreview = {
     has_training: boolean;
     has_draft_timesheet: boolean;
     has_accommodation: boolean;
+    has_unresolved_schedules?: boolean;
+    has_pending_corrections?: boolean;
     has_protected_blockers: boolean;
     blocked_assignment_nos: string[];
     assignments: VoidAssignmentImpactItem[];

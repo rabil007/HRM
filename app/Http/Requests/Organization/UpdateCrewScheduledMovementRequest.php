@@ -76,11 +76,20 @@ class UpdateCrewScheduledMovementRequest extends StoreCrewScheduledMovementReque
             }
         }
 
+        $scheduledAt = $this->input('scheduled_at');
+
+        // Apply auto-linked hotel checkout synchronization before validating the
+        // final payload so quick date-only reschedules (and full edits) keep
+        // check-out chronology aligned with the new scheduled date.
+        if (is_string($scheduledAt) && $scheduledAt !== '') {
+            $merged = CrewScheduledMovementPayload::syncAutoLinkedDates($merged, $scheduledAt);
+        }
+
         $this->merge(array_merge($merged, [
             'action' => $schedule->movement_action->value,
             'mode' => 'schedule_later',
-            'scheduled_at' => $this->input('scheduled_at'),
-            'occurred_at' => $this->input('scheduled_at'),
+            'scheduled_at' => $scheduledAt,
+            'occurred_at' => $scheduledAt,
         ]));
 
         parent::prepareForValidation();
@@ -114,15 +123,17 @@ class UpdateCrewScheduledMovementRequest extends StoreCrewScheduledMovementReque
         $existing = CrewScheduledMovementPayload::onlyAllowedActionFields($existing);
 
         // Prefer normalized validated values over raw nested action_fields input.
-        // prepareForValidation already merged existing + incoming into the request.
+        // prepareForValidation already merged existing + incoming + auto-synced dates.
         $validatedFields = CrewScheduledMovementPayload::onlyAllowedActionFields($validated);
 
-        $actionFields = array_key_exists('action_fields', $this->all())
-            ? array_merge($existing, $validatedFields)
-            : $existing;
+        // Always prefer the validated (post-sync) field values so quick reschedule
+        // and full edit both persist the final normalized payload.
+        $actionFields = array_merge($existing, $validatedFields);
+        $scheduledAt = (string) ($validated['scheduled_at'] ?? '');
+        $actionFields = CrewScheduledMovementPayload::syncAutoLinkedDates($actionFields, $scheduledAt);
 
         return [
-            'scheduled_at' => (string) ($validated['scheduled_at'] ?? ''),
+            'scheduled_at' => $scheduledAt,
             'action_fields' => $actionFields,
             'check_out_date_auto_synced' => $validated['check_out_date_auto_synced'] ?? ($actionFields['check_out_date_auto_synced'] ?? null),
             'source_check_out_date_auto_synced' => $validated['source_check_out_date_auto_synced'] ?? ($actionFields['source_check_out_date_auto_synced'] ?? null),

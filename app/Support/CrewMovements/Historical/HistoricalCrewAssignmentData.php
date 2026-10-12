@@ -123,6 +123,12 @@ final class HistoricalCrewAssignmentData
             return null;
         }
 
+        // Pure calendar dates must use company-local midnight. Do not treat the
+        // "-MM" segment of YYYY-MM-DD as a timezone offset (e.g. "2024-10-10").
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $trimmed) === 1) {
+            return CarbonImmutable::parse($trimmed, $timezone)->startOfDay();
+        }
+
         $hasExplicitTimezone = preg_match('/(Z|[+-]\d{2}(?::?\d{2})?)$/i', $trimmed) === 1;
 
         if ($hasExplicitTimezone) {

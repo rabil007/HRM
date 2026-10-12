@@ -289,11 +289,11 @@ final class CrewAssignmentConflictEvaluator
                     return $planningOverlaps;
                 }
 
-                if ($signoffDate !== null) {
-                    $historical = $this->findHistoricalOverlap($context, $conflictStart, $signoffDate, $timezone, $withLock);
-                    if ($historical !== null) {
-                        return $historical;
-                    }
+                // Historical occupancy must be checked even when planned sign-off is absent
+                // (open-ended start) so backdated starts cannot bypass completed history.
+                $historical = $this->findHistoricalOverlap($context, $conflictStart, $signoffDate, $timezone, $withLock);
+                if ($historical !== null) {
+                    return $historical;
                 }
             }
 
@@ -452,17 +452,12 @@ final class CrewAssignmentConflictEvaluator
 
             $pStart = ($planningAssignment->planned_arrival_date ?? $planningAssignment->planned_join_date)?->toDateString();
             $pEnd = $planningAssignment->planned_leave_date?->toDateString();
-            $effectivePEnd = $pEnd ?? $pStart;
-
-            if ($reqEnd === null) {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = $effectivePEnd;
-                $reqEndLabel = 'open-ended';
-            } else {
-                $overlapStart = max($reqStart, $pStart);
-                $overlapEnd = min($reqEnd, $effectivePEnd);
-                $reqEndLabel = $reqEnd;
-            }
+            $reqEndLabel = $reqEnd ?? 'open-ended';
+            $pEndLabel = $pEnd ?? 'open-ended';
+            $overlapStart = max($reqStart, (string) $pStart);
+            $overlapEnd = $reqEnd !== null && $pEnd !== null
+                ? min($reqEnd, $pEnd)
+                : ($reqEnd ?? $pEnd);
 
             $employeeName = $planningAssignment->employee?->name ?? 'Employee';
             $existingVessel = $planningAssignment->vessel?->name ?? 'Unassigned Vessel';
@@ -470,7 +465,9 @@ final class CrewAssignmentConflictEvaluator
 
             return CrewAssignmentConflictResult::blocking(
                 code: 'planned_planned_overlap',
-                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$effectivePEnd}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart} to {$overlapEnd}.",
+                message: "{$employeeName} is already planned for: {$existingVessel} ({$pStart} - {$pEndLabel}). New assignment: {$newVessel} ({$reqStart} - {$reqEndLabel}). These dates overlap from {$overlapStart}"
+                    .($overlapEnd !== null ? " to {$overlapEnd}" : ' onward')
+                    .'.',
                 existingAssignment: [
                     'id' => $planningAssignment->id,
                     'assignment_no' => null,
@@ -480,7 +477,7 @@ final class CrewAssignmentConflictEvaluator
                     'position_name' => $planningAssignment->position?->title,
                     'status' => 'planned',
                     'start_date' => $pStart,
-                    'end_date' => $effectivePEnd,
+                    'end_date' => $pEnd,
                 ],
                 newAssignment: [
                     'vessel_id' => $context->vesselId,
@@ -503,7 +500,7 @@ final class CrewAssignmentConflictEvaluator
     private function findHistoricalOverlap(
         CrewAssignmentConflictContext $context,
         string $reqStart,
-        string $reqEnd,
+        ?string $reqEnd,
         string $timezone,
         bool $withLock,
     ): ?CrewAssignmentConflictResult {
@@ -511,10 +508,14 @@ final class CrewAssignmentConflictEvaluator
             ->where('company_id', $context->companyId)
             ->where('employee_id', $context->employeeId)
             ->where('status', CrewAssignmentStatus::Completed)
-            ->whereNotNull('started_at')
-            ->whereNotNull('closed_at')
+            ->whereNull('voided_at')
             ->when($context->currentAssignmentId !== null, fn ($q) => $q->whereKeyNot($context->currentAssignmentId))
-            ->with(['vessel:id,name', 'position:id,title', 'employee:id,name']);
+            ->with([
+                'vessel:id,name',
+                'position:id,title',
+                'employee:id,name',
+                'phases:id,crew_assignment_id,actual_start_at,actual_end_at',
+            ]);
 
         if ($withLock) {
             $query->lockForUpdate();
@@ -522,32 +523,79 @@ final class CrewAssignmentConflictEvaluator
 
         $completed = $query->get();
 
-        foreach ($completed as $past) {
-            $hStart = $past->started_at->copy()->timezone($timezone)->toDateString();
-            $hEnd = $past->closed_at->copy()->timezone($timezone)->toDateString();
+        // Prefer actual Start Assignment timestamps when present; otherwise apply the
+        // date-only calendar-day reservation policy (no invented mid-day movement times).
+        if ($context->action === 'start' && $context->operationalStartAt !== null) {
+            $candidateStart = $context->operationalStartAt;
+            $candidateEnd = $reqEnd !== null
+                ? $this->overlapDetector->calendarDayReservationInterval($reqStart, $reqEnd, $timezone)['end']
+                : null;
+        } else {
+            $candidate = $this->overlapDetector->calendarDayReservationInterval($reqStart, $reqEnd, $timezone);
+            $candidateStart = $candidate['start'];
+            $candidateEnd = $candidate['end'];
+        }
 
-            if ($reqStart <= $hEnd && $hStart <= $reqEnd) {
+        $reqEndLabel = $reqEnd ?? 'open-ended';
+
+        foreach ($completed as $past) {
+            $overlap = $this->overlapDetector->overlapsOperationalOccupancy(
+                $candidateStart,
+                $candidateEnd,
+                $past,
+            );
+
+            if ($overlap === null) {
                 $existingVessel = $past->vessel?->name ?? 'historical vessel';
 
                 return CrewAssignmentConflictResult::blocking(
-                    code: 'historical_overlap',
-                    message: "Requested dates ({$reqStart} - {$reqEnd}) overlap completed historical assignment {$past->assignment_no} on {$existingVessel} ({$hStart} - {$hEnd}). Historical operational dates cannot be overwritten.",
+                    code: 'historical_occupancy_unreliable',
+                    message: "Completed historical assignment {$past->assignment_no} on {$existingVessel} has an unfinished phase without a reliable occupancy end. Resolve or correct that assignment before creating an overlapping period.",
                     existingAssignment: [
                         'id' => $past->id,
                         'assignment_no' => $past->assignment_no,
                         'vessel_id' => $past->vessel_id,
                         'vessel_name' => $existingVessel,
                         'status' => $past->status->value,
-                        'start_date' => $hStart,
-                        'end_date' => $hEnd,
+                        'start_date' => $this->overlapDetector->operationalStartDate($past, $timezone),
+                        'end_date' => null,
                     ],
                     affectedDates: [
-                        'start' => max($reqStart, $hStart),
-                        'end' => min($reqEnd, $hEnd),
+                        'start' => $reqStart,
+                        'end' => $reqEnd,
                     ],
                     allowedActions: ['cancel'],
                 );
             }
+
+            if ($overlap !== true) {
+                continue;
+            }
+
+            $window = $this->overlapDetector->operationalOccupancyDateWindow($past, $timezone);
+            $hStart = $window['start'] ?? $reqStart;
+            $hEnd = $window['end'] ?? null;
+            $hEndLabel = $hEnd ?? 'open';
+            $existingVessel = $past->vessel?->name ?? 'historical vessel';
+
+            return CrewAssignmentConflictResult::blocking(
+                code: 'historical_overlap',
+                message: "Requested dates ({$reqStart} - {$reqEndLabel}) overlap completed historical assignment {$past->assignment_no} on {$existingVessel} ({$hStart} - {$hEndLabel}). Historical operational dates cannot be overwritten.",
+                existingAssignment: [
+                    'id' => $past->id,
+                    'assignment_no' => $past->assignment_no,
+                    'vessel_id' => $past->vessel_id,
+                    'vessel_name' => $existingVessel,
+                    'status' => $past->status->value,
+                    'start_date' => $hStart,
+                    'end_date' => $hEnd,
+                ],
+                affectedDates: [
+                    'start' => max($reqStart, $hStart),
+                    'end' => $reqEnd !== null && $hEnd !== null ? min($reqEnd, $hEnd) : ($reqEnd ?? $hEnd),
+                ],
+                allowedActions: ['cancel'],
+            );
         }
 
         return null;

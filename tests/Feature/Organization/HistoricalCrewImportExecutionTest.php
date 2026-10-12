@@ -991,6 +991,663 @@ test('adjacent half-open workbook intervals match manual assignment overlap; sea
         ->assertJsonPath('imported_rows', 2);
 });
 
+test('workbook preview blocks same-day overlapping rows that previously early-exited', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'SD-100']);
+    $vesselA = makeCrewMovementVessel('Same Day Vessel A', $company);
+    $vesselB = makeCrewMovementVessel('Same Day Vessel B', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $response = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'SD-100',
+                    'vessel' => $vesselA->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'SD-100',
+                    'vessel' => $vesselB->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($response->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and($response->json('summary.ready'))->toBe(0);
+
+    $messages = collect($response->json('rows'))->pluck('errors')->flatten()->implode(' ');
+    expect($messages)->toContain('Overlaps workbook row');
+});
+
+test('workbook preview allows adjacent multi-day rows and same-day timestamp handoffs', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'ADJ-200']);
+    $vesselA = makeCrewMovementVessel('Adjacent Multi A', $company);
+    $vesselB = makeCrewMovementVessel('Adjacent Multi B', $company);
+    $vesselC = makeCrewMovementVessel('Adjacent Instant C', $company);
+    $vesselD = makeCrewMovementVessel('Adjacent Instant D', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'ADJ-200',
+                    'vessel' => $vesselA->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-01',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'ADJ-200',
+                    'vessel' => $vesselB->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-20',
+                    'travel_home_date' => '2024-10-20',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'ADJ-200',
+                    'vessel' => $vesselC->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-11-10 08:00:00',
+                    'onsite_to' => '2024-11-10 12:00:00',
+                    'home_available_from' => '2024-11-10 12:00:00',
+                ],
+                [
+                    'employee_no' => 'ADJ-200',
+                    'vessel' => $vesselD->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-11-10 12:00:00',
+                    'onsite_to' => '2024-11-10 18:00:00',
+                    'home_available_from' => '2024-11-10 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+});
+
+test('workbook preview blocks one-minute timestamp overlap and open-ended conflicts safely', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'MIN-300']);
+    $other = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MIN-301',
+        'status' => 'active',
+    ]);
+    $vesselA = makeCrewMovementVessel('One Minute A', $company);
+    $vesselB = makeCrewMovementVessel('One Minute B', $company);
+    $vesselOpen = makeCrewMovementVessel('Open Row Vessel', $company);
+    $vesselLater = makeCrewMovementVessel('Later Row Vessel', $company);
+    $vesselOther = makeCrewMovementVessel('Other Employee Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $oneMinute = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'MIN-300',
+                    'vessel' => $vesselA->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-12-01 08:00:00',
+                    'onsite_to' => '2024-12-01 16:30:00',
+                    'home_available_from' => '2024-12-01 16:30:00',
+                ],
+                [
+                    'employee_no' => 'MIN-300',
+                    'vessel' => $vesselB->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-12-01 16:29:00',
+                    'onsite_to' => '2024-12-01 22:00:00',
+                    'home_available_from' => '2024-12-01 22:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($oneMinute->json('summary.blocked'))->toBeGreaterThanOrEqual(2);
+
+    $openEnded = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'MIN-300',
+                    'vessel' => $vesselOpen->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-12-10 08:00:00',
+                    // Open/current: no home date / disembark — remains on vessel.
+                ],
+                [
+                    'employee_no' => 'MIN-300',
+                    'vessel' => $vesselLater->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-12-20',
+                    'disembark_date' => '2024-12-28',
+                    'travel_home_date' => '2024-12-28',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($openEnded->json('summary.blocked'))->toBeGreaterThanOrEqual(1);
+
+    // Different employees on the same calendar day remain independent.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'MIN-300',
+                    'vessel' => $vesselA->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-12-15',
+                    'disembark_date' => '2024-12-15',
+                    'travel_home_date' => '2024-12-15',
+                ],
+                [
+                    'employee_no' => 'MIN-301',
+                    'vessel' => $vesselOther->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-12-15',
+                    'disembark_date' => '2024-12-15',
+                    'travel_home_date' => '2024-12-15',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    expect($other->employee_no)->toBe('MIN-301');
+});
+
+test('workbook preview rejects multi-day timestamp overlaps that share an end calendar day', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'TS-400']);
+    $vesselA = makeCrewMovementVessel('Timestamp Multi A', $company);
+    $vesselB = makeCrewMovementVessel('Timestamp Multi B', $company);
+    $vesselC = makeCrewMovementVessel('Timestamp Multi C', $company);
+    $vesselD = makeCrewMovementVessel('Timestamp Multi D', $company);
+    $vesselE = makeCrewMovementVessel('Timestamp Multi E', $company);
+    $vesselF = makeCrewMovementVessel('Timestamp Multi F', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    // 1. Ends 20 Oct 18:00, next starts 20 Oct 09:00 → blocked (9-hour overlap).
+    $overlap = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselA->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-10 08:00:00',
+                    'onsite_to' => '2024-10-20 18:00:00',
+                    'home_available_from' => '2024-10-20 18:00:00',
+                ],
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselB->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-20 09:00:00',
+                    'onsite_to' => '2024-10-25 18:00:00',
+                    'home_available_from' => '2024-10-25 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($overlap->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and(collect($overlap->json('rows'))->pluck('errors')->flatten()->implode(' '))
+        ->toContain('Overlaps workbook row');
+
+    // 2. Exact 18:00 → 18:00 handoff → allowed.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselC->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-11-10 08:00:00',
+                    'onsite_to' => '2024-11-20 18:00:00',
+                    'home_available_from' => '2024-11-20 18:00:00',
+                ],
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselD->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-11-20 18:00:00',
+                    'onsite_to' => '2024-11-25 18:00:00',
+                    'home_available_from' => '2024-11-25 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    // 3. One-minute overlap 18:00 vs 17:59 → blocked.
+    $oneMinute = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselE->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-12-01 08:00:00',
+                    'onsite_to' => '2024-12-10 18:00:00',
+                    'home_available_from' => '2024-12-10 18:00:00',
+                ],
+                [
+                    'employee_no' => 'TS-400',
+                    'vessel' => $vesselF->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-12-10 17:59:00',
+                    'onsite_to' => '2024-12-15 18:00:00',
+                    'home_available_from' => '2024-12-15 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($oneMinute->json('summary.blocked'))->toBeGreaterThanOrEqual(2);
+});
+
+test('workbook preview mixed date-only and timestamp rows follow calendar-day policy', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'MX-500']);
+    $vesselDate = makeCrewMovementVessel('Mixed Date Only', $company);
+    $vesselTs = makeCrewMovementVessel('Mixed Timestamp', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    // Date-only 01–20 reserves [01, 20). Timestamp starting 20 Oct 09:00 is on the exclusive
+    // boundary day for the date-only row and must still be compared (not early-exited).
+    // Calendar reservation for date-only ends at 20 Oct 00:00, so 20 Oct 09:00 does not overlap.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'MX-500',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-01',
+                    'disembark_date' => '2024-10-20',
+                    'travel_home_date' => '2024-10-20',
+                ],
+                [
+                    'employee_no' => 'MX-500',
+                    'vessel' => $vesselTs->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-20 09:00:00',
+                    'onsite_to' => '2024-10-25 18:00:00',
+                    'home_available_from' => '2024-10-25 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    // Date-only end day inclusive of occupancy when the timestamp starts before exclusive midnight.
+    $blocked = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'MX-500',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-11-01',
+                    'disembark_date' => '2024-11-20',
+                    'travel_home_date' => '2024-11-20',
+                ],
+                [
+                    'employee_no' => 'MX-500',
+                    'vessel' => $vesselTs->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-11-19 09:00:00',
+                    'onsite_to' => '2024-11-25 18:00:00',
+                    'home_available_from' => '2024-11-25 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($blocked->json('summary.blocked'))->toBeGreaterThanOrEqual(2);
+});
+
+test('workbook preview and execute both reject the same multi-day timestamp overlap', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $employee->update(['employee_no' => 'EX-600']);
+    $vesselA = makeCrewMovementVessel('Exec Overlap A', $company);
+    $vesselB = makeCrewMovementVessel('Exec Overlap B', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $rows = [
+        [
+            'employee_no' => 'EX-600',
+            'vessel' => $vesselA->name,
+            'rank' => $rank->title,
+            'onsite_from' => '2024-10-10 08:00:00',
+            'onsite_to' => '2024-10-20 18:00:00',
+            'home_available_from' => '2024-10-20 18:00:00',
+        ],
+        [
+            'employee_no' => 'EX-600',
+            'vessel' => $vesselB->name,
+            'rank' => $rank->title,
+            'onsite_from' => '2024-10-20 09:00:00',
+            'onsite_to' => '2024-10-25 18:00:00',
+            'home_available_from' => '2024-10-25 18:00:00',
+        ],
+    ];
+
+    $preview = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile($rows),
+        ])
+        ->assertOk();
+
+    expect($preview->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and($preview->json('summary.importable'))->toBe(0);
+
+    $execute = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile($rows),
+            'idempotency_key' => historicalImportIdempotencyKey('ts-overlap'),
+            'confirmed' => '1',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+
+    // Overlapping rows are rejected by both preview and execute; history remains untouched.
+    expect($execute->json('errors.file.0'))->toContain('No Ready or Warning rows')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(EmployeeSeaService::query()->where('company_id', $company->id)->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('workbook company timezone date-only reservations overlap UAE local midnight timestamps', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+    $employee->update(['employee_no' => 'TZ-UAE-700']);
+    $vesselDate = makeCrewMovementVessel('UAE Date Only Vessel', $company);
+    $vesselTs = makeCrewMovementVessel('UAE Timestamp Vessel', $company);
+    $vesselNext = makeCrewMovementVessel('UAE Next Day Vessel', $company);
+    $vesselPrev = makeCrewMovementVessel('UAE Previous Day Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    // 1. Date-only 10 Oct–10 Oct (UAE local day) vs 10 Oct 00:30–01:30 UAE → blocked.
+    $overlap = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselTs->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-10 00:30:00',
+                    'onsite_to' => '2024-10-10 01:30:00',
+                    'home_available_from' => '2024-10-10 01:30:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($overlap->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and(collect($overlap->json('rows'))->pluck('errors')->flatten()->implode(' '))
+        ->toContain('Overlaps workbook row');
+
+    // 2. Date-only 10 Oct–10 Oct vs timestamp starting exactly 11 Oct 00:00 UAE → allowed.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselNext->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-11 00:00:00',
+                    'onsite_to' => '2024-10-11 18:00:00',
+                    'home_available_from' => '2024-10-11 18:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    // 3. Timestamp ending exactly 10 Oct 00:00 UAE + date-only starting 10 Oct → allowed.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselPrev->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-09 08:00:00',
+                    'onsite_to' => '2024-10-10 00:00:00',
+                    'home_available_from' => '2024-10-10 00:00:00',
+                ],
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+
+    // 4. Multi-day date-only exclusive end at company-local midnight (01–20 and 20–25).
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-11-01',
+                    'disembark_date' => '2024-11-20',
+                    'travel_home_date' => '2024-11-20',
+                ],
+                [
+                    'employee_no' => 'TZ-UAE-700',
+                    'vessel' => $vesselNext->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-11-20',
+                    'disembark_date' => '2024-11-25',
+                    'travel_home_date' => '2024-11-25',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+});
+
+test('workbook company timezone overlap works for America/New_York DST calendar days', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'America/New_York']);
+    $employee->update(['employee_no' => 'TZ-NY-800']);
+    $vesselDate = makeCrewMovementVessel('NY Date Only Vessel', $company);
+    $vesselTs = makeCrewMovementVessel('NY Timestamp Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    // EDT date (2024-10-10): date-only local day must catch 00:30 local timestamp.
+    $overlap = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-NY-800',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'TZ-NY-800',
+                    'vessel' => $vesselTs->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-10 00:30:00',
+                    'onsite_to' => '2024-10-10 01:30:00',
+                    'home_available_from' => '2024-10-10 01:30:00',
+                ],
+            ]),
+        ])
+        ->assertOk();
+
+    expect($overlap->json('summary.blocked'))->toBeGreaterThanOrEqual(2);
+
+    // Next local midnight is free.
+    $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile([
+                [
+                    'employee_no' => 'TZ-NY-800',
+                    'vessel' => $vesselDate->name,
+                    'rank' => $rank->title,
+                    'vessel_join_date' => '2024-10-10',
+                    'disembark_date' => '2024-10-10',
+                    'travel_home_date' => '2024-10-10',
+                ],
+                [
+                    'employee_no' => 'TZ-NY-800',
+                    'vessel' => $vesselTs->name,
+                    'rank' => $rank->title,
+                    'onsite_from' => '2024-10-11 00:00:00',
+                    'onsite_to' => '2024-10-11 12:00:00',
+                    'home_available_from' => '2024-10-11 12:00:00',
+                ],
+            ]),
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.ready', 2)
+        ->assertJsonPath('summary.blocked', 0);
+});
+
+test('workbook timezone-aware preview and execute reject the same UAE midnight overlap', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $company->update(['timezone' => 'Asia/Dubai']);
+    $employee->update(['employee_no' => 'TZ-UAE-900']);
+    $vesselDate = makeCrewMovementVessel('UAE Exec Date Vessel', $company);
+    $vesselTs = makeCrewMovementVessel('UAE Exec Timestamp Vessel', $company);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.create_historical',
+    ]);
+    $user->update(['current_company_id' => $company->id]);
+
+    $rows = [
+        [
+            'employee_no' => 'TZ-UAE-900',
+            'vessel' => $vesselDate->name,
+            'rank' => $rank->title,
+            'vessel_join_date' => '2024-10-10',
+            'disembark_date' => '2024-10-10',
+            'travel_home_date' => '2024-10-10',
+        ],
+        [
+            'employee_no' => 'TZ-UAE-900',
+            'vessel' => $vesselTs->name,
+            'rank' => $rank->title,
+            'onsite_from' => '2024-10-10 00:30:00',
+            'onsite_to' => '2024-10-10 01:30:00',
+            'home_available_from' => '2024-10-10 01:30:00',
+        ],
+    ];
+
+    $preview = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.validate'), [
+            'file' => makeHistoricalCrewImportFile($rows),
+        ])
+        ->assertOk();
+
+    expect($preview->json('summary.blocked'))->toBeGreaterThanOrEqual(2)
+        ->and($preview->json('summary.importable'))->toBe(0);
+
+    $execute = $this->actingAs($user)
+        ->postJson(route('organization.crew-assignments.historical.import.execute'), [
+            'file' => makeHistoricalCrewImportFile($rows),
+            'idempotency_key' => historicalImportIdempotencyKey('tz-uae-overlap'),
+            'confirmed' => '1',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['file']);
+
+    expect($execute->json('errors.file.0'))->toContain('No Ready or Warning rows')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(EmployeeSeaService::query()->where('company_id', $company->id)->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
 test('hundreds of rows validate without exploding query count', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Perf Vessel', $company);

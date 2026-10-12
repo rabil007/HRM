@@ -635,6 +635,8 @@ test('backdated arrival overlapping an unlinked crew planning reservation is rej
 
     $vessel = makeCrewMovementVessel('Reserved Planning Vessel', $company);
 
+    // Leave Oct 8 reserves [01 Oct, 08 Oct) under calendar-day policy, which overlaps the
+    // backdated prefix day 07 Oct (assignment originally started 08 Oct).
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
@@ -642,7 +644,7 @@ test('backdated arrival overlapping an unlinked crew planning reservation is rej
         'employee_id' => $employee->id,
         'planned_arrival_date' => '2026-10-01',
         'planned_join_date' => '2026-10-01',
-        'planned_leave_date' => '2026-10-07',
+        'planned_leave_date' => '2026-10-08',
     ]);
 
     $originalStart = $assignment->currentPhase?->actual_start_at?->copy();
@@ -657,6 +659,38 @@ test('backdated arrival overlapping an unlinked crew planning reservation is rej
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($originalStart))->toBeTrue();
+});
+
+test('backdated arrival on crew planning exclusive leave boundary day is allowed', function () {
+    [
+        'company' => $company,
+        'employee' => $employee,
+        'rank' => $rank,
+        'user' => $user,
+        'service' => $service,
+        'assignment' => $assignment,
+    ] = makeBackdatedArrivalFixtures();
+
+    $vessel = makeCrewMovementVessel('Boundary Planning Vessel', $company);
+
+    // Leave Oct 7 is exclusive → [01 Oct, 07 Oct). Arrival on 07 Oct is the free boundary day.
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_arrival_date' => '2026-10-01',
+        'planned_join_date' => '2026-10-01',
+        'planned_leave_date' => '2026-10-07',
+    ]);
+
+    $result = $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-10-07 09:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id);
+
+    expect($result->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });
 
 test('backdated arrival is allowed when crew planning ends before the new arrival date', function () {

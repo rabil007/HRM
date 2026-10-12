@@ -256,7 +256,14 @@ final class HistoricalCrewImportParser
 
         if (is_numeric($value)) {
             try {
-                $date = Carbon::instance(ExcelDate::excelToDateTimeObject((float) $value));
+                $serial = (float) $value;
+                $date = Carbon::instance(ExcelDate::excelToDateTimeObject($serial));
+
+                // Preserve non-midnight Excel serial times so workbook overlap can use
+                // half-open timestamp semantics when operators enter datetimes.
+                if (abs($serial - floor($serial)) > 0.0000001) {
+                    return ['value' => $date->format('Y-m-d H:i:s'), 'error' => null];
+                }
 
                 return ['value' => $date->toDateString(), 'error' => null];
             } catch (\Throwable) {
@@ -265,6 +272,16 @@ final class HistoricalCrewImportParser
         }
 
         $string = trim((string) $value);
+
+        // Explicit datetime literals keep their time component (date-only stays YYYY-MM-DD).
+        if (preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(:\d{2})?$/', $string) === 1) {
+            try {
+                return ['value' => Carbon::parse($string)->format('Y-m-d H:i:s'), 'error' => null];
+            } catch (\Throwable) {
+                return ['value' => null, 'error' => "Unrecognized date \"{$string}\". Use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS."];
+            }
+        }
+
         $parsed = FlexibleCsvDateParser::parse($string);
 
         if ($parsed === null) {

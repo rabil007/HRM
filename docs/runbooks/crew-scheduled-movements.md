@@ -42,15 +42,24 @@ Fresh installs that only run the current create migration already store UTC and 
 ## Health checks
 
 ```bash
-# Due / needs-attention inventory (scheduled_at shown as UTC)
-php artisan crew:recover-scheduled-movements --list
+# Due / needs-attention inventory (read-only; scheduled_at shown as UTC)
+# Prefer --company in multi-tenant production support.
+php artisan crew:recover-scheduled-movements --list --company=123
 
-# Recover stale processing rows and optionally process due items
-php artisan crew:recover-scheduled-movements --process-due
+# Recover stale processing rows for one company (modifies status)
+php artisan crew:recover-scheduled-movements --company=123
+
+# Recover and optionally process due items for one company
+php artisan crew:recover-scheduled-movements --company=123 --process-due
+
+# Without --company: operates across all companies (support-wide default)
+php artisan crew:recover-scheduled-movements --list
 
 # Bounded process run
 php artisan crew:process-scheduled-movements --limit=25
 ```
+
+`--list` is strictly read-only: it never recovers stale processing rows and ignores `--process-due`. Output states whether rows were inspected or modified. `--company` applies to list, recovery, and optional due-processing.
 
 ## Timestamp policy
 
@@ -58,9 +67,9 @@ php artisan crew:process-scheduled-movements --limit=25
 |-------|---------|
 | `scheduled_at` | Intended future instant stored in **UTC**; operators enter company-local time |
 | `scheduled_timezone` | IANA zone used for local input/display |
-| `executed_at` | UTC instant when the processor successfully ran |
+| `executed_at` | UTC instant when **this** movement successfully ran (fresh per row in a batch) |
 | `effective_occurred_at` | UTC operational occurrence (company-local wall applied to the phase) |
-| `processing_started_at` | UTC claim time |
+| `processing_started_at` | UTC claim time for this movement |
 
 DST gaps and fall-back overlaps are rejected at schedule/create/update time. If a due schedule is processed more than **15 minutes** late, it becomes `needs_attention` with `lateness_exceeded` and is **not** backdated.
 

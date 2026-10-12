@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Log;
  * queue worker.
  *
  * Due comparison uses UTC instants stored in scheduled_at.
+ * Each movement captures a fresh execution timestamp at claim/execute time so
+ * slow batches do not reuse a stale batch-start clock for later rows.
  */
 final class ProcessDueCrewScheduledMovements
 {
@@ -25,27 +27,36 @@ final class ProcessDueCrewScheduledMovements
     /**
      * @return array{claimed: int, executed: int, needs_attention: int, recovered: int}
      */
-    public function handle(int $limit = 25, ?Carbon $now = null): array
+    public function handle(int $limit = 25, ?Carbon $now = null, ?int $companyId = null): array
     {
-        $now = ($now ?? CrewScheduledMovementTimestamp::nowUtc())->copy()->utc();
-        $nowSql = CrewScheduledMovementTimestamp::sqlUtc($now);
+        $selectionNow = ($now ?? CrewScheduledMovementTimestamp::nowUtc())->copy()->utc();
+        $selectionSql = CrewScheduledMovementTimestamp::sqlUtc($selectionNow);
 
-        $recovered = $this->executor->recoverStaleProcessing($now);
+        $recovered = $this->executor->recoverStaleProcessing($selectionNow, companyId: $companyId);
 
-        $dueIds = CrewScheduledMovement::query()
+        $dueQuery = CrewScheduledMovement::query()
             ->where('status', CrewScheduledMovementStatus::Scheduled)
-            ->where('scheduled_at', '<=', $nowSql)
+            ->where('scheduled_at', '<=', $selectionSql)
             ->orderBy('scheduled_at')
             ->orderBy('id')
-            ->limit($limit)
-            ->pluck('id');
+            ->limit($limit);
+
+        if ($companyId !== null) {
+            $dueQuery->where('company_id', $companyId);
+        }
+
+        $dueIds = $dueQuery->pluck('id');
 
         $claimed = 0;
         $executed = 0;
         $needsAttention = 0;
 
         foreach ($dueIds as $id) {
-            $schedule = $this->executor->claim((int) $id, $now);
+            // Fresh per-movement clock (honours Carbon::setTestNow in tests).
+            // Avoids assigning a stale batch-start timestamp to later executions.
+            $movementNow = CrewScheduledMovementTimestamp::nowUtc();
+
+            $schedule = $this->executor->claim((int) $id, $movementNow);
 
             if ($schedule === null) {
                 continue;
@@ -53,7 +64,8 @@ final class ProcessDueCrewScheduledMovements
 
             $claimed++;
 
-            $result = $this->executor->execute($schedule, $now);
+            $executionNow = CrewScheduledMovementTimestamp::nowUtc();
+            $result = $this->executor->execute($schedule, $executionNow);
 
             if ($result->status === CrewScheduledMovementStatus::Executed) {
                 $executed++;
@@ -68,6 +80,7 @@ final class ProcessDueCrewScheduledMovements
                 'executed' => $executed,
                 'needs_attention' => $needsAttention,
                 'recovered' => $recovered,
+                'company_id' => $companyId,
             ]);
         }
 

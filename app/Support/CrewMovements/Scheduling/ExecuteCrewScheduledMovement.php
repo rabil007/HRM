@@ -65,19 +65,27 @@ final class ExecuteCrewScheduledMovement
         });
     }
 
-    public function recoverStaleProcessing(Carbon $now, int $staleAfterSeconds = 300): int
-    {
+    public function recoverStaleProcessing(
+        Carbon $now,
+        int $staleAfterSeconds = 300,
+        ?int $companyId = null,
+    ): int {
         $cutoff = CrewScheduledMovementTimestamp::sqlUtc($now->copy()->utc()->subSeconds($staleAfterSeconds));
 
-        return CrewScheduledMovement::query()
+        $query = CrewScheduledMovement::query()
             ->where('status', CrewScheduledMovementStatus::Processing)
-            ->where('processing_started_at', '<=', $cutoff)
-            ->update([
-                'status' => CrewScheduledMovementStatus::NeedsAttention->value,
-                'last_error_code' => CrewScheduledMovementErrorCode::StaleProcessing->value,
-                'last_error_message' => 'Processing did not complete; recovered as Needs Attention.',
-                'processing_started_at' => null,
-            ]);
+            ->where('processing_started_at', '<=', $cutoff);
+
+        if ($companyId !== null) {
+            $query->where('company_id', $companyId);
+        }
+
+        return $query->update([
+            'status' => CrewScheduledMovementStatus::NeedsAttention->value,
+            'last_error_code' => CrewScheduledMovementErrorCode::StaleProcessing->value,
+            'last_error_message' => 'Processing did not complete; recovered as Needs Attention.',
+            'processing_started_at' => null,
+        ]);
     }
 
     public function execute(CrewScheduledMovement $schedule, Carbon $now): CrewScheduledMovement
@@ -113,6 +121,7 @@ final class ExecuteCrewScheduledMovement
                 }
 
                 $assignment = CrewAssignment::query()
+                    ->withTrashed()
                     ->where('company_id', $companyId)
                     ->whereKey($locked->crew_assignment_id)
                     ->lockForUpdate()
@@ -124,6 +133,14 @@ final class ExecuteCrewScheduledMovement
                         $locked,
                         CrewScheduledMovementErrorCode::AssignmentStateChanged,
                         'The crew assignment no longer exists for this company.',
+                    );
+                }
+
+                if ($assignment->voided_at !== null || $assignment->trashed()) {
+                    return $this->markNeedsAttentionLocked(
+                        $locked,
+                        CrewScheduledMovementErrorCode::AssignmentVoided,
+                        'The crew assignment was voided and scheduled movements can no longer execute against it.',
                     );
                 }
 

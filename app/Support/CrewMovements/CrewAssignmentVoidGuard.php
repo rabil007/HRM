@@ -2,13 +2,17 @@
 
 namespace App\Support\CrewMovements;
 
+use App\Enums\CrewMovementCorrectionStatus;
+use App\Enums\CrewScheduledMovementStatus;
 use App\Enums\CrewTimesheetPreparationStatus;
 use App\Enums\PayrollPeriodStatus;
 use App\Enums\PayrollWorkAllocationStatus;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
+use App\Models\CrewScheduledMovement;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetSegment;
 use App\Models\EmployeeSeaService;
@@ -34,6 +38,10 @@ final class CrewAssignmentVoidGuard
     public const PAYROLL_PROTECTED_MESSAGE = 'This assignment is linked to protected payroll records.';
 
     public const PAYROLL_APPLIED_MESSAGE = 'This assignment has applied timesheet preparation records that require a formal reversal workflow.';
+
+    public const UNRESOLVED_SCHEDULE_MESSAGE = 'This assignment has an unresolved scheduled movement. Cancel or resolve the schedule before voiding the assignment.';
+
+    public const PENDING_CORRECTION_MESSAGE = 'This assignment has a pending movement correction request. Approve, reject, or cancel the correction before voiding the assignment.';
 
     /**
      * Blocker codes that can be resolved by explicit cleanup confirmation.
@@ -434,6 +442,74 @@ final class CrewAssignmentVoidGuard
             }
         }
 
+        // 9. Unresolved scheduled movements (must be cancelled/resolved before void)
+        $unresolvedScheduleMeta = [];
+        $unresolvedSchedules = CrewScheduledMovement::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->unresolved()
+            ->orderBy('id')
+            ->get([
+                'id',
+                'crew_assignment_id',
+                'movement_action',
+                'status',
+                'scheduled_at',
+            ]);
+
+        foreach ($unresolvedSchedules as $schedule) {
+            $aId = (int) $schedule->crew_assignment_id;
+            $unresolvedScheduleMeta[$aId] ??= [
+                'count' => 0,
+                'schedules' => [],
+            ];
+            $unresolvedScheduleMeta[$aId]['count']++;
+            $status = $schedule->status instanceof CrewScheduledMovementStatus
+                ? $schedule->status
+                : CrewScheduledMovementStatus::tryFrom((string) $schedule->status);
+            $action = $schedule->movement_action;
+            $unresolvedScheduleMeta[$aId]['schedules'][] = [
+                'id' => (int) $schedule->id,
+                'movement_action' => $action instanceof \BackedEnum ? $action->value : (string) $action,
+                'movement_action_label' => $action instanceof \BackedEnum && method_exists($action, 'label')
+                    ? $action->label()
+                    : (string) ($action instanceof \BackedEnum ? $action->value : $action),
+                'status' => $status?->value ?? (string) $schedule->status,
+                'status_label' => $status?->label() ?? (string) $schedule->status,
+                'scheduled_at' => $schedule->scheduled_at?->utc()->toIso8601String(),
+            ];
+        }
+
+        // 10. Pending movement corrections (must be decided/cancelled before void)
+        $pendingCorrectionMeta = [];
+        $pendingCorrections = CrewMovementCorrection::query()
+            ->where('company_id', $companyId)
+            ->whereIn('crew_assignment_id', $assignmentIds)
+            ->where('status', CrewMovementCorrectionStatus::Pending)
+            ->orderBy('id')
+            ->get([
+                'id',
+                'crew_assignment_id',
+                'status',
+                'requested_at',
+                'created_at',
+            ]);
+
+        foreach ($pendingCorrections as $correction) {
+            $aId = (int) $correction->crew_assignment_id;
+            $pendingCorrectionMeta[$aId] ??= [
+                'count' => 0,
+                'corrections' => [],
+            ];
+            $pendingCorrectionMeta[$aId]['count']++;
+            $pendingCorrectionMeta[$aId]['corrections'][] = [
+                'id' => (int) $correction->id,
+                'status' => CrewMovementCorrectionStatus::Pending->value,
+                'requested_at' => $correction->requested_at?->toIso8601String()
+                    ?? $correction->created_at?->toIso8601String(),
+            ];
+        }
+
         $result = [];
         foreach ($assignmentList as $assignment) {
             $id = (int) $assignment->id;
@@ -562,6 +638,31 @@ final class CrewAssignmentVoidGuard
                 ];
             }
 
+            if (isset($unresolvedScheduleMeta[$id])) {
+                $count = $unresolvedScheduleMeta[$id]['count'];
+                $first = $unresolvedScheduleMeta[$id]['schedules'][0] ?? null;
+                $actionLabel = is_array($first) ? (string) ($first['movement_action_label'] ?? 'Scheduled movement') : 'Scheduled movement';
+                $statusLabel = is_array($first) ? (string) ($first['status_label'] ?? 'unresolved') : 'unresolved';
+                $blockers[] = [
+                    'code' => 'unresolved_scheduled_movement',
+                    'message' => $count === 1
+                        ? "Cannot delete {$assignmentNo}. {$actionLabel} is still {$statusLabel}. Cancel or resolve the scheduled movement before voiding."
+                        : "Cannot delete {$assignmentNo}. {$count} unresolved scheduled movements remain. Cancel or resolve them before voiding.",
+                    'unresolved_schedules' => $unresolvedScheduleMeta[$id]['schedules'],
+                ];
+            }
+
+            if (isset($pendingCorrectionMeta[$id])) {
+                $count = $pendingCorrectionMeta[$id]['count'];
+                $blockers[] = [
+                    'code' => 'pending_correction',
+                    'message' => $count === 1
+                        ? "Cannot delete {$assignmentNo}. A pending movement correction must be approved, rejected, or cancelled before voiding."
+                        : "Cannot delete {$assignmentNo}. {$count} pending movement corrections must be resolved before voiding.",
+                    'pending_corrections' => $pendingCorrectionMeta[$id]['corrections'],
+                ];
+            }
+
             $result[$id] = $this->uniqueByCode($blockers);
         }
 
@@ -617,6 +718,8 @@ final class CrewAssignmentVoidGuard
             'already_voided',
             'cross_company',
             'linked_assignment_exists',
+            'unresolved_scheduled_movement',
+            'pending_correction',
             'payroll_applied',
             'payroll_protected',
             'protected_dependency_exists',

@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
 use App\Models\User;
+use App\Support\CrewMovements\CrewAssignmentOverlapDetector;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -24,6 +25,7 @@ final class HistoricalCrewAssignmentValidator
     public function __construct(
         private readonly SeaServiceSyncService $seaServiceSync,
         private readonly HistoricalSeaServiceMatchResolver $seaServiceMatchResolver,
+        private readonly CrewAssignmentOverlapDetector $overlapDetector = new CrewAssignmentOverlapDetector,
     ) {}
 
     public function validate(
@@ -240,15 +242,25 @@ final class HistoricalCrewAssignmentValidator
                     ->get();
 
             foreach ($existingAssignments as $existing) {
-                $existingStart = $existing->started_at ?? $existing->phases->whereNotNull('actual_start_at')->min('actual_start_at');
+                if ($this->overlapDetector->hasUnreliableCompletedOccupancy($existing)) {
+                    $noConflict = false;
+                    $conflictingAssignment = $existing;
+                    $conflictMessage = sprintf(
+                        'Completed assignment %s has an unfinished phase without a reliable occupancy end. Resolve it before recording overlapping history.',
+                        $existing->assignment_no,
+                    );
+                    $errors['overlap'] = $conflictMessage;
+                    break;
+                }
 
-                if ($existingStart === null) {
+                $interval = $this->overlapDetector->operationalOccupancyInterval($existing);
+
+                if ($interval === null) {
                     continue;
                 }
 
-                $existingEnd = $existing->status === CrewAssignmentStatus::Active
-                    ? null
-                    : ($existing->closed_at ?? $existing->phases->whereNotNull('actual_end_at')->max('actual_end_at') ?? $existingStart);
+                $existingStart = $interval['start'];
+                $existingEnd = $interval['end'];
 
                 if (HistoricalAssignmentIntervalOverlap::intervalsOverlap($newStart, $newEnd, $existingStart, $existingEnd)) {
                     $noConflict = false;

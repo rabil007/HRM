@@ -13,6 +13,7 @@ use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
 use App\Support\Vessels\ResolvesCompanyVessels;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 
 final class HistoricalCrewImportPreviewService
@@ -71,7 +72,7 @@ final class HistoricalCrewImportPreviewService
             $evaluated[] = $this->evaluateRow($parsedRow, $companyId, $timezone, $actor, $lookups, $bulk);
         }
 
-        $this->applyWorkbookConflicts($evaluated);
+        $this->applyWorkbookConflicts($evaluated, $timezone);
 
         $ready = 0;
         $warning = 0;
@@ -453,7 +454,7 @@ final class HistoricalCrewImportPreviewService
     /**
      * @param  list<array<string, mixed>>  $evaluated
      */
-    private function applyWorkbookConflicts(array &$evaluated): void
+    private function applyWorkbookConflicts(array &$evaluated, string $timezone): void
     {
         $byExactKey = [];
 
@@ -559,39 +560,110 @@ final class HistoricalCrewImportPreviewService
 
             for ($i = 0; $i < $count; $i++) {
                 $left = $evaluated[$indexes[$i]];
+                $leftInterval = $this->workbookNormalizedInterval($left, $timezone);
+
+                if ($leftInterval === null) {
+                    continue;
+                }
 
                 for ($j = $i + 1; $j < $count; $j++) {
                     $right = $evaluated[$indexes[$j]];
+                    $rightInterval = $this->workbookNormalizedInterval($right, $timezone);
 
-                    $leftEnd = $left['interval_end'];
-                    $rightEnd = $right['interval_end'];
-
-                    if ($leftEnd !== null && (string) $right['interval_start'] >= (string) $leftEnd) {
-                        break;
+                    if ($rightInterval === null) {
+                        continue;
                     }
 
-                    if (HistoricalAssignmentIntervalOverlap::dateStringsOverlap(
-                        (string) $left['interval_start'],
-                        $leftEnd !== null ? (string) $leftEnd : null,
-                        (string) $right['interval_start'],
-                        $rightEnd !== null ? (string) $rightEnd : null,
+                    // No early-exit: rows are sorted by calendar start date only, so a later
+                    // same-day timestamp can still overlap even after a non-overlapping neighbour.
+                    // Always compare using the same normalized intervals as overlap detection.
+                    if (! HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+                        $leftInterval['start'],
+                        $leftInterval['end'],
+                        $rightInterval['start'],
+                        $rightInterval['end'],
                     )) {
-                        $leftEndLabel = $leftEnd ?? 'Current';
-                        $rightEndLabel = $rightEnd ?? 'Current';
-                        $leftMsg = "Overlaps workbook row {$right['row_number']} ({$right['interval_start']} → {$rightEndLabel}).";
-                        $rightMsg = "Overlaps workbook row {$left['row_number']} ({$left['interval_start']} → {$leftEndLabel}).";
-
-                        $evaluated[$indexes[$i]]['workbook_messages'][] = $leftMsg;
-                        $evaluated[$indexes[$i]]['errors']['workbook'] = $leftMsg;
-                        $evaluated[$indexes[$i]]['status'] = 'blocked';
-
-                        $evaluated[$indexes[$j]]['workbook_messages'][] = $rightMsg;
-                        $evaluated[$indexes[$j]]['errors']['workbook'] = $rightMsg;
-                        $evaluated[$indexes[$j]]['status'] = 'blocked';
+                        continue;
                     }
+
+                    $leftEndLabel = $left['interval_end'] ?? 'Current';
+                    $rightEndLabel = $right['interval_end'] ?? 'Current';
+                    $leftMsg = "Overlaps workbook row {$right['row_number']} ({$right['interval_start']} → {$rightEndLabel}).";
+                    $rightMsg = "Overlaps workbook row {$left['row_number']} ({$left['interval_start']} → {$leftEndLabel}).";
+
+                    $evaluated[$indexes[$i]]['workbook_messages'][] = $leftMsg;
+                    $evaluated[$indexes[$i]]['errors']['workbook'] = $leftMsg;
+                    $evaluated[$indexes[$i]]['status'] = 'blocked';
+
+                    $evaluated[$indexes[$j]]['workbook_messages'][] = $rightMsg;
+                    $evaluated[$indexes[$j]]['errors']['workbook'] = $rightMsg;
+                    $evaluated[$indexes[$j]]['status'] = 'blocked';
                 }
             }
         }
+    }
+
+    /**
+     * Normalize a workbook row to the half-open occupancy interval used for overlap checks.
+     *
+     * Prefers reconstructed positive-duration (or open) timestamps. Falls back to the
+     * company-local calendar-day reservation policy for date-only / zero-duration bounds
+     * so same-day date-only rows reserve a full company-local day.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array{start: CarbonInterface, end: CarbonInterface|null}|null
+     */
+    private function workbookNormalizedInterval(array $row, string $timezone): ?array
+    {
+        $data = $row['data'] ?? null;
+
+        if ($data instanceof HistoricalCrewAssignmentData) {
+            try {
+                $start = $data->earliestActualStart();
+                $end = $data->intervalEnd();
+
+                if ($end === null || $end->gt($start)) {
+                    return ['start' => $start, 'end' => $end];
+                }
+            } catch (\InvalidArgumentException) {
+                // Fall through to date-string reservation when reconstruction bounds are incomplete.
+            }
+        }
+
+        $startDate = $row['interval_start'] ?? null;
+
+        if ($startDate === null || $startDate === '') {
+            return null;
+        }
+
+        $endDate = $row['interval_end'] ?? null;
+
+        return HistoricalAssignmentIntervalOverlap::calendarDayReservationInterval(
+            (string) $startDate,
+            $endDate !== null ? (string) $endDate : null,
+            $timezone,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $left
+     * @param  array<string, mixed>  $right
+     */
+    private function workbookRowsOverlap(array $left, array $right, string $timezone): bool
+    {
+        $leftInterval = $this->workbookNormalizedInterval($left, $timezone);
+        $rightInterval = $this->workbookNormalizedInterval($right, $timezone);
+
+        if ($leftInterval === null || $rightInterval === null) {
+            return false;
+        }
+
+        return HistoricalAssignmentIntervalOverlap::intervalsOverlap(
+            $leftInterval['start'],
+            $leftInterval['end'],
+            $rightInterval['start'],
+            $rightInterval['end'],
+        );
     }
 
     /**

@@ -23,6 +23,8 @@ final class VoidCrewAssignmentImpactResolver
      *     total_draft_preparation_lines: int,
      *     total_draft_timesheet_periods: int,
      *     total_accommodation_records: int,
+     *     total_unresolved_schedules: int,
+     *     total_pending_corrections: int,
      *     can_delete_sea_service: bool,
      *     can_delete_training: bool,
      *     can_delete_draft_timesheet: bool,
@@ -31,6 +33,8 @@ final class VoidCrewAssignmentImpactResolver
      *     has_training: bool,
      *     has_draft_timesheet: bool,
      *     has_accommodation: bool,
+     *     has_unresolved_schedules: bool,
+     *     has_pending_corrections: bool,
      *     has_protected_blockers: bool,
      *     blocked_assignment_nos: list<string>,
      *     assignments: list<array{
@@ -47,8 +51,12 @@ final class VoidCrewAssignmentImpactResolver
      *         has_sea_service: bool,
      *         has_draft_timesheet: bool,
      *         has_accommodation: bool,
+     *         has_unresolved_schedules: bool,
+     *         has_pending_corrections: bool,
      *         draft_timesheet: array{segment_count: int, preparation_line_count: int, period_count: int, periods: list<array{id: int, name: string, status: string}>}|null,
      *         accommodation: array{record_count: int, open_count: int, summaries: list<array{id: int, stay_type: string, accommodation_status: string, hotel_name: string|null, is_open: bool}>}|null,
+     *         unresolved_schedules: list<array{id: int, movement_action: string, movement_action_label: string, status: string, status_label: string, scheduled_at: string|null}>,
+     *         pending_corrections: list<array{id: int, status: string, requested_at: string|null}>,
      *         dependent_assignments: list<array{id: int, assignment_no: string, relationship?: string}>
      *     }>
      * }
@@ -73,6 +81,8 @@ final class VoidCrewAssignmentImpactResolver
                 'total_draft_preparation_lines' => 0,
                 'total_draft_timesheet_periods' => 0,
                 'total_accommodation_records' => 0,
+                'total_unresolved_schedules' => 0,
+                'total_pending_corrections' => 0,
                 'can_delete_sea_service' => $canDeleteSeaService,
                 'can_delete_training' => $canDeleteTraining,
                 'can_delete_draft_timesheet' => $canDeleteDraftTimesheet,
@@ -81,6 +91,8 @@ final class VoidCrewAssignmentImpactResolver
                 'has_training' => false,
                 'has_draft_timesheet' => false,
                 'has_accommodation' => false,
+                'has_unresolved_schedules' => false,
+                'has_pending_corrections' => false,
                 'has_protected_blockers' => false,
                 'blocked_assignment_nos' => [],
                 'assignments' => [],
@@ -149,6 +161,8 @@ final class VoidCrewAssignmentImpactResolver
         $totalDraftPrepLines = 0;
         $draftPeriodIds = [];
         $totalAccommodation = 0;
+        $totalUnresolvedSchedules = 0;
+        $totalPendingCorrections = 0;
         $anyProtectedBlockers = false;
         $blockedNos = [];
 
@@ -173,6 +187,8 @@ final class VoidCrewAssignmentImpactResolver
 
             $draftMeta = null;
             $accommodationMeta = null;
+            $unresolvedSchedules = [];
+            $pendingCorrections = [];
             $dependentAssignments = [];
 
             foreach ($blockers as $blocker) {
@@ -188,6 +204,16 @@ final class VoidCrewAssignmentImpactResolver
                 if ($blocker['code'] === 'accommodation_history_exists' && isset($blocker['accommodation'])) {
                     $accommodationMeta = $blocker['accommodation'];
                     $totalAccommodation += (int) ($accommodationMeta['record_count'] ?? 0);
+                }
+
+                if ($blocker['code'] === 'unresolved_scheduled_movement' && isset($blocker['unresolved_schedules'])) {
+                    $unresolvedSchedules = $blocker['unresolved_schedules'];
+                    $totalUnresolvedSchedules += count($unresolvedSchedules);
+                }
+
+                if ($blocker['code'] === 'pending_correction' && isset($blocker['pending_corrections'])) {
+                    $pendingCorrections = $blocker['pending_corrections'];
+                    $totalPendingCorrections += count($pendingCorrections);
                 }
 
                 if ($blocker['code'] === 'linked_assignment_exists' && isset($blocker['dependent_assignments'])) {
@@ -230,8 +256,12 @@ final class VoidCrewAssignmentImpactResolver
                 'has_sea_service' => $seaCount > 0,
                 'has_draft_timesheet' => $draftMeta !== null,
                 'has_accommodation' => $accommodationMeta !== null,
+                'has_unresolved_schedules' => $unresolvedSchedules !== [],
+                'has_pending_corrections' => $pendingCorrections !== [],
                 'draft_timesheet' => $draftMeta,
                 'accommodation' => $accommodationMeta,
+                'unresolved_schedules' => $unresolvedSchedules,
+                'pending_corrections' => $pendingCorrections,
                 'dependent_assignments' => $dependentAssignments,
             ];
         }
@@ -244,6 +274,8 @@ final class VoidCrewAssignmentImpactResolver
             'total_draft_preparation_lines' => $totalDraftPrepLines,
             'total_draft_timesheet_periods' => count($draftPeriodIds),
             'total_accommodation_records' => $totalAccommodation,
+            'total_unresolved_schedules' => $totalUnresolvedSchedules,
+            'total_pending_corrections' => $totalPendingCorrections,
             'can_delete_sea_service' => $canDeleteSeaService,
             'can_delete_training' => $canDeleteTraining,
             'can_delete_draft_timesheet' => $canDeleteDraftTimesheet,
@@ -252,6 +284,8 @@ final class VoidCrewAssignmentImpactResolver
             'has_training' => $totalTraining > 0,
             'has_draft_timesheet' => $totalDraftSegments > 0 || $totalDraftPrepLines > 0,
             'has_accommodation' => $totalAccommodation > 0,
+            'has_unresolved_schedules' => $totalUnresolvedSchedules > 0,
+            'has_pending_corrections' => $totalPendingCorrections > 0,
             'has_protected_blockers' => $anyProtectedBlockers,
             'blocked_assignment_nos' => array_values(array_unique($blockedNos)),
             'assignments' => $items,
