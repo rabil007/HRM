@@ -2,6 +2,7 @@
 
 namespace App\Support\Recruitment\Candidates;
 
+use App\Enums\Recruitment\CandidateInterviewMode;
 use App\Enums\Recruitment\CandidateInterviewOutcome;
 use App\Enums\Recruitment\CandidateOfferStatus;
 use App\Enums\Recruitment\CandidateStage;
@@ -66,6 +67,7 @@ final class CandidatePresenter
             'nationality' => $candidate->nationality?->name,
             'has_cv' => $candidate->hasCv(),
             'interview_scheduled_at' => self::formatDateTime($candidate->interview_scheduled_at, $timezone),
+            'interview_feedback' => $candidate->interview_feedback,
             'expected_joining_date' => $candidate->expected_joining_date?->toDateString(),
             'actual_joining_date' => $candidate->actual_joining_date?->toDateString(),
             'joining_readiness_status' => $candidate->joining_readiness_status?->value,
@@ -380,6 +382,8 @@ final class CandidatePresenter
             CandidateTransitionAction::EmployeeLinked,
         ], true) || (is_array($context) && (array_key_exists('employee_id', $context) || array_key_exists('employee_no', $context)));
 
+        $canViewEmployee = true;
+
         if ($isEmployeeAction) {
             $employeeId = is_array($context) && ! empty($context['employee_id'])
                 ? (int) $context['employee_id']
@@ -387,14 +391,14 @@ final class CandidatePresenter
 
             $resolvedCompanyId = $companyId ?? (int) ($transition->company_id ?? $transition->candidate?->company_id ?? 0);
 
-            $canView = false;
+            $canViewEmployee = false;
             if ($user !== null && $resolvedCompanyId > 0 && $user->can('employees.view')) {
                 if ($employeeId > 0) {
-                    $canView = EmployeeVisibilityScope::canAccessId($user, $employeeId, $resolvedCompanyId);
+                    $canViewEmployee = EmployeeVisibilityScope::canAccessId($user, $employeeId, $resolvedCompanyId);
                 }
             }
 
-            if (! $canView) {
+            if (! $canViewEmployee) {
                 if ($action === CandidateTransitionAction::EmployeeConverted) {
                     $reason = 'Candidate converted to employee';
                 } elseif ($action === CandidateTransitionAction::EmployeeLinked) {
@@ -438,10 +442,140 @@ final class CandidatePresenter
             'to_outcome' => $transition->to_outcome?->value,
             'to_outcome_label' => $transition->to_outcome?->label(),
             'reason' => $reason,
-            'context' => $context,
+            'context' => self::sanitizeTransitionContext(
+                is_array($context) ? $context : null,
+                $timezone,
+                $canViewEmployee,
+            ),
             'performed_by' => $transition->performed_by,
             'performed_by_name' => $transition->performer?->name,
             'created_at' => self::formatDateTime($transition->created_at, $timezone),
+        ];
+    }
+
+    /**
+     * Expose only approved transition context fields for recruitment movement history.
+     *
+     * @param  array<string, mixed>|null  $context
+     * @return array<string, mixed>|null
+     */
+    private static function sanitizeTransitionContext(?array $context, string $timezone, bool $includeEmployeeFields = true): ?array
+    {
+        if ($context === null || $context === []) {
+            return null;
+        }
+
+        $sanitized = [];
+
+        if (array_key_exists('interview_cycle_snapshot', $context) && is_array($context['interview_cycle_snapshot'])) {
+            $sanitized['interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
+                $context['interview_cycle_snapshot'],
+                $timezone,
+            );
+        }
+
+        if (array_key_exists('prior_interview_cycle_snapshot', $context) && is_array($context['prior_interview_cycle_snapshot'])) {
+            $sanitized['prior_interview_cycle_snapshot'] = self::presentInterviewCycleSnapshot(
+                $context['prior_interview_cycle_snapshot'],
+                $timezone,
+            );
+        }
+
+        if (array_key_exists('interview_feedback', $context) && is_array($context['interview_feedback'])) {
+            $sanitized['interview_feedback'] = [
+                'from' => isset($context['interview_feedback']['from'])
+                    ? (is_string($context['interview_feedback']['from']) ? $context['interview_feedback']['from'] : null)
+                    : null,
+                'to' => isset($context['interview_feedback']['to'])
+                    ? (is_string($context['interview_feedback']['to']) ? $context['interview_feedback']['to'] : null)
+                    : null,
+            ];
+        }
+
+        foreach ([
+            'cleared_selection',
+            'cleared_interview_outcome',
+            'notes',
+            'revision_number',
+            'offer_id',
+            'offer_status',
+            'readiness_status',
+            'expected_joining_date',
+            'actual_joining_date',
+        ] as $key) {
+            if (array_key_exists($key, $context)) {
+                $sanitized[$key] = $context[$key];
+            }
+        }
+
+        if ($includeEmployeeFields) {
+            foreach (['employee_id', 'employee_no', 'employee_name', 'employee_url'] as $key) {
+                if (array_key_exists($key, $context)) {
+                    $sanitized[$key] = $context[$key];
+                }
+            }
+        }
+
+        return $sanitized === [] ? null : $sanitized;
+    }
+
+    /**
+     * @param  array<string, mixed>  $snapshot
+     * @return array<string, mixed>
+     */
+    private static function presentInterviewCycleSnapshot(array $snapshot, string $timezone): array
+    {
+        $mode = null;
+        $modeLabel = null;
+
+        if (isset($snapshot['interview_mode']) && is_string($snapshot['interview_mode']) && $snapshot['interview_mode'] !== '') {
+            $mode = $snapshot['interview_mode'];
+            $modeEnum = CandidateInterviewMode::tryFrom($mode);
+            $modeLabel = $modeEnum?->label();
+        }
+
+        $outcome = null;
+        $outcomeLabel = null;
+
+        if (isset($snapshot['interview_outcome']) && is_string($snapshot['interview_outcome']) && $snapshot['interview_outcome'] !== '') {
+            $outcome = $snapshot['interview_outcome'];
+            $outcomeEnum = CandidateInterviewOutcome::tryFrom($outcome);
+            $outcomeLabel = $outcomeEnum?->label();
+        }
+
+        $scheduledAt = null;
+        $scheduledRaw = $snapshot['interview_scheduled_at'] ?? null;
+
+        if (is_string($scheduledRaw) && $scheduledRaw !== '') {
+            try {
+                $scheduledAt = self::formatDateTime(Carbon::parse($scheduledRaw, $timezone), $timezone)
+                    ?? self::formatDateTime(Carbon::parse($scheduledRaw), $timezone);
+            } catch (\Throwable) {
+                $scheduledAt = $scheduledRaw;
+            }
+        }
+
+        return [
+            'interview_scheduled_at' => $scheduledAt,
+            'interviewer_user_id' => isset($snapshot['interviewer_user_id'])
+                ? (is_numeric($snapshot['interviewer_user_id']) ? (int) $snapshot['interviewer_user_id'] : null)
+                : null,
+            'external_interviewer_name' => isset($snapshot['external_interviewer_name']) && is_string($snapshot['external_interviewer_name'])
+                ? $snapshot['external_interviewer_name']
+                : null,
+            'interview_mode' => $mode,
+            'interview_mode_label' => $modeLabel,
+            'interview_location' => isset($snapshot['interview_location']) && is_string($snapshot['interview_location'])
+                ? $snapshot['interview_location']
+                : null,
+            'interview_notes' => isset($snapshot['interview_notes']) && is_string($snapshot['interview_notes'])
+                ? $snapshot['interview_notes']
+                : null,
+            'interview_feedback' => isset($snapshot['interview_feedback']) && is_string($snapshot['interview_feedback'])
+                ? $snapshot['interview_feedback']
+                : null,
+            'interview_outcome' => $outcome,
+            'interview_outcome_label' => $outcomeLabel,
         ];
     }
 
