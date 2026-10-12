@@ -8,6 +8,7 @@ enum RequirementLineStatus: string
     case OnHold = 'on_hold';
     case Filled = 'filled';
     case Cancelled = 'cancelled';
+    case Closed = 'closed';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum RequirementLineStatus: string
             self::OnHold => 'On Hold',
             self::Filled => 'Filled',
             self::Cancelled => 'Cancelled',
+            self::Closed => 'Closed',
         };
     }
 
@@ -26,6 +28,7 @@ enum RequirementLineStatus: string
             self::OnHold => 'warning',
             self::Filled => 'default',
             self::Cancelled => 'destructive',
+            self::Closed => 'secondary',
         };
     }
 }

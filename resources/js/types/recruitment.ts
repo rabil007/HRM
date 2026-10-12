@@ -12,7 +12,12 @@ export type RequirementStatus =
     | 'on_hold'
     | 'completed'
     | 'cancelled';
-export type RequirementLineStatus = 'open' | 'on_hold' | 'filled' | 'cancelled';
+export type RequirementLineStatus =
+    | 'open'
+    | 'on_hold'
+    | 'filled'
+    | 'cancelled'
+    | 'closed';
 export type RequirementPriority = 'normal' | 'urgent';
 export type RequirementDeadlineHealth = 'on_track' | 'due_soon' | 'overdue';
 

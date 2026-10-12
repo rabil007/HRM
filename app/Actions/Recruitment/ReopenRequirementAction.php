@@ -8,6 +8,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Support\Recruitment\RecordRequirementStatusTransition;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,6 +47,15 @@ final class ReopenRequirementAction
             }
 
             $fromStatus = $locked->status;
+            $originalCancelledAt = $locked->cancelled_at;
+            if ($originalCancelledAt === null && $fromStatus === RequirementStatus::Cancelled) {
+                $latestCancelTransition = $locked->statusTransitions()
+                    ->where('to_status', RequirementStatus::Cancelled->value)
+                    ->latest('id')
+                    ->first();
+                $originalCancelledAt = $latestCancelTransition?->created_at;
+            }
+
             $isPreviouslyApproved = $locked->approved_at !== null || $locked->opened_at !== null;
             $targetStatus = $isPreviouslyApproved ? RequirementStatus::Open : RequirementStatus::Draft;
 
@@ -74,22 +84,28 @@ final class ReopenRequirementAction
             $locked->update($updateData);
 
             if ($fromStatus === RequirementStatus::Completed) {
-                // Completed requirements: restore only lines that were Filled by completion.
+                // Completed requirements: restore lines that were closed by completion (Filled or Closed).
                 // Deliberately cancelled lines remain Cancelled.
-                $locked->lines()->where('status', RequirementLineStatus::Filled)->update([
-                    'status' => RequirementLineStatus::Open,
-                ]);
+                $locked->lines()
+                    ->whereIn('status', [RequirementLineStatus::Filled, RequirementLineStatus::Closed])
+                    ->update([
+                        'status' => RequirementLineStatus::Open,
+                    ]);
             } elseif ($fromStatus === RequirementStatus::Cancelled) {
                 // Cancelled requirements: restore only lines closed by the requirement-level cancellation.
-                $linesToReopen = $this->resolveLinesToReopenFromCancelled($locked);
-                if ($linesToReopen->isNotEmpty()) {
-                    $locked->lines()
-                        ->whereIn('id', $linesToReopen->pluck('id'))
-                        ->where('status', RequirementLineStatus::Cancelled)
-                        ->update([
-                            'status' => RequirementLineStatus::Open,
-                        ]);
+                $linesToReopen = $this->resolveLinesToReopenFromCancelled($locked, $originalCancelledAt);
+                if ($linesToReopen->isEmpty()) {
+                    throw ValidationException::withMessages([
+                        'status' => 'Cannot reopen requirement because all position lines were deliberately cancelled prior to requirement cancellation.',
+                    ]);
                 }
+
+                $locked->lines()
+                    ->whereIn('id', $linesToReopen->pluck('id'))
+                    ->where('status', RequirementLineStatus::Cancelled)
+                    ->update([
+                        'status' => RequirementLineStatus::Open,
+                    ]);
             }
 
             RecordRequirementStatusTransition::handle(
@@ -122,7 +138,7 @@ final class ReopenRequirementAction
      *
      * @return Collection<int, RecruitmentRequirementLine>
      */
-    private function resolveLinesToReopenFromCancelled(RecruitmentRequirement $requirement): Collection
+    private function resolveLinesToReopenFromCancelled(RecruitmentRequirement $requirement, ?CarbonInterface $originalCancelledAt): Collection
     {
         // 1. Check if the latest cancellation status transition has recorded cancelled_line_ids
         $cancellationTransition = $requirement->statusTransitions()
@@ -148,7 +164,8 @@ final class ReopenRequirementAction
         $cancelActivity = Activity::query()
             ->where('subject_type', RecruitmentRequirement::class)
             ->where('subject_id', $requirement->id)
-            ->where('properties->cancelled_line_ids', '!=', null)
+            ->where('company_id', $requirement->company_id)
+            ->whereNotNull('properties->cancelled_line_ids')
             ->latest('id')
             ->first();
 
@@ -170,28 +187,25 @@ final class ReopenRequirementAction
             ->where('status', RequirementLineStatus::Cancelled)
             ->get();
 
-        $cancelledAt = $requirement->cancelled_at ?? now();
+        if ($originalCancelledAt === null) {
+            throw ValidationException::withMessages([
+                'status' => 'Cannot safely resolve historical cancellation timing for this requirement. Please contact support.',
+            ]);
+        }
 
-        return $cancelledLines->filter(function (RecruitmentRequirementLine $line) use ($cancelledAt): bool {
+        return $cancelledLines->filter(function (RecruitmentRequirementLine $line) use ($requirement, $originalCancelledAt): bool {
             $hasPriorLineCancellation = Activity::query()
                 ->where('subject_type', RecruitmentRequirementLine::class)
                 ->where('subject_id', $line->id)
-                ->where('created_at', '<', $cancelledAt)
+                ->where('company_id', $requirement->company_id)
+                ->where('created_at', '<', $originalCancelledAt)
                 ->where(function (Builder $q): void {
                     $q->where('properties->attributes->status', RequirementLineStatus::Cancelled->value)
                         ->orWhere('description', 'like', '%cancelled%');
                 })
                 ->exists();
 
-            if ($hasPriorLineCancellation) {
-                return false;
-            }
-
-            if ($line->updated_at !== null && $line->updated_at->lt($cancelledAt->copy()->subSeconds(2))) {
-                return false;
-            }
-
-            return true;
+            return ! $hasPriorLineCancellation;
         });
     }
 }

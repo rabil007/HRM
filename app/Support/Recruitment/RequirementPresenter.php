@@ -49,10 +49,12 @@ final class RequirementPresenter
         ])->all();
 
         $unfilledVacancies = 0;
+        $hasActiveLines = false;
         foreach ($requirement->lines as $line) {
             if ($line->status === RequirementLineStatus::Cancelled) {
                 continue;
             }
+            $hasActiveLines = true;
             $joined = isset($line->joined_candidates_count)
                 ? (int) $line->joined_candidates_count
                 : (int) ($line->relationLoaded('candidates')
@@ -60,7 +62,7 @@ final class RequirementPresenter
                     : $line->candidates()->where('stage', CandidateStage::Joined->value)->count());
             $unfilledVacancies += max(0, (int) $line->required_headcount - $joined);
         }
-        $isFullyFulfilled = count($positionsSummary) > 0 && $unfilledVacancies === 0;
+        $isFullyFulfilled = $hasActiveLines && $unfilledVacancies === 0;
 
         $canUpdate = $user ? (bool) $user->can('recruitment.requirements.update') : true;
         $canClose = $user ? (bool) $user->can('recruitment.requirements.close') : true;
@@ -211,6 +213,7 @@ final class RequirementPresenter
             'pending_headcount_revision' => $pendingHeadcountPayload,
             'can_fill' => $canClose
                 && in_array($requirement->status, [RequirementStatus::Open, RequirementStatus::OnHold], true)
+                && $hasActiveLines
                 && $pendingExtensionPayload === null
                 && $pendingHeadcountPayload === null,
             'is_fully_fulfilled' => $isFullyFulfilled,

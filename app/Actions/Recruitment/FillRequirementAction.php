@@ -73,9 +73,16 @@ final class FillRequirementAction
                 ->lockForUpdate()
                 ->get();
 
+            if ($lines->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Cannot mark requirement as filled because there are no active position lines. Please cancel the requirement instead.',
+                ]);
+            }
+
             $fulfillmentSnapshot = [];
             $totalRemaining = 0;
             $totalOverfill = 0;
+            $lineStatusMap = [];
 
             foreach ($lines as $line) {
                 $joinedCount = $line->candidates()
@@ -84,6 +91,7 @@ final class FillRequirementAction
                 $required = (int) $line->required_headcount;
                 $remaining = max(0, $required - $joinedCount);
                 $overfill = max(0, $joinedCount - $required);
+                $isLineFulfilled = $joinedCount >= $required;
 
                 $fulfillmentSnapshot[] = [
                     'line_id' => (int) $line->id,
@@ -93,8 +101,10 @@ final class FillRequirementAction
                     'joined_count' => $joinedCount,
                     'remaining_headcount' => $remaining,
                     'overfill' => $overfill,
+                    'line_status' => $isLineFulfilled ? RequirementLineStatus::Filled->value : RequirementLineStatus::Closed->value,
                 ];
 
+                $lineStatusMap[$line->id] = $isLineFulfilled ? RequirementLineStatus::Filled : RequirementLineStatus::Closed;
                 $totalRemaining += $remaining;
                 $totalOverfill += $overfill;
             }
@@ -125,9 +135,11 @@ final class FillRequirementAction
                 'updated_by' => $userId,
             ]);
 
-            $locked->lines()->where('status', '!=', RequirementLineStatus::Cancelled)->update([
-                'status' => RequirementLineStatus::Filled,
-            ]);
+            foreach ($lines as $line) {
+                $line->update([
+                    'status' => $lineStatusMap[$line->id],
+                ]);
+            }
 
             RecordRequirementStatusTransition::handle(
                 $locked,

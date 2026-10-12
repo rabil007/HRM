@@ -187,6 +187,8 @@ export function RequirementPositionLinesCard({
                                                     'border-amber-500/30 bg-amber-500/10 text-amber-500',
                                                 line.status === 'filled' &&
                                                     'border-sky-500/30 bg-sky-500/10 text-sky-500',
+                                                line.status === 'closed' &&
+                                                    'border-slate-500/30 bg-slate-500/10 text-slate-500',
                                                 line.status === 'cancelled' &&
                                                     'border-rose-500/30 bg-rose-500/10 text-rose-500',
                                             )}

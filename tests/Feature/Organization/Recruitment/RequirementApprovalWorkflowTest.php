@@ -105,6 +105,7 @@ function allRecruitmentApprovalPermissions(): array
         'recruitment.requirements.cancel',
         'recruitment.requirements.reopen',
         'recruitment.requirements.attachments.download',
+        'recruitment.requirements.override_fill',
     ];
 }
 

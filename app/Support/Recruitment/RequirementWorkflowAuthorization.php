@@ -368,7 +368,6 @@ final class RequirementWorkflowAuthorization
 
     public static function canOverrideFill(User $user): bool
     {
-        return $user->can('recruitment.candidates.manage')
-            || $user->can('recruitment.requirements.approve');
+        return $user->can('recruitment.requirements.override_fill');
     }
 }

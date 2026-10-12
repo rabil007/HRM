@@ -1227,7 +1227,7 @@ test('requirement fill succeeds after a pending headcount revision is resolved',
     $closer = createHeadcountRevisionTestUser($this->companyA, [
         'recruitment.requirements.view',
         'recruitment.requirements.close',
-        'recruitment.requirements.approve',
+        'recruitment.requirements.override_fill',
     ]);
 
     $req = createHeadcountRevisionRequirement($this);

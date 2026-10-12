@@ -91,6 +91,7 @@ beforeEach(function () {
         'recruitment.requirements.reopen',
         'recruitment.requirements.attachments.download',
         'recruitment.requirements.request_deadline_extension',
+        'recruitment.requirements.override_fill',
     ];
 
     $this->adminUserA = createRecruitmentTestUser($this->companyA, $allRecruitmentPermissions);
@@ -479,7 +480,7 @@ test('lifecycle transitions: draft -> submit -> approve -> hold -> resume -> fil
 
     expect($req->fresh()->status)->toBe(RequirementStatus::Completed)
         ->and($req->fresh()->completed_at)->not->toBeNull()
-        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Filled);
+        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Closed);
 });
 
 test('cancelling a requirement sets status, marks lines cancelled, and records cancellation reason', function () {
@@ -1537,7 +1538,7 @@ test('partially fulfilled requirement can be marked filled with management overr
     $manager = createRecruitmentTestUser($this->companyA, [
         'recruitment.requirements.view',
         'recruitment.requirements.close',
-        'recruitment.requirements.approve',
+        'recruitment.requirements.override_fill',
     ]);
 
     $req = RecruitmentRequirement::query()->create([
@@ -1592,7 +1593,7 @@ test('partially fulfilled requirement can be marked filled with management overr
 
     expect($req->fresh()->status)->toBe(RequirementStatus::Completed)
         ->and($line->fresh()->required_headcount)->toBe(2) // Headcount preserved!
-        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Filled);
+        ->and($line->fresh()->status)->toBe(RequirementLineStatus::Closed);
 });
 
 test('overfill in one line does not offset vacancies in another line when marking filled', function () {
@@ -1667,4 +1668,628 @@ test('overfill in one line does not offset vacancies in another line when markin
         ->assertSessionHasErrors(['status']);
 
     expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+});
+
+test('multiple positions with different fulfillment levels mark fulfilled lines filled and unfilled lines closed', function () {
+    $manager = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+        'recruitment.requirements.override_fill',
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-DIFF-LEVELS',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(5),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(5),
+    ]);
+
+    // Chief Engineer: Required 5, Joined 3 (partially fulfilled)
+    $lineChief = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 5,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    for ($i = 1; $i <= 3; $i++) {
+        RecruitmentCandidate::query()->create([
+            'company_id' => $this->companyA->id,
+            'recruitment_requirement_id' => $req->id,
+            'recruitment_requirement_line_id' => $lineChief->id,
+            'position_id' => $this->positionChiefEng->id,
+            'position_title_snapshot' => 'Chief Engineer',
+            'requirement_number_snapshot' => $req->requirement_number,
+            'name' => "Chief {$i}",
+            'email' => "chief{$i}@test.com",
+            'stage' => CandidateStage::Joined,
+            'actual_joining_date' => now()->toDateString(),
+            'lock_version' => 1,
+        ]);
+    }
+
+    // Captain: Required 2, Joined 2 (fully fulfilled)
+    $lineCaptain = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    for ($i = 1; $i <= 2; $i++) {
+        RecruitmentCandidate::query()->create([
+            'company_id' => $this->companyA->id,
+            'recruitment_requirement_id' => $req->id,
+            'recruitment_requirement_line_id' => $lineCaptain->id,
+            'position_id' => $this->positionCaptain->id,
+            'position_title_snapshot' => 'Master / Captain',
+            'requirement_number_snapshot' => $req->requirement_number,
+            'name' => "Captain {$i}",
+            'email' => "captain{$i}@test.com",
+            'stage' => CandidateStage::Joined,
+            'actual_joining_date' => now()->toDateString(),
+            'lock_version' => 1,
+        ]);
+    }
+
+    $positionChiefOfficer = Position::query()->create([
+        'company_id' => $this->companyA->id,
+        'title' => 'Chief Officer',
+        'status' => 'active',
+    ]);
+
+    // Deliberately cancelled line: remains cancelled
+    $lineCancelled = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $positionChiefOfficer->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $this->actingAs($manager)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill", [
+            'reason' => 'Management closed partial requirement due to vessel schedule changes.',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Completed)
+        ->and($lineCaptain->fresh()->status)->toBe(RequirementLineStatus::Filled)
+        ->and($lineChief->fresh()->status)->toBe(RequirementLineStatus::Closed)
+        ->and($lineChief->fresh()->required_headcount)->toBe(5) // Headcount preserved
+        ->and($lineCancelled->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+});
+
+test('overfilled position alongside unfilled position marks overfilled line filled and unfilled line closed with override', function () {
+    $manager = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+        'recruitment.requirements.override_fill',
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-OVER-UNFILL',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    // Line 1: Required 1, Joined 2 (overfilled)
+    $line1 = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    for ($i = 1; $i <= 2; $i++) {
+        RecruitmentCandidate::query()->create([
+            'company_id' => $this->companyA->id,
+            'recruitment_requirement_id' => $req->id,
+            'recruitment_requirement_line_id' => $line1->id,
+            'position_id' => $this->positionChiefEng->id,
+            'position_title_snapshot' => 'Chief Engineer',
+            'requirement_number_snapshot' => $req->requirement_number,
+            'name' => "Over Chief {$i}",
+            'email' => "overchief{$i}@test.com",
+            'stage' => CandidateStage::Joined,
+            'actual_joining_date' => now()->toDateString(),
+            'lock_version' => 1,
+        ]);
+    }
+
+    // Line 2: Required 2, Joined 0 (unfilled)
+    $line2 = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    $this->actingAs($manager)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill", [
+            'reason' => 'Approved extra engineer in place of captains.',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Completed)
+        ->and($line1->fresh()->status)->toBe(RequirementLineStatus::Filled)
+        ->and($line2->fresh()->status)->toBe(RequirementLineStatus::Closed);
+});
+
+test('reopening a partially completed requirement restores both filled and closed lines to open and keeps cancelled lines cancelled', function () {
+    $manager = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+        'recruitment.requirements.override_fill',
+        'recruitment.requirements.reopen',
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-REOPEN-PARTIAL',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(10),
+        'required_by_date' => now()->addDays(5),
+        'status' => RequirementStatus::Completed,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(10),
+        'approved_at' => now()->subDays(10),
+        'completed_at' => now()->subDays(1),
+    ]);
+
+    $lineFilled = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Filled,
+    ]);
+
+    $lineClosed = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::Closed,
+    ]);
+
+    $positionChiefOfficer = Position::query()->create([
+        'company_id' => $this->companyA->id,
+        'title' => 'Chief Officer',
+        'status' => 'active',
+    ]);
+
+    $lineCancelled = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $positionChiefOfficer->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $this->actingAs($manager)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Client reinstated remaining hiring scope.',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open)
+        ->and($lineFilled->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($lineClosed->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($lineCancelled->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+});
+
+test('reopening historical cancelled requirement without metadata safely restores lines not deliberately cancelled', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-LEGACY-CANCEL',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(20),
+        'required_by_date' => now()->addDays(10),
+        'status' => RequirementStatus::Cancelled,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(20),
+        'approved_at' => now()->subDays(20),
+        'cancelled_at' => now()->subDays(2),
+        'cancellation_reason' => 'Legacy project shutdown',
+    ]);
+
+    $lineActiveBeforeCancel = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $lineCancelledPrior = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    // Record an individual line cancellation prior to requirement cancellation
+    activity('recruitment')
+        ->causedBy($this->adminUserA)
+        ->performedOn($lineCancelledPrior)
+        ->createdAt(now()->subDays(5))
+        ->withProperties([
+            'company_id' => $this->companyA->id,
+            'attributes' => ['status' => RequirementLineStatus::Cancelled->value],
+        ])
+        ->log('Position line cancelled individually by user');
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Legacy project resumed.',
+        ])
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open)
+        ->and($lineActiveBeforeCancel->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($lineCancelledPrior->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+});
+
+test('reopening fails gracefully when all position lines were deliberately cancelled beforehand', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-ALL-DELIBERATE',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(20),
+        'required_by_date' => now()->addDays(10),
+        'status' => RequirementStatus::Cancelled,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(20),
+        'cancelled_at' => now()->subDays(2),
+        'cancellation_reason' => 'All positions already cancelled',
+    ]);
+
+    $line = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    activity('recruitment')
+        ->causedBy($this->adminUserA)
+        ->performedOn($line)
+        ->createdAt(now()->subDays(5))
+        ->withProperties([
+            'company_id' => $this->companyA->id,
+            'attributes' => ['status' => RequirementLineStatus::Cancelled->value],
+        ])
+        ->log('Line cancelled prior to requirement cancellation');
+
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Attempting reopening.',
+        ])
+        ->assertSessionHasErrors(['status']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Cancelled);
+});
+
+test('requirement supports multiple cancellation and reopening cycles preserving correct line states', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-MULTI-CYCLE',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(15),
+        'required_by_date' => now()->addDays(15),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(15),
+        'approved_at' => now()->subDays(15),
+    ]);
+
+    $lineActive = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    $lineDeliberatelyCancelled = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    // Cycle 1: Cancel
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'First pause.',
+        ])
+        ->assertRedirect();
+
+    expect($lineActive->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+
+    // Cycle 1: Reopen
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'First resume.',
+        ])
+        ->assertRedirect();
+
+    expect($lineActive->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($lineDeliberatelyCancelled->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+
+    // Cycle 2: Cancel again
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/cancel", [
+            'cancellation_reason' => 'Second pause.',
+        ])
+        ->assertRedirect();
+
+    expect($lineActive->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+
+    // Cycle 2: Reopen again
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/reopen", [
+            'reason' => 'Second resume.',
+        ])
+        ->assertRedirect();
+
+    expect($lineActive->fresh()->status)->toBe(RequirementLineStatus::Open)
+        ->and($lineDeliberatelyCancelled->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+});
+
+test('cannot mark requirement as filled when no position lines exist', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-NO-LINES',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    // Backend validation reject
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertSessionHasErrors([
+            'status' => 'Cannot mark requirement as filled because there are no active position lines. Please cancel the requirement instead.',
+        ]);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+
+    // Presenter checks
+    $row = RequirementPresenter::toIndexRow($req->fresh()->load('lines.position'));
+    expect($row['can_fill'])->toBeFalse()
+        ->and($row['is_fully_fulfilled'])->toBeFalse();
+});
+
+test('cannot mark requirement as filled when only cancelled position lines exist', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-ONLY-CANCELLED',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    // Backend validation reject
+    $this->actingAs($this->adminUserA)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertSessionHasErrors([
+            'status' => 'Cannot mark requirement as filled because there are no active position lines. Please cancel the requirement instead.',
+        ]);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+
+    // Presenter checks
+    $row = RequirementPresenter::toIndexRow($req->fresh()->load('lines.position'));
+    expect($row['can_fill'])->toBeFalse()
+        ->and($row['is_fully_fulfilled'])->toBeFalse();
+
+    $detail = RequirementPresenter::toShow($req->fresh()->load(['lines.position', 'attachments', 'notificationRecipients.user']));
+    expect($detail['progress']['suggest_mark_filled'])->toBeFalse()
+        ->and($detail['progress']['is_target_reached'])->toBeFalse();
+});
+
+test('requirement with mixture of cancelled and active lines allows completion when active line is fulfilled', function () {
+    $closer = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-MIXED-FULFILLED',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    $cancelledLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionCaptain->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Cancelled,
+    ]);
+
+    $activeLine = RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    RecruitmentCandidate::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'recruitment_requirement_line_id' => $activeLine->id,
+        'position_id' => $this->positionChiefEng->id,
+        'position_title_snapshot' => 'Chief Engineer',
+        'requirement_number_snapshot' => $req->requirement_number,
+        'name' => 'Joined Chief',
+        'email' => 'joined.chief@test.com',
+        'stage' => CandidateStage::Joined,
+        'actual_joining_date' => now()->toDateString(),
+        'lock_version' => 1,
+    ]);
+
+    // Presenter checks
+    $row = RequirementPresenter::toIndexRow($req->fresh()->load('lines.position'));
+    expect($row['can_fill'])->toBeTrue()
+        ->and($row['is_fully_fulfilled'])->toBeTrue();
+
+    // Standard close without override is accepted
+    $this->actingAs($closer)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertRedirect();
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Completed)
+        ->and($activeLine->fresh()->status)->toBe(RequirementLineStatus::Filled)
+        ->and($cancelledLine->fresh()->status)->toBe(RequirementLineStatus::Cancelled);
+});
+
+test('candidate manager without override_fill permission cannot close partially fulfilled requirement', function () {
+    $candidateManager = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.close',
+        'recruitment.candidates.manage', // candidate manager
+        'recruitment.requirements.approve', // approver
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-CAND-MGR-NO-OVERRIDE',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 2,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    // Even with a reason, candidate manager without override_fill is rejected
+    $this->actingAs($candidateManager)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill", [
+            'reason' => 'Attempted override without specific override permission',
+        ])
+        ->assertSessionHasErrors(['status']);
+
+    expect($req->fresh()->status)->toBe(RequirementStatus::Open);
+});
+
+test('user without close permission cannot fill requirement regardless of fulfillment or override permissions', function () {
+    $userWithoutClose = createRecruitmentTestUser($this->companyA, [
+        'recruitment.requirements.view',
+        'recruitment.requirements.override_fill',
+    ]);
+
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-NO-CLOSE-PERM',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    $this->actingAs($userWithoutClose)
+        ->withSession(['current_company_id' => $this->companyA->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertForbidden();
+});
+
+test('cross company user cannot fill requirement in another company', function () {
+    $req = RecruitmentRequirement::query()->create([
+        'company_id' => $this->companyA->id,
+        'requirement_number' => 'REQ-2026-CROSS-COMPANY',
+        'client_id' => $this->client->id,
+        'project_id' => $this->project->id,
+        'request_received_date' => now()->subDays(3),
+        'status' => RequirementStatus::Open,
+        'created_by' => $this->adminUserA->id,
+        'opened_at' => now()->subDays(3),
+    ]);
+
+    RecruitmentRequirementLine::query()->create([
+        'company_id' => $this->companyA->id,
+        'recruitment_requirement_id' => $req->id,
+        'position_id' => $this->positionChiefEng->id,
+        'required_headcount' => 1,
+        'status' => RequirementLineStatus::Open,
+    ]);
+
+    // Admin in Company B attempts to fill requirement in Company A
+    $this->actingAs($this->adminUserB)
+        ->withSession(['current_company_id' => $this->companyB->id])
+        ->post("/organization/recruitment/requirements/{$req->id}/fill")
+        ->assertNotFound();
 });
