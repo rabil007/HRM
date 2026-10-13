@@ -1,23 +1,22 @@
 /**
- * Shared helpers for Record Now vs Schedule for Later timestamp UX.
+ * Helpers for automatic immediate vs scheduled movement UX.
  *
- * Record Now rejects future actual timestamps (unless a legacy testing override
- * remains enabled). Schedule for Later intentionally uses future instants and
- * never treats them as actual movements until automatic execution.
+ * Operators pick a movement date/time only. Past/current record immediately;
+ * future times create a scheduled movement. No testing override and no manual
+ * Record Now / Schedule for Later mode selector.
  */
 
-export const TESTING_OVERRIDE_BANNER_MESSAGE =
-    'Legacy Testing Override is still enabled for this company. Prefer Schedule for Later for future movements so actual status, accommodation, and Sea Service stay unchanged until execution.';
+export const SCHEDULE_PERMISSION_MESSAGE =
+    'You do not have permission to schedule future movements. Choose a current or past date, or ask an administrator for scheduling access.';
 
-export const SCHEDULE_LATER_HELP =
-    'Saving a schedule does not change the current phase, hotel stay, Sea Service, or payroll movement dates. The system executes automatically when due.';
+export const PENDING_SCHEDULE_BLOCK_MESSAGE =
+    'This assignment already has a pending scheduled movement. Edit, reschedule, or cancel it before creating another.';
 
 export function resolveMovementOccurredAtMax(
     companyNow: string,
-    allowFutureActualMovementDates: boolean,
     schedulingMode = false,
 ): string | undefined {
-    if (schedulingMode || allowFutureActualMovementDates) {
+    if (schedulingMode) {
         return undefined;
     }
 
@@ -31,39 +30,24 @@ export function resolveMovementOccurredAtMin(
     return schedulingMode ? companyNow : undefined;
 }
 
+/**
+ * Warn when a future time is selected for an action that cannot be scheduled.
+ */
 export function shouldShowFutureMovementWarning(
     isFuture: boolean,
-    allowFutureActualMovementDates: boolean,
     schedulingMode = false,
 ): boolean {
-    if (schedulingMode) {
-        return false;
-    }
-
-    return isFuture && !allowFutureActualMovementDates;
+    return isFuture && !schedulingMode;
 }
 
 /**
- * Whether Step 2 / progress should stay blocked because a future actual
- * timestamp is present and the company testing override is OFF.
+ * Block submit when a future time is selected for a non-schedulable action.
  */
 export function shouldBlockFutureActualMovementDate(
     isFuture: boolean,
-    allowFutureActualMovementDates: boolean,
     schedulingMode = false,
 ): boolean {
-    if (schedulingMode) {
-        return false;
-    }
-
-    return isFuture && !allowFutureActualMovementDates;
-}
-
-export function shouldShowTestingOverrideBanner(
-    allowFutureActualMovementDates: boolean,
-    schedulingMode = false,
-): boolean {
-    return allowFutureActualMovementDates && !schedulingMode;
+    return isFuture && !schedulingMode;
 }
 
 export function isSchedulableMovementAction(
@@ -72,3 +56,12 @@ export function isSchedulableMovementAction(
 ): boolean {
     return schedulableActions.includes(action);
 }
+
+export function formatScheduledMovementExplanation(
+    scheduledAtDisplay: string,
+): string {
+    return `Scheduled for ${scheduledAtDisplay}. The current phase will remain unchanged until this movement executes.`;
+}
+
+export const RECORD_NOW_EXPLANATION =
+    'Record this movement now. The operational phase will update immediately.';

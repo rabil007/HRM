@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Organization\CrewOperations;
 
-use App\Support\CrewOperations\CrewOperationsSettings;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -73,11 +72,10 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
                 return;
             }
 
-            if ($this->boolean('allow_future_actual_movement_dates')
-                && ! CrewOperationsSettings::futureActualOverrideEnvironmentsAllowed()) {
+            if ($this->boolean('allow_future_actual_movement_dates')) {
                 $validator->errors()->add(
                     'allow_future_actual_movement_dates',
-                    'The future actual movement dates testing override cannot be enabled in production. Use Schedule for Later instead.',
+                    'The future actual movement dates testing override has been removed. Future movement times are scheduled automatically.',
                 );
             }
         });

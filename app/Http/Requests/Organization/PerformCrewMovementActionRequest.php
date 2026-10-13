@@ -14,7 +14,8 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewInitialArrivalBackdateGuard;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\Scheduling\CrewSchedulableMovementActions;
-use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\CrewMovements\Scheduling\CrewScheduledMovementAccess;
+use App\Support\CrewMovements\Scheduling\ResolveCrewMovementTiming;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
@@ -431,25 +432,33 @@ class PerformCrewMovementActionRequest extends FormRequest
                 );
             }
 
-            // Record Now rejects future actual timestamps unless the legacy testing
-            // override remains enabled. Schedule for Later validates against the
-            // intended future instant without treating it as an actual movement yet.
-            if ($occurredAt !== null
-                && $this->actionRequiresActualTimestamp($action)
-                && ! $this->isSchedulingMode()
-                && ! CrewOperationsSettings::allowFutureActualMovementDates($companyId)) {
-                $now = Carbon::now($timezone);
+            // Past/current → immediate actual. Future + schedulable → schedule.
+            // Never trust a client-supplied mode; never execute future actuals early.
+            $movementAction = CrewMovementAction::tryFrom($action);
+            $autoSchedule = $movementAction !== null
+                && ResolveCrewMovementTiming::shouldSchedule(
+                    $movementAction,
+                    $occurredAt,
+                    $companyId,
+                    $timezone,
+                );
 
-                if ($occurredAt->gt($now)) {
+            if ($autoSchedule || $this->isSchedulingMode()) {
+                if ($autoSchedule && ! CrewScheduledMovementAccess::canSchedule($this->user())) {
                     $validator->errors()->add(
                         'occurred_at',
-                        'Actual movement events cannot be recorded in the future. Use Schedule for Later for future movements.',
+                        'You do not have permission to schedule future movements. Choose a current or past date, or ask an administrator for scheduling access.',
                     );
+                } else {
+                    $this->validateSchedulingMode($validator, $assignment, $action, $timezone, $occurredAt);
                 }
-            }
-
-            if ($this->isSchedulingMode()) {
-                $this->validateSchedulingMode($validator, $assignment, $action, $timezone, $occurredAt);
+            } elseif ($occurredAt !== null
+                && $this->actionRequiresActualTimestamp($action)
+                && ResolveCrewMovementTiming::isFuture($occurredAt, $companyId, $timezone)) {
+                $validator->errors()->add(
+                    'occurred_at',
+                    'This movement action cannot be scheduled for a future date and time.',
+                );
             }
 
             if ($action === 'approve_mobilisation') {
@@ -965,9 +974,13 @@ class PerformCrewMovementActionRequest extends FormRequest
         ];
     }
 
+    /**
+     * Dedicated schedule endpoints override this. The actions endpoint never
+     * trusts a client-supplied mode — timing is derived from the timestamp.
+     */
     protected function isSchedulingMode(): bool
     {
-        return $this->input('mode') === 'schedule_later';
+        return false;
     }
 
     protected function validateSchedulingMode(
@@ -1004,7 +1017,7 @@ class PerformCrewMovementActionRequest extends FormRequest
         if ($scheduledAt->lessThanOrEqualTo(Carbon::now($timezone))) {
             $validator->errors()->add(
                 'scheduled_at',
-                'Schedule for Later requires a future date and time. Use Record Now for current or historical movements.',
+                'Scheduled movements require a future date and time in the company timezone. Past or current times are recorded immediately.',
             );
         }
     }

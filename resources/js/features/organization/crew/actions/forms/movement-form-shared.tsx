@@ -38,7 +38,6 @@ export function MovementOccurredAtField({
     id = 'movement-occurred-at',
     min,
     timezone,
-    allowFutureActualMovementDates = false,
     schedulingMode = false,
     onValueChange,
 }: {
@@ -48,7 +47,6 @@ export function MovementOccurredAtField({
     id?: string;
     min?: string;
     timezone?: string;
-    allowFutureActualMovementDates?: boolean;
     schedulingMode?: boolean;
     onValueChange?: (value: string) => void;
 }): ReactElement {
@@ -59,16 +57,11 @@ export function MovementOccurredAtField({
         form.data.occurred_at,
         effectiveTimezone,
     );
-    const max = resolveMovementOccurredAtMax(
-        companyNow,
-        allowFutureActualMovementDates,
-        schedulingMode,
-    );
+    const max = resolveMovementOccurredAtMax(companyNow, schedulingMode);
     const resolvedMin =
         min ?? resolveMovementOccurredAtMin(companyNow, schedulingMode);
     const showFutureWarning = shouldShowFutureMovementWarning(
         isFuture,
-        allowFutureActualMovementDates,
         schedulingMode,
     );
 
@@ -99,12 +92,13 @@ export function MovementOccurredAtField({
             </p>
             {showFutureWarning ? (
                 <p className="text-xs text-destructive">
-                    Movement time cannot be in the future (current company time:{' '}
+                    This movement action cannot be scheduled for a future date
+                    and time (current company time:{' '}
                     {formatDisplayDateTime12hInTimezone(
                         companyNow,
                         effectiveTimezone,
                     )}
-                    ). Use Schedule for Later instead.
+                    ).
                 </p>
             ) : null}
             <InputError

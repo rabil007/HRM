@@ -339,7 +339,7 @@ export function daysPastPlannedEnd(
 }
 
 export function formatElapsedDayPhrase(days: number | null): string | null {
-    if (days === null) {
+    if (days === null || days < 0) {
         return null;
     }
 

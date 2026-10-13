@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 
 /**
  * Support recovery path for overdue / stale schedules.
- * Not a product UI manual confirmation mode. Operators still use Record Now
+ * Not a product UI manual confirmation mode. Operators still record past/current movements
  * or reschedule after reviewing Needs Attention items.
  *
  * Defaults without --company: inspects / recovers across all companies

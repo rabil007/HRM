@@ -282,7 +282,7 @@ final class ExecuteCrewScheduledMovement
             return $this->markNeedsAttention(
                 $schedule,
                 CrewScheduledMovementErrorCode::MovementFailed,
-                'Automatic execution failed unexpectedly. Review the assignment and reschedule or use Record Now.',
+                'Automatic execution failed unexpectedly. Review the assignment, reschedule, or record the movement with a current or past timestamp.',
             );
         }
     }

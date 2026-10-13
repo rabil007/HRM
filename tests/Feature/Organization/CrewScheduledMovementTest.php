@@ -372,9 +372,10 @@ test('artisan process command is registered and recovers safely', function () {
     expect($exit)->toBe(0);
 });
 
-test('record now still rejects future dates when override is off', function () {
+test('actions endpoint automatically schedules future dates without changing the phase', function () {
     $fixtures = makeCrewScheduledMovementFixtures();
     $assignment = advanceJoinStandbyAssignment($fixtures);
+    $phaseBefore = $assignment->currentPhase?->phase_code;
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -385,9 +386,20 @@ test('record now still rejects future dates when override is off', function () {
             'position_id' => $assignment->position_id,
             'planned_signoff_choice' => 'manual_override',
             'planned_signoff_at' => '2027-03-20',
-            'planned_signoff_override_reason' => 'Future record now',
+            'planned_signoff_override_reason' => 'Future auto schedule',
         ])
-        ->assertSessionHasErrors('occurred_at');
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionHas('success');
+
+    $assignment->refresh()->load('currentPhase');
+    $schedule = CrewScheduledMovement::query()
+        ->where('crew_assignment_id', $assignment->id)
+        ->first();
+
+    expect($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
+        ->and($schedule)->not->toBeNull()
+        ->and($schedule->status)->toBe(CrewScheduledMovementStatus::Scheduled)
+        ->and($schedule->movement_action)->toBe(CrewMovementAction::JoinVessel);
 });
 
 test('demo lifecycle schedule then execute arrival join disembark return home', function () {
