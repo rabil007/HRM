@@ -11,12 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
-import { AlreadyArrivedCheckbox } from '@/features/organization/crew/components/already-arrived-checkbox';
 import { CrewAssignmentBulkReadinessPanel } from '@/features/organization/crew/components/crew-assignment-bulk-readiness-panel';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
 import type { ConflictDialogData } from '@/features/organization/crew/components/crew-assignment-conflict-dialog';
 import { CrewAssignmentConflictDialog } from '@/features/organization/crew/components/crew-assignment-conflict-dialog';
 import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
+import { CrewAssignmentStartingStageSection } from '@/features/organization/crew/components/crew-assignment-starting-stage-section';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
@@ -62,6 +62,13 @@ import {
     resolveCreateFooterActions,
     resolveCreateSubmitRoute,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
+import {
+    STARTING_STAGE_REQUIRED_MESSAGE,
+    availableStartingStages,
+    resolveStartingStageSubmitLabel,
+    startingStageToSubmissionIntent,
+} from '@/features/organization/crew/lib/crew-assignment-starting-stage';
+import type { CrewAssignmentStartingStage } from '@/features/organization/crew/lib/crew-assignment-starting-stage';
 import {
     defaultPreJoinAccommodation,
     preJoinAccommodationPayload,
@@ -246,6 +253,11 @@ export function CrewAssignmentCreateForm({
     const [previewFilter, setPreviewFilter] =
         useState<BulkPreviewFilter>('all');
     const [scrollFocusedRow, setScrollFocusedRow] = useState(false);
+    const [startingStage, setStartingStage] =
+        useState<CrewAssignmentStartingStage | null>(null);
+    const [startingStageError, setStartingStageError] = useState<
+        string | undefined
+    >();
 
     const form = useForm<UnifiedCreateFormData>({
         client_id:
@@ -285,16 +297,21 @@ export function CrewAssignmentCreateForm({
                     planned_arrival_at: planned_arrival_at ?? null,
                 }),
             ),
-        submission_intent: can.start ? 'start' : 'draft',
+        submission_intent: 'draft',
     });
 
-    const alreadyArrived = Boolean(form.data.already_arrived);
+    const startingStageOptionsList = useMemo(
+        () =>
+            availableStartingStages({
+                canCreate: can.create,
+                canStart: can.start,
+            }),
+        [can.create, can.start],
+    );
+
     const planningPrefillArrival = planning_context?.planned_arrival_at ?? null;
     const hasPlanningPrefillArrival =
         normalizeArrivalDate(planningPrefillArrival) !== '';
-    const alreadyArrivedHelp = alreadyArrivedExplanation(
-        hasPlanningPrefillArrival,
-    );
     const actualArrivalHelp = actualArrivalDateHelper(
         hasPlanningPrefillArrival,
     );
@@ -335,6 +352,14 @@ export function CrewAssignmentCreateForm({
         });
     };
 
+    const handleStartingStageChange = (
+        stage: CrewAssignmentStartingStage,
+    ): void => {
+        setStartingStageError(undefined);
+        setStartingStage(stage);
+        setAlreadyArrived(stage === 'already_arrived');
+    };
+
     const conflictError = (
         form.errors as unknown as Record<string, string | undefined>
     ).conflict;
@@ -360,6 +385,9 @@ export function CrewAssignmentCreateForm({
     }));
 
     const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
+    const alreadyArrived = bulkMode
+        ? Boolean(form.data.already_arrived)
+        : startingStage === 'already_arrived';
     const singleRow = rows[0] ?? null;
     const effectiveEmployeeId = resolveCreateEffectiveEmployeeId(
         planning_context?.employee_id ?? null,
@@ -791,12 +819,35 @@ export function CrewAssignmentCreateForm({
             return;
         }
 
-        // Draft-only users (including vacant Planning handoff) must submit draft.
-        submitSingle(can.start ? 'start' : 'draft');
+        if (footerActions.useStartingStageSelector) {
+            if (startingStage === null) {
+                setStartingStageError(STARTING_STAGE_REQUIRED_MESSAGE);
+
+                return;
+            }
+
+            setStartingStageError(undefined);
+            submitSingle(startingStageToSubmissionIntent(startingStage));
+
+            return;
+        }
+
+        submitSingle('draft');
     };
 
-    const saveDraft = (): void => {
-        submitSingle('draft');
+    const renderStartingStageSection = (): ReactElement | null => {
+        if (!footerActions.useStartingStageSelector) {
+            return null;
+        }
+
+        return (
+            <CrewAssignmentStartingStageSection
+                value={startingStage ?? ''}
+                onChange={handleStartingStageChange}
+                stages={startingStageOptionsList}
+                error={startingStageError}
+            />
+        );
     };
 
     return (
@@ -848,10 +899,12 @@ export function CrewAssignmentCreateForm({
                                                 mobilisation details.
                                             </p>
                                             <p className="text-xs text-sky-900/80 dark:text-sky-200/80">
-                                                Save as Draft remains available
-                                                for a single crew member. Future
-                                                mobilisation belongs in Crew
-                                                Planning.
+                                                Choose a starting stage for one
+                                                crew member, or add more rows to
+                                                start several assignments with
+                                                the same mobilisation details.
+                                                Future mobilisation belongs in
+                                                Crew Planning.
                                             </p>
                                         </>
                                     )}
@@ -887,6 +940,7 @@ export function CrewAssignmentCreateForm({
                                                     canViewAssignment={can.view}
                                                 />
                                             ) : null}
+                                            {renderStartingStageSection()}
                                             <div className="space-y-2">
                                                 <Label htmlFor="planning-planned-arrival-at">
                                                     {alreadyArrived
@@ -936,18 +990,12 @@ export function CrewAssignmentCreateForm({
                                                         formErrors.planned_arrival_at
                                                     }
                                                 />
-                                                {can.start ? (
-                                                    <AlreadyArrivedCheckbox
-                                                        checked={alreadyArrived}
-                                                        onCheckedChange={
-                                                            setAlreadyArrived
-                                                        }
-                                                        id="planning-already-arrived"
-                                                        className="pt-1"
-                                                        explanation={
-                                                            alreadyArrivedHelp
-                                                        }
-                                                    />
+                                                {alreadyArrived ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {alreadyArrivedExplanation(
+                                                            hasPlanningPrefillArrival,
+                                                        )}
+                                                    </p>
                                                 ) : null}
                                                 {alreadyArrived ? (
                                                     <PreJoinAccommodationFields
@@ -1012,7 +1060,9 @@ export function CrewAssignmentCreateForm({
                                                 onAlreadyArrivedChange={
                                                     setAlreadyArrived
                                                 }
-                                                showAlreadyArrived={can.start}
+                                                showAlreadyArrived={
+                                                    bulkMode && can.start
+                                                }
                                                 hasPlanningPrefillArrival={
                                                     hasPlanningPrefillArrival
                                                 }
@@ -1072,6 +1122,7 @@ export function CrewAssignmentCreateForm({
                                                     );
                                                 }}
                                             />
+                                            {renderStartingStageSection()}
 
                                             <div className="lg:hidden">
                                                 {renderGuidanceSidebar()}
@@ -1128,41 +1179,65 @@ export function CrewAssignmentCreateForm({
                                     />
 
                                     <div className="flex flex-wrap items-center gap-3 border-t border-border/60 pt-6">
-                                        {footerActions.showStart ? (
+                                        {footerActions.useStartingStageSelector ? (
                                             <Button
                                                 type="submit"
                                                 variant="default"
                                                 disabled={
                                                     form.processing ||
-                                                    (bulkMode
-                                                        ? !bulkCanSubmit
-                                                        : hasActiveAssignmentConflict)
+                                                    startingStage === null ||
+                                                    (startingStage !==
+                                                        'draft' &&
+                                                        (hasActiveAssignmentConflict ||
+                                                            transferRequiredButUnauthorized))
                                                 }
                                                 title={
-                                                    bulkMode
-                                                        ? incompleteCount > 0
-                                                            ? 'Complete or remove every crew row before starting.'
-                                                            : blockedCount > 0
-                                                              ? 'Resolve blocked crew members before starting.'
-                                                              : undefined
-                                                        : transferRequiredButUnauthorized
+                                                    startingStage === null
+                                                        ? STARTING_STAGE_REQUIRED_MESSAGE
+                                                        : startingStage !==
+                                                                'draft' &&
+                                                            transferRequiredButUnauthorized
                                                           ? 'Vessel Transfer is required for this move, but you do not have permission to perform it.'
-                                                          : hasActiveAssignmentConflict
+                                                          : startingStage !==
+                                                                  'draft' &&
+                                                              hasActiveAssignmentConflict
                                                             ? 'Active assignment exists — choose an action from Movement Guidance.'
                                                             : undefined
                                                 }
                                                 className="h-11 rounded-xl px-6"
                                             >
-                                                {form.processing &&
-                                                form.data.submission_intent ===
-                                                    'start' ? (
+                                                {form.processing ? (
                                                     <Spinner className="mr-2" />
                                                 ) : null}
-                                                {bulkMode
-                                                    ? bulkStartButtonLabel(
-                                                          readyCount,
-                                                      )
-                                                    : 'Start Assignment'}
+                                                {resolveStartingStageSubmitLabel(
+                                                    startingStage,
+                                                )}
+                                            </Button>
+                                        ) : null}
+
+                                        {bulkMode && footerActions.showStart ? (
+                                            <Button
+                                                type="submit"
+                                                variant="default"
+                                                disabled={
+                                                    form.processing ||
+                                                    !bulkCanSubmit
+                                                }
+                                                title={
+                                                    incompleteCount > 0
+                                                        ? 'Complete or remove every crew row before starting.'
+                                                        : blockedCount > 0
+                                                          ? 'Resolve blocked crew members before starting.'
+                                                          : undefined
+                                                }
+                                                className="h-11 rounded-xl px-6"
+                                            >
+                                                {form.processing ? (
+                                                    <Spinner className="mr-2" />
+                                                ) : null}
+                                                {bulkStartButtonLabel(
+                                                    readyCount,
+                                                )}
                                             </Button>
                                         ) : null}
 
@@ -1175,7 +1250,9 @@ export function CrewAssignmentCreateForm({
                                                     form.processing ||
                                                     hasActiveAssignmentConflict
                                                 }
-                                                onClick={saveDraft}
+                                                onClick={() =>
+                                                    submitSingle('draft')
+                                                }
                                             >
                                                 {form.processing &&
                                                 form.data.submission_intent ===
@@ -1197,16 +1274,16 @@ export function CrewAssignmentCreateForm({
                                             Cancel
                                         </Button>
 
-                                        {!can.start ? (
+                                        {!can.start &&
+                                        footerActions.useStartingStageSelector ? (
                                             <p className="w-full text-xs font-medium text-amber-700 dark:text-amber-300">
                                                 Starting an operational
                                                 assignment requires movement
-                                                permission. You can still save a
-                                                Draft for one crew member, or
-                                                ask an authorized Operations
-                                                user to start the assignment.
-                                                Future plans belong in Crew
-                                                Planning.
+                                                permission. Choose Save as Draft
+                                                below, or ask an authorized
+                                                Operations user to start the
+                                                assignment. Future plans belong
+                                                in Crew Planning.
                                             </p>
                                         ) : null}
 
