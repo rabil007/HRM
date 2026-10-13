@@ -524,8 +524,15 @@ class CrewAssignmentPresenter
 
         $from = $start->copy()->timezone($timezone)->startOfDay();
         $to = $end->copy()->timezone($timezone)->startOfDay();
+        $days = (int) $from->diffInDays($to, false);
 
-        return (int) $from->diffInDays($to);
+        // Future-dated actual starts are data inconsistencies — never show negative
+        // elapsed days. Callers surface the inconsistency via attention warnings.
+        if ($days < 0) {
+            return null;
+        }
+
+        return $days;
     }
 
     private static function formatDateTime(?CarbonInterface $value, string $timezone): ?string

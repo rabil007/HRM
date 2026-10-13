@@ -16,10 +16,11 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { MovementWorkflowHelp } from '@/features/organization/crew/components/movement-workflow-help';
 import {
-    SCHEDULE_LATER_HELP,
-    TESTING_OVERRIDE_BANNER_MESSAGE,
+    PENDING_SCHEDULE_BLOCK_MESSAGE,
+    RECORD_NOW_EXPLANATION,
+    SCHEDULE_PERMISSION_MESSAGE,
+    formatScheduledMovementExplanation,
     isSchedulableMovementAction,
-    shouldShowTestingOverrideBanner,
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
@@ -33,10 +34,14 @@ import {
     normalizeTourSignoffPayload,
 } from '@/features/organization/crew/lib/tour-signoff';
 import { recommendsVesselTransfer } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
-import { nowInCompanyDate, nowInCompanyTime } from '@/lib/company-timezone';
+import {
+    formatDisplayDateTime12hInTimezone,
+    isCompanyTimeInFuture,
+    nowInCompanyDate,
+    nowInCompanyTime,
+} from '@/lib/company-timezone';
 import { cn } from '@/lib/utils';
 import { performAction } from '@/routes/organization/crew-assignments';
-import { store as storeScheduledMovement } from '@/routes/organization/crew-assignments/scheduled-movements';
 import { update as updateScheduledMovement } from '@/routes/organization/crew-scheduled-movements';
 import type {
     CrewAssignmentFormOptions,
@@ -323,9 +328,6 @@ export function MovementActionDialog({
         null,
     );
     const [transferPromptOpen, setTransferPromptOpen] = useState(false);
-    const [mode, setMode] = useState<'record_now' | 'schedule_later'>(
-        isEditingSchedule ? 'schedule_later' : 'record_now',
-    );
     const form = useForm<CrewMovementActionFormData>(
         applyScheduledMovementFormPrefill(
             buildInitialForm(
@@ -355,7 +357,6 @@ export function MovementActionDialog({
                 editingSchedule,
             ),
         );
-        setMode(isEditingSchedule ? 'schedule_later' : 'record_now');
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for an action
     }, [
         open,
@@ -389,15 +390,29 @@ export function MovementActionDialog({
         action === 'join_vessel' &&
         recommendsVesselTransfer(currentOnVessel, form.data.vessel_id);
 
+    const companyTimezone = movementContext.company_timezone;
+    const selectedIsFuture = isCompanyTimeInFuture(
+        form.data.occurred_at,
+        companyTimezone,
+    );
+    const actionIsSchedulable =
+        action !== null &&
+        isSchedulableMovementAction(action, resolvedSchedulableActions);
+    // UI reflects automatic routing from the selected timestamp (backend re-decides).
     const schedulingMode =
         isEditingSchedule ||
-        (mode === 'schedule_later' &&
-            action !== null &&
-            resolvedCanSchedule &&
-            isSchedulableMovementAction(action, resolvedSchedulableActions));
+        (selectedIsFuture && actionIsSchedulable && !isEditingSchedule);
+    const lacksSchedulePermission =
+        schedulingMode && !isEditingSchedule && !resolvedCanSchedule;
+    const scheduleBlocked =
+        schedulingMode && !isEditingSchedule && resolvedHasActiveSchedule;
 
     const submit = (): void => {
         if (!action) {
+            return;
+        }
+
+        if (lacksSchedulePermission || scheduleBlocked) {
             return;
         }
 
@@ -558,7 +573,7 @@ export function MovementActionDialog({
                     .no_hotel_accommodation;
             }
 
-            if (schedulingMode) {
+            if (isEditingSchedule && editingSchedule) {
                 const checkOutAutoSynced =
                     action === 'join_vessel' &&
                     Boolean(payload.check_out_date) &&
@@ -569,22 +584,13 @@ export function MovementActionDialog({
                     payload.source_check_out_date ===
                         payload.occurred_at.slice(0, 10);
 
-                if (isEditingSchedule && editingSchedule) {
-                    return buildScheduledMovementEditPayload(action, payload, {
-                        checkOutDateAutoSynced: checkOutAutoSynced,
-                        sourceCheckOutDateAutoSynced: sourceCheckOutAutoSynced,
-                    });
-                }
-
-                return {
-                    ...payload,
-                    mode: 'schedule_later' as const,
-                    scheduled_at: payload.occurred_at,
-                    check_out_date_auto_synced: checkOutAutoSynced,
-                    source_check_out_date_auto_synced: sourceCheckOutAutoSynced,
-                };
+                return buildScheduledMovementEditPayload(action, payload, {
+                    checkOutDateAutoSynced: checkOutAutoSynced,
+                    sourceCheckOutDateAutoSynced: sourceCheckOutAutoSynced,
+                });
             }
 
+            // Backend routes past/current → perform, future → schedule from occurred_at.
             return payload;
         });
 
@@ -604,11 +610,7 @@ export function MovementActionDialog({
             return;
         }
 
-        const url = schedulingMode
-            ? storeScheduledMovement.url(assignmentId)
-            : performAction.url(assignmentId);
-
-        form.post(url, finish);
+        form.post(performAction.url(assignmentId), finish);
     };
 
     if (!action) {
@@ -638,27 +640,51 @@ export function MovementActionDialog({
         action === 'transfer_vessel' ||
         action === 'redeploy';
     const cancelLabel = config.keepOpenLabel ?? 'Cancel';
-    const canOfferSchedule =
-        resolvedCanSchedule &&
-        isSchedulableMovementAction(action, resolvedSchedulableActions) &&
-        !isDestructive;
-    const scheduleBlocked = canOfferSchedule && resolvedHasActiveSchedule;
-    const submitLabel = isEditingSchedule
-        ? 'Save Changes'
-        : schedulingMode
-          ? 'Save Schedule'
-          : action === 'travel_home'
-            ? form.data.completion_intent === 'redeploy'
+    const scheduledAtDisplay = formatDisplayDateTime12hInTimezone(
+        form.data.occurred_at,
+        companyTimezone,
+    );
+    const timingExplanation = schedulingMode
+        ? formatScheduledMovementExplanation(scheduledAtDisplay)
+        : RECORD_NOW_EXPLANATION;
+    const submitLabel = ((): string => {
+        if (isEditingSchedule) {
+            return 'Save Changes';
+        }
+
+        if (schedulingMode) {
+            return 'Schedule Movement';
+        }
+
+        if (action === 'travel_home') {
+            return form.data.completion_intent === 'redeploy'
                 ? 'Move to Home / Redeployment'
-                : 'Return Home & Close Assignment'
-            : config.submitLabel;
+                : 'Return Home & Close Assignment';
+        }
+
+        if (
+            action === 'record_arrival' ||
+            action === 'join_vessel' ||
+            action === 'confirm_disembarkation' ||
+            action === 'approve_mobilisation' ||
+            action === 'send_to_training' ||
+            action === 'complete_training' ||
+            action === 'transfer_vessel' ||
+            action === 'redeploy' ||
+            action === 'close_assignment'
+        ) {
+            return 'Record Movement';
+        }
+
+        return config.submitLabel;
+    })();
     const effectiveConfig = schedulingMode
         ? {
               ...config,
               occurredAtLabel: config.occurredAtLabel
                   ? `Scheduled ${config.occurredAtLabel.replace(/^Actual\s+/i, '')}`
                   : 'Scheduled date and time',
-              description: `${config.description} Schedule for later — no operational side effects until automatic execution.`,
+              description: `${config.description} Future times are scheduled automatically — no operational side effects until execution.`,
           }
         : config;
 
@@ -693,74 +719,24 @@ export function MovementActionDialog({
                     </DialogHeader>
 
                     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                        {canOfferSchedule && !isEditingSchedule ? (
-                            <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 p-1">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        mode === 'record_now'
-                                            ? 'default'
-                                            : 'ghost'
-                                    }
-                                    onClick={() => setMode('record_now')}
-                                    disabled={form.processing}
-                                >
-                                    Record Now
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={
-                                        mode === 'schedule_later'
-                                            ? 'default'
-                                            : 'ghost'
-                                    }
-                                    onClick={() => setMode('schedule_later')}
-                                    disabled={
-                                        form.processing || scheduleBlocked
-                                    }
-                                >
-                                    Schedule for Later
-                                </Button>
-                            </div>
-                        ) : null}
-
                         {isEditingSchedule ? (
                             <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-950 dark:text-sky-100">
                                 Editing the pending schedule. Supported movement
-                                fields use the same validation as Schedule for
-                                Later. Unchanged hotel dates keep manual
+                                fields use the same validation as creating a
+                                schedule. Unchanged hotel dates keep manual
                                 overrides.
                             </div>
                         ) : null}
 
                         {scheduleBlocked ? (
                             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
-                                This assignment already has a pending scheduled
-                                movement. Edit, reschedule, or cancel it before
-                                creating another.
+                                {PENDING_SCHEDULE_BLOCK_MESSAGE}
                             </div>
                         ) : null}
 
-                        {schedulingMode ? (
-                            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                                {SCHEDULE_LATER_HELP} Expected next phase:{' '}
-                                {impactPreview?.title ??
-                                    effectiveConfig.nextPhaseLabel ??
-                                    'operational transition'}
-                                .
-                            </div>
-                        ) : null}
-
-                        {shouldShowTestingOverrideBanner(
-                            Boolean(
-                                movementContext.allow_future_actual_movement_dates,
-                            ),
-                            schedulingMode,
-                        ) ? (
+                        {lacksSchedulePermission ? (
                             <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
-                                {TESTING_OVERRIDE_BANNER_MESSAGE}
+                                {SCHEDULE_PERMISSION_MESSAGE}
                             </div>
                         ) : null}
 
@@ -775,6 +751,12 @@ export function MovementActionDialog({
                             firstFieldRef={firstFieldRef}
                             schedulingMode={schedulingMode}
                         />
+
+                        {!isEditingSchedule ? (
+                            <p className="text-xs text-muted-foreground">
+                                {timingExplanation}
+                            </p>
+                        ) : null}
 
                         {impactPreview && !schedulingMode ? (
                             <ActionImpactPreview {...impactPreview} />
@@ -821,7 +803,11 @@ export function MovementActionDialog({
                             onClick={submit}
                             disabled={
                                 form.processing ||
-                                (schedulingMode && scheduleBlocked)
+                                scheduleBlocked ||
+                                lacksSchedulePermission ||
+                                (selectedIsFuture &&
+                                    !actionIsSchedulable &&
+                                    !isEditingSchedule)
                             }
                         >
                             {form.processing ? (

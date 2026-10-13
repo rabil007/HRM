@@ -598,6 +598,7 @@ export type CrewScheduledMovementCard = {
     scheduled_at_display: string | null;
     scheduled_timezone: string;
     expected_current_phase_code: string | null;
+    expected_current_phase_label?: string | null;
     expected_result_phase_code: string | null;
     expected_result_phase_label: string;
     action_payload: Record<string, unknown>;

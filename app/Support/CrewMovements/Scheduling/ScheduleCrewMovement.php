@@ -39,7 +39,7 @@ final class ScheduleCrewMovement
 
         if ($scheduledAtUtc->lessThanOrEqualTo(CrewScheduledMovementTimestamp::nowUtc())) {
             throw CrewMovementException::make(
-                'Schedule for Later requires a future date and time in the company timezone. Use Record Now for current or historical movements.',
+                'Scheduled movements require a future date and time in the company timezone. Past or current times are recorded immediately.',
                 CrewScheduledMovementErrorCode::ScheduledAtNotFuture->value,
             );
         }

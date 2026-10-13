@@ -287,6 +287,13 @@ export default function CrewAssignmentShow({
                             onCancelPending={handleCancelPendingCorrection}
                         />
 
+                        {scheduled_movements?.active ? (
+                            <ScheduledMovementCard
+                                schedule={scheduled_movements.active}
+                                onEditFields={setEditingSchedule}
+                            />
+                        ) : null}
+
                         {isOnVessel ? (
                             <Card className="border-border/80 dark:border-white/10">
                                 <CardHeader className="pb-3">
@@ -336,12 +343,6 @@ export default function CrewAssignmentShow({
 
                     <div className="order-1 min-w-0 [scrollbar-width:thin] xl:sticky xl:top-4 xl:order-2 xl:max-h-[calc(100vh-2rem)] xl:self-start xl:overflow-y-auto xl:pr-1.5">
                         <div className="space-y-5">
-                            {scheduled_movements?.active ? (
-                                <ScheduledMovementCard
-                                    schedule={scheduled_movements.active}
-                                    onEditFields={setEditingSchedule}
-                                />
-                            ) : null}
                             <CrewAssignmentOperationsCenter
                                 assignment={assignment}
                                 corrections={corrections}
@@ -388,10 +389,6 @@ export default function CrewAssignmentShow({
                     companyTimezone={
                         assignment.movement_context?.company_timezone
                     }
-                    allowFutureActualMovementDates={Boolean(
-                        assignment.movement_context
-                            ?.allow_future_actual_movement_dates,
-                    )}
                     mode={correctionDialogMode}
                     initialPhaseId={correctionInitialPhaseId}
                 />

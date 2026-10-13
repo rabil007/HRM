@@ -1,63 +1,47 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
-    SCHEDULE_LATER_HELP,
-    TESTING_OVERRIDE_BANNER_MESSAGE,
+    RECORD_NOW_EXPLANATION,
+    SCHEDULE_PERMISSION_MESSAGE,
+    formatScheduledMovementExplanation,
     isSchedulableMovementAction,
     resolveMovementOccurredAtMax,
     resolveMovementOccurredAtMin,
     shouldBlockFutureActualMovementDate,
     shouldShowFutureMovementWarning,
-    shouldShowTestingOverrideBanner,
 } from './future-actual-movement-dates.ts';
 
-describe('future actual movement dates helpers', () => {
-    it('exposes legacy override banner copy that points operators to Schedule for Later', () => {
-        assert.match(TESTING_OVERRIDE_BANNER_MESSAGE, /Schedule for Later/i);
-        assert.match(SCHEDULE_LATER_HELP, /does not change the current phase/i);
+describe('automatic movement timing helpers', () => {
+    it('exposes record-now and schedule explanation copy', () => {
+        assert.match(RECORD_NOW_EXPLANATION, /operational phase will update/i);
+        assert.match(
+            formatScheduledMovementExplanation('15 Oct 2026, 8:59 AM'),
+            /Scheduled for 15 Oct 2026, 8:59 AM/,
+        );
+        assert.match(SCHEDULE_PERMISSION_MESSAGE, /permission to schedule/i);
     });
 
-    it('keeps max=companyNow and shows future warning when override is off', () => {
+    it('limits record mode to company now and warns on future non-schedulable times', () => {
         assert.equal(
-            resolveMovementOccurredAtMax('2026-09-25T12:00', false),
+            resolveMovementOccurredAtMax('2026-09-25T12:00'),
             '2026-09-25T12:00',
         );
-        assert.equal(shouldShowFutureMovementWarning(true, false), true);
-        assert.equal(shouldShowFutureMovementWarning(false, false), false);
-        assert.equal(shouldShowTestingOverrideBanner(false), false);
+        assert.equal(shouldShowFutureMovementWarning(true), true);
+        assert.equal(shouldShowFutureMovementWarning(false), false);
+        assert.equal(shouldBlockFutureActualMovementDate(true), true);
     });
 
-    it('removes max and suppresses future warning when override is on', () => {
+    it('allows future timestamps when the UI is in automatic schedule mode', () => {
         assert.equal(
             resolveMovementOccurredAtMax('2026-09-25T12:00', true),
-            undefined,
-        );
-        assert.equal(shouldShowFutureMovementWarning(true, true), false);
-        assert.equal(shouldShowTestingOverrideBanner(true), true);
-    });
-
-    it('allows future timestamps in schedule mode without showing the record-now warning', () => {
-        assert.equal(
-            resolveMovementOccurredAtMax('2026-09-25T12:00', false, true),
             undefined,
         );
         assert.equal(
             resolveMovementOccurredAtMin('2026-09-25T12:00', true),
             '2026-09-25T12:00',
         );
-        assert.equal(shouldShowFutureMovementWarning(true, false, true), false);
-        assert.equal(shouldShowTestingOverrideBanner(true, true), false);
-        assert.equal(
-            shouldBlockFutureActualMovementDate(true, false, true),
-            false,
-        );
-    });
-
-    it('blocks correction progress for future actual dates only when override is off', () => {
-        assert.equal(shouldBlockFutureActualMovementDate(true, false), true);
+        assert.equal(shouldShowFutureMovementWarning(true, true), false);
         assert.equal(shouldBlockFutureActualMovementDate(true, true), false);
-        assert.equal(shouldBlockFutureActualMovementDate(false, false), false);
-        assert.equal(shouldBlockFutureActualMovementDate(false, true), false);
     });
 
     it('classifies schedulable movement actions', () => {

@@ -76,7 +76,7 @@ DST gaps and fall-back overlaps are rejected at schedule/create/update time. If 
 ## Operator recovery
 
 1. Open the assignment → Scheduled Movement card (Needs Attention reason shown)
-2. Either **Edit / Reschedule** (full movement fields) / **Quick reschedule**, **Cancel**, or use **Record Now** for the actual historical/current movement
+2. Either **Edit / Reschedule** (full movement fields) / **Quick reschedule**, **Cancel**, or record the actual historical/current movement with a past/current timestamp (automatic routing)
 3. Authorized notification recipients receive Crew Operations alerts when Needs Attention is detected (toggle under Crew Settings; reconcile cadence ~10 minutes)
 4. Do not invent a product UI “confirm due schedule” action — automatic execution only
 

@@ -2,6 +2,7 @@
 
 namespace App\Support\CrewMovements\Scheduling;
 
+use App\Enums\CrewPhaseCode;
 use App\Enums\CrewScheduledMovementStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewScheduledMovement;
@@ -103,6 +104,9 @@ final class CrewScheduledMovementPresenter
             'scheduled_at_display' => $scheduledDisplay,
             'scheduled_timezone' => $timezone,
             'expected_current_phase_code' => $schedule->expected_current_phase_code,
+            'expected_current_phase_label' => $schedule->expected_current_phase_code !== null
+                ? (CrewPhaseCode::tryFrom((string) $schedule->expected_current_phase_code)?->label())
+                : null,
             'expected_result_phase_code' => $schedule->expected_result_phase_code,
             'expected_result_phase_label' => CrewSchedulableMovementActions::expectedResultPhaseLabel(
                 $schedule->movement_action,

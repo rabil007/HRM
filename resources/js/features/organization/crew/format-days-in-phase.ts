@@ -1,5 +1,5 @@
 export function formatDaysInPhase(days: number | null): string {
-    if (days === null) {
+    if (days === null || days < 0) {
         return '';
     }
 
