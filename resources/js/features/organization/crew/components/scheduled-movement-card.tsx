@@ -104,7 +104,7 @@ export function ScheduledMovementCard({
             <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                     <CalendarClock className="size-4" />
-                    Scheduled Movement
+                    Upcoming Movement
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
@@ -125,7 +125,9 @@ export function ScheduledMovementCard({
                         </span>
                     </div>
                     <div>
-                        <span className="text-muted-foreground">When: </span>
+                        <span className="text-muted-foreground">
+                            Scheduled for:{' '}
+                        </span>
                         <span className="font-medium">
                             {schedule.scheduled_at_display ??
                                 schedule.scheduled_at ??
@@ -138,10 +140,12 @@ export function ScheduledMovementCard({
                     </div>
                     <div>
                         <span className="text-muted-foreground">
-                            Expected result:{' '}
+                            Expected transition:{' '}
                         </span>
                         <span className="font-medium">
-                            {schedule.expected_result_phase_label}
+                            {schedule.expected_current_phase_label
+                                ? `${schedule.expected_current_phase_label} → ${schedule.expected_result_phase_label}`
+                                : schedule.expected_result_phase_label}
                         </span>
                     </div>
                     {schedule.updated_by ? (

@@ -4,8 +4,8 @@ import {
     Bell,
     CheckCircle2,
     Clock3,
-    FlaskConical,
     Home,
+    CalendarClock,
     Mail,
     RotateCcw,
     Save,
@@ -601,84 +601,32 @@ export default function CrewOperationsSettings({
                     </Card>
 
                     <Card className="overflow-hidden border-border/80 bg-card/70 shadow-sm backdrop-blur-md dark:border-white/8 dark:bg-white/[0.03]">
-                        <CardHeader className="border-b border-border/60 bg-linear-to-br from-amber-500/[0.08] to-transparent p-5 dark:border-white/6">
+                        <CardHeader className="border-b border-border/60 bg-linear-to-br from-sky-500/[0.08] to-transparent p-5 dark:border-white/6">
                             <div className="flex items-start gap-3">
-                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-                                    <FlaskConical className="h-5 w-5" />
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sky-700 dark:text-sky-300">
+                                    <CalendarClock className="h-5 w-5" />
                                 </div>
                                 <div className="space-y-1">
                                     <CardTitle className="text-base font-bold tracking-tight">
-                                        Future movements
+                                        Automatic movement scheduling
                                     </CardTitle>
                                     <CardDescription className="text-xs leading-relaxed">
-                                        Use Schedule for Later on Crew
-                                        Assignment movements. The Phase 1
-                                        Testing Override for future actual dates
-                                        is retired for normal production use.
+                                        Operators choose a movement date and
+                                        time only. Past or current times record
+                                        immediately; future times create a
+                                        scheduled movement that executes
+                                        automatically when due.
                                     </CardDescription>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 p-5">
-                            {form.data.allow_future_actual_movement_dates ? (
-                                <>
-                                    <Alert className="border-destructive/40 bg-destructive/10 text-destructive dark:text-red-200">
-                                        <AlertTriangle className="text-destructive" />
-                                        <AlertTitle>
-                                            Legacy testing override still on
-                                        </AlertTitle>
-                                        <AlertDescription>
-                                            Prefer Schedule for Later. You can
-                                            disable this legacy override now —
-                                            existing operational history is not
-                                            changed.
-                                        </AlertDescription>
-                                    </Alert>
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="space-y-1.5">
-                                            <Label
-                                                htmlFor="allow_future_actual_movement_dates"
-                                                className="text-sm font-semibold text-foreground"
-                                            >
-                                                Disable legacy Testing Override
-                                            </Label>
-                                            <p className="text-xs leading-relaxed text-muted-foreground">
-                                                Turning this off restores Record
-                                                Now to historical/current dates
-                                                only.
-                                            </p>
-                                        </div>
-                                        <Switch
-                                            id="allow_future_actual_movement_dates"
-                                            checked={Boolean(
-                                                form.data
-                                                    .allow_future_actual_movement_dates,
-                                            )}
-                                            onCheckedChange={(checked) => {
-                                                form.setData(
-                                                    'allow_future_actual_movement_dates',
-                                                    checked,
-                                                );
-                                            }}
-                                        />
-                                    </div>
-                                </>
-                            ) : (
-                                <p className="text-xs leading-relaxed text-muted-foreground">
-                                    Record Now accepts historical and current
-                                    times. Schedule for Later stores future
-                                    intentions without changing actual crew
-                                    status until automatic execution.
-                                </p>
-                            )}
-                            {form.errors.allow_future_actual_movement_dates ? (
-                                <p className="text-xs font-medium text-destructive">
-                                    {
-                                        form.errors
-                                            .allow_future_actual_movement_dates
-                                    }
-                                </p>
-                            ) : null}
+                            <p className="text-xs leading-relaxed text-muted-foreground">
+                                The former future-actual testing override has
+                                been removed. Future timestamps never change the
+                                operational phase, hotel stay, Sea Service, or
+                                payroll effects until scheduled execution.
+                            </p>
                         </CardContent>
                     </Card>
 

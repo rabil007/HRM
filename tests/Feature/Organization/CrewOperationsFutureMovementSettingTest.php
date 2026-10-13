@@ -6,8 +6,8 @@ use App\Models\CrewOperationsSetting;
 use App\Models\Currency;
 use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
-use Spatie\Activitylog\Models\Activity;
 
 function makeFutureMovementSettingsFixtures(): array
 {
@@ -64,26 +64,24 @@ function futureMovementSettingsPayload(array $overrides = []): array
     ], $overrides);
 }
 
-test('allow future actual movement dates defaults to disabled without settings row', function () {
+test('allow future actual movement dates is always disabled at runtime', function () {
     ['company' => $company] = makeFutureMovementSettingsFixtures();
 
     expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeFalse()
+        ->and(CrewOperationsSettings::futureActualOverrideEnvironmentsAllowed())->toBeFalse()
         ->and(CrewOperationsSettings::CONFIG_ALLOW_FUTURE_ACTUAL_MOVEMENT_DATES)
         ->toBe('crew_operations.allow_future_actual_movement_dates');
-});
-
-test('allow future actual movement dates remains disabled when settings row is false', function () {
-    ['company' => $company] = makeFutureMovementSettingsFixtures();
 
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
-        'allow_future_actual_movement_dates' => false,
+        'allow_future_actual_movement_dates' => true,
     ]);
+    CrewOperationsSettings::clearCache($company->id);
 
     expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeFalse();
 });
 
-test('authorized users can enable allow future actual movement dates and activity is logged', function () {
+test('authorized users cannot enable the retired future actual override', function () {
     ['user' => $user, 'company' => $company] = makeFutureMovementSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -95,27 +93,17 @@ test('authorized users can enable allow future actual movement dates and activit
         ->put(route('organization.crew-operations.settings.update'), futureMovementSettingsPayload([
             'allow_future_actual_movement_dates' => true,
         ]))
-        ->assertRedirect();
+        ->assertSessionHasErrors('allow_future_actual_movement_dates');
 
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeTrue();
+    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeFalse();
 
-    $setting = CrewOperationsSetting::query()->where('company_id', $company->id)->first();
-    expect($setting?->allow_future_actual_movement_dates)->toBeTrue();
-
-    $log = Activity::query()
-        ->where('subject_type', CrewOperationsSetting::class)
-        ->where('subject_id', $setting->id)
-        ->where('description', 'updated crew operations future actual movement dates setting')
-        ->first();
-
-    expect($log)->not->toBeNull()
-        ->and($log->properties['company_id'])->toBe($company->id)
-        ->and($log->properties['setting_key'])->toBe(CrewOperationsSettings::CONFIG_ALLOW_FUTURE_ACTUAL_MOVEMENT_DATES)
-        ->and($log->properties['old']['allow_future_actual_movement_dates'])->toBeFalse()
-        ->and($log->properties['attributes']['allow_future_actual_movement_dates'])->toBeTrue();
+    expect(fn () => CrewOperationsSettings::saveSettings($company->id, [], 30, true, [
+        'allow_future_actual_movement_dates' => true,
+        'actor_id' => $user->id,
+    ]))->toThrow(ValidationException::class);
 });
 
-test('unauthorized users cannot change allow future actual movement dates', function () {
+test('unauthorized users cannot change crew operations settings', function () {
     ['user' => $user, 'company' => $company] = makeFutureMovementSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -127,30 +115,9 @@ test('unauthorized users cannot change allow future actual movement dates', func
             'allow_future_actual_movement_dates' => true,
         ]))
         ->assertForbidden();
-
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeFalse();
 });
 
-test('allow future actual movement dates is company scoped', function () {
-    ['user' => $userA, 'company' => $companyA] = makeFutureMovementSettingsFixtures();
-    ['company' => $companyB] = makeFutureMovementSettingsFixtures();
-
-    grantCompanyPermissions($userA, $companyA, [
-        'crew_operations.settings.view',
-        'crew_operations.settings.update',
-    ]);
-
-    $this->actingAs($userA)
-        ->put(route('organization.crew-operations.settings.update'), futureMovementSettingsPayload([
-            'allow_future_actual_movement_dates' => true,
-        ]))
-        ->assertRedirect();
-
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($companyA->id))->toBeTrue()
-        ->and(CrewOperationsSettings::allowFutureActualMovementDates($companyB->id))->toBeFalse();
-});
-
-test('saving unrelated settings preserves allow future actual movement dates', function () {
+test('saving settings clears any leftover stored override flag', function () {
     ['user' => $user, 'company' => $company] = makeFutureMovementSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -158,35 +125,26 @@ test('saving unrelated settings preserves allow future actual movement dates', f
         'crew_operations.settings.update',
     ]);
 
-    CrewOperationsSettings::saveSettings($company->id, [], 30, true, [
+    CrewOperationsSetting::query()->create([
+        'company_id' => $company->id,
         'allow_future_actual_movement_dates' => true,
-        'actor_id' => $user->id,
+        'max_home_days' => 30,
     ]);
-
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeTrue();
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), futureMovementSettingsPayload([
             'max_home_days' => 45,
-            // omit allow_future_actual_movement_dates to prove preservation through sometimes validation
-            'allow_future_actual_movement_dates' => true,
+            'allow_future_actual_movement_dates' => false,
         ]))
         ->assertRedirect();
 
-    // Explicit true still preserved after unrelated max_home_days change
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeTrue()
-        ->and(CrewOperationsSettings::maxHomeDays($company->id))->toBe(45);
-
-    // Save without the key via Support helper path
-    CrewOperationsSettings::saveSettings($company->id, [], 50, true, [
-        'actor_id' => $user->id,
-    ]);
-
-    expect(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeTrue()
-        ->and(CrewOperationsSettings::maxHomeDays($company->id))->toBe(50);
+    expect(CrewOperationsSetting::query()->where('company_id', $company->id)->value('allow_future_actual_movement_dates'))
+        ->toBeFalse()
+        ->and(CrewOperationsSettings::maxHomeDays($company->id))->toBe(45)
+        ->and(CrewOperationsSettings::allowFutureActualMovementDates($company->id))->toBeFalse();
 });
 
-test('settings index exposes allow future actual movement dates', function () {
+test('settings index always exposes the override as disabled', function () {
     ['user' => $user, 'company' => $company] = makeFutureMovementSettingsFixtures();
 
     grantCompanyPermissions($user, $company, [
@@ -203,6 +161,6 @@ test('settings index exposes allow future actual movement dates', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew-operations/settings')
-            ->where('crew_settings.allow_future_actual_movement_dates', true)
+            ->where('crew_settings.allow_future_actual_movement_dates', false)
         );
 });

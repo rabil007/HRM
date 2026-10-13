@@ -247,7 +247,14 @@ final class CrewAssignmentStatusResolver
         };
 
         $since = $phase?->actual_start_at ?? $assignment->started_at;
-        $daysInPhase = $since !== null ? $since->copy()->startOfDay()->diffInDays($today) : null;
+        $daysInPhase = null;
+
+        if ($since !== null) {
+            $elapsed = (int) $since->copy()->startOfDay()->diffInDays($today, false);
+
+            // Future-dated actual starts are inconsistencies — never report negative duration.
+            $daysInPhase = $elapsed < 0 ? null : $elapsed;
+        }
 
         $plannedNext = match ($code) {
             CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn, CrewPhaseCode::JoinStandby,

@@ -236,6 +236,19 @@ describe('Crew navigation', () => {
         );
     });
 
+    it('hides the standalone Scheduled Movements destination from navigation', () => {
+        assert.equal(
+            isSidebarUrlVisible('/organization/crew-scheduled-movements', [
+                'crew_operations.movements.schedule.view',
+            ]),
+            false,
+        );
+        assert.equal(
+            crewOperationsHref(['crew_operations.movements.schedule.view']),
+            '/organization/crew-operations',
+        );
+    });
+
     it('shows settings from settings.view, not planning.view', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/crew-operations/settings', [

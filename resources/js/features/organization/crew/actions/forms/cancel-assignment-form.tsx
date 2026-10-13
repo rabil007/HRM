@@ -170,9 +170,6 @@ export function CancelAssignmentForm({
                     form={form}
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
-                    allowFutureActualMovementDates={Boolean(
-                        context.allow_future_actual_movement_dates,
-                    )}
                     schedulingMode={Boolean(schedulingMode)}
                     inputRef={
                         openAccommodation !== null ? undefined : firstFieldRef

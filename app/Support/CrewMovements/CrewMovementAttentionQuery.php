@@ -65,8 +65,25 @@ class CrewMovementAttentionQuery
         // conditions (see the dedicated block below).
         if ($current !== null
             && $current->actual_start_at !== null
-            && $current->phase_code !== CrewPhaseCode::OnVessel) {
-            $daysInPhase = $current->actual_start_at->diffInDays($now);
+            && $current->status === CrewPhaseStatus::Active
+            && $current->actual_start_at->copy()->timezone($timezone)->gt($now)) {
+            $warnings[] = [
+                'code' => 'phase_start_in_future',
+                'severity' => 'critical',
+                'label' => 'Future Phase Start',
+                'message' => sprintf(
+                    '%s has an actual start in the future and needs correction',
+                    $current->phase_code->label(),
+                ),
+                'date' => $current->actual_start_at->copy()->timezone($timezone)->toDateString(),
+            ];
+        }
+
+        if ($current !== null
+            && $current->actual_start_at !== null
+            && $current->phase_code !== CrewPhaseCode::OnVessel
+            && ! $current->actual_start_at->copy()->timezone($timezone)->gt($now)) {
+            $daysInPhase = (int) $current->actual_start_at->copy()->timezone($timezone)->diffInDays($now, false);
             if ($daysInPhase > self::PHASE_STALE_DAYS) {
                 $warnings[] = [
                     'code' => 'phase_stale',

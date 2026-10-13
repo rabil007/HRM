@@ -9,6 +9,8 @@ use App\Http\Requests\Organization\PerformCrewMovementActionRequest;
 use App\Models\CrewAssignment;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\Scheduling\ResolveCrewMovementTiming;
+use App\Support\CrewMovements\Scheduling\ScheduleCrewMovement;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -16,8 +18,11 @@ class CrewMovementActionController extends Controller
 {
     public function __construct(private CrewMovementService $service) {}
 
-    public function __invoke(PerformCrewMovementActionRequest $request, CrewAssignment $assignment)
-    {
+    public function __invoke(
+        PerformCrewMovementActionRequest $request,
+        CrewAssignment $assignment,
+        ScheduleCrewMovement $scheduler,
+    ) {
         $companyId = (int) $request->attributes->get('current_company_id');
         CrewAssignmentAccess::assertInCompany($assignment, $companyId, $request->user());
 
@@ -35,7 +40,35 @@ class CrewMovementActionController extends Controller
             Gate::authorize('performMovement', $assignment);
         }
 
-        $payload = collect($validated)->except('action')->all();
+        $payload = collect($validated)->except(['action', 'mode'])->all();
+        $occurredAt = isset($payload['occurred_at']) ? (string) $payload['occurred_at'] : null;
+
+        // Backend re-decides immediate vs schedule from the timestamp. Never trust client mode.
+        if (ResolveCrewMovementTiming::shouldSchedule($action, $occurredAt, $companyId)) {
+            Gate::authorize('scheduleMovement', $assignment);
+
+            $payload['scheduled_at'] = $occurredAt;
+
+            try {
+                $schedule = $scheduler->handle(
+                    $companyId,
+                    $assignment,
+                    $action,
+                    $payload,
+                    $request->user(),
+                );
+            } catch (CrewMovementException $e) {
+                throw ValidationException::withMessages(['error' => $e->getMessage()]);
+            }
+
+            return redirect()
+                ->route('organization.crew-assignments.show', $assignment)
+                ->with('success', sprintf(
+                    '%s scheduled for %s.',
+                    $schedule->movement_action->label(),
+                    $schedule->scheduled_at?->timezone($schedule->scheduled_timezone)->format('d M Y H:i'),
+                ));
+        }
 
         try {
             $result = $this->service->perform(

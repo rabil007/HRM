@@ -57,7 +57,6 @@ export function RequestCorrectionDialog({
     correctablePhases,
     formOptions,
     companyTimezone,
-    allowFutureActualMovementDates,
     mode = 'request',
     initialPhaseId = null,
 }: {
@@ -67,16 +66,12 @@ export function RequestCorrectionDialog({
     correctablePhases: CorrectablePhase[];
     formOptions?: CrewAssignmentFormOptions;
     companyTimezone?: string;
-    allowFutureActualMovementDates?: boolean;
     mode?: 'request' | 'override';
     initialPhaseId?: number | null;
 }): ReactElement {
     const effectiveTimezone = useCompanyTimezone(companyTimezone);
     const timezoneLabel = formatCompanyTimezoneLabel(effectiveTimezone);
     const nowLocal = nowInCompanyTime(effectiveTimezone);
-    const allowFuture =
-        allowFutureActualMovementDates ??
-        Boolean(formOptions?.allow_future_actual_movement_dates);
 
     const [step, setStep] = useState<1 | 2 | 3>(1);
     const [selectedPhaseId, setSelectedPhaseId] = useState<number | null>(null);
@@ -208,10 +203,8 @@ export function RequestCorrectionDialog({
                 ),
         ),
     );
-    const hasBlockedFutureActualDate = shouldBlockFutureActualMovementDate(
-        hasFutureActualDate,
-        allowFuture,
-    );
+    const hasBlockedFutureActualDate =
+        shouldBlockFutureActualMovementDate(hasFutureActualDate);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,7 +291,6 @@ export function RequestCorrectionDialog({
                                                     field.includes('actual')
                                                         ? resolveMovementOccurredAtMax(
                                                               nowLocal,
-                                                              allowFuture,
                                                           )
                                                         : undefined
                                                 }
@@ -326,7 +318,6 @@ export function RequestCorrectionDialog({
                                                     ] ?? '',
                                                     effectiveTimezone,
                                                 ),
-                                                allowFuture,
                                             ) ? (
                                                 <p className="text-xs font-medium text-destructive">
                                                     This timestamp is in the

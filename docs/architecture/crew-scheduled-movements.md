@@ -2,12 +2,14 @@
 
 Automatic crew movement scheduling separates **recording actual movements** from **scheduling future movements**.
 
-## Modes
+Operators choose a **movement date/time only**. The backend compares the company-local timestamp to company “now” and routes automatically:
 
-| Mode | Endpoint | Effect |
-|------|----------|--------|
-| Record Now | `POST .../crew/{assignment}/actions` | Immediate operational transition via `CrewMovementService` |
-| Schedule for Later | `POST .../crew/{assignment}/scheduled-movements` | Persists `CrewScheduledMovement` only — no phase, hotel, Sea Service, or payroll side effects |
+| Selected movement time | System behavior |
+|------|----------|
+| Past or equal to now | Immediate operational transition via `CrewMovementService` on `POST .../crew/{assignment}/actions` |
+| After now (schedulable action) | Creates `CrewScheduledMovement` on the same actions endpoint — no phase, hotel, Sea Service, or payroll side effects until execution |
+
+The dedicated `POST .../crew/{assignment}/scheduled-movements` endpoint remains for compatibility and management tooling. Client-supplied `mode` flags are ignored for routing. Edit / reschedule / cancel of existing schedules stay on the scheduled-movement manage endpoints.
 
 There is **no manual confirmation mode** for due schedules. Execution is automatic only.
 
@@ -77,13 +79,14 @@ Detected by `DetectCrewOperationalAlerts` as `scheduled_movement_needs_attention
 
 Granted from existing assignment view / movement perform roles via migration.
 
-## Phase 1 Testing Override
+## Phase 1 Testing Override (retired)
 
-`allow_future_actual_movement_dates` remains in the database for compatibility. Runtime behaviour:
+`allow_future_actual_movement_dates` remains as a database column for compatibility with older settings rows and audit history. Runtime behaviour:
 
-- **Production:** the override is never effective (`CrewOperationsSettings::allowFutureActualMovementDates()` always returns false). Direct HTTP or Support-layer attempts to enable it are rejected.
-- **Non-production:** authorized operators may still enable it for testing; the settings UI only offers a disable control when a legacy stored true remains.
-- Operators should use Schedule for Later for future events. Record Now rejects future actual timestamps when the override is off or unavailable.
+- `CrewOperationsSettings::allowFutureActualMovementDates()` **always returns false** in every environment.
+- HTTP and Support-layer attempts to enable it are rejected.
+- A migration clears any leftover stored `true` values without dropping the column.
+- Future timestamps never execute as actual movements early; they create scheduled movements instead.
 
 ## Related
 
@@ -91,3 +94,4 @@ Granted from existing assignment view / movement perform roles via migration.
 - [crew-movement-corrections.md](./crew-movement-corrections.md)
 - [../crew-operational-alerts-email.md](../crew-operational-alerts-email.md)
 - Runbook: [../runbooks/crew-scheduled-movements.md](../runbooks/crew-scheduled-movements.md)
+- Premature arrival recovery: [../runbooks/crew-assignment-premature-arrival-recovery.md](../runbooks/crew-assignment-premature-arrival-recovery.md)
