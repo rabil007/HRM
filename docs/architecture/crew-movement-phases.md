@@ -282,9 +282,11 @@ When the operator checks **Already Arrived — Skip Pre-Mobilisation** on Start 
 - Future actual arrival dates are rejected (company timezone calendar day).
 - `CrewMovementService::startAssignment()` creates Active **P2A Join Standby** as sequence 1 with `actual_start_at` = the Actual Arrival Date (start of that company-local day).
 - Assignment `started_at` matches that P2A actual start.
+- Actual arrival is derived later by `CrewArrivalResolver` from P2A `actual_start_at`. The form date is **not** written into `crew_assignments.planned_arrival_at`.
+- Forecast `planned_arrival_at` stays null unless Crew Planning already has a planned arrival date; that planning forecast is preserved independently of the Actual Arrival Date.
 - No completed P0 phase is fabricated, and Record Arrival is not performed or required again.
-- An activity log event `crew_assignment_started_already_arrived` records the shortcut.
-- Unchecked behaviour is unchanged (P0 Pre-Mobilisation).
+- An activity log event `crew_assignment_started_already_arrived` records the shortcut (including actual arrival and any preserved planned arrival).
+- Unchecked behaviour is unchanged (P0 Pre-Mobilisation; optional form Arrival Date still stores forecast `planned_arrival_at`).
 - Draft submission ignores the shortcut.
 
 The create form does **not** collect Assignment Start Date & Time. Normal `/organization/crew/create` Start Assignment always uses company-local server submit time (`now()` in the company timezone). The Store request and controller do **not** accept, validate, or forward a client-supplied `stage_started_at`; crafted timestamps cannot backdate or future-date a normal web start. `CrewMovementService::startAssignment()` may still accept an explicit timestamp internally for tests, Bulk Add Crew, and historical import compatibility.
@@ -316,8 +318,8 @@ Current Crew
 |------|-----------|
 | Permissions | Same as Start Assignment: `crew_operations.assignments.create` **and** `crew_operations.movements.perform`. Frontend `can.start` is UX only. Bulk mode and **Add Another Crew Member** require Start capability; create-only users stay in Single/Draft mode. |
 | Common fields | Client, Vessel, Expected Vessel Join (`planned_join_at`), remarks, optional shared **Already Arrived** checkbox. Client/Vessel auto-resolution reuses `ClientAssignmentRules`. |
-| Per-row fields | Employee, Rank, and Arrival Date / Actual Arrival Date (`planned_arrival_at`). Rank still defaults from the employee profile. |
-| Starting stages | Default P0 Pre-Mobilisation. Optional shared `already_arrived` starts every row at P2A with that row's Actual Arrival Date. Crafted `current_stage` remains ignored. |
+| Per-row fields | Employee, Rank, and Arrival Date / Actual Arrival Date (form key remains `planned_arrival_at`). Rank still defaults from the employee profile. |
+| Starting stages | Default P0 Pre-Mobilisation. Optional shared `already_arrived` starts every row at P2A with that row's Actual Arrival Date as P2A `actual_start_at` only (not as forecast `planned_arrival_at`). Crafted `current_stage` remains ignored. |
 | Timestamp | Default: one company-local server timestamp for the whole successful batch. Already Arrived: each row uses its own Actual Arrival Date as `started_at` / P2A `actual_start_at`. The HTTP request does not accept `stage_started_at`, `started_at`, or browser-supplied company IDs. |
 | Atomicity | All-or-nothing. Every visible bulk row must have a selected employee or be removed by the user; incomplete, blocked, or invalid rows prevent the entire batch. If any row is invalid or the employee already has an Active assignment, **no** assignments from that batch are committed. Partial success / Skip Blocked Rows is not in this phase. |
 | Active assignment | Reuses `startAssignment()` locking and `assertNoActiveAssignment()`. On Vessel and other Active phases block the row/batch; Transfer Vessel remains the existing movement, not an automatic bulk action. |

@@ -264,6 +264,8 @@ class CrewAssignmentController extends Controller
 
         try {
             $assignment = DB::transaction(function () use ($intent, $companyId, $validated, $request, $planningAssignmentId, $linkVacantSlot) {
+                $slot = null;
+
                 if ($planningAssignmentId !== null) {
                     $slot = CrewPlanningAssignment::query()
                         ->where('company_id', $companyId)
@@ -310,22 +312,33 @@ class CrewAssignmentController extends Controller
                 $alreadyArrived = $intent === CrewAssignmentSubmissionIntent::Start
                     && CrewAlreadyArrivedStart::isEnabled($validated['already_arrived'] ?? false);
 
+                // Form still posts Actual Arrival Date in planned_arrival_at when Already Arrived
+                // is checked. Persist that only as P2A actual_start_at; keep forecast planned
+                // arrival from Crew Planning (if any) independently.
+                $startAttributes = [
+                    'position_id' => $validated['position_id'] ?? null,
+                    'client_id' => $validated['client_id'] ?? null,
+                    'vessel_id' => $validated['vessel_id'] ?? null,
+                    'planned_join_at' => $validated['planned_join_at'] ?? null,
+                    'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
+                    'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
+                    'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                    'already_arrived' => $alreadyArrived,
+                    'remarks' => $validated['remarks'] ?? null,
+                ];
+
+                if ($alreadyArrived) {
+                    $startAttributes['actual_arrival_at'] = $validated['planned_arrival_at'] ?? null;
+                    $startAttributes['planned_arrival_at'] = $slot?->planned_arrival_date?->toDateString();
+                } else {
+                    $startAttributes['planned_arrival_at'] = $validated['planned_arrival_at'] ?? null;
+                }
+
                 $created = match ($intent) {
                     CrewAssignmentSubmissionIntent::Start => $this->service->startAssignment(
                         $companyId,
                         (int) $validated['employee_id'],
-                        [
-                            'position_id' => $validated['position_id'] ?? null,
-                            'client_id' => $validated['client_id'] ?? null,
-                            'vessel_id' => $validated['vessel_id'] ?? null,
-                            'planned_join_at' => $validated['planned_join_at'] ?? null,
-                            'planned_arrival_at' => $validated['planned_arrival_at'] ?? null,
-                            'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
-                            'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
-                            'current_stage' => CrewPhaseCode::PreMobilisation->value,
-                            'already_arrived' => $alreadyArrived,
-                            'remarks' => $validated['remarks'] ?? null,
-                        ],
+                        $startAttributes,
                         $request->user()?->id,
                     ),
                     CrewAssignmentSubmissionIntent::Draft => $this->service->createDraft(

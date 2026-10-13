@@ -56,14 +56,18 @@ final class BulkStartCrewAssignments
                         'position_id' => $row['position_id'] ?? null,
                         'client_id' => $payload['client_id'] ?? null,
                         'vessel_id' => $payload['vessel_id'] ?? null,
-                        'planned_arrival_at' => $row['planned_arrival_at'] ?? null,
                         'planned_join_at' => $payload['planned_join_at'] ?? null,
                         'current_stage' => CrewPhaseCode::PreMobilisation->value,
                         'already_arrived' => $alreadyArrived,
                         'remarks' => $payload['remarks'] ?? null,
                     ];
 
-                    if (! $alreadyArrived) {
+                    if ($alreadyArrived) {
+                        // Per-row form date is Actual Arrival Date only — do not fabricate planned arrival.
+                        $attributes['actual_arrival_at'] = $row['planned_arrival_at'] ?? null;
+                        $attributes['planned_arrival_at'] = null;
+                    } else {
+                        $attributes['planned_arrival_at'] = $row['planned_arrival_at'] ?? null;
                         $attributes['stage_started_at'] = $startedAt->format('Y-m-d H:i:s');
                     }
 

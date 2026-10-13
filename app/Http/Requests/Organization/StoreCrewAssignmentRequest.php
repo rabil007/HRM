@@ -200,13 +200,19 @@ class StoreCrewAssignmentRequest extends FormRequest
                     : Carbon::now($timezone))
                 : null;
 
+            // When Already Arrived, the form date is actual arrival. Forecast planned arrival
+            // (if any) comes from the linked Crew Planning slot, not from that form field.
+            $plannedArrivalForConflict = $alreadyArrived
+                ? $this->planningPlannedArrivalCarbon($companyId, $timezone)
+                : $arrivalCarbon;
+
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
                 employeeId: (int) $this->input('employee_id'),
                 action: $intent->value,
                 plannedJoinAt: $joinCarbon,
                 plannedSignoffAt: $signoffCarbon,
-                plannedArrivalAt: $arrivalCarbon,
+                plannedArrivalAt: $plannedArrivalForConflict,
                 operationalStartAt: $operationalStartAt,
                 vesselId: $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
                 positionId: $this->conflictPositionId($companyId),
@@ -236,5 +242,25 @@ class StoreCrewAssignmentRequest extends FormRequest
         $positionId = $this->input('position_id');
 
         return $positionId !== null && $positionId !== '' ? (int) $positionId : null;
+    }
+
+    private function planningPlannedArrivalCarbon(int $companyId, string $timezone): ?Carbon
+    {
+        $planningAssignmentId = $this->input('planning_assignment_id');
+
+        if ($planningAssignmentId === null || $planningAssignmentId === '') {
+            return null;
+        }
+
+        $plannedArrivalDate = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereKey((int) $planningAssignmentId)
+            ->value('planned_arrival_date');
+
+        if ($plannedArrivalDate === null || $plannedArrivalDate === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $plannedArrivalDate, $timezone)->startOfDay();
     }
 }

@@ -632,9 +632,38 @@ test('bulk already arrived starts each row at active p2a with per-row actual arr
         ->and($byEmployee[$employeeA->id]->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
         ->and($byEmployee[$employeeA->id]->phases)->toHaveCount(1)
         ->and($byEmployee[$employeeA->id]->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-04')
+        ->and($byEmployee[$employeeA->id]->planned_arrival_at)->toBeNull()
         ->and($byEmployee[$employeeB->id]->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
         ->and($byEmployee[$employeeB->id]->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-05')
+        ->and($byEmployee[$employeeB->id]->planned_arrival_at)->toBeNull()
         ->and($byEmployee[$employeeA->id]->started_at?->equalTo($byEmployee[$employeeB->id]->started_at))->toBeFalse();
+});
+
+test('bulk unchecked arrival date still stores forecast planned arrival', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
+    $vessel = makeCrewMovementVessel('Bulk Forecast Arrival Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 15:45:12', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => false,
+            'crew' => [
+                [
+                    'employee_id' => $employee->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                ],
+            ],
+        ]))
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->with('currentPhase')->first();
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04')
+        ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-13');
 });
 
 test('bulk already arrived requires an actual arrival date on every row', function () {

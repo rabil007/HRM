@@ -29,6 +29,7 @@ final class ResolvePlanningStartHandoff
      *     vessel_name: string|null,
      *     client_id: int|null,
      *     client_name: string|null,
+     *     planned_arrival_at: string|null,
      *     planned_join_at: string|null,
      *     planned_signoff_at: string|null,
      *     remarks: string|null
@@ -75,6 +76,7 @@ final class ResolvePlanningStartHandoff
             'vessel_name' => $vessel?->name,
             'client_id' => $clientId,
             'client_name' => $this->resolveClientName($clientId),
+            'planned_arrival_at' => $planning->planned_arrival_date?->toDateString(),
             'planned_join_at' => $planning->planned_join_date?->toDateString(),
             'planned_signoff_at' => $planning->planned_leave_date?->toDateString(),
             'remarks' => $planning->notes,

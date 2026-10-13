@@ -307,14 +307,21 @@ final class CrewMovementService
                 ? (int) $attributes['relieves_crew_assignment_id']
                 : null;
 
+            // Forecast planned arrival is independent from Already Arrived actual arrival.
+            $plannedArrivalAt = isset($attributes['planned_arrival_at']) && $attributes['planned_arrival_at'] !== null && $attributes['planned_arrival_at'] !== ''
+                ? $this->parseTimestamp($companyId, (string) $attributes['planned_arrival_at'])
+                : null;
+
             if ($alreadyArrived) {
                 // Optional shortcut: Active P2A with actual arrival — no fabricated P0 history.
+                // Actual arrival is stored only on P2A.actual_start_at (CrewArrivalResolver).
                 $startingPhase = CrewPhaseCode::JoinStandby;
+                $actualArrivalRaw = $attributes['actual_arrival_at'] ?? null;
 
                 try {
-                    $plannedArrivalAt = CrewAlreadyArrivedStart::resolveActualArrivalAt(
+                    $actualArrivalAt = CrewAlreadyArrivedStart::resolveActualArrivalAt(
                         $companyId,
-                        $attributes['planned_arrival_at'] ?? null,
+                        $actualArrivalRaw,
                     );
                 } catch (\InvalidArgumentException $exception) {
                     throw CrewMovementException::make(
@@ -324,14 +331,21 @@ final class CrewMovementService
                     );
                 }
 
-                $this->actualMovementTimestamps->assertNotFuture($companyId, $plannedArrivalAt);
-                $startedAt = $plannedArrivalAt;
+                $this->actualMovementTimestamps->assertNotFuture($companyId, $actualArrivalAt);
+                $startedAt = $actualArrivalAt;
+
+                if ($plannedJoinAt !== null) {
+                    $timezone = $this->companyTimezone($companyId);
+                    if ($actualArrivalAt->copy()->timezone($timezone)->toDateString()
+                        > $plannedJoinAt->copy()->timezone($timezone)->toDateString()) {
+                        throw ValidationException::withMessages([
+                            'planned_arrival_at' => 'Actual Arrival Date cannot be after Expected Vessel Join.',
+                        ]);
+                    }
+                }
             } else {
                 $startingPhase = $this->requireDirectStartPhase($attributes);
                 $startedAt = $this->requireStageStartedAt($companyId, $attributes);
-                $plannedArrivalAt = isset($attributes['planned_arrival_at']) && $attributes['planned_arrival_at'] !== null && $attributes['planned_arrival_at'] !== ''
-                    ? $this->parseTimestamp($companyId, (string) $attributes['planned_arrival_at'])
-                    : null;
             }
 
             $actor = $actorId !== null ? User::query()->find($actorId) : null;
@@ -395,7 +409,12 @@ final class CrewMovementService
             $this->invariants->assertValid($assignment);
 
             if ($alreadyArrived) {
-                $this->logAlreadyArrivedStart($assignment, $startedAt, $actorId);
+                $this->logAlreadyArrivedStart(
+                    $assignment,
+                    $startedAt,
+                    $plannedArrivalAt,
+                    $actorId,
+                );
             }
 
             return $this->reloadLocked($companyId, $assignment->id);
@@ -1920,21 +1939,23 @@ final class CrewMovementService
     private function logAlreadyArrivedStart(
         CrewAssignment $assignment,
         CarbonInterface $actualArrivalAt,
+        ?CarbonInterface $plannedArrivalAt,
         ?int $actorId,
     ): void {
         activity()
             ->performedOn($assignment)
             ->causedBy($actorId)
-            ->withProperties([
+            ->withProperties(array_filter([
                 'event' => 'crew_assignment_started_already_arrived',
                 'company_id' => $assignment->company_id,
                 'assignment_id' => $assignment->id,
                 'employee_id' => $assignment->employee_id,
                 'starting_phase' => CrewPhaseCode::JoinStandby->value,
                 'actual_arrival_at' => $actualArrivalAt->toDateTimeString(),
+                'planned_arrival_at' => $plannedArrivalAt?->toDateTimeString(),
                 'skipped_pre_mobilisation' => true,
                 'record_arrival_performed' => false,
-            ])
+            ], fn ($value) => $value !== null))
             ->tap(function ($activity) use ($assignment): void {
                 $activity->company_id = $assignment->company_id;
             })

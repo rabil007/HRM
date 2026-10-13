@@ -14,6 +14,7 @@ use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewAssignmentStatusResolver;
+use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Payroll\CrewTimeline\CrewPhasePayCategoryResolver;
@@ -958,6 +959,7 @@ test('already arrived start creates active p2a without fabricated p0', function 
         ->and($assignment->currentPhase?->sequence)->toBe(1)
         ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-04')
         ->and($assignment->started_at?->equalTo($assignment->currentPhase?->actual_start_at))->toBeTrue()
+        ->and($assignment->planned_arrival_at)->toBeNull()
         ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe(['p2a'])
         ->and(CrewMovementAvailableActions::for($assignment->load(['currentPhase', 'employee', 'company'])))->toBe([
             CrewMovementAction::SendToTraining->value,
@@ -976,7 +978,8 @@ test('already arrived start creates active p2a without fabricated p0', function 
 
     expect($log)->not->toBeNull()
         ->and($log->properties['skipped_pre_mobilisation'] ?? null)->toBeTrue()
-        ->and($log->properties['record_arrival_performed'] ?? null)->toBeFalse();
+        ->and($log->properties['record_arrival_performed'] ?? null)->toBeFalse()
+        ->and($log->properties['planned_arrival_at'] ?? null)->toBeNull();
 
     $this->actingAs($user)
         ->get(route('organization.crew-assignments.show', $assignment))
@@ -984,6 +987,7 @@ test('already arrived start creates active p2a without fabricated p0', function 
         ->assertInertia(fn (Assert $page) => $page
             ->where('assignment.current_phase.code', 'p2a')
             ->where('assignment.actual_arrival_at', '2026-10-04')
+            ->where('assignment.planned_arrival_at', null)
             ->where('assignment.available_actions.0', CrewMovementAction::SendToTraining->value)
             ->has('assignment.phase_timeline', 1)
             ->where('assignment.phase_timeline.0.phase_code', 'p2a'));
@@ -1041,7 +1045,8 @@ test('already arrived start allows today in company timezone', function () {
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
-        ->and($assignment->currentPhase?->actual_start_at?->timezone('Asia/Dubai')->toDateString())->toBe('2026-10-13');
+        ->and($assignment->currentPhase?->actual_start_at?->timezone('Asia/Dubai')->toDateString())->toBe('2026-10-13')
+        ->and($assignment->planned_arrival_at)->toBeNull();
 });
 
 test('unchecked already arrived keeps the existing p0 start flow', function () {
@@ -1063,6 +1068,7 @@ test('unchecked already arrived keeps the existing p0 start flow', function () {
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->phases)->toHaveCount(1)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-10-13 12:00')
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04')
         ->and(CrewArrivalResolver::timestamp($assignment))->toBeNull();
 });
 
@@ -1095,11 +1101,14 @@ test('service already arrived start does not invent record arrival movement hist
 
     $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
         'already_arrived' => true,
-        'planned_arrival_at' => '2026-10-04',
+        'actual_arrival_at' => '2026-10-04',
+        'planned_arrival_at' => '2026-09-28',
     ], $user->id);
 
     expect($assignment->phases)->toHaveCount(1)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-09-28')
+        ->and(CrewArrivalResolver::date($assignment, $company->timezone))->toBe('2026-10-04')
         ->and(Activity::query()
             ->where('subject_id', $assignment->id)
             ->where('properties->event', 'crew_movement_performed')
@@ -1124,5 +1133,106 @@ test('draft submission ignores already arrived shortcut', function () {
     expect($assignment->status)->toBe(CrewAssignmentStatus::Draft)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
-        ->and($assignment->currentPhase?->actual_start_at)->toBeNull();
+        ->and($assignment->currentPhase?->actual_start_at)->toBeNull()
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04');
+});
+
+test('already arrived planning handoff preserves planned arrival independently of actual arrival', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $vessel = makeCrewMovementVessel('Planning Already Arrived Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_arrival_date' => '2026-10-02',
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $vacant->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('planning_context.planned_arrival_at', '2026-10-02'));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'client_id' => $vessel->client_id,
+            'planned_join_at' => '2026-10-10',
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->with(['phases', 'currentPhase', 'planningAssignment'])
+        ->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-02')
+        ->and(CrewArrivalResolver::date($assignment, $company->timezone))->toBe('2026-10-04')
+        ->and($assignment->planningAssignment?->id)->toBe($vacant->id);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-assignments.show', $assignment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignment.planned_arrival_at', '2026-10-02')
+            ->where('assignment.actual_arrival_at', '2026-10-04')
+            ->where('assignment.current_phase.code', 'p2a'));
+});
+
+test('already arrived assignment keeps planned and actual arrival distinct in movement history', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.assignments.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+        'reports.crew_movement_history.view',
+    ]);
+    $vessel = makeCrewMovementVessel('History Already Arrived Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'already_arrived' => true,
+        'actual_arrival_at' => '2026-10-04',
+        'planned_arrival_at' => '2026-10-01',
+        'planned_join_at' => '2026-10-10',
+    ], $user->id);
+
+    $presented = CrewDateProvenance::plannedArrival($assignment, $company->timezone);
+    $actual = CrewDateProvenance::actualArrival($assignment, $company->timezone);
+
+    expect($presented['value'])->toBe('2026-10-01')
+        ->and($actual['value'])->toBe('2026-10-04')
+        ->and($actual['origin'])->toBe(CrewDateProvenance::MovementActual);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', [
+            'search' => $assignment->assignment_no,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('assignments.0.planned_arrival', '2026-10-01')
+            ->where('assignments.0.actual_arrival', '2026-10-04'));
 });
