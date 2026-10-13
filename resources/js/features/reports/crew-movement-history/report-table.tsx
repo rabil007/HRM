@@ -52,7 +52,7 @@ import type {
     TrainingHistoryEntry,
 } from './types';
 
-const COLUMN_COUNT = 12;
+const COLUMN_COUNT = 13;
 
 const columns = {
     employeeNo: 'w-[105px] min-w-[105px]',
@@ -64,6 +64,7 @@ const columns = {
     joined: 'w-[115px] min-w-[115px]',
     signOff: 'w-[130px] min-w-[130px]',
     returnedHome: 'w-[130px] min-w-[130px]',
+    standbyDays: 'w-[110px] min-w-[110px]',
     vesselDays: 'w-[105px] min-w-[105px]',
     status: 'w-[140px] min-w-[140px]',
     actions: 'w-[60px] min-w-[60px]',
@@ -1189,7 +1190,7 @@ export function CrewMovementHistoryReportTable({
 
     return (
         <OrganizationDataTable
-            minWidth="min-w-[1510px]"
+            minWidth="min-w-[1620px]"
             compact
             tableClassName="table-fixed"
             header={
@@ -1280,6 +1281,13 @@ export function CrewMovementHistoryReportTable({
                         )}
                     >
                         Returned Home
+                    </DataTableHead>
+                    <DataTableHead
+                        className={cn('whitespace-nowrap', columns.standbyDays)}
+                    >
+                        <span title="Total standby: Sign-On (Arrival → Join) + Sign-Off (Disembark → Home)">
+                            Standby Days
+                        </span>
                     </DataTableHead>
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.vesselDays)}
@@ -1487,6 +1495,14 @@ export function CrewMovementHistoryReportTable({
                                             —
                                         </span>
                                     )}
+                                </Cell>
+                                <Cell className={columns.standbyDays}>
+                                    <span
+                                        className="text-xs font-bold text-foreground tabular-nums"
+                                        title="Total standby: Sign-On + Sign-Off"
+                                    >
+                                        {numericDaysLabel(row.standby_days)}
+                                    </span>
                                 </Cell>
                                 <Cell className={columns.vesselDays}>
                                     <span className="text-xs font-bold text-foreground tabular-nums">

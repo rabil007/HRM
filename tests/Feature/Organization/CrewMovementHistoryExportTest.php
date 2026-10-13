@@ -103,6 +103,7 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Join Vessel Date',
             'Sign-Off / Disembarkation Date',
             'Return Home Date',
+            'Standby Days',
             'Vessel Days',
             'Assignment Status',
             'Assignment No',

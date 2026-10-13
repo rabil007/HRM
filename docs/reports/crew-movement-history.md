@@ -118,6 +118,7 @@ Crew Movement History separates fast operational history scanning from deep OMS 
   - *When did they join the vessel?* (Joined Vessel — actual P4 join)
   - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P4 end, or `Ongoing` if active)
   - *When did they return home?* (Returned Home — actual P6 start, or `Redeployed` if transferred directly without returning home)
+  - *How many standby days total?* (Standby Days — Sign-On Standby from Arrival → Join plus Sign-Off Standby from Disembark → Home; P2A / Training / legacy P3 + P5, same exclusive elapsed-day formula as Vessel Days)
   - *How many days onboard?* (Vessel Days — authoritative P4 elapsed days)
   - *What is the current status?* (Assignment status badge, with `On Vessel` for active P4)
 - **Expanded history** — complete OMS movement/audit record, organized in 9 structured sections:
@@ -161,7 +162,7 @@ Every query is scoped to `current_company_id`. Soft-deleted/voided assignments a
 Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
-  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Vessel Days, Assignment Status, Assignment No, Assignment Source, Remarks).
+  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Standby Days, Vessel Days, Assignment Status, Assignment No, Assignment Source, Remarks).
   - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P6 phase timeline occurrences, training history, accommodation stays, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.

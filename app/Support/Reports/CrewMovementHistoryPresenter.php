@@ -53,6 +53,13 @@ final class CrewMovementHistoryPresenter
 
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
+        // Total standby = Sign-On (Arrival → Join) + Sign-Off (Disembark → Home).
+        $standbyDays = self::sumElapsedDays([
+            $summaries[CrewPhaseCode::JoinStandby->value],
+            $training,
+            $summaries[CrewPhaseCode::ReadyToJoin->value],
+            $summaries[CrewPhaseCode::DemobStandby->value],
+        ]);
         $payrollDays = CrewMovementHistoryPayrollDays::summarize(
             $phases,
             $timezone,
@@ -222,6 +229,10 @@ final class CrewMovementHistoryPresenter
                 'is_redeployed_directly' => $isRedeployedDirectly,
                 'redeployed_at' => $redeployedAt,
             ],
+            // Total standby elapsed days: Sign-On (P2A + P2B + legacy P3) + Sign-Off (P5).
+            // Same exclusive elapsed-day formula as Vessel Days (not payroll inclusive days).
+            'standby_days' => $standbyDays,
+            'standby_days_label' => CrewMovementHistoryDuration::label($standbyDays),
             'assignment_started' => self::date($assignment->started_at, $timezone),
             'assignment_started_at' => self::dateTime($assignment->started_at, $timezone),
             'assignment_closed' => self::date($assignment->closed_at, $timezone),
@@ -318,6 +329,30 @@ final class CrewMovementHistoryPresenter
             'from' => $summary['periods'][0]['start'] ?? null,
             'to' => self::lastCompletedEnd($summary),
         ];
+    }
+
+    /**
+     * Sum exclusive elapsed days across phase summaries. Returns null when none recorded.
+     *
+     * @param  list<array{total_days: int|null}>  $summaries
+     */
+    private static function sumElapsedDays(array $summaries): ?int
+    {
+        $total = 0;
+        $hasDuration = false;
+
+        foreach ($summaries as $summary) {
+            $days = $summary['total_days'] ?? null;
+
+            if ($days === null) {
+                continue;
+            }
+
+            $total += (int) $days;
+            $hasDuration = true;
+        }
+
+        return $hasDuration ? $total : null;
     }
 
     /**

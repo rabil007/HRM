@@ -207,6 +207,9 @@ export type CrewMovementHistoryRow = {
         is_redeployed_directly?: boolean;
         redeployed_at?: string | null;
     };
+    /** Total standby elapsed days: Sign-On (Arrival → Join) + Sign-Off (Disembark → Home). */
+    standby_days: number | null;
+    standby_days_label: string;
     assignment_started: string | null;
     assignment_started_at?: string | null;
     assignment_closed: string | null;

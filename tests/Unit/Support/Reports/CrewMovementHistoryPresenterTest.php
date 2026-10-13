@@ -104,9 +104,62 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
         ->and($row['payroll_days']['onsite']['total_days'])->toBe(2)
         ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(0)
         ->and($row['payroll_days']['total_days'])->toBe(11)
-        ->and($row['planned_signoff'])->toBe('2026-08-31');
+        ->and($row['planned_signoff'])->toBe('2026-08-31')
+        ->and($row['standby_days'])->toBe(9);
 
     CarbonImmutable::setTestNow();
+});
+
+test('standby days totals sign-on and sign-off standby periods', function () {
+    ['employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->create([
+            'position_id' => $rank->id,
+            'status' => CrewAssignmentStatus::Completed,
+            'started_at' => '2026-10-02 08:00:00',
+            'closed_at' => '2026-10-13 08:00:00',
+        ]);
+
+    foreach ([
+        [CrewPhaseCode::JoinStandby, 1, '2026-10-02 08:00:00', '2026-10-04 08:00:00'],
+        [CrewPhaseCode::OnVessel, 2, '2026-10-04 08:00:00', '2026-10-07 08:00:00'],
+        [CrewPhaseCode::DemobStandby, 3, '2026-10-07 08:00:00', '2026-10-13 08:00:00'],
+        [CrewPhaseCode::HomeRedeploy, 4, '2026-10-13 08:00:00', null],
+    ] as [$code, $sequence, $start, $end]) {
+        $phase = CrewAssignmentPhase::factory()
+            ->forAssignment($assignment)
+            ->create([
+                'phase_code' => $code,
+                'sequence' => $sequence,
+                'status' => CrewPhaseStatus::Completed,
+                'actual_start_at' => $start,
+                'actual_end_at' => $end,
+            ]);
+
+        if ($code === CrewPhaseCode::HomeRedeploy) {
+            $assignment->update(['current_phase_id' => $phase->id]);
+        }
+    }
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh([
+            'company',
+            'employee',
+            'position',
+            'vessel',
+            'client',
+            'currentPhase',
+            'phases',
+        ]),
+    );
+
+    // Sign-on 02→04 = 2 days; Sign-off 07→13 = 6 days; total standby = 8.
+    expect($row['join_standby']['total_days'])->toBe(2)
+        ->and($row['demob_standby']['total_days'])->toBe(6)
+        ->and($row['on_vessel']['total_days'])->toBe(3)
+        ->and($row['standby_days'])->toBe(8);
 });
 
 test('same date activity counts as one payroll calendar day', function () {
