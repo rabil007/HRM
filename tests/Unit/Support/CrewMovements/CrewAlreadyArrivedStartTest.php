@@ -26,6 +26,15 @@ test('actual arrival validation requires a date', function () {
     expect($validator->errors()->first('planned_arrival_at'))->toBe(CrewAlreadyArrivedStart::REQUIRED_MESSAGE);
 });
 
+test('actual arrival validation rejects an unparseable date', function () {
+    ['company' => $company] = makeCrewAssignmentFixtures();
+    $validator = Validator::make([], []);
+
+    CrewAlreadyArrivedStart::validateActualArrivalDate($validator, $company->id, 'not-a-date', 'planned_arrival_at');
+
+    expect($validator->errors()->first('planned_arrival_at'))->toBe(CrewAlreadyArrivedStart::REQUIRED_MESSAGE);
+});
+
 test('actual arrival validation rejects future company-local dates', function () {
     ['company' => $company] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
