@@ -5,6 +5,8 @@ namespace App\Support\CrewMovements;
 use App\Models\Client;
 use App\Models\Course;
 use App\Models\Employee;
+use App\Models\Hotel;
+use App\Models\RoomType;
 use App\Models\User;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
@@ -28,7 +30,9 @@ final class CrewAssignmentCreateFormOptions
      *     clients: list<array{id: int, name: string}>,
      *     courses: list<array{id: int, name: string}>,
      *     company_timezone: string,
-     *     max_home_days: int
+     *     max_home_days: int,
+     *     hotels: list<array{id: int, name: string}>,
+     *     room_types: list<array{id: int, name: string, hotel_id: int|null}>
      * }
      */
     /**
@@ -137,7 +141,43 @@ final class CrewAssignmentCreateFormOptions
             'courses' => self::activeCourses(),
             'company_timezone' => CompanyTimezone::forCompanyId($companyId),
             'max_home_days' => $maxHomeDays,
+            'hotels' => self::activeHotels($companyId),
+            'room_types' => self::activeRoomTypes($companyId),
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private static function activeHotels(int $companyId): array
+    {
+        return Hotel::query()
+            ->forCompany($companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Hotel $hotel) => ['id' => (int) $hotel->id, 'name' => (string) $hotel->name])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string, hotel_id: int|null}>
+     */
+    private static function activeRoomTypes(int $companyId): array
+    {
+        return RoomType::query()
+            ->forCompany($companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'hotel_id'])
+            ->map(fn (RoomType $roomType) => [
+                'id' => (int) $roomType->id,
+                'name' => (string) $roomType->name,
+                'hotel_id' => $roomType->hotel_id !== null ? (int) $roomType->hotel_id : null,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

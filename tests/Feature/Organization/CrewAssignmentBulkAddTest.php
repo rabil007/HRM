@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
@@ -9,6 +10,7 @@ use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Position;
 use App\Support\CrewMovements\Actions\BulkStartCrewAssignments;
 use App\Support\Payroll\CrewTimeline\CrewPhasePayCategoryResolver;
@@ -612,11 +614,13 @@ test('bulk already arrived starts each row at active p2a with per-row actual arr
                     'employee_id' => $employeeA->id,
                     'position_id' => $rank->id,
                     'planned_arrival_at' => '2026-10-04',
+                    'accommodation_status' => 'no_accommodation',
                 ],
                 [
                     'employee_id' => $employeeB->id,
                     'position_id' => $rank->id,
                     'planned_arrival_at' => '2026-10-05',
+                    'accommodation_status' => 'no_accommodation',
                 ],
             ],
         ]))
@@ -678,10 +682,12 @@ test('bulk already arrived requires an actual arrival date on every row', functi
                     'employee_id' => $employeeA->id,
                     'position_id' => $rank->id,
                     'planned_arrival_at' => '2026-10-04',
+                    'accommodation_status' => 'no_accommodation',
                 ],
                 [
                     'employee_id' => $employeeB->id,
                     'position_id' => $rank->id,
+                    'accommodation_status' => 'no_accommodation',
                 ],
             ],
         ]))
@@ -702,10 +708,55 @@ test('bulk already arrived rejects a future actual arrival date for one row', fu
                     'employee_id' => $employee->id,
                     'position_id' => $rank->id,
                     'planned_arrival_at' => '2026-10-20',
+                    'accommodation_status' => 'no_accommodation',
                 ],
             ],
         ]))
         ->assertSessionHasErrors(['crew.0.planned_arrival_at']);
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('bulk already arrived supports different accommodation per crew row', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Bulk Hotel Crew');
+    $vessel = makeCrewMovementVessel('Bulk Mixed Accommodation Vessel', $company);
+    $hotelA = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Hotel A']);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employeeA->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                    'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+                    'hotel_id' => $hotelA->id,
+                    'check_in_date' => '2026-10-04',
+                ],
+                [
+                    'employee_id' => $employeeB->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-05',
+                    'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+                ],
+            ],
+        ]))
+        ->assertRedirect();
+
+    $assignments = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->with('accommodationStays')
+        ->get()
+        ->keyBy('employee_id');
+
+    expect($assignments[$employeeA->id]->accommodationStays)->toHaveCount(1)
+        ->and($assignments[$employeeA->id]->accommodationStays->first()?->hotel_id)->toBe($hotelA->id)
+        ->and($assignments[$employeeB->id]->accommodationStays)->toHaveCount(1)
+        ->and($assignments[$employeeB->id]->accommodationStays->first()?->accommodation_status)
+        ->toBe(CrewAccommodationStatus::NoAccommodation);
 });

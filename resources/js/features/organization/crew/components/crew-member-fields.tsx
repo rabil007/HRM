@@ -8,6 +8,7 @@ import { AlreadyArrivedCheckbox } from '@/features/organization/crew/components/
 import { getEmployeeStatusContainerClass } from '@/features/organization/crew/components/crew-employee-operational-status';
 import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { PreJoinAccommodationFields } from '@/features/organization/crew/components/pre-join-accommodation-fields';
 import {
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
@@ -16,6 +17,7 @@ import {
     alreadyArrivedExplanation,
 } from '@/features/organization/crew/lib/already-arrived-start';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
+import type { PreJoinAccommodationFields as PreJoinAccommodationValue } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type {
     ActiveOnVesselAssignment,
     CrewAssignmentCreateFormOptions,
@@ -28,6 +30,10 @@ export type CrewMemberFieldsData = {
     employee_id: number | null;
     position_id: number | null;
     planned_arrival_at?: string | null;
+    accommodation_status?: PreJoinAccommodationValue['accommodation_status'];
+    hotel_id?: number | null;
+    room_type_id?: number | null;
+    check_in_date?: string;
 };
 
 export const ARRIVAL_DATE_HELPER = EXPECTED_ARRIVAL_DATE_HELPER;
@@ -312,6 +318,26 @@ export function CrewMemberFields({
                         id="crew-already-arrived"
                         className="pt-1"
                         explanation={alreadyArrivedHelp}
+                    />
+                ) : null}
+                {alreadyArrived && showAlreadyArrived ? (
+                    <PreJoinAccommodationFields
+                        value={{
+                            accommodation_status:
+                                data.accommodation_status ?? 'hotel',
+                            hotel_id: data.hotel_id ?? null,
+                            room_type_id: data.room_type_id ?? null,
+                            check_in_date: data.check_in_date ?? '',
+                        }}
+                        onChange={(next) =>
+                            onChange({
+                                ...data,
+                                ...next,
+                            })
+                        }
+                        formOptions={formOptions}
+                        errors={errors}
+                        arrivalDate={data.planned_arrival_at}
                     />
                 ) : null}
             </div>

@@ -409,11 +409,28 @@ final class CrewMovementService
             $this->invariants->assertValid($assignment);
 
             if ($alreadyArrived) {
+                $accommodationPayload = CrewAlreadyArrivedAccommodation::payloadFromAttributes($attributes);
+
+                if ($accommodationPayload !== null) {
+                    $this->accommodation->validatePreJoinCheckInPayload(
+                        $assignment,
+                        $accommodationPayload,
+                        $actualArrivalAt,
+                    );
+                    $this->accommodation->recordPreJoinCheckIn(
+                        $assignment,
+                        $accommodationPayload,
+                        $phase,
+                        $actorId,
+                    );
+                }
+
                 $this->logAlreadyArrivedStart(
                     $assignment,
                     $startedAt,
                     $plannedArrivalAt,
                     $actorId,
+                    CrewAlreadyArrivedAccommodation::accommodationWasRecorded($accommodationPayload),
                 );
             }
 
@@ -1941,6 +1958,7 @@ final class CrewMovementService
         CarbonInterface $actualArrivalAt,
         ?CarbonInterface $plannedArrivalAt,
         ?int $actorId,
+        bool $preJoinAccommodationRecorded = false,
     ): void {
         activity()
             ->performedOn($assignment)
@@ -1955,6 +1973,7 @@ final class CrewMovementService
                 'planned_arrival_at' => $plannedArrivalAt?->toDateTimeString(),
                 'skipped_pre_mobilisation' => true,
                 'record_arrival_performed' => false,
+                'pre_join_accommodation_recorded' => $preJoinAccommodationRecorded,
             ], fn ($value) => $value !== null))
             ->tap(function ($activity) use ($assignment): void {
                 $activity->company_id = $assignment->company_id;

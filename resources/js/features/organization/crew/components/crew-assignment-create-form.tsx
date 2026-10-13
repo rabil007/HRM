@@ -21,6 +21,7 @@ import type { CrewMemberRowState } from '@/features/organization/crew/components
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
+import { PreJoinAccommodationFields } from '@/features/organization/crew/components/pre-join-accommodation-fields';
 import {
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
@@ -62,6 +63,10 @@ import {
     resolveCreateSubmitRoute,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
 import {
+    defaultPreJoinAccommodation,
+    preJoinAccommodationPayload,
+} from '@/features/organization/crew/lib/pre-join-accommodation';
+import {
     canUseManualTransferRecommendation,
     hasPlanningStartActiveAssignmentConflict,
 } from '@/features/organization/crew/lib/vessel-transfer-recommendation';
@@ -90,6 +95,7 @@ function newCrewRow(): CrewMemberRowState {
         key: `crew-row-${nextRowKey}`,
         employee_id: null,
         position_id: null,
+        ...defaultPreJoinAccommodation(),
     };
 }
 
@@ -110,6 +116,7 @@ function createInitialRows(
             employee_id: planningContext.employee_id,
             position_id: planningContext.position_id,
             planned_arrival_at: planningContext.planned_arrival_at ?? null,
+            ...defaultPreJoinAccommodation(),
         };
 
         return {
@@ -268,6 +275,7 @@ export function CrewAssignmentCreateForm({
             planning_context?.remarks ??
             '',
         already_arrived: false,
+        ...defaultPreJoinAccommodation(),
         crew:
             restoredBulkSession?.form.crew ??
             initialRows.rows.map(
@@ -682,8 +690,19 @@ export function CrewAssignmentCreateForm({
                     already_arrived: includeAlreadyArrived,
                     planning_assignment_id:
                         planning_context?.planning_assignment_id ?? undefined,
+                    ...(includeAlreadyArrived
+                        ? preJoinAccommodationPayload({
+                              accommodation_status:
+                                  form.data.accommodation_status ?? 'hotel',
+                              hotel_id: form.data.hotel_id ?? null,
+                              room_type_id: form.data.room_type_id ?? null,
+                              check_in_date: form.data.check_in_date ?? '',
+                          })
+                        : {}),
                 };
             }
+
+            const accommodationRow = row ?? defaultPreJoinAccommodation();
 
             return {
                 employee_id: row?.employee_id ?? null,
@@ -704,6 +723,15 @@ export function CrewAssignmentCreateForm({
                 already_arrived: includeAlreadyArrived,
                 planning_assignment_id:
                     planning_context?.planning_assignment_id ?? undefined,
+                ...(includeAlreadyArrived
+                    ? preJoinAccommodationPayload({
+                          accommodation_status:
+                              accommodationRow.accommodation_status ?? 'hotel',
+                          hotel_id: accommodationRow.hotel_id ?? null,
+                          room_type_id: accommodationRow.room_type_id ?? null,
+                          check_in_date: accommodationRow.check_in_date ?? '',
+                      })
+                    : {}),
             };
         });
 
@@ -729,6 +757,15 @@ export function CrewAssignmentCreateForm({
                 employee_id: row.employee_id,
                 position_id: row.position_id,
                 planned_arrival_at: row.planned_arrival_at || null,
+                ...(alreadyArrived
+                    ? preJoinAccommodationPayload({
+                          accommodation_status:
+                              row.accommodation_status ?? 'hotel',
+                          hotel_id: row.hotel_id ?? null,
+                          room_type_id: row.room_type_id ?? null,
+                          check_in_date: row.check_in_date ?? '',
+                      })
+                    : {}),
             })),
         }));
 
@@ -909,6 +946,42 @@ export function CrewAssignmentCreateForm({
                                                         className="pt-1"
                                                         explanation={
                                                             alreadyArrivedHelp
+                                                        }
+                                                    />
+                                                ) : null}
+                                                {alreadyArrived ? (
+                                                    <PreJoinAccommodationFields
+                                                        value={{
+                                                            accommodation_status:
+                                                                form.data
+                                                                    .accommodation_status ??
+                                                                'hotel',
+                                                            hotel_id:
+                                                                form.data
+                                                                    .hotel_id ??
+                                                                null,
+                                                            room_type_id:
+                                                                form.data
+                                                                    .room_type_id ??
+                                                                null,
+                                                            check_in_date:
+                                                                form.data
+                                                                    .check_in_date ??
+                                                                '',
+                                                        }}
+                                                        onChange={(next) =>
+                                                            form.setData({
+                                                                ...form.data,
+                                                                ...next,
+                                                            })
+                                                        }
+                                                        formOptions={
+                                                            form_options
+                                                        }
+                                                        errors={formErrors}
+                                                        arrivalDate={
+                                                            form.data
+                                                                .planned_arrival_at
                                                         }
                                                     />
                                                 ) : null}

@@ -360,6 +360,10 @@ export type BulkAddCrewRow = {
     employee_id: number | null;
     position_id: number | null;
     planned_arrival_at?: string | null;
+    accommodation_status?: 'hotel' | 'no_accommodation' | '';
+    hotel_id?: number | null;
+    room_type_id?: number | null;
+    check_in_date?: string;
 };
 
 export interface BulkAddCrewFormData {
@@ -369,6 +373,10 @@ export interface BulkAddCrewFormData {
     planned_arrival_at?: string | null;
     remarks: string;
     already_arrived?: boolean;
+    accommodation_status?: 'hotel' | 'no_accommodation' | '';
+    hotel_id?: number | null;
+    room_type_id?: number | null;
+    check_in_date?: string;
     crew: BulkAddCrewRow[];
 }
 

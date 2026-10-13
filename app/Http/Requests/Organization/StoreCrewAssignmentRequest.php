@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewMovements\CrewAlreadyArrivedAccommodation;
 use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
@@ -113,6 +114,11 @@ class StoreCrewAssignmentRequest extends FormRequest
             'relieves_crew_assignment_id' => ['nullable', 'integer', Rule::exists('crew_assignments', 'id')->where('company_id', $companyId)],
             'planning_assignment_id' => ['nullable', 'integer', Rule::exists('crew_planning_assignments', 'id')->where('company_id', $companyId)],
             'remarks' => ['nullable', 'string', 'max:1000'],
+            ...CrewAlreadyArrivedAccommodation::validationRules(
+                $companyId,
+                $this->submissionIntent() === CrewAssignmentSubmissionIntent::Start
+                    && CrewAlreadyArrivedStart::isEnabled($this->input('already_arrived')),
+            ),
         ];
     }
 
@@ -165,6 +171,22 @@ class StoreCrewAssignmentRequest extends FormRequest
                     $companyId,
                     $plannedArrival,
                     'planned_arrival_at',
+                );
+
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                CrewAlreadyArrivedAccommodation::validateAgainstArrival(
+                    $validator,
+                    $companyId,
+                    $this->only([
+                        'accommodation_status',
+                        'hotel_id',
+                        'room_type_id',
+                        'check_in_date',
+                    ]),
+                    $plannedArrival,
                 );
 
                 if ($validator->errors()->isNotEmpty()) {

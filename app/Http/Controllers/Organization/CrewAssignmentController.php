@@ -330,6 +330,10 @@ class CrewAssignmentController extends Controller
                 if ($alreadyArrived) {
                     $startAttributes['actual_arrival_at'] = $validated['planned_arrival_at'] ?? null;
                     $startAttributes['planned_arrival_at'] = $slot?->planned_arrival_date?->toDateString();
+                    $startAttributes['accommodation_status'] = $validated['accommodation_status'] ?? null;
+                    $startAttributes['hotel_id'] = $validated['hotel_id'] ?? null;
+                    $startAttributes['room_type_id'] = $validated['room_type_id'] ?? null;
+                    $startAttributes['check_in_date'] = $validated['check_in_date'] ?? null;
                 } else {
                     $startAttributes['planned_arrival_at'] = $validated['planned_arrival_at'] ?? null;
                 }

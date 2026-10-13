@@ -30,7 +30,15 @@ final class BulkStartCrewAssignments
      *     planned_join_at?: string|null,
      *     remarks?: string|null,
      *     already_arrived?: bool|string|int|null,
-     *     crew: list<array{employee_id: int, position_id?: int|null, planned_arrival_at?: string|null}>
+     *     crew: list<array{
+     *         employee_id: int,
+     *         position_id?: int|null,
+     *         planned_arrival_at?: string|null,
+     *         accommodation_status?: string|null,
+     *         hotel_id?: int|null,
+     *         room_type_id?: int|null,
+     *         check_in_date?: string|null
+     *     }>
      * }  $payload
      * @return list<CrewAssignment>
      */
@@ -66,6 +74,10 @@ final class BulkStartCrewAssignments
                         // Per-row form date is Actual Arrival Date only — do not fabricate planned arrival.
                         $attributes['actual_arrival_at'] = $row['planned_arrival_at'] ?? null;
                         $attributes['planned_arrival_at'] = null;
+                        $attributes['accommodation_status'] = $row['accommodation_status'] ?? null;
+                        $attributes['hotel_id'] = $row['hotel_id'] ?? null;
+                        $attributes['room_type_id'] = $row['room_type_id'] ?? null;
+                        $attributes['check_in_date'] = $row['check_in_date'] ?? null;
                     } else {
                         $attributes['planned_arrival_at'] = $row['planned_arrival_at'] ?? null;
                         $attributes['stage_started_at'] = $startedAt->format('Y-m-d H:i:s');
@@ -78,10 +90,13 @@ final class BulkStartCrewAssignments
                         $actorId,
                     );
                 } catch (CrewMovementException $exception) {
-                    $field = $exception->errorCode === 'already_arrived_arrival_required'
-                        || $exception->errorCode === 'occurred_at_in_future'
-                        ? "crew.{$row['index']}.planned_arrival_at"
-                        : "crew.{$row['index']}.employee_id";
+                    $field = match ($exception->errorCode) {
+                        'already_arrived_arrival_required', 'occurred_at_in_future' => "crew.{$row['index']}.planned_arrival_at",
+                        'hotel_required', 'invalid_hotel' => "crew.{$row['index']}.hotel_id",
+                        'check_in_required', 'check_in_before_arrival' => "crew.{$row['index']}.check_in_date",
+                        'invalid_room_type' => "crew.{$row['index']}.room_type_id",
+                        default => "crew.{$row['index']}.employee_id",
+                    };
 
                     throw ValidationException::withMessages([
                         $field => $this->messageForRow(
@@ -98,7 +113,16 @@ final class BulkStartCrewAssignments
 
     /**
      * @param  list<array{employee_id: int, position_id?: int|null, planned_arrival_at?: string|null}>  $crew
-     * @return list<array{index: int, employee_id: int, position_id: int|null, planned_arrival_at: string|null}>
+     * @return list<array{
+     *     index: int,
+     *     employee_id: int,
+     *     position_id: int|null,
+     *     planned_arrival_at: string|null,
+     *     accommodation_status: string|null,
+     *     hotel_id: int|null,
+     *     room_type_id: int|null,
+     *     check_in_date: string|null
+     * }>
      */
     private function rowsInLockOrder(array $crew): array
     {
@@ -113,6 +137,18 @@ final class BulkStartCrewAssignments
                     : null,
                 'planned_arrival_at' => isset($row['planned_arrival_at']) && $row['planned_arrival_at'] !== ''
                     ? (string) $row['planned_arrival_at']
+                    : null,
+                'accommodation_status' => isset($row['accommodation_status']) && $row['accommodation_status'] !== ''
+                    ? (string) $row['accommodation_status']
+                    : null,
+                'hotel_id' => isset($row['hotel_id']) && $row['hotel_id'] !== null && $row['hotel_id'] !== ''
+                    ? (int) $row['hotel_id']
+                    : null,
+                'room_type_id' => isset($row['room_type_id']) && $row['room_type_id'] !== null && $row['room_type_id'] !== ''
+                    ? (int) $row['room_type_id']
+                    : null,
+                'check_in_date' => isset($row['check_in_date']) && $row['check_in_date'] !== ''
+                    ? (string) $row['check_in_date']
                     : null,
             ];
         }

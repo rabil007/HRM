@@ -21,6 +21,7 @@ import {
     getEmployeeStatusContainerClass,
 } from '@/features/organization/crew/components/crew-employee-operational-status';
 import { CrewMemberFields } from '@/features/organization/crew/components/crew-member-fields';
+import { PreJoinAccommodationFields } from '@/features/organization/crew/components/pre-join-accommodation-fields';
 import {
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
@@ -338,71 +339,109 @@ function BulkDesktopRow({
     const blockReason = bulkRowBlockReason(status, activeOnVessel);
 
     return (
-        <TableRow
-            ref={rowRef}
-            data-bulk-row-key={row.key}
-            className={cn(
-                dataTableBodyRowClass(false),
-                (blocked || incomplete) &&
-                    'bg-destructive/5 dark:bg-destructive/10',
-                isFocused && 'bg-primary/5 ring-2 ring-primary/40 ring-inset',
-            )}
-        >
-            <td className={dataTableCellClass()}>
-                <EmployeeSelect
-                    index={index}
-                    row={row}
-                    formOptions={formOptions}
-                    selectedEmployeeIds={selectedEmployeeIds}
-                    onChangeRow={onChangeRow}
-                    error={bulkFieldError(errors, `crew.${index}.employee_id`)}
-                />
-            </td>
-            <td className={dataTableCellClass()}>
-                <PositionSelect
-                    index={index}
-                    row={row}
-                    formOptions={formOptions}
-                    onChangeRow={onChangeRow}
-                    error={bulkFieldError(errors, `crew.${index}.position_id`)}
-                />
-            </td>
-            <td className={dataTableCellClass()}>
-                <Input
-                    type="date"
-                    className="h-10 text-xs"
-                    value={row.planned_arrival_at ?? ''}
-                    required={alreadyArrived}
-                    onChange={(event) =>
-                        onChangeRow(index, {
-                            ...row,
-                            planned_arrival_at: event.target.value || null,
-                        })
-                    }
-                />
-                <InputError
-                    message={bulkFieldError(
-                        errors,
-                        `crew.${index}.planned_arrival_at`,
-                    )}
-                />
-            </td>
-            <td className={dataTableCellClass()}>
-                <OperationalStatusCell
-                    status={status}
-                    activeOnVessel={activeOnVessel}
-                    companyTimezone={formOptions.company_timezone}
-                    blockReason={blockReason}
-                    incomplete={incomplete}
-                    compact
-                />
-            </td>
-            <td className={dataTableActionsCellClass()}>
-                {canRemove ? (
-                    <RemoveRowButton index={index} onRemoveRow={onRemoveRow} />
-                ) : null}
-            </td>
-        </TableRow>
+        <>
+            <TableRow
+                ref={rowRef}
+                data-bulk-row-key={row.key}
+                className={cn(
+                    dataTableBodyRowClass(false),
+                    (blocked || incomplete) &&
+                        'bg-destructive/5 dark:bg-destructive/10',
+                    isFocused &&
+                        'bg-primary/5 ring-2 ring-primary/40 ring-inset',
+                )}
+            >
+                <td className={dataTableCellClass()}>
+                    <EmployeeSelect
+                        index={index}
+                        row={row}
+                        formOptions={formOptions}
+                        selectedEmployeeIds={selectedEmployeeIds}
+                        onChangeRow={onChangeRow}
+                        error={bulkFieldError(
+                            errors,
+                            `crew.${index}.employee_id`,
+                        )}
+                    />
+                </td>
+                <td className={dataTableCellClass()}>
+                    <PositionSelect
+                        index={index}
+                        row={row}
+                        formOptions={formOptions}
+                        onChangeRow={onChangeRow}
+                        error={bulkFieldError(
+                            errors,
+                            `crew.${index}.position_id`,
+                        )}
+                    />
+                </td>
+                <td className={dataTableCellClass()}>
+                    <Input
+                        type="date"
+                        className="h-10 text-xs"
+                        value={row.planned_arrival_at ?? ''}
+                        required={alreadyArrived}
+                        onChange={(event) =>
+                            onChangeRow(index, {
+                                ...row,
+                                planned_arrival_at: event.target.value || null,
+                            })
+                        }
+                    />
+                    <InputError
+                        message={bulkFieldError(
+                            errors,
+                            `crew.${index}.planned_arrival_at`,
+                        )}
+                    />
+                </td>
+                <td className={dataTableCellClass()}>
+                    <OperationalStatusCell
+                        status={status}
+                        activeOnVessel={activeOnVessel}
+                        companyTimezone={formOptions.company_timezone}
+                        blockReason={blockReason}
+                        incomplete={incomplete}
+                        compact
+                    />
+                </td>
+                <td className={dataTableActionsCellClass()}>
+                    {canRemove ? (
+                        <RemoveRowButton
+                            index={index}
+                            onRemoveRow={onRemoveRow}
+                        />
+                    ) : null}
+                </td>
+            </TableRow>
+            {alreadyArrived ? (
+                <TableRow className="bg-muted/10 hover:bg-muted/10">
+                    <td colSpan={5} className={dataTableCellClass()}>
+                        <PreJoinAccommodationFields
+                            compact
+                            value={{
+                                accommodation_status:
+                                    row.accommodation_status ?? 'hotel',
+                                hotel_id: row.hotel_id ?? null,
+                                room_type_id: row.room_type_id ?? null,
+                                check_in_date: row.check_in_date ?? '',
+                            }}
+                            onChange={(next) =>
+                                onChangeRow(index, {
+                                    ...row,
+                                    ...next,
+                                })
+                            }
+                            formOptions={formOptions}
+                            errors={errors}
+                            errorPrefix={`crew.${index}`}
+                            arrivalDate={row.planned_arrival_at}
+                        />
+                    </td>
+                </TableRow>
+            ) : null}
+        </>
     );
 }
 
@@ -526,6 +565,29 @@ function BulkMobileCard({
                 blockReason={blockReason}
                 incomplete={incomplete}
             />
+
+            {alreadyArrived ? (
+                <PreJoinAccommodationFields
+                    compact
+                    value={{
+                        accommodation_status:
+                            row.accommodation_status ?? 'hotel',
+                        hotel_id: row.hotel_id ?? null,
+                        room_type_id: row.room_type_id ?? null,
+                        check_in_date: row.check_in_date ?? '',
+                    }}
+                    onChange={(next) =>
+                        onChangeRow(index, {
+                            ...row,
+                            ...next,
+                        })
+                    }
+                    formOptions={formOptions}
+                    errors={errors}
+                    errorPrefix={`crew.${index}`}
+                    arrivalDate={row.planned_arrival_at}
+                />
+            ) : null}
         </div>
     );
 }

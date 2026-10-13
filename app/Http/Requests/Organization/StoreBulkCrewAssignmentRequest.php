@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewAccommodationStatus;
+use App\Support\CrewMovements\CrewAlreadyArrivedAccommodation;
 use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
@@ -84,6 +86,23 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
 
             'crew.*.planned_arrival_at' => ['nullable', 'date'],
             'already_arrived' => ['sometimes', 'boolean'],
+            'crew.*.accommodation_status' => [
+                Rule::requiredIf(fn (): bool => CrewAlreadyArrivedStart::isEnabled($this->input('already_arrived'))),
+                'nullable',
+                'string',
+                Rule::in(CrewAccommodationStatus::values()),
+            ],
+            'crew.*.hotel_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('hotels', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ],
+            'crew.*.room_type_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('room_types', 'id')->where('company_id', $companyId)->where('is_active', true),
+            ],
+            'crew.*.check_in_date' => ['nullable', 'date'],
         ];
     }
 
@@ -150,6 +169,26 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
                         $companyId,
                         $arrival,
                         $errorKey,
+                    );
+
+                    $rowInput = is_array($row) ? $row : [];
+
+                    if (($rowInput['accommodation_status'] ?? null) === CrewAccommodationStatus::Hotel->value) {
+                        if (empty($rowInput['hotel_id'])) {
+                            $validator->errors()->add("crew.{$index}.hotel_id", 'Hotel is required for pre-join accommodation.');
+                        }
+
+                        if (empty($rowInput['check_in_date'])) {
+                            $validator->errors()->add("crew.{$index}.check_in_date", 'Please enter the hotel check-in date.');
+                        }
+                    }
+
+                    CrewAlreadyArrivedAccommodation::validateAgainstArrival(
+                        $validator,
+                        $companyId,
+                        $rowInput,
+                        $arrival,
+                        "crew.{$index}",
                     );
                 }
 
