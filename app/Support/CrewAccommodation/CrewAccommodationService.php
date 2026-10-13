@@ -819,6 +819,20 @@ final class CrewAccommodationService
 
                 $isOpenHotel = $stay->accommodation_status === CrewAccommodationStatus::Hotel
                     && $stay->check_out_date === null;
+                $stayDays = $stay->accommodation_status === CrewAccommodationStatus::Hotel
+                    ? self::summarizeStayDays(
+                        $stay->check_in_date,
+                        $stay->check_out_date,
+                        $timezone,
+                    )
+                    : [
+                        'days' => null,
+                        'booked_days' => null,
+                        'invalid' => false,
+                        'upcoming' => false,
+                        'has_future_checkout' => false,
+                        'label' => '—',
+                    ];
 
                 return [
                     'id' => $stay->id,
@@ -831,13 +845,9 @@ final class CrewAccommodationService
                     'check_in_date' => $stay->check_in_date?->toDateString(),
                     'check_out_date' => $stay->check_out_date?->toDateString(),
                     'is_open' => $isOpenHotel,
-                    'stay_days' => $stay->accommodation_status === CrewAccommodationStatus::Hotel
-                        ? $this->stayDays(
-                            $stay->check_in_date,
-                            $stay->check_out_date ?? now($timezone),
-                            $timezone,
-                        )
-                        : null,
+                    'stay_days' => $stayDays['days'],
+                    'stay_days_label' => $stayDays['label'],
+                    'stay_days_invalid' => $stayDays['invalid'],
                 ];
             })
             ->values()
@@ -939,19 +949,127 @@ final class CrewAccommodationService
         return Carbon::parse((string) $value, $timezone)->startOfDay();
     }
 
+    /**
+     * Inclusive hotel calendar days used by Overseas Marine Services.
+     *
+     * Hotel Days = check-out − check-in + 1 when both dates exist and the stay
+     * has started. A same-day or half-day stay is 1 full day. Open stays count
+     * from check-in through company-local today. A future check-in is 0 actual
+     * hotel days. A check-out before check-in is invalid and returns null.
+     *
+     * @return array{
+     *     days: int|null,
+     *     booked_days: int|null,
+     *     invalid: bool,
+     *     upcoming: bool,
+     *     has_future_checkout: bool,
+     *     label: string
+     * }
+     */
+    public static function summarizeStayDays(
+        ?CarbonInterface $checkIn,
+        ?CarbonInterface $checkOut,
+        string $timezone,
+        ?CarbonInterface $today = null,
+    ): array {
+        if ($checkIn === null) {
+            return [
+                'days' => null,
+                'booked_days' => null,
+                'invalid' => false,
+                'upcoming' => false,
+                'has_future_checkout' => false,
+                'label' => '—',
+            ];
+        }
+
+        $from = $checkIn->copy()->timezone($timezone)->startOfDay();
+        $todayStart = ($today ?? Carbon::now($timezone))->copy()->timezone($timezone)->startOfDay();
+        $to = $checkOut?->copy()->timezone($timezone)->startOfDay();
+
+        if ($to !== null && $to->lt($from)) {
+            return [
+                'days' => null,
+                'booked_days' => null,
+                'invalid' => true,
+                'upcoming' => false,
+                'has_future_checkout' => false,
+                'label' => 'Invalid dates',
+            ];
+        }
+
+        if ($from->gt($todayStart)) {
+            return [
+                'days' => 0,
+                'booked_days' => $to !== null ? (int) $from->diffInDays($to) + 1 : null,
+                'invalid' => false,
+                'upcoming' => true,
+                'has_future_checkout' => false,
+                'label' => 'Upcoming',
+            ];
+        }
+
+        $bookedDays = $to !== null ? (int) $from->diffInDays($to) + 1 : null;
+        $occupancyEnd = $to === null || $to->gt($todayStart) ? $todayStart : $to;
+        $days = (int) $from->diffInDays($occupancyEnd) + 1;
+        $hasFutureCheckout = $to !== null && $to->gt($todayStart);
+
+        if ($hasFutureCheckout && $bookedDays !== null && $bookedDays !== $days) {
+            $label = $days === 1
+                ? "1 of {$bookedDays} hotel days"
+                : "{$days} of {$bookedDays} hotel days";
+        } else {
+            $label = $days === 1 ? '1 hotel day' : "{$days} hotel days";
+        }
+
+        return [
+            'days' => $days,
+            'booked_days' => $bookedDays,
+            'invalid' => false,
+            'upcoming' => false,
+            'has_future_checkout' => $hasFutureCheckout,
+            'label' => $label,
+        ];
+    }
+
     public static function calculateStayDays(
         ?CarbonInterface $checkIn,
         ?CarbonInterface $through,
         string $timezone,
+        ?CarbonInterface $today = null,
     ): ?int {
-        if ($checkIn === null) {
-            return null;
+        return self::summarizeStayDays($checkIn, $through, $timezone, $today)['days'];
+    }
+
+    public static function stayDaysSortExpression(string $driver, string $today): string
+    {
+        $quotedToday = str_replace("'", "''", $today);
+
+        if ($driver === 'sqlite') {
+            return <<<SQL
+CASE
+    WHEN crew_accommodation_stays.check_in_date IS NULL THEN NULL
+    WHEN crew_accommodation_stays.check_out_date IS NOT NULL
+        AND crew_accommodation_stays.check_out_date < crew_accommodation_stays.check_in_date THEN NULL
+    WHEN crew_accommodation_stays.check_in_date > '{$quotedToday}' THEN 0
+    WHEN crew_accommodation_stays.check_out_date IS NULL
+        OR crew_accommodation_stays.check_out_date > '{$quotedToday}' THEN CAST(julianday('{$quotedToday}') - julianday(crew_accommodation_stays.check_in_date) AS INTEGER) + 1
+    ELSE CAST(julianday(crew_accommodation_stays.check_out_date) - julianday(crew_accommodation_stays.check_in_date) AS INTEGER) + 1
+END
+SQL;
         }
 
-        $from = $checkIn->copy()->timezone($timezone)->startOfDay();
-        $to = ($through ?? Carbon::now($timezone))->copy()->timezone($timezone)->startOfDay();
-
-        return max(0, (int) $from->diffInDays($to));
+        return <<<SQL
+CASE
+    WHEN crew_accommodation_stays.check_in_date IS NULL THEN NULL
+    WHEN crew_accommodation_stays.check_out_date IS NOT NULL
+        AND crew_accommodation_stays.check_out_date < crew_accommodation_stays.check_in_date THEN NULL
+    WHEN crew_accommodation_stays.check_in_date > '{$quotedToday}' THEN 0
+    WHEN crew_accommodation_stays.check_out_date IS NULL
+        OR crew_accommodation_stays.check_out_date > '{$quotedToday}' THEN DATEDIFF('{$quotedToday}', crew_accommodation_stays.check_in_date) + 1
+    ELSE DATEDIFF(crew_accommodation_stays.check_out_date, crew_accommodation_stays.check_in_date) + 1
+END
+SQL;
     }
 
     private function stayDays(

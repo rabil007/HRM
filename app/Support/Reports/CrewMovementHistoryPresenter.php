@@ -53,6 +53,20 @@ final class CrewMovementHistoryPresenter
 
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
+        $serviceDays = CrewMovementServiceDays::summarize($phases, $timezone, $today);
+
+        if ($serviceDays['has_future_actual'] || $serviceDays['future_actual_only']) {
+            $warnings[] = [
+                'code' => 'future_actual',
+                'severity' => 'warning',
+                'label' => 'Future Actual',
+                'message' => $serviceDays['future_actual_only']
+                    ? 'Recorded actual movement starts after today and is not counted as completed service.'
+                    : 'A later actual movement starts after today. Historical service days are kept; the future portion is not counted.',
+                'date' => null,
+            ];
+        }
+
         $payrollDays = CrewMovementHistoryPayrollDays::summarize(
             $phases,
             $timezone,
@@ -222,6 +236,20 @@ final class CrewMovementHistoryPresenter
                 'is_redeployed_directly' => $isRedeployedDirectly,
                 'redeployed_at' => $redeployedAt,
             ],
+            // Distinct inclusive standby calendar dates (sign-on + sign-off) after handoff priority.
+            'standby_service_days' => $serviceDays['standby_service_days'],
+            'standby_service_days_label' => self::serviceDaysLabel(
+                $serviceDays['standby_service_days'],
+                $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
+            ),
+            'vessel_service_days' => $serviceDays['vessel_service_days'],
+            'vessel_service_days_label' => self::serviceDaysLabel(
+                $serviceDays['vessel_service_days'],
+                $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
+            ),
+            'has_future_actual' => $serviceDays['has_future_actual'],
             'assignment_started' => self::date($assignment->started_at, $timezone),
             'assignment_started_at' => self::dateTime($assignment->started_at, $timezone),
             'assignment_closed' => self::date($assignment->closed_at, $timezone),
@@ -260,27 +288,32 @@ final class CrewMovementHistoryPresenter
         ?CarbonInterface $today = null,
     ): array {
         $today ??= now($timezone);
-        $totalDays = 0;
+        $coveredDates = [];
         $hasDuration = false;
 
         $periods = $phases
             ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === $code)
             ->sortBy('sequence')
-            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, &$totalDays, &$hasDuration): array {
+            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, &$coveredDates, &$hasDuration): array {
                 $durationEnd = match ($phase->status) {
                     CrewPhaseStatus::Completed => $phase->actual_end_at,
                     CrewPhaseStatus::Active => $today,
                     default => null,
                 };
-                $days = CrewMovementHistoryDuration::elapsedDays(
+                $dates = CrewMovementHistoryDuration::inclusiveCalendarDates(
                     $phase->actual_start_at,
                     $durationEnd,
                     $timezone,
+                    $today,
                 );
+                $days = $dates === null ? null : count($dates);
 
-                if ($days !== null) {
-                    $totalDays += $days;
+                if ($dates !== null) {
                     $hasDuration = true;
+
+                    foreach ($dates as $date) {
+                        $coveredDates[$date] = true;
+                    }
                 }
 
                 return [
@@ -293,17 +326,23 @@ final class CrewMovementHistoryPresenter
                     'planned_end_at' => self::dateTime($phase->planned_end_at, $timezone),
                     'status' => $phase->status->value,
                     'days' => $days,
-                    'days_label' => CrewMovementHistoryDuration::label($days),
+                    'days_label' => $days === 0
+                        ? CrewMovementHistoryDuration::futureActualLabel()
+                        : CrewMovementHistoryDuration::serviceDayLabel($days),
                     'remarks' => $phase->remarks,
                 ];
             })
             ->values()
             ->all();
 
+        $totalDays = count($coveredDates);
+
         return [
             'periods' => $periods,
             'total_days' => $hasDuration ? $totalDays : null,
-            'total_days_label' => CrewMovementHistoryDuration::label($hasDuration ? $totalDays : null),
+            'total_days_label' => $hasDuration && $totalDays === 0
+                ? CrewMovementHistoryDuration::futureActualLabel()
+                : CrewMovementHistoryDuration::serviceDayLabel($hasDuration ? $totalDays : null),
         ];
     }
 
@@ -318,6 +357,25 @@ final class CrewMovementHistoryPresenter
             'from' => $summary['periods'][0]['start'] ?? null,
             'to' => self::lastCompletedEnd($summary),
         ];
+    }
+
+    private static function serviceDaysLabel(?int $days, bool $futureActualOnly, bool $hasFutureActual = false): string
+    {
+        if ($days === null) {
+            return CrewMovementHistoryDuration::serviceDayLabel(null);
+        }
+
+        if ($futureActualOnly) {
+            return CrewMovementHistoryDuration::futureActualLabel();
+        }
+
+        $label = CrewMovementHistoryDuration::serviceDayLabel($days);
+
+        if ($hasFutureActual) {
+            return $label.' + future actual';
+        }
+
+        return $label;
     }
 
     /**
@@ -390,10 +448,11 @@ final class CrewMovementHistoryPresenter
                     CrewPhaseStatus::Active => $today,
                     default => null,
                 };
-                $days = CrewMovementHistoryDuration::elapsedDays(
+                $days = CrewMovementHistoryDuration::inclusiveCalendarDays(
                     $phase->actual_start_at,
                     $durationEnd,
                     $timezone,
+                    $today,
                 );
 
                 return [
@@ -408,7 +467,9 @@ final class CrewMovementHistoryPresenter
                     'actual_start_at' => self::dateTime($phase->actual_start_at, $timezone),
                     'actual_end_at' => self::dateTime($phase->actual_end_at, $timezone),
                     'days' => $days,
-                    'days_label' => CrewMovementHistoryDuration::label($days),
+                    'days_label' => $days === 0
+                        ? CrewMovementHistoryDuration::futureActualLabel()
+                        : CrewMovementHistoryDuration::serviceDayLabel($days),
                     'remarks' => $phase->remarks,
                     'details' => is_array($phase->details) ? $phase->details : null,
                     'is_legacy' => in_array($phase->phase_code, [

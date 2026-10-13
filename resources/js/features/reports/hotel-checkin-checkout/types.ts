@@ -8,6 +8,10 @@ export type HotelCheckInCheckoutRow = {
     check_out_date: string | null;
     is_open: boolean;
     stay_days: number | null;
+    stay_days_booked?: number | null;
+    stay_days_label: string;
+    stay_days_invalid: boolean;
+    stay_days_has_future_checkout?: boolean;
     stay_status: string;
     stay_status_label: string;
     hotel: {

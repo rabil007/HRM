@@ -14,7 +14,7 @@ It displays active onboard crew approaching sign-off, checks whether their repla
 - **Active Employee Constraint:** Applies `ActiveEmployeeConstraint` and `CurrentOnboardCrewQuery::applyConstraint()`. Inactive and terminated employees are excluded from operational lists.
 - **Tenancy:** Strictly scoped by the current active company (`current_company_id`). Cross-company assignments are never exposed or linked.
 - **Actual Joined Date:** Evaluated strictly from the actual P4 start timestamp (`actual_start_at`). Planned join dates are never treated as actual joining.
-- **Days Onboard:** Calculated from the actual P4 start date through today in the company timezone via `CrewTourOfDutyCalculator`.
+- **Elapsed Days Onboard:** Whole calendar days elapsed from the actual P4 start through today in the company timezone via `CrewTourOfDutyCalculator`. This is not the inclusive vessel service-day total used by Crew Movement History.
 - **Planned Sign-Off:** Authoritative planned sign-off date from the current `CrewAssignment` (`planned_signoff_at`).
 
 ---

@@ -141,7 +141,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(neither.label, '—');
     });
 
-    it('preserves all 12 operational Excel-style table column definitions', () => {
+    it('preserves all 13 operational Excel-style table column definitions', () => {
         const columns = [
             'Emp No',
             'Crew Name',
@@ -152,12 +152,13 @@ describe('crew movement history presentation logic', () => {
             'Joined Vessel',
             'Sign-Off / Disembarked',
             'Returned Home',
-            'Vessel Days',
+            'Standby Service Days',
+            'Vessel Service Days',
             'Status',
             'Actions',
         ];
 
-        assert.equal(columns.length, 12);
+        assert.equal(columns.length, 13);
         assert.ok(columns.includes('Emp No'));
         assert.ok(columns.includes('Crew Name'));
         assert.ok(columns.includes('Rank'));
@@ -167,7 +168,8 @@ describe('crew movement history presentation logic', () => {
         assert.ok(columns.includes('Joined Vessel'));
         assert.ok(columns.includes('Sign-Off / Disembarked'));
         assert.ok(columns.includes('Returned Home'));
-        assert.ok(columns.includes('Vessel Days'));
+        assert.ok(columns.includes('Standby Service Days'));
+        assert.ok(columns.includes('Vessel Service Days'));
         assert.ok(columns.includes('Status'));
         assert.ok(columns.includes('Actions'));
     });

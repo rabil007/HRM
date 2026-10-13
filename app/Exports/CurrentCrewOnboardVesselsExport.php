@@ -48,7 +48,7 @@ final class CurrentCrewOnboardVesselsExport implements FromCollection, WithHeadi
             'Position',
             'Assignment Number',
             'Actual Vessel Join',
-            'Days Onboard',
+            'Elapsed Days Onboard',
             'Planned Sign-Off',
             'Tour of Duty Days',
             'Tour Status',

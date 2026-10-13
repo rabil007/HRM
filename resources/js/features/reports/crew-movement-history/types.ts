@@ -85,6 +85,8 @@ export type AccommodationStaySummary = {
     check_out_date: string | null;
     is_open: boolean;
     stay_days: number | null;
+    stay_days_label?: string;
+    stay_days_invalid?: boolean;
     started_from_phase_code?: string | null;
     started_from_phase_label?: string | null;
 };
@@ -207,6 +209,13 @@ export type CrewMovementHistoryRow = {
         is_redeployed_directly?: boolean;
         redeployed_at?: string | null;
     };
+    /** Distinct inclusive standby calendar dates after handoff priority. */
+    standby_service_days: number | null;
+    standby_service_days_label: string;
+    /** Distinct inclusive P4 calendar dates. Shared handoff dates stay on the vessel. */
+    vessel_service_days: number | null;
+    vessel_service_days_label: string;
+    has_future_actual?: boolean;
     assignment_started: string | null;
     assignment_started_at?: string | null;
     assignment_closed: string | null;

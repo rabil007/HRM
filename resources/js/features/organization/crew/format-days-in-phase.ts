@@ -24,10 +24,10 @@ export function formatDaysOnboard(days: number | null): string {
     }
 
     if (days === 1) {
-        return '1 day onboard';
+        return '1 elapsed day onboard';
     }
 
-    return `${days} days onboard`;
+    return `${days} elapsed days onboard`;
 }
 
 export function formatDaysInTraining(days: number | null): string {

@@ -59,6 +59,8 @@ export type CrewAccommodationSummaryItem = {
     check_out_date: string | null;
     is_open: boolean;
     stay_days: number | null;
+    stay_days_label?: string;
+    stay_days_invalid?: boolean;
 };
 
 export type CrewMovementContext = {

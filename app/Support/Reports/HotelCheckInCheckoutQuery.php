@@ -7,6 +7,7 @@ use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\Hotel;
 use App\Models\User;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewPositionCatalog;
 use Carbon\Carbon;
@@ -249,10 +250,10 @@ final class HotelCheckInCheckoutQuery
             ),
             'stay_days' => (function () use ($query, $direction): void {
                 $today = Carbon::now($this->timezone)->toDateString();
-                $driver = $query->getConnection()->getDriverName();
-                $expression = $driver === 'sqlite'
-                    ? "julianday(COALESCE(crew_accommodation_stays.check_out_date, '{$today}')) - julianday(crew_accommodation_stays.check_in_date)"
-                    : "DATEDIFF(COALESCE(crew_accommodation_stays.check_out_date, '{$today}'), crew_accommodation_stays.check_in_date)";
+                $expression = CrewAccommodationService::stayDaysSortExpression(
+                    $query->getConnection()->getDriverName(),
+                    $today,
+                );
                 $query->orderByRaw("({$expression}) {$direction}");
             })(),
             default => $query->orderBy('crew_accommodation_stays.check_in_date', $direction),

@@ -146,6 +146,10 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
                     'demob_standby.total_days',
                     'demob_standby.total_days_label',
                     'home_redeploy.periods',
+                    'standby_service_days',
+                    'standby_service_days_label',
+                    'vessel_service_days',
+                    'vessel_service_days_label',
                     'assignment_started',
                     'assignment_closed',
                     'total_assignment_days',
@@ -173,6 +177,8 @@ test('report exposes repeated phases and authoritative p4 dates in one row', fun
             ->where('assignments.0.training.details.1', 'XYZ — Refresher')
             ->where('assignments.0.on_vessel.actual_join', '2026-07-24')
             ->where('assignments.0.on_vessel.actual_disembarkation', null)
+            ->where('assignments.0.standby_service_days', 9)
+            ->where('assignments.0.vessel_service_days', 2)
             ->where('assignments.0.payroll_days.sign_on_standby.total_days', 9)
             ->where('assignments.0.payroll_days.onsite.total_days', 2)
             ->where('assignments.0.payroll_days.sign_off_standby.total_days', 0)

@@ -60,6 +60,19 @@ Planned values remain date-oriented. **Actual operational events preserve compan
 
 Provenance labels continue to use `CrewDateProvenance`. Planned Sign-Off is never presented as Actual Disembarkation. Browser/device timezone is never used.
 
+## Day counting
+
+Crew Movement History uses two different counts. They are not interchangeable.
+
+| Count | Meaning |
+|---|---|
+| Vessel Service Days / Standby Service Days | Inclusive company-local calendar dates. 4 October through 7 October is 4 vessel service days. Same-day service is 1 day. |
+| Phase service days | Inclusive dates touched by that phase code. Repeated occurrences of the same phase do not count a shared date twice. |
+| Elapsed assignment days / elapsed days onboard | Whole calendar days from the start date to the end date, without adding the end date. Same-day elapsed time is 0. Tour of Duty uses this elapsed count and is unchanged. |
+| Payroll calendar-day preview | Inclusive dates with the same handoff priority, without the operational “stop at today” clamp. Contract eligibility is still applied only in payroll. |
+
+A same-day handoff (P2A ending and P4 starting on 4 October, or P4 ending and P5 starting on 7 October) keeps that date on the higher-priority category: vessel, then sign-off standby, then sign-on standby. Summary totals therefore do not add each phase span together. Exact timestamps are kept. A future actual start is labeled `Future actual` and adds no worked days. An active phase includes the company-local today and no later date.
+
 ## Repeated phases and training
 
 Phase occurrences are ordered by `sequence`. Repeated P2A/P2B periods remain separate in the timeline and in exports. Each P2B training occurrence exposes provider, course, planned/actual windows, remarks, and whether an `EmployeeTraining` record is linked via `CrewAssignmentPhase::employeeTraining()`.
@@ -72,6 +85,7 @@ Dedicated Accommodation History uses `CrewAccommodationService::assignmentAccomm
 - Explicit `no_accommodation` stays display as **No Accommodation**.
 - Phase codes alone never invent hotel occupancy.
 - Multiple stays are serialized; none are silently dropped.
+- **Hotel days** use the inclusive hotel formula (`check-out − check-in + 1`). Same-day and half-day stays are 1 hotel day. These are not vessel or standby service days and are not payroll days.
 
 ## Tour of Duty & sign-off
 
@@ -118,7 +132,8 @@ Crew Movement History separates fast operational history scanning from deep OMS 
   - *When did they join the vessel?* (Joined Vessel — actual P4 join)
   - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P4 end, or `Ongoing` if active)
   - *When did they return home?* (Returned Home — actual P6 start, or `Redeployed` if transferred directly without returning home)
-  - *How many days onboard?* (Vessel Days — authoritative P4 elapsed days)
+  - *How many standby service days?* (Standby Service Days — distinct inclusive calendar dates in sign-on standby and sign-off standby. P2A, training, and legacy P3 are sign-on; P5 is sign-off. A date shared with the vessel counts once, as vessel service.)
+  - *How many vessel service days?* (Vessel Service Days — distinct inclusive P4 calendar dates. 4 October through 7 October is 4 days. This is not elapsed time and not the tour-of-duty “elapsed days onboard” count.)
   - *What is the current status?* (Assignment status badge, with `On Vessel` for active P4)
 - **Expanded history** — complete OMS movement/audit record, organized in 9 structured sections:
   1. Assignment Summary
@@ -161,7 +176,7 @@ Every query is scoped to `current_company_id`. Soft-deleted/voided assignments a
 Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
-  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Vessel Days, Assignment Status, Assignment No, Assignment Source, Remarks).
+  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Standby Service Days, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
   - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P6 phase timeline occurrences, training history, accommodation stays, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.

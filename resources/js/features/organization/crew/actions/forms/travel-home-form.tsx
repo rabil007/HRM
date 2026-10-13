@@ -75,7 +75,8 @@ export function TravelHomeForm({
                         </div>
                         {postSignoffAccommodation.stay_days !== null ? (
                             <div className="text-muted-foreground">
-                                Stay {postSignoffAccommodation.stay_days} day
+                                Hotel days: {postSignoffAccommodation.stay_days}{' '}
+                                day
                                 {postSignoffAccommodation.stay_days === 1
                                     ? ''
                                     : 's'}

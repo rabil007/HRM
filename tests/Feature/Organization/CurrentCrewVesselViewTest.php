@@ -322,7 +322,7 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
                 && in_array('Vessel', $headings, true)
                 && in_array('Position', $headings, true)
                 && ! in_array('Rank', $headings, true)
-                && in_array('Days Onboard', $headings, true)
+                && in_array('Elapsed Days Onboard', $headings, true)
                 && filled($mapped[4] ?? null);
         },
     );

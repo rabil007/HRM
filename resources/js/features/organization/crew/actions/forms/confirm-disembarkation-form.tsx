@@ -144,7 +144,7 @@ export function ConfirmDisembarkationForm({
                 {context.days_onboard !== null ? (
                     <div>
                         <span className="text-muted-foreground">
-                            Days onboard:{' '}
+                            Elapsed days onboard:{' '}
                         </span>
                         <span className="font-medium">
                             {formatDaysOnboard(context.days_onboard)}
