@@ -207,9 +207,12 @@ export type CrewMovementHistoryRow = {
         is_redeployed_directly?: boolean;
         redeployed_at?: string | null;
     };
-    /** Total standby elapsed days: Sign-On (Arrival → Join) + Sign-Off (Disembark → Home). */
+    /** Distinct inclusive standby calendar dates after handoff priority. */
     standby_days: number | null;
     standby_days_label: string;
+    /** Distinct inclusive P4 calendar dates. Shared handoff dates stay on the vessel. */
+    vessel_service_days: number | null;
+    vessel_service_days_label: string;
     assignment_started: string | null;
     assignment_started_at?: string | null;
     assignment_closed: string | null;

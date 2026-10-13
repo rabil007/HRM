@@ -214,8 +214,8 @@ export function OnboardByVesselView({
                                                     <DataTableHead className="w-[120px]">
                                                         P4 Joined
                                                     </DataTableHead>
-                                                    <DataTableHead className="w-[110px]">
-                                                        Days Onboard
+                                                    <DataTableHead className="w-[160px]">
+                                                        Elapsed Days Onboard
                                                     </DataTableHead>
                                                     <DataTableHead className="w-[140px]">
                                                         Planned Sign-Off

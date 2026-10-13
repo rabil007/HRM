@@ -34,7 +34,7 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
             'Vessel',
             'Client',
             'Joined Date',
-            'Days Onboard',
+            'Elapsed Days Onboard',
             'Planned Sign-Off',
             'Days to Sign-Off',
             'Relief Crew',

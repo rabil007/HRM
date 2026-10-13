@@ -152,8 +152,8 @@ describe('crew movement history presentation logic', () => {
             'Joined Vessel',
             'Sign-Off / Disembarked',
             'Returned Home',
-            'Standby Days',
-            'Vessel Days',
+            'Standby Service Days',
+            'Vessel Service Days',
             'Status',
             'Actions',
         ];
@@ -168,8 +168,8 @@ describe('crew movement history presentation logic', () => {
         assert.ok(columns.includes('Joined Vessel'));
         assert.ok(columns.includes('Sign-Off / Disembarked'));
         assert.ok(columns.includes('Returned Home'));
-        assert.ok(columns.includes('Standby Days'));
-        assert.ok(columns.includes('Vessel Days'));
+        assert.ok(columns.includes('Standby Service Days'));
+        assert.ok(columns.includes('Vessel Service Days'));
         assert.ok(columns.includes('Status'));
         assert.ok(columns.includes('Actions'));
     });

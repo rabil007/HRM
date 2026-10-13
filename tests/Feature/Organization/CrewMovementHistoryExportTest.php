@@ -17,6 +17,7 @@ use App\Models\Vessel;
 use App\Support\Reports\CrewMovementHistoryFilters;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use App\Support\Reports\CrewMovementHistoryQuery;
+use Carbon\CarbonImmutable;
 use Maatwebsite\Excel\Facades\Excel;
 
 function makeCrewMovementHistoryExportFixture(): array
@@ -103,8 +104,8 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Join Vessel Date',
             'Sign-Off / Disembarkation Date',
             'Return Home Date',
-            'Standby Days',
-            'Vessel Days',
+            'Standby Service Days',
+            'Vessel Service Days',
             'Assignment Status',
             'Assignment No',
             'Assignment Source',
@@ -570,4 +571,51 @@ test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to
         ->and($presenter3['home_redeploy']['actual_return_home_at'])->toBe('2026-08-22 12:00:00')
         ->and($xlsxRow3['Return Home Date'])->toBe('22 Aug 2026')
         ->and($csvRow3['Return Home Date'])->toBe('22 Aug 2026');
+});
+
+test('web summary and excel csv exports share inclusive vessel and standby service days', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewMovementHistoryExportFixture();
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'assignment_no' => 'CA-EXPORT-DAYS',
+    ]);
+
+    foreach ([
+        [CrewPhaseCode::JoinStandby, 1, '2026-10-02 08:00:00', '2026-10-04 08:00:00'],
+        [CrewPhaseCode::OnVessel, 2, '2026-10-04 08:00:00', '2026-10-07 08:00:00'],
+        [CrewPhaseCode::DemobStandby, 3, '2026-10-07 08:00:00', '2026-10-13 08:00:00'],
+    ] as [$code, $sequence, $start, $end]) {
+        CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+            'phase_code' => $code,
+            'sequence' => $sequence,
+            'status' => CrewPhaseStatus::Completed,
+            'actual_start_at' => $start,
+            'actual_end_at' => $end,
+        ]);
+    }
+
+    $query = new CrewMovementHistoryQuery($company->id, new CrewMovementHistoryFilters, $company->timezone);
+    $model = $query->exportQuery()->whereKey($assignment->id)->firstOrFail();
+    $presenter = CrewMovementHistoryPresenter::toArray($model);
+    $summary = CrewMovementHistoryExport::forQuery($query->exportQuery());
+    $csv = CrewMovementHistoryExport::forQuery($query->exportQuery(), 'csv');
+    $summaryRow = array_combine($summary->headings(), $summary->map($model));
+    $csvRow = array_combine($csv->headings(), $csv->map($model));
+    $details = $summary->sheets()[1];
+    $detailRow = array_combine($details->headings(), $details->map($model));
+
+    expect($presenter['vessel_service_days'])->toBe(4)
+        ->and($presenter['standby_days'])->toBe(8)
+        ->and($presenter['payroll_days']['onsite']['total_days'])->toBe(4)
+        ->and($presenter['payroll_days']['sign_on_standby']['total_days'])->toBe(2)
+        ->and($presenter['payroll_days']['sign_off_standby']['total_days'])->toBe(6)
+        ->and($summaryRow['Vessel Service Days'])->toBe(4)
+        ->and($summaryRow['Standby Service Days'])->toBe(8)
+        ->and($csvRow['Vessel Service Days'])->toBe(4)
+        ->and($csvRow['Standby Service Days'])->toBe(8)
+        ->and($detailRow['Vessel Service Days'])->toBe(4)
+        ->and($detailRow['On Vessel Days'])->toBe(4);
+
+    CarbonImmutable::setTestNow();
 });

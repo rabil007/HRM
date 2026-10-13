@@ -64,8 +64,8 @@ const columns = {
     joined: 'w-[115px] min-w-[115px]',
     signOff: 'w-[130px] min-w-[130px]',
     returnedHome: 'w-[130px] min-w-[130px]',
-    standbyDays: 'w-[110px] min-w-[110px]',
-    vesselDays: 'w-[105px] min-w-[105px]',
+    standbyDays: 'w-[150px] min-w-[150px]',
+    vesselDays: 'w-[150px] min-w-[150px]',
     status: 'w-[140px] min-w-[140px]',
     actions: 'w-[60px] min-w-[60px]',
 } as const;
@@ -258,7 +258,7 @@ function PeriodLine({
                 </Badge>
             </div>
             <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-                {numericDaysLabel(period.days)}
+                {period.days_label}
             </span>
         </div>
     );
@@ -282,10 +282,10 @@ function PhaseDetail({
                     <h4 className="text-sm font-semibold">{phase.label}</h4>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                    Elapsed time
+                    Phase service days
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums">
-                    {numericDaysLabel(phase.summary.total_days)}
+                    {phase.summary.total_days_label}
                 </p>
             </div>
             <div className="space-y-2">
@@ -359,7 +359,7 @@ function TimelineEntry({
                 </p>
             )}
             <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                {numericDaysLabel(entry.days)}
+                {entry.days_label}
             </p>
             {entry.remarks ? (
                 <p className="mt-2 text-xs whitespace-pre-wrap text-muted-foreground">
@@ -777,8 +777,9 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                         }
                     />
                     <DetailField
-                        label="On-vessel elapsed days"
-                        value={numericDaysLabel(row.on_vessel.total_days)}
+                        label="Vessel service days"
+                        value={row.vessel_service_days_label}
+                        hint="Inclusive calendar dates. A same-day handoff counts once, on the vessel."
                     />
                     <DetailField
                         label="Total assignment elapsed days"
@@ -852,7 +853,7 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                                 }
                             />
                             <DetailField
-                                label="Days onboard"
+                                label="Elapsed days onboard"
                                 value={tour.days_onboard ?? '—'}
                             />
                             <DetailField
@@ -1190,7 +1191,7 @@ export function CrewMovementHistoryReportTable({
 
     return (
         <OrganizationDataTable
-            minWidth="min-w-[1620px]"
+            minWidth="min-w-[1720px]"
             compact
             tableClassName="table-fixed"
             header={
@@ -1285,14 +1286,16 @@ export function CrewMovementHistoryReportTable({
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.standbyDays)}
                     >
-                        <span title="Total standby: Sign-On (Arrival → Join) + Sign-Off (Disembark → Home)">
-                            Standby Days
+                        <span title="Inclusive standby calendar dates. A day shared with the vessel counts as vessel service, not standby.">
+                            Standby Service Days
                         </span>
                     </DataTableHead>
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.vesselDays)}
                     >
-                        Vessel Days
+                        <span title="Inclusive calendar dates on the vessel. 4 Oct through 7 Oct is 4 days.">
+                            Vessel Service Days
+                        </span>
                     </DataTableHead>
                     <SortHead
                         column="status"
@@ -1499,7 +1502,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.standbyDays}>
                                     <span
                                         className="text-xs font-bold text-foreground tabular-nums"
-                                        title="Total standby: Sign-On + Sign-Off"
+                                        title="Inclusive standby calendar dates. A day shared with the vessel counts as vessel service."
                                     >
                                         {numericDaysLabel(row.standby_days)}
                                     </span>
@@ -1507,7 +1510,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.vesselDays}>
                                     <span className="text-xs font-bold text-foreground tabular-nums">
                                         {numericDaysLabel(
-                                            row.on_vessel.total_days,
+                                            row.vessel_service_days,
                                         )}
                                     </span>
                                 </Cell>

@@ -16,10 +16,11 @@ use App\Models\Hotel;
 use App\Models\Position;
 use App\Models\RoomType;
 use App\Models\Vessel;
+use App\Support\Reports\CrewMovementHistoryDuration;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
 
-test('it preserves repeated phases and calculates elapsed whole days in company timezone', function () {
+test('it preserves repeated phases and calculates inclusive service days in company timezone', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-25 00:30:00', 'Asia/Dubai'));
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
@@ -75,17 +76,21 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
         ]),
     );
 
+    // Inclusive phase spans: join 15–17 (3) + 19–22 (4) = 7; training 17–19 (3) + 22–24 (3) = 6.
+    // Active P4 from 24 Jul through company-local today 25 Jul is 2 vessel service days.
+    // Aggregate standby stays 9 because 24 Jul is vessel, not a second copy of the shared handoff dates.
     expect($row['join_standby']['periods'])->toHaveCount(2)
-        ->and($row['join_standby']['total_days'])->toBe(5)
+        ->and($row['join_standby']['total_days'])->toBe(7)
         ->and($row['training']['periods'])->toHaveCount(2)
-        ->and($row['training']['total_days'])->toBe(4)
+        ->and($row['training']['total_days'])->toBe(6)
         ->and($row['training']['details'])->toBe([
             'ABC Training — BOSIET',
             'XYZ Academy — Refresher',
         ])
         ->and($row['on_vessel']['actual_join'])->toBe('2026-07-24')
         ->and($row['on_vessel']['actual_disembarkation'])->toBeNull()
-        ->and($row['on_vessel']['total_days'])->toBe(1)
+        ->and($row['on_vessel']['total_days'])->toBe(2)
+        ->and($row['vessel_service_days'])->toBe(2)
         ->and($row['payroll_days']['sign_on_standby']['periods'])->toBe([
             [
                 'from' => '2026-07-15',
@@ -111,6 +116,7 @@ test('it preserves repeated phases and calculates elapsed whole days in company 
 });
 
 test('standby days totals sign-on and sign-off standby periods', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
     ['employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
 
     $assignment = CrewAssignment::factory()
@@ -155,11 +161,15 @@ test('standby days totals sign-on and sign-off standby periods', function () {
         ]),
     );
 
-    // Sign-on 02→04 = 2 days; Sign-off 07→13 = 6 days; total standby = 8.
-    expect($row['join_standby']['total_days'])->toBe(2)
-        ->and($row['demob_standby']['total_days'])->toBe(6)
-        ->and($row['on_vessel']['total_days'])->toBe(3)
+    // Phase spans include the handoff dates: join 2–4 = 3, vessel 4–7 = 4, demob 7–13 = 7.
+    // Aggregate totals give 4 Oct and 7 Oct to the vessel, so standby stays 2 + 6 = 8.
+    expect($row['join_standby']['total_days'])->toBe(3)
+        ->and($row['demob_standby']['total_days'])->toBe(7)
+        ->and($row['on_vessel']['total_days'])->toBe(4)
+        ->and($row['vessel_service_days'])->toBe(4)
         ->and($row['standby_days'])->toBe(8);
+
+    CarbonImmutable::setTestNow();
 });
 
 test('same date activity counts as one payroll calendar day', function () {
@@ -186,7 +196,11 @@ test('same date activity counts as one payroll calendar day', function () {
         ]),
     );
 
-    expect($row['join_standby']['total_days'])->toBe(0)
+    // A completed same-day phase is 1 inclusive service day, not 0 elapsed days.
+    expect($row['join_standby']['total_days'])->toBe(1)
+        ->and($row['join_standby']['periods'][0]['days'])->toBe(1)
+        ->and($row['standby_days'])->toBe(1)
+        ->and($row['vessel_service_days'])->toBe(0)
         ->and($row['payroll_days']['sign_on_standby']['periods'])->toBe([
             [
                 'from' => '2026-07-25',
@@ -248,12 +262,14 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ->and($row['planned_travel_home'])->toBe('2026-02-12')
         ->and($row['pre_mobilisation']['from'])->toBe('2026-01-01')
         ->and($row['travel_in']['to'])->toBe('2026-01-04')
-        ->and($row['ready_to_join']['total_days'])->toBe(6)
+        ->and($row['ready_to_join']['total_days'])->toBe(7)
         ->and($row['on_vessel']['actual_join'])->toBe('2026-01-10')
         ->and($row['on_vessel']['actual_disembarkation'])->toBe('2026-02-10')
         ->and($row['on_vessel']['actual_disembarkation'])->not->toBe($row['planned_signoff'])
-        ->and($row['demob_standby']['total_days'])->toBe(2)
-        ->and($row['home_redeploy']['total_days'])->toBe(3)
+        ->and($row['on_vessel']['total_days'])->toBe(32)
+        ->and($row['vessel_service_days'])->toBe(32)
+        ->and($row['demob_standby']['total_days'])->toBe(3)
+        ->and($row['home_redeploy']['total_days'])->toBe(4)
         ->and($row['assignment_closed'])->toBe('2026-02-15')
         ->and($row['total_assignment_days'])->toBe(45)
         ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(6)
@@ -1220,4 +1236,146 @@ test('case c: p5 to p6 followed by later redeployment still reports returned hom
     expect($row['home_redeploy']['outcome'])->toBe('returned_home')
         ->and($row['home_redeploy']['outcome_label'])->toBe('Returned Home')
         ->and($row['home_redeploy']['actual_return_home_at'])->toBe('2026-07-02 12:00:00');
+});
+
+test('inclusive service days cover calendar ranges handoffs and future actuals', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-31 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $fullMonth = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($fullMonth)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-31 18:00:00',
+    ]);
+
+    $leap = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($leap)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2024-02-01 08:00:00',
+        'actual_end_at' => '2024-02-29 18:00:00',
+    ]);
+
+    $repeatedVessel = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($repeatedVessel)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-03-01 08:00:00',
+        'actual_end_at' => '2026-03-03 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedVessel)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-03-03 18:00:00',
+        'actual_end_at' => '2026-03-05 18:00:00',
+    ]);
+
+    $repeatedStandby = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($repeatedStandby)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-04-01 08:00:00',
+        'actual_end_at' => '2026-04-03 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeatedStandby)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-04-03 12:00:00',
+        'actual_end_at' => '2026-04-04 12:00:00',
+    ]);
+
+    $future = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($future)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-11-01 08:00:00',
+        'actual_end_at' => '2026-11-04 18:00:00',
+    ]);
+
+    $planned = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($planned)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Planned,
+        'planned_start_at' => '2026-12-01 08:00:00',
+        'planned_end_at' => '2026-12-10 18:00:00',
+        'actual_start_at' => null,
+        'actual_end_at' => null,
+    ]);
+
+    $crossYear = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($crossYear)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2025-12-30 08:00:00',
+        'actual_end_at' => '2026-01-02 18:00:00',
+    ]);
+
+    $present = fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    $monthRow = $present($fullMonth);
+    $leapRow = $present($leap);
+    $repeatedVesselRow = $present($repeatedVessel);
+    $repeatedStandbyRow = $present($repeatedStandby);
+    $futureRow = $present($future);
+    $plannedRow = $present($planned);
+    $crossYearRow = $present($crossYear);
+
+    // Store the UTC wall clock, then convert it into the company timezone.
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-31 08:00:00', 'UTC'));
+
+    $dubaiBoundary = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($dubaiBoundary)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-03 21:00:00',
+        'actual_end_at' => '2026-10-07 19:00:00',
+    ]);
+    $dubaiRow = $present($dubaiBoundary);
+
+    expect($monthRow['vessel_service_days'])->toBe(31)
+        ->and($monthRow['payroll_days']['onsite']['total_days'])->toBe(31)
+        ->and($leapRow['vessel_service_days'])->toBe(29)
+        ->and($repeatedVesselRow['on_vessel']['periods'][0]['days'])->toBe(3)
+        ->and($repeatedVesselRow['on_vessel']['periods'][1]['days'])->toBe(3)
+        ->and($repeatedVesselRow['on_vessel']['total_days'])->toBe(5)
+        ->and($repeatedVesselRow['vessel_service_days'])->toBe(5)
+        ->and($repeatedStandbyRow['join_standby']['total_days'])->toBe(3)
+        ->and($repeatedStandbyRow['training']['total_days'])->toBe(2)
+        ->and($repeatedStandbyRow['standby_days'])->toBe(4)
+        ->and($futureRow['vessel_service_days'])->toBe(0)
+        ->and($futureRow['vessel_service_days_label'])->toBe('Future actual')
+        ->and($futureRow['on_vessel']['total_days'])->toBe(0)
+        ->and($futureRow['payroll_days']['onsite']['total_days'])->toBe(4)
+        ->and($plannedRow['vessel_service_days'])->toBeNull()
+        ->and($plannedRow['on_vessel']['total_days'])->toBeNull()
+        ->and($crossYearRow['vessel_service_days'])->toBe(4)
+        ->and($dubaiRow['vessel_service_days'])->toBe(4)
+        ->and($dubaiRow['on_vessel']['actual_join'])->toBe('2026-10-04')
+        ->and(CrewMovementHistoryDuration::elapsedDays(
+            CarbonImmutable::parse('2026-10-04 08:00:00', 'Asia/Dubai'),
+            CarbonImmutable::parse('2026-10-04 18:00:00', 'Asia/Dubai'),
+            'Asia/Dubai',
+        ))->toBe(0)
+        ->and(CrewMovementHistoryDuration::inclusiveCalendarDays(
+            CarbonImmutable::parse('2026-10-04 08:00:00', 'Asia/Dubai'),
+            CarbonImmutable::parse('2026-10-04 18:00:00', 'Asia/Dubai'),
+            'Asia/Dubai',
+            CarbonImmutable::parse('2026-10-31', 'Asia/Dubai'),
+        ))->toBe(1);
+
+    CarbonImmutable::setTestNow();
 });

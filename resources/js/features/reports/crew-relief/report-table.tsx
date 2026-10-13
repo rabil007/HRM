@@ -29,7 +29,7 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                     <DataTableHead>Vessel</DataTableHead>
                     <DataTableHead>Client</DataTableHead>
                     <DataTableHead>Joined</DataTableHead>
-                    <DataTableHead>Days Onboard</DataTableHead>
+                    <DataTableHead>Elapsed Days Onboard</DataTableHead>
                     <DataTableHead>Planned Sign-Off</DataTableHead>
                     <DataTableHead>Days to Sign-Off</DataTableHead>
                     <DataTableHead>Relief Crew</DataTableHead>

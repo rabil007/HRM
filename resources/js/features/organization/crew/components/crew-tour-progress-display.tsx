@@ -28,9 +28,9 @@ export function CrewTourProgressDisplay({
 
     const progressLabel =
         tourDays != null && daysOnboard != null
-            ? `Onboard: ${daysOnboard} / ${tourDays} days`
+            ? `Elapsed onboard: ${daysOnboard} / ${tourDays} days`
             : daysOnboard != null
-              ? `Onboard: ${daysOnboard} days`
+              ? `Elapsed onboard: ${daysOnboard} days`
               : null;
 
     const remaining =
