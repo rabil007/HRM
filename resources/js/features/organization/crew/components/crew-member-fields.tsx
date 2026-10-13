@@ -320,7 +320,12 @@ export function CrewMemberFields({
                         explanation={alreadyArrivedHelp}
                     />
                 ) : null}
-                {alreadyArrived && showAlreadyArrived ? (
+                {alreadyArrived && !showAlreadyArrived ? (
+                    <p className="text-xs text-muted-foreground">
+                        {alreadyArrivedHelp}
+                    </p>
+                ) : null}
+                {alreadyArrived ? (
                     <PreJoinAccommodationFields
                         value={{
                             accommodation_status:
