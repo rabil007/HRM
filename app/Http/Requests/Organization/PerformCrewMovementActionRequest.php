@@ -16,6 +16,7 @@ use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\Scheduling\CrewSchedulableMovementActions;
 use App\Support\CrewMovements\Scheduling\CrewScheduledMovementAccess;
 use App\Support\CrewMovements\Scheduling\ResolveCrewMovementTiming;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
