@@ -80,6 +80,7 @@ final class CrewMovementServiceDays
             }
 
             if ($to->gt($todayDate)) {
+                $hasFutureActual = true;
                 $to = $todayDate;
             }
 

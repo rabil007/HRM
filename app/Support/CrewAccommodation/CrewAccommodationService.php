@@ -827,8 +827,10 @@ final class CrewAccommodationService
                     )
                     : [
                         'days' => null,
+                        'booked_days' => null,
                         'invalid' => false,
                         'upcoming' => false,
+                        'has_future_checkout' => false,
                         'label' => '—',
                     ];
 
@@ -957,8 +959,10 @@ final class CrewAccommodationService
      *
      * @return array{
      *     days: int|null,
+     *     booked_days: int|null,
      *     invalid: bool,
      *     upcoming: bool,
+     *     has_future_checkout: bool,
      *     label: string
      * }
      */
@@ -971,8 +975,10 @@ final class CrewAccommodationService
         if ($checkIn === null) {
             return [
                 'days' => null,
+                'booked_days' => null,
                 'invalid' => false,
                 'upcoming' => false,
+                'has_future_checkout' => false,
                 'label' => '—',
             ];
         }
@@ -984,8 +990,10 @@ final class CrewAccommodationService
         if ($to !== null && $to->lt($from)) {
             return [
                 'days' => null,
+                'booked_days' => null,
                 'invalid' => true,
                 'upcoming' => false,
+                'has_future_checkout' => false,
                 'label' => 'Invalid dates',
             ];
         }
@@ -993,20 +1001,34 @@ final class CrewAccommodationService
         if ($from->gt($todayStart)) {
             return [
                 'days' => 0,
+                'booked_days' => $to !== null ? (int) $from->diffInDays($to) + 1 : null,
                 'invalid' => false,
                 'upcoming' => true,
+                'has_future_checkout' => false,
                 'label' => 'Upcoming',
             ];
         }
 
-        $end = $to ?? $todayStart;
-        $days = (int) $from->diffInDays($end) + 1;
+        $bookedDays = $to !== null ? (int) $from->diffInDays($to) + 1 : null;
+        $occupancyEnd = $to === null || $to->gt($todayStart) ? $todayStart : $to;
+        $days = (int) $from->diffInDays($occupancyEnd) + 1;
+        $hasFutureCheckout = $to !== null && $to->gt($todayStart);
+
+        if ($hasFutureCheckout && $bookedDays !== null && $bookedDays !== $days) {
+            $label = $days === 1
+                ? "1 of {$bookedDays} hotel days"
+                : "{$days} of {$bookedDays} hotel days";
+        } else {
+            $label = $days === 1 ? '1 hotel day' : "{$days} hotel days";
+        }
 
         return [
             'days' => $days,
+            'booked_days' => $bookedDays,
             'invalid' => false,
             'upcoming' => false,
-            'label' => $days === 1 ? '1 hotel day' : "{$days} hotel days",
+            'has_future_checkout' => $hasFutureCheckout,
+            'label' => $label,
         ];
     }
 
@@ -1030,7 +1052,8 @@ CASE
     WHEN crew_accommodation_stays.check_out_date IS NOT NULL
         AND crew_accommodation_stays.check_out_date < crew_accommodation_stays.check_in_date THEN NULL
     WHEN crew_accommodation_stays.check_in_date > '{$quotedToday}' THEN 0
-    WHEN crew_accommodation_stays.check_out_date IS NULL THEN CAST(julianday('{$quotedToday}') - julianday(crew_accommodation_stays.check_in_date) AS INTEGER) + 1
+    WHEN crew_accommodation_stays.check_out_date IS NULL
+        OR crew_accommodation_stays.check_out_date > '{$quotedToday}' THEN CAST(julianday('{$quotedToday}') - julianday(crew_accommodation_stays.check_in_date) AS INTEGER) + 1
     ELSE CAST(julianday(crew_accommodation_stays.check_out_date) - julianday(crew_accommodation_stays.check_in_date) AS INTEGER) + 1
 END
 SQL;
@@ -1042,7 +1065,8 @@ CASE
     WHEN crew_accommodation_stays.check_out_date IS NOT NULL
         AND crew_accommodation_stays.check_out_date < crew_accommodation_stays.check_in_date THEN NULL
     WHEN crew_accommodation_stays.check_in_date > '{$quotedToday}' THEN 0
-    WHEN crew_accommodation_stays.check_out_date IS NULL THEN DATEDIFF('{$quotedToday}', crew_accommodation_stays.check_in_date) + 1
+    WHEN crew_accommodation_stays.check_out_date IS NULL
+        OR crew_accommodation_stays.check_out_date > '{$quotedToday}' THEN DATEDIFF('{$quotedToday}', crew_accommodation_stays.check_in_date) + 1
     ELSE DATEDIFF(crew_accommodation_stays.check_out_date, crew_accommodation_stays.check_in_date) + 1
 END
 SQL;

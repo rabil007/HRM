@@ -85,7 +85,9 @@ final class HotelCheckInCheckoutExport implements FromQuery, WithHeadings, WithM
                 ? $item['stay_days_label']
                 : ($item['stay_days_label'] === 'Upcoming'
                     ? 'Upcoming'
-                    : $item['stay_days']),
+                    : ($item['stay_days_has_future_checkout'] ?? false
+                        ? $item['stay_days_label']
+                        : $item['stay_days'])),
             $item['assignment']['assignment_no'],
             $item['assignment']['status_label'],
             $item['assignment']['vessel_name'],

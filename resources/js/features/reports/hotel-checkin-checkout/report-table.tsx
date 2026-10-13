@@ -333,9 +333,11 @@ export function HotelCheckInCheckoutReportTable({
                                             ? row.stay_days_label
                                             : row.stay_days_label === 'Upcoming'
                                               ? 'Upcoming'
-                                              : row.stay_days !== null
-                                                ? `${row.stay_days} d`
-                                                : '—'}
+                                              : row.stay_days_has_future_checkout
+                                                ? row.stay_days_label
+                                                : row.stay_days !== null
+                                                  ? `${row.stay_days} d`
+                                                  : '—'}
                                     </TableCell>
                                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                                         {row.assignment.vessel_name}

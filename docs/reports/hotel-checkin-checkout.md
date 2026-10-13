@@ -57,6 +57,7 @@ Uses the Overseas Marine Services inclusive hotel-day formula:
 - Same-day check-in/check-out is **1 hotel day**.
 - A half-day designation is **1 hotel day**. Fractional hotel days are not used.
 - Open, already-started stays count from check-in through company-local today.
+- When a checkout date is recorded but still in the future, **actual occupancy** counts check-in through company-local today; the inclusive booked stay (`check-out − check-in + 1`) is shown separately (for example, `5 of 7 hotel days`). Future nights are never counted as completed occupancy.
 - Future check-in dates are **0 actual hotel days** and are labeled Upcoming. Planned future occupancy is never shown as completed.
 - Check-out before check-in is invalid and is flagged. It is never converted to zero.
 - `no_accommodation` records are not hotel occupancy and have no hotel days.

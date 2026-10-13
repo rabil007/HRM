@@ -36,8 +36,10 @@ final class HotelCheckInCheckoutPresenter
             )
             : [
                 'days' => null,
+                'booked_days' => null,
                 'invalid' => false,
                 'upcoming' => false,
+                'has_future_checkout' => false,
                 'label' => '—',
             ];
 
@@ -51,8 +53,10 @@ final class HotelCheckInCheckoutPresenter
             'check_out_date' => $checkOutStr,
             'is_open' => $stay->check_out_date === null,
             'stay_days' => $stayDays['days'],
+            'stay_days_booked' => $stayDays['booked_days'],
             'stay_days_label' => $stayDays['label'],
             'stay_days_invalid' => $stayDays['invalid'],
+            'stay_days_has_future_checkout' => $stayDays['has_future_checkout'],
             'stay_status' => $statusInfo['code'],
             'stay_status_label' => $statusInfo['label'],
             'hotel' => [

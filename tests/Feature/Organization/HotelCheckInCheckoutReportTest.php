@@ -97,8 +97,10 @@ test('basic listing returns stay with employee, hotel, stay type, dates, assignm
             ->where('stays.0.check_in_date', '2026-09-20')
             ->where('stays.0.check_out_date', '2026-09-26')
             ->where('stays.0.stay_status', 'currently_checked_in')
-            // Inclusive hotel days: 20–26 Sep = 7, even though checkout is still ahead of today.
-            ->where('stays.0.stay_days', 7)
+            // Occupancy through today: 20–24 Sep = 5; booked stay remains 20–26 Sep = 7.
+            ->where('stays.0.stay_days', 5)
+            ->where('stays.0.stay_days_label', '5 of 7 hotel days')
+            ->where('stays.0.stay_days_has_future_checkout', true)
             ->where('stays.0.assignment.assignment_no', 'CA-HOTEL-001')
             ->where('stays.0.assignment.vessel_name', $assignment->vessel->name)
             ->where('stays.0.starting_checkpoint', 'P2A · Join Standby')

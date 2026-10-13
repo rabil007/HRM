@@ -173,7 +173,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         ->and($mapped[8])->toBe('2026-09-20')
         ->and($mapped[9])->toBe('2026-09-25')
         ->and($mapped[10])->toBe('Currently Checked In')
-        ->and($mapped[11])->toBe(6)
+        ->and($mapped[11])->toBe('5 of 6 hotel days')
         ->and($mapped[12])->toBe($assignment->assignment_no)
         ->and($mapped[13])->toBe($assignment->status->label())
         ->and($mapped[14])->toBe($assignment->vessel->name)

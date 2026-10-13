@@ -24,7 +24,40 @@ test('inclusive hotel days follow the crew information workbook formula', functi
             CarbonImmutable::parse('2026-10-31', $timezone),
             $timezone,
             $today,
-        ))->toBe(31);
+        ))->toBe(20);
+});
+
+test('recorded future checkout counts occupancy through today and booked inclusive stay separately', function () {
+    $timezone = 'Asia/Dubai';
+    $today = CarbonImmutable::parse('2026-10-13', $timezone);
+
+    $summary = CrewAccommodationService::summarizeStayDays(
+        CarbonImmutable::parse('2026-10-04', $timezone),
+        CarbonImmutable::parse('2026-10-20', $timezone),
+        $timezone,
+        $today,
+    );
+
+    expect($summary['days'])->toBe(10)
+        ->and($summary['booked_days'])->toBe(17)
+        ->and($summary['has_future_checkout'])->toBeTrue()
+        ->and($summary['label'])->toBe('10 of 17 hotel days');
+});
+
+test('hotel stay day boundaries respect company-local timezone', function () {
+    $timezone = 'Asia/Dubai';
+    // Still 13 Oct in Dubai while UTC wall clock is earlier on the calendar.
+    $today = CarbonImmutable::parse('2026-10-13 19:30:00', 'UTC');
+
+    $summary = CrewAccommodationService::summarizeStayDays(
+        CarbonImmutable::parse('2026-10-04', $timezone),
+        CarbonImmutable::parse('2026-10-20', $timezone),
+        $timezone,
+        $today,
+    );
+
+    expect($summary['days'])->toBe(10)
+        ->and($summary['booked_days'])->toBe(17);
 });
 
 test('same-day and half-day hotel stays count as one full hotel day', function () {
