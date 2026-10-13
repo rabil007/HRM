@@ -217,6 +217,30 @@ test('forged record_now mode with a future timestamp schedules instead of execut
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 });
 
+test('future cancel is rejected and does not schedule or cancel the assignment', function () {
+    $fixtures = makeAutomaticSchedulingFixtures();
+    $assignment = makeActivePreMobilisationAssignment($fixtures);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'reason' => 'Client postponed mobilisation',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionHasErrors([
+            'occurred_at' => 'This movement action cannot be scheduled for a future date and time.',
+        ]);
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+});
+
 test('unauthorized scheduling is rejected and never falls back to immediate execution', function () {
     $fixtures = makeAutomaticSchedulingFixtures(withSchedulePermission: false);
     $assignment = makeActivePreMobilisationAssignment($fixtures);
