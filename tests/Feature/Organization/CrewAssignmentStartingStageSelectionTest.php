@@ -98,6 +98,7 @@ test('already arrived starting stage rejects missing actual arrival date', funct
             'position_id' => $fixtures['rank']->id,
             'vessel_id' => $vessel->id,
             'already_arrived' => true,
+            'accommodation_status' => 'no_accommodation',
         ])
         ->assertSessionHasErrors(['planned_arrival_at']);
 
