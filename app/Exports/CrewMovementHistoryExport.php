@@ -163,7 +163,7 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
             $actualJoin ? $this->date($actualJoin) : '—',
             $actualDisembarkation === 'Ongoing' ? 'Ongoing' : ($actualDisembarkation ? $this->date($actualDisembarkation) : '—'),
             $returnHome,
-            $row['standby_days'] ?? 0,
+            $row['standby_service_days'] ?? 0,
             $row['vessel_service_days'] ?? 0,
             $row['status_label'],
             $row['assignment_no'],

@@ -110,7 +110,7 @@ test('it preserves repeated phases and calculates inclusive service days in comp
         ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(0)
         ->and($row['payroll_days']['total_days'])->toBe(11)
         ->and($row['planned_signoff'])->toBe('2026-08-31')
-        ->and($row['standby_days'])->toBe(9);
+        ->and($row['standby_service_days'])->toBe(9);
 
     CarbonImmutable::setTestNow();
 });
@@ -167,7 +167,7 @@ test('standby days totals sign-on and sign-off standby periods', function () {
         ->and($row['demob_standby']['total_days'])->toBe(7)
         ->and($row['on_vessel']['total_days'])->toBe(4)
         ->and($row['vessel_service_days'])->toBe(4)
-        ->and($row['standby_days'])->toBe(8);
+        ->and($row['standby_service_days'])->toBe(8);
 
     CarbonImmutable::setTestNow();
 });
@@ -199,7 +199,7 @@ test('same date activity counts as one payroll calendar day', function () {
     // A completed same-day phase is 1 inclusive service day, not 0 elapsed days.
     expect($row['join_standby']['total_days'])->toBe(1)
         ->and($row['join_standby']['periods'][0]['days'])->toBe(1)
-        ->and($row['standby_days'])->toBe(1)
+        ->and($row['standby_service_days'])->toBe(1)
         ->and($row['vessel_service_days'])->toBe(0)
         ->and($row['payroll_days']['sign_on_standby']['periods'])->toBe([
             [
@@ -1355,7 +1355,7 @@ test('inclusive service days cover calendar ranges handoffs and future actuals',
         ->and($repeatedVesselRow['vessel_service_days'])->toBe(5)
         ->and($repeatedStandbyRow['join_standby']['total_days'])->toBe(3)
         ->and($repeatedStandbyRow['training']['total_days'])->toBe(2)
-        ->and($repeatedStandbyRow['standby_days'])->toBe(4)
+        ->and($repeatedStandbyRow['standby_service_days'])->toBe(4)
         ->and($futureRow['vessel_service_days'])->toBe(0)
         ->and($futureRow['vessel_service_days_label'])->toBe('Future actual')
         ->and($futureRow['on_vessel']['total_days'])->toBe(0)

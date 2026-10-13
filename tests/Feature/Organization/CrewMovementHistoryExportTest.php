@@ -606,7 +606,7 @@ test('web summary and excel csv exports share inclusive vessel and standby servi
     $detailRow = array_combine($details->headings(), $details->map($model));
 
     expect($presenter['vessel_service_days'])->toBe(4)
-        ->and($presenter['standby_days'])->toBe(8)
+        ->and($presenter['standby_service_days'])->toBe(8)
         ->and($presenter['payroll_days']['onsite']['total_days'])->toBe(4)
         ->and($presenter['payroll_days']['sign_on_standby']['total_days'])->toBe(2)
         ->and($presenter['payroll_days']['sign_off_standby']['total_days'])->toBe(6)

@@ -224,8 +224,8 @@ final class CrewMovementHistoryPresenter
                 'redeployed_at' => $redeployedAt,
             ],
             // Distinct inclusive standby calendar dates (sign-on + sign-off) after handoff priority.
-            'standby_days' => $serviceDays['standby_service_days'],
-            'standby_days_label' => self::serviceDaysLabel(
+            'standby_service_days' => $serviceDays['standby_service_days'],
+            'standby_service_days_label' => self::serviceDaysLabel(
                 $serviceDays['standby_service_days'],
                 $serviceDays['future_actual_only'],
             ),

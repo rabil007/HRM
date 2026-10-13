@@ -1504,7 +1504,9 @@ export function CrewMovementHistoryReportTable({
                                         className="text-xs font-bold text-foreground tabular-nums"
                                         title="Inclusive standby calendar dates. A day shared with the vessel counts as vessel service."
                                     >
-                                        {numericDaysLabel(row.standby_days)}
+                                        {numericDaysLabel(
+                                            row.standby_service_days,
+                                        )}
                                     </span>
                                 </Cell>
                                 <Cell className={columns.vesselDays}>

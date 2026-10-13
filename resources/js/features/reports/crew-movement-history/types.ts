@@ -208,8 +208,8 @@ export type CrewMovementHistoryRow = {
         redeployed_at?: string | null;
     };
     /** Distinct inclusive standby calendar dates after handoff priority. */
-    standby_days: number | null;
-    standby_days_label: string;
+    standby_service_days: number | null;
+    standby_service_days_label: string;
     /** Distinct inclusive P4 calendar dates. Shared handoff dates stay on the vessel. */
     vessel_service_days: number | null;
     vessel_service_days_label: string;
