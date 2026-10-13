@@ -96,11 +96,23 @@ export function CrewAssignmentAccommodationCard({
                             ) : item.is_open ? (
                                 <div className="text-muted-foreground">
                                     Currently staying
-                                    {item.stay_days !== null
-                                        ? ` · ${item.stay_days} day${
-                                              item.stay_days === 1 ? '' : 's'
-                                          }`
-                                        : ''}
+                                </div>
+                            ) : null}
+                            {item.accommodation_status === 'hotel' &&
+                            (item.stay_days_label ||
+                                item.stay_days !== null) ? (
+                                <div
+                                    className={
+                                        item.stay_days_invalid
+                                            ? 'text-destructive'
+                                            : 'text-muted-foreground'
+                                    }
+                                >
+                                    Hotel days:{' '}
+                                    {item.stay_days_label ??
+                                        `${item.stay_days} day${
+                                            item.stay_days === 1 ? '' : 's'
+                                        }`}
                                 </div>
                             ) : null}
                         </div>

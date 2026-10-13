@@ -34,6 +34,7 @@ final class CrewMovementServiceDays
      * @return array{
      *     recorded: bool,
      *     future_actual_only: bool,
+     *     has_future_actual: bool,
      *     vessel_service_days: int|null,
      *     standby_service_days: int|null
      * }
@@ -48,6 +49,7 @@ final class CrewMovementServiceDays
         $categoryResolver = new CrewPhasePayCategoryResolver;
         $recorded = false;
         $countedADate = false;
+        $hasFutureActual = false;
 
         /** @var array<string, array{category: CrewTimesheetPayCategory, priority: int, phase_id: int}> $allocatedByDate */
         $allocatedByDate = [];
@@ -72,6 +74,8 @@ final class CrewMovementServiceDays
             $to = self::localDate($end, $timezone);
 
             if ($from->gt($todayDate)) {
+                $hasFutureActual = true;
+
                 continue;
             }
 
@@ -108,6 +112,7 @@ final class CrewMovementServiceDays
             return [
                 'recorded' => false,
                 'future_actual_only' => false,
+                'has_future_actual' => false,
                 'vessel_service_days' => null,
                 'standby_service_days' => null,
             ];
@@ -127,6 +132,7 @@ final class CrewMovementServiceDays
         return [
             'recorded' => true,
             'future_actual_only' => ! $countedADate,
+            'has_future_actual' => $hasFutureActual,
             'vessel_service_days' => $vessel,
             'standby_service_days' => $standby,
         ];

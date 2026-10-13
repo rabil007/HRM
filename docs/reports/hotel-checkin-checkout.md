@@ -48,11 +48,21 @@ The report derives a truthful operational stay status based on company-local cal
 
 *Note*: Because `CrewAccommodationStay` does not persist an expected checkout date, no speculative "Overdue Checkout" status is fabricated for open stays. Stays with `check_out_date = null` are displayed as **Open** and evaluated as currently checked in once the check-in date is reached.
 
-## Stay Days Calculation
+## Hotel Days Calculation
 
-- Uses the authoritative `CrewAccommodationService::calculateStayDays($checkIn, $checkOut, $timezone)` logic.
-- Completed stays calculate days between check-in and check-out.
-- Open stays calculate days from check-in through company-local today.
+Uses the Overseas Marine Services inclusive hotel-day formula:
+
+`Hotel Days = Check-Out Date − Check-In Date + 1`
+
+- Same-day check-in/check-out is **1 hotel day**.
+- A half-day designation is **1 hotel day**. Fractional hotel days are not used.
+- Open, already-started stays count from check-in through company-local today.
+- Future check-in dates are **0 actual hotel days** and are labeled Upcoming. Planned future occupancy is never shown as completed.
+- Check-out before check-in is invalid and is flagged. It is never converted to zero.
+- `no_accommodation` records are not hotel occupancy and have no hotel days.
+- Assignment cards, Crew Movement History accommodation, this report, and XLSX/CSV all use `CrewAccommodationService::summarizeStayDays()`.
+
+Hotel days are not vessel service days, standby service days, or payroll-entitled days.
 
 ## Filters & Summary Cards
 
@@ -90,7 +100,7 @@ Whitelisted sort fields:
 - `hotel`: Hotel name (correlated subquery)
 - `employee`: Employee name (correlated subquery)
 - `vessel`: Vessel name (correlated subquery)
-- `stay_days`: Stay duration expression (MySQL `DATEDIFF`, SQLite `julianday`)
+- `stay_days`: Inclusive hotel-day expression matching `summarizeStayDays()` (MySQL `DATEDIFF + 1`, SQLite `julianday + 1`, with upcoming = 0 and reversed dates = NULL)
 
 ## Export
 
@@ -108,7 +118,7 @@ Export columns:
 9. Check-In
 10. Check-Out
 11. Stay Status
-12. Stay Days
+12. Hotel Days
 13. Assignment No.
 14. Assignment Status
 15. Vessel

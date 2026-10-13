@@ -54,6 +54,19 @@ final class CrewMovementHistoryPresenter
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
         $serviceDays = CrewMovementServiceDays::summarize($phases, $timezone, $today);
+
+        if ($serviceDays['has_future_actual'] || $serviceDays['future_actual_only']) {
+            $warnings[] = [
+                'code' => 'future_actual',
+                'severity' => 'warning',
+                'label' => 'Future Actual',
+                'message' => $serviceDays['future_actual_only']
+                    ? 'Recorded actual movement starts after today and is not counted as completed service.'
+                    : 'A later actual movement starts after today. Historical service days are kept; the future portion is not counted.',
+                'date' => null,
+            ];
+        }
+
         $payrollDays = CrewMovementHistoryPayrollDays::summarize(
             $phases,
             $timezone,
@@ -228,12 +241,15 @@ final class CrewMovementHistoryPresenter
             'standby_service_days_label' => self::serviceDaysLabel(
                 $serviceDays['standby_service_days'],
                 $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
             ),
             'vessel_service_days' => $serviceDays['vessel_service_days'],
             'vessel_service_days_label' => self::serviceDaysLabel(
                 $serviceDays['vessel_service_days'],
                 $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
             ),
+            'has_future_actual' => $serviceDays['has_future_actual'],
             'assignment_started' => self::date($assignment->started_at, $timezone),
             'assignment_started_at' => self::dateTime($assignment->started_at, $timezone),
             'assignment_closed' => self::date($assignment->closed_at, $timezone),
@@ -343,7 +359,7 @@ final class CrewMovementHistoryPresenter
         ];
     }
 
-    private static function serviceDaysLabel(?int $days, bool $futureActualOnly): string
+    private static function serviceDaysLabel(?int $days, bool $futureActualOnly, bool $hasFutureActual = false): string
     {
         if ($days === null) {
             return CrewMovementHistoryDuration::serviceDayLabel(null);
@@ -353,7 +369,13 @@ final class CrewMovementHistoryPresenter
             return CrewMovementHistoryDuration::futureActualLabel();
         }
 
-        return CrewMovementHistoryDuration::serviceDayLabel($days);
+        $label = CrewMovementHistoryDuration::serviceDayLabel($days);
+
+        if ($hasFutureActual) {
+            return $label.' + future actual';
+        }
+
+        return $label;
     }
 
     /**

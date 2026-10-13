@@ -198,7 +198,7 @@ export function HotelCheckInCheckoutReportTable({
                         <TableHead>Stay Status</TableHead>
                         <TableHead className="text-right">
                             <SortHeader
-                                label="Stay Days"
+                                label="Hotel Days"
                                 column="stay_days"
                                 activeSort={filters.sort}
                                 direction={filters.direction}
@@ -329,9 +329,13 @@ export function HotelCheckInCheckoutReportTable({
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right font-mono text-xs font-semibold whitespace-nowrap tabular-nums">
-                                        {row.stay_days !== null
-                                            ? `${row.stay_days} d`
-                                            : '—'}
+                                        {row.stay_days_invalid
+                                            ? row.stay_days_label
+                                            : row.stay_days_label === 'Upcoming'
+                                              ? 'Upcoming'
+                                              : row.stay_days !== null
+                                                ? `${row.stay_days} d`
+                                                : '—'}
                                     </TableCell>
                                     <TableCell className="text-xs whitespace-nowrap text-muted-foreground">
                                         {row.assignment.vessel_name}
@@ -462,12 +466,9 @@ export function HotelCheckInCheckoutReportTable({
                                                         }
                                                     />
                                                     <DetailRow
-                                                        label="Stay Days"
+                                                        label="Hotel Days"
                                                         value={
-                                                            row.stay_days !==
-                                                            null
-                                                                ? `${row.stay_days} days`
-                                                                : '—'
+                                                            row.stay_days_label
                                                         }
                                                     />
                                                     <DetailRow

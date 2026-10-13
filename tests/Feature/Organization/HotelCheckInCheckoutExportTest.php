@@ -149,7 +149,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         'Check-In',
         'Check-Out',
         'Stay Status',
-        'Stay Days',
+        'Hotel Days',
         'Assignment No.',
         'Assignment Status',
         'Vessel',
@@ -173,7 +173,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         ->and($mapped[8])->toBe('2026-09-20')
         ->and($mapped[9])->toBe('2026-09-25')
         ->and($mapped[10])->toBe('Currently Checked In')
-        ->and($mapped[11])->toBe(5)
+        ->and($mapped[11])->toBe(6)
         ->and($mapped[12])->toBe($assignment->assignment_no)
         ->and($mapped[13])->toBe($assignment->status->label())
         ->and($mapped[14])->toBe($assignment->vessel->name)
@@ -258,4 +258,23 @@ test('export enforces tenant company isolation', function () {
                 && ! in_array($fixturesB['stay']->id, $ids, true);
         },
     );
+});
+
+test('hotel export hotel days match the inclusive web report totals', function () {
+    Carbon::setTestNow('2026-10-20 12:00:00');
+    $fixtures = makeHotelCheckInCheckoutExportFixtures();
+    $fixtures['stay']->update([
+        'check_in_date' => '2026-10-04',
+        'check_out_date' => '2026-10-07',
+    ]);
+
+    $timezone = CompanyTimezone::forCompanyId($fixtures['company']->id);
+    $query = new HotelCheckInCheckoutQuery($fixtures['company']->id, new HotelCheckInCheckoutFilters, $timezone);
+    $export = HotelCheckInCheckoutExport::forQuery($query->exportQuery(), $timezone);
+    $eagerStay = $query->exportQuery()->whereKey($fixtures['stay']->id)->firstOrFail();
+    $mapped = $export->map($eagerStay);
+
+    expect($mapped[11])->toBe(4);
+
+    Carbon::setTestNow();
 });

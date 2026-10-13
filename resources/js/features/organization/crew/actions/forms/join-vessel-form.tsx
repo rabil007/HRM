@@ -171,7 +171,7 @@ export function JoinVesselForm({
                         </div>
                         {preJoinAccommodation.stay_days !== null ? (
                             <div className="text-muted-foreground">
-                                Stay {preJoinAccommodation.stay_days} day
+                                Hotel days: {preJoinAccommodation.stay_days} day
                                 {preJoinAccommodation.stay_days === 1
                                     ? ''
                                     : 's'}

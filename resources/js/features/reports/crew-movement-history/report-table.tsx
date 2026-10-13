@@ -448,8 +448,16 @@ function AccommodationCard({ stay }: { stay: AccommodationStaySummary }) {
                             }
                         />
                         <DetailField
-                            label="Stay days"
-                            value={numericDaysLabel(stay.stay_days)}
+                            label="Hotel days"
+                            value={
+                                stay.stay_days_label ??
+                                numericDaysLabel(stay.stay_days)
+                            }
+                            hint={
+                                stay.stay_days_invalid
+                                    ? 'Check-out is before check-in'
+                                    : 'Inclusive hotel calendar dates. A half-day stay counts as 1 day.'
+                            }
                         />
                     </>
                 ) : (
@@ -1504,16 +1512,12 @@ export function CrewMovementHistoryReportTable({
                                         className="text-xs font-bold text-foreground tabular-nums"
                                         title="Inclusive standby calendar dates. A day shared with the vessel counts as vessel service."
                                     >
-                                        {numericDaysLabel(
-                                            row.standby_service_days,
-                                        )}
+                                        {row.standby_service_days_label}
                                     </span>
                                 </Cell>
                                 <Cell className={columns.vesselDays}>
                                     <span className="text-xs font-bold text-foreground tabular-nums">
-                                        {numericDaysLabel(
-                                            row.vessel_service_days,
-                                        )}
+                                        {row.vessel_service_days_label}
                                     </span>
                                 </Cell>
                                 <Cell className={columns.status}>

@@ -610,11 +610,11 @@ test('web summary and excel csv exports share inclusive vessel and standby servi
         ->and($presenter['payroll_days']['onsite']['total_days'])->toBe(4)
         ->and($presenter['payroll_days']['sign_on_standby']['total_days'])->toBe(2)
         ->and($presenter['payroll_days']['sign_off_standby']['total_days'])->toBe(6)
-        ->and($summaryRow['Vessel Service Days'])->toBe(4)
-        ->and($summaryRow['Standby Service Days'])->toBe(8)
-        ->and($csvRow['Vessel Service Days'])->toBe(4)
-        ->and($csvRow['Standby Service Days'])->toBe(8)
-        ->and($detailRow['Vessel Service Days'])->toBe(4)
+        ->and($summaryRow['Vessel Service Days'])->toBe('4 days')
+        ->and($summaryRow['Standby Service Days'])->toBe('8 days')
+        ->and($csvRow['Vessel Service Days'])->toBe('4 days')
+        ->and($csvRow['Standby Service Days'])->toBe('8 days')
+        ->and($detailRow['Vessel Service Days'])->toBe('4 days')
         ->and($detailRow['On Vessel Days'])->toBe(4);
 
     CarbonImmutable::setTestNow();

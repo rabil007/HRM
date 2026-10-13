@@ -85,6 +85,7 @@ Dedicated Accommodation History uses `CrewAccommodationService::assignmentAccomm
 - Explicit `no_accommodation` stays display as **No Accommodation**.
 - Phase codes alone never invent hotel occupancy.
 - Multiple stays are serialized; none are silently dropped.
+- **Hotel days** use the inclusive hotel formula (`check-out − check-in + 1`). Same-day and half-day stays are 1 hotel day. These are not vessel or standby service days and are not payroll days.
 
 ## Tour of Duty & sign-off
 

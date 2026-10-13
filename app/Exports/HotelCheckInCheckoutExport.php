@@ -50,7 +50,7 @@ final class HotelCheckInCheckoutExport implements FromQuery, WithHeadings, WithM
             'Check-In',
             'Check-Out',
             'Stay Status',
-            'Stay Days',
+            'Hotel Days',
             'Assignment No.',
             'Assignment Status',
             'Vessel',
@@ -81,7 +81,11 @@ final class HotelCheckInCheckoutExport implements FromQuery, WithHeadings, WithM
             $item['check_in_date'],
             $item['check_out_date'] ?? 'Open',
             $item['stay_status_label'],
-            $item['stay_days'],
+            $item['stay_days_invalid']
+                ? $item['stay_days_label']
+                : ($item['stay_days_label'] === 'Upcoming'
+                    ? 'Upcoming'
+                    : $item['stay_days']),
             $item['assignment']['assignment_no'],
             $item['assignment']['status_label'],
             $item['assignment']['vessel_name'],

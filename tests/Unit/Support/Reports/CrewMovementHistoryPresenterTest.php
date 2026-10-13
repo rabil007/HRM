@@ -1301,6 +1301,22 @@ test('inclusive service days cover calendar ranges handoffs and future actuals',
         'actual_end_at' => '2026-11-04 18:00:00',
     ]);
 
+    $mixed = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($mixed)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-04 08:00:00',
+        'actual_end_at' => '2026-10-07 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($mixed)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-11-10 08:00:00',
+        'actual_end_at' => '2026-11-14 18:00:00',
+    ]);
+
     $planned = CrewAssignment::factory()->forEmployee($employee)->active()->create();
     CrewAssignmentPhase::factory()->forAssignment($planned)->create([
         'phase_code' => CrewPhaseCode::OnVessel,
@@ -1330,6 +1346,7 @@ test('inclusive service days cover calendar ranges handoffs and future actuals',
     $repeatedVesselRow = $present($repeatedVessel);
     $repeatedStandbyRow = $present($repeatedStandby);
     $futureRow = $present($future);
+    $mixedRow = $present($mixed);
     $plannedRow = $present($planned);
     $crossYearRow = $present($crossYear);
 
@@ -1358,7 +1375,16 @@ test('inclusive service days cover calendar ranges handoffs and future actuals',
         ->and($repeatedStandbyRow['standby_service_days'])->toBe(4)
         ->and($futureRow['vessel_service_days'])->toBe(0)
         ->and($futureRow['vessel_service_days_label'])->toBe('Future actual')
+        ->and($futureRow['has_future_actual'])->toBeTrue()
+        ->and($futureRow['warnings'])->toContain('Future Actual')
         ->and($futureRow['on_vessel']['total_days'])->toBe(0)
+        ->and($futureRow['on_vessel']['total_days_label'])->toBe('Future actual')
+        ->and($mixedRow['vessel_service_days'])->toBe(4)
+        ->and($mixedRow['vessel_service_days_label'])->toBe('4 days + future actual')
+        ->and($mixedRow['has_future_actual'])->toBeTrue()
+        ->and($mixedRow['warnings'])->toContain('Future Actual')
+        ->and($mixedRow['on_vessel']['periods'][0]['days'])->toBe(4)
+        ->and($mixedRow['on_vessel']['periods'][1]['days_label'])->toBe('Future actual')
         ->and($futureRow['payroll_days']['onsite']['total_days'])->toBe(4)
         ->and($plannedRow['vessel_service_days'])->toBeNull()
         ->and($plannedRow['on_vessel']['total_days'])->toBeNull()

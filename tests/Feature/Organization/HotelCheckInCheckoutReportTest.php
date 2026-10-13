@@ -11,8 +11,11 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Hotel;
 use App\Models\RoomType;
+use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\Positions\CrewPositionCatalog;
+use App\Support\Reports\CrewMovementHistoryPresenter;
 use App\Support\Reports\HotelCheckInCheckoutFilters;
+use App\Support\Reports\HotelCheckInCheckoutPresenter;
 use App\Support\Reports\HotelCheckInCheckoutQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -94,7 +97,8 @@ test('basic listing returns stay with employee, hotel, stay type, dates, assignm
             ->where('stays.0.check_in_date', '2026-09-20')
             ->where('stays.0.check_out_date', '2026-09-26')
             ->where('stays.0.stay_status', 'currently_checked_in')
-            ->where('stays.0.stay_days', 6)
+            // Inclusive hotel days: 20–26 Sep = 7, even though checkout is still ahead of today.
+            ->where('stays.0.stay_days', 7)
             ->where('stays.0.assignment.assignment_no', 'CA-HOTEL-001')
             ->where('stays.0.assignment.vessel_name', $assignment->vessel->name)
             ->where('stays.0.starting_checkpoint', 'P2A · Join Standby')
@@ -129,7 +133,8 @@ test('open stay with null checkout displays open and currently checked in', func
             ->where('stays.0.is_open', true)
             ->where('stays.0.stay_status', 'currently_checked_in')
             ->where('stays.0.stay_status_label', 'Currently Checked In')
-            ->where('stays.0.stay_days', 4));
+            // Open stay: inclusive 20–24 Sep = 5 hotel days.
+            ->where('stays.0.stay_days', 5));
 });
 
 test('operational stay status accurately derives check-in today, checking out today, and upcoming', function () {
@@ -573,4 +578,76 @@ test('no_accommodation records are excluded by default and only included when ex
             ->has('stays', 1)
             ->where('stays.0.id', $noAccommodationStay->id)
             ->where('summary.total', 1));
+});
+
+test('hotel report uses inclusive hotel days and matches assignment and movement history', function () {
+    CarbonImmutable::setTestNow('2026-10-20 12:00:00');
+    ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeHotelCheckInCheckoutReport();
+    $hotel = Hotel::factory()->create(['company_id' => $company->id, 'name' => 'Sea View']);
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create(['company_id' => $company->id]);
+
+    $octStay = CrewAccommodationStay::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-04',
+        'check_out_date' => '2026-10-07',
+    ]);
+
+    $sameDay = CrewAccommodationStay::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-13',
+        'check_out_date' => '2026-10-13',
+    ]);
+
+    $upcoming = CrewAccommodationStay::query()->create([
+        'company_id' => $company->id,
+        'crew_assignment_id' => $assignment->id,
+        'hotel_id' => $hotel->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-11-01',
+        'check_out_date' => '2026-11-04',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.hotel-checkin-checkout.index', [
+            'sort' => 'stay_days',
+            'direction' => 'desc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('stays', 3)
+            ->where('stays.0.id', $octStay->id)
+            ->where('stays.0.stay_days', 4)
+            ->where('stays.0.stay_days_label', '4 hotel days')
+            ->where('stays.1.id', $sameDay->id)
+            ->where('stays.1.stay_days', 1)
+            ->where('stays.2.id', $upcoming->id)
+            ->where('stays.2.stay_days', 0)
+            ->where('stays.2.stay_days_label', 'Upcoming'));
+
+    $reportRow = HotelCheckInCheckoutPresenter::toArray($octStay->fresh(['assignment.employee', 'assignment.vessel', 'assignment.client', 'assignment.currentPhase', 'hotel', 'roomType', 'startedFromPhase']), $company->timezone);
+    $history = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases', 'accommodationStays.hotel', 'accommodationStays.roomType', 'accommodationStays.startedFromPhase']),
+    );
+    $cardStay = collect($history['accommodation_stays'])->firstWhere('id', $octStay->id);
+    $assignmentStay = collect(app(CrewAccommodationService::class)->assignmentAccommodationSummary(
+        $assignment->fresh(['accommodationStays.hotel', 'accommodationStays.roomType', 'accommodationStays.startedFromPhase']),
+        $company->timezone,
+    ))->firstWhere('id', $octStay->id);
+
+    expect($reportRow['stay_days'])->toBe(4)
+        ->and($cardStay['stay_days'])->toBe(4)
+        ->and($assignmentStay['stay_days'])->toBe(4)
+        ->and($cardStay['stay_days_label'])->toBe($reportRow['stay_days_label'])
+        ->and($assignmentStay['stay_days_label'])->toBe($reportRow['stay_days_label']);
+
+    CarbonImmutable::setTestNow();
 });

@@ -2,6 +2,7 @@
 
 namespace App\Support\Reports;
 
+use App\Enums\CrewAccommodationStatus;
 use App\Models\CrewAccommodationStay;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\Positions\CrewAssignmentPositionPresenter;
@@ -27,11 +28,18 @@ final class HotelCheckInCheckoutPresenter
             ? strtoupper($stay->assignment->currentPhase->phase_code->value).' · '.$stay->assignment->currentPhase->phase_code->label()
             : null;
 
-        $stayDays = CrewAccommodationService::calculateStayDays(
-            $stay->check_in_date,
-            $stay->check_out_date,
-            $timezone,
-        );
+        $stayDays = $stay->accommodation_status === CrewAccommodationStatus::Hotel
+            ? CrewAccommodationService::summarizeStayDays(
+                $stay->check_in_date,
+                $stay->check_out_date,
+                $timezone,
+            )
+            : [
+                'days' => null,
+                'invalid' => false,
+                'upcoming' => false,
+                'label' => '—',
+            ];
 
         return [
             'id' => (int) $stay->id,
@@ -42,7 +50,9 @@ final class HotelCheckInCheckoutPresenter
             'check_in_date' => $checkInStr,
             'check_out_date' => $checkOutStr,
             'is_open' => $stay->check_out_date === null,
-            'stay_days' => $stayDays,
+            'stay_days' => $stayDays['days'],
+            'stay_days_label' => $stayDays['label'],
+            'stay_days_invalid' => $stayDays['invalid'],
             'stay_status' => $statusInfo['code'],
             'stay_status_label' => $statusInfo['label'],
             'hotel' => [
