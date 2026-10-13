@@ -294,8 +294,7 @@ final class CrewMovementService
 
             $this->assertNoActiveAssignment($companyId, $employeeId);
 
-            $startingPhase = $this->requireDirectStartPhase($attributes);
-            $startedAt = $this->requireStageStartedAt($companyId, $attributes);
+            $alreadyArrived = CrewAlreadyArrivedStart::isEnabled($attributes['already_arrived'] ?? false);
             $masters = $this->resolveCreateMasters($companyId, $employee, $attributes);
 
             $plannedJoinAt = isset($attributes['planned_join_at']) && $attributes['planned_join_at'] !== null && $attributes['planned_join_at'] !== ''
@@ -304,12 +303,36 @@ final class CrewMovementService
             $plannedSignoffAt = isset($attributes['planned_signoff_at']) && $attributes['planned_signoff_at'] !== null && $attributes['planned_signoff_at'] !== ''
                 ? $this->parseTimestamp($companyId, (string) $attributes['planned_signoff_at'])
                 : null;
-            $plannedArrivalAt = isset($attributes['planned_arrival_at']) && $attributes['planned_arrival_at'] !== null && $attributes['planned_arrival_at'] !== ''
-                ? $this->parseTimestamp($companyId, (string) $attributes['planned_arrival_at'])
-                : null;
             $relievesId = isset($attributes['relieves_crew_assignment_id']) && $attributes['relieves_crew_assignment_id'] !== ''
                 ? (int) $attributes['relieves_crew_assignment_id']
                 : null;
+
+            if ($alreadyArrived) {
+                // Optional shortcut: Active P2A with actual arrival — no fabricated P0 history.
+                $startingPhase = CrewPhaseCode::JoinStandby;
+
+                try {
+                    $plannedArrivalAt = CrewAlreadyArrivedStart::resolveActualArrivalAt(
+                        $companyId,
+                        $attributes['planned_arrival_at'] ?? null,
+                    );
+                } catch (\InvalidArgumentException $exception) {
+                    throw CrewMovementException::make(
+                        $exception->getMessage(),
+                        'already_arrived_arrival_required',
+                        previous: $exception,
+                    );
+                }
+
+                $this->actualMovementTimestamps->assertNotFuture($companyId, $plannedArrivalAt);
+                $startedAt = $plannedArrivalAt;
+            } else {
+                $startingPhase = $this->requireDirectStartPhase($attributes);
+                $startedAt = $this->requireStageStartedAt($companyId, $attributes);
+                $plannedArrivalAt = isset($attributes['planned_arrival_at']) && $attributes['planned_arrival_at'] !== null && $attributes['planned_arrival_at'] !== ''
+                    ? $this->parseTimestamp($companyId, (string) $attributes['planned_arrival_at'])
+                    : null;
+            }
 
             $actor = $actorId !== null ? User::query()->find($actorId) : null;
 
@@ -370,7 +393,9 @@ final class CrewMovementService
 
             $assignment = $this->reloadLocked($companyId, $assignment->id);
             $this->invariants->assertValid($assignment);
-            if ($assignment->plannedAssignment !== null) {
+
+            if ($alreadyArrived) {
+                $this->logAlreadyArrivedStart($assignment, $startedAt, $actorId);
             }
 
             return $this->reloadLocked($companyId, $assignment->id);
@@ -1890,6 +1915,30 @@ final class CrewMovementService
                 $activity->company_id = $assignment->company_id;
             })
             ->log('Tour of Duty snapshot applied on vessel join');
+    }
+
+    private function logAlreadyArrivedStart(
+        CrewAssignment $assignment,
+        CarbonInterface $actualArrivalAt,
+        ?int $actorId,
+    ): void {
+        activity()
+            ->performedOn($assignment)
+            ->causedBy($actorId)
+            ->withProperties([
+                'event' => 'crew_assignment_started_already_arrived',
+                'company_id' => $assignment->company_id,
+                'assignment_id' => $assignment->id,
+                'employee_id' => $assignment->employee_id,
+                'starting_phase' => CrewPhaseCode::JoinStandby->value,
+                'actual_arrival_at' => $actualArrivalAt->toDateTimeString(),
+                'skipped_pre_mobilisation' => true,
+                'record_arrival_performed' => false,
+            ])
+            ->tap(function ($activity) use ($assignment): void {
+                $activity->company_id = $assignment->company_id;
+            })
+            ->log('Crew assignment started with Already Arrived shortcut (P2A Join Standby)');
     }
 
     private function reloadLocked(int $companyId, int $assignmentId): CrewAssignment

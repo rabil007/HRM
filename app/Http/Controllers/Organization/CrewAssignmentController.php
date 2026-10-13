@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
+use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentCreateFormOptions;
 use App\Support\CrewMovements\CrewAssignmentEditability;
@@ -306,6 +307,9 @@ class CrewAssignmentController extends Controller
                     }
                 }
 
+                $alreadyArrived = $intent === CrewAssignmentSubmissionIntent::Start
+                    && CrewAlreadyArrivedStart::isEnabled($validated['already_arrived'] ?? false);
+
                 $created = match ($intent) {
                     CrewAssignmentSubmissionIntent::Start => $this->service->startAssignment(
                         $companyId,
@@ -319,6 +323,7 @@ class CrewAssignmentController extends Controller
                             'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
                             'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
                             'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                            'already_arrived' => $alreadyArrived,
                             'remarks' => $validated['remarks'] ?? null,
                         ],
                         $request->user()?->id,

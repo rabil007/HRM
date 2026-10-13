@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Positions\CrewPositionCatalog;
@@ -82,6 +83,7 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
             'crew.*.position_id' => ['nullable', 'integer', CrewPositionCatalog::existsCrewPositionRule($companyId)],
 
             'crew.*.planned_arrival_at' => ['nullable', 'date'],
+            'already_arrived' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -132,18 +134,34 @@ class StoreBulkCrewAssignmentRequest extends FormRequest
 
             $plannedJoin = $this->input('planned_join_at');
             $crew = (array) $this->input('crew', []);
+            $alreadyArrived = CrewAlreadyArrivedStart::isEnabled($this->input('already_arrived'));
+            $timezone = CompanyTimezone::forCompanyId($companyId);
+            $joinDate = ($plannedJoin !== null && $plannedJoin !== '')
+                ? Carbon::parse($plannedJoin, $timezone)->toDateString()
+                : null;
 
-            if ($plannedJoin !== null && $plannedJoin !== '') {
-                $timezone = CompanyTimezone::forCompanyId($companyId);
-                $joinDate = Carbon::parse($plannedJoin, $timezone)->toDateString();
+            foreach ($crew as $index => $row) {
+                $arrival = $row['planned_arrival_at'] ?? null;
+                $errorKey = "crew.{$index}.planned_arrival_at";
 
-                foreach ($crew as $index => $row) {
-                    $arrival = $row['planned_arrival_at'] ?? null;
-                    if ($arrival !== null && $arrival !== '') {
-                        $arrivalDate = Carbon::parse($arrival, $timezone)->toDateString();
-                        if ($arrivalDate > $joinDate) {
-                            $validator->errors()->add("crew.{$index}.planned_arrival_at", 'Arrival Date cannot be after Expected Vessel Join.');
-                        }
+                if ($alreadyArrived) {
+                    CrewAlreadyArrivedStart::validateActualArrivalDate(
+                        $validator,
+                        $companyId,
+                        $arrival,
+                        $errorKey,
+                    );
+                }
+
+                if ($joinDate !== null && $arrival !== null && $arrival !== '') {
+                    $arrivalDate = Carbon::parse($arrival, $timezone)->toDateString();
+                    if ($arrivalDate > $joinDate) {
+                        $validator->errors()->add(
+                            $errorKey,
+                            $alreadyArrived
+                                ? 'Actual Arrival Date cannot be after Expected Vessel Join.'
+                                : 'Arrival Date cannot be after Expected Vessel Join.',
+                        );
                     }
                 }
             }

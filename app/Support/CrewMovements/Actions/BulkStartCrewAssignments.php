@@ -6,6 +6,7 @@ use App\Enums\CrewPhaseCode;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
+use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\Settings\CompanyTimezone;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ final class BulkStartCrewAssignments
      *     vessel_id?: int|null,
      *     planned_join_at?: string|null,
      *     remarks?: string|null,
+     *     already_arrived?: bool|string|int|null,
      *     crew: list<array{employee_id: int, position_id?: int|null, planned_arrival_at?: string|null}>
      * }  $payload
      * @return list<CrewAssignment>
@@ -43,30 +45,42 @@ final class BulkStartCrewAssignments
         }
 
         return DB::transaction(function () use ($companyId, $payload, $crew, $actorId): array {
+            $alreadyArrived = CrewAlreadyArrivedStart::isEnabled($payload['already_arrived'] ?? false);
             $startedAt = now(CompanyTimezone::forCompanyId($companyId));
             $namesById = $this->employeeNames($companyId, $crew);
             $created = [];
 
             foreach ($this->rowsInLockOrder($crew) as $row) {
                 try {
+                    $attributes = [
+                        'position_id' => $row['position_id'] ?? null,
+                        'client_id' => $payload['client_id'] ?? null,
+                        'vessel_id' => $payload['vessel_id'] ?? null,
+                        'planned_arrival_at' => $row['planned_arrival_at'] ?? null,
+                        'planned_join_at' => $payload['planned_join_at'] ?? null,
+                        'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                        'already_arrived' => $alreadyArrived,
+                        'remarks' => $payload['remarks'] ?? null,
+                    ];
+
+                    if (! $alreadyArrived) {
+                        $attributes['stage_started_at'] = $startedAt->format('Y-m-d H:i:s');
+                    }
+
                     $created[] = $this->service->startAssignment(
                         $companyId,
                         $row['employee_id'],
-                        [
-                            'position_id' => $row['position_id'] ?? null,
-                            'client_id' => $payload['client_id'] ?? null,
-                            'vessel_id' => $payload['vessel_id'] ?? null,
-                            'planned_arrival_at' => $row['planned_arrival_at'] ?? null,
-                            'planned_join_at' => $payload['planned_join_at'] ?? null,
-                            'current_stage' => CrewPhaseCode::PreMobilisation->value,
-                            'remarks' => $payload['remarks'] ?? null,
-                            'stage_started_at' => $startedAt->format('Y-m-d H:i:s'),
-                        ],
+                        $attributes,
                         $actorId,
                     );
                 } catch (CrewMovementException $exception) {
+                    $field = $exception->errorCode === 'already_arrived_arrival_required'
+                        || $exception->errorCode === 'occurred_at_in_future'
+                        ? "crew.{$row['index']}.planned_arrival_at"
+                        : "crew.{$row['index']}.employee_id";
+
                     throw ValidationException::withMessages([
-                        "crew.{$row['index']}.employee_id" => $this->messageForRow(
+                        $field => $this->messageForRow(
                             $namesById[$row['employee_id']] ?? null,
                             $exception,
                         ),

@@ -15,11 +15,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TableBody, TableHeader, TableRow } from '@/components/ui/table';
+import { AlreadyArrivedCheckbox } from '@/features/organization/crew/components/already-arrived-checkbox';
 import {
     CrewEmployeeOperationalStatus,
     getEmployeeStatusContainerClass,
 } from '@/features/organization/crew/components/crew-employee-operational-status';
 import { CrewMemberFields } from '@/features/organization/crew/components/crew-member-fields';
+import {
+    ACTUAL_ARRIVAL_DATE_LABEL,
+    ARRIVAL_DATE_OPTIONAL_LABEL,
+} from '@/features/organization/crew/lib/already-arrived-start';
 import {
     bulkFieldError,
     bulkRowBlockReason,
@@ -56,6 +61,9 @@ export function CrewMembersSection({
     canAddRow,
     focusedRowKey = null,
     scrollFocusedRow = false,
+    alreadyArrived = false,
+    onAlreadyArrivedChange,
+    showAlreadyArrived = false,
     onAddRow,
     onRemoveRow,
     onChangeRow,
@@ -67,6 +75,9 @@ export function CrewMembersSection({
     canAddRow: boolean;
     focusedRowKey?: string | null;
     scrollFocusedRow?: boolean;
+    alreadyArrived?: boolean;
+    onAlreadyArrivedChange?: (checked: boolean) => void;
+    showAlreadyArrived?: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
@@ -110,12 +121,23 @@ export function CrewMembersSection({
 
             {crewError ? <InputError message={crewError} /> : null}
 
+            {compact && showAlreadyArrived && onAlreadyArrivedChange != null ? (
+                <AlreadyArrivedCheckbox
+                    checked={alreadyArrived}
+                    onCheckedChange={onAlreadyArrivedChange}
+                    id="bulk-already-arrived"
+                />
+            ) : null}
+
             {!compact && rows[0] ? (
                 <SingleCrewMemberCard
                     row={rows[0]}
                     formOptions={formOptions}
                     errors={errors}
                     selectedEmployeeIds={selectedEmployeeIds}
+                    alreadyArrived={alreadyArrived}
+                    onAlreadyArrivedChange={onAlreadyArrivedChange}
+                    showAlreadyArrived={showAlreadyArrived}
                     onChangeRow={onChangeRow}
                 />
             ) : (
@@ -126,7 +148,11 @@ export function CrewMembersSection({
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
                                     <DataTableHead>Position</DataTableHead>
-                                    <DataTableHead>Arrival Date</DataTableHead>
+                                    <DataTableHead>
+                                        {alreadyArrived
+                                            ? ACTUAL_ARRIVAL_DATE_LABEL
+                                            : ARRIVAL_DATE_OPTIONAL_LABEL}
+                                    </DataTableHead>
                                     <DataTableHead>
                                         Operational Status
                                     </DataTableHead>
@@ -146,6 +172,7 @@ export function CrewMembersSection({
                                         selectedEmployeeIds={
                                             selectedEmployeeIds
                                         }
+                                        alreadyArrived={alreadyArrived}
                                         canRemove={rows.length > 1}
                                         isFocused={focusedRowKey === row.key}
                                         rowRef={
@@ -175,6 +202,7 @@ export function CrewMembersSection({
                                 formOptions={formOptions}
                                 errors={errors}
                                 selectedEmployeeIds={selectedEmployeeIds}
+                                alreadyArrived={alreadyArrived}
                                 canRemove={rows.length > 1}
                                 isFocused={focusedRowKey === row.key}
                                 cardRef={
@@ -210,12 +238,18 @@ function SingleCrewMemberCard({
     formOptions,
     errors,
     selectedEmployeeIds,
+    alreadyArrived = false,
+    onAlreadyArrivedChange,
+    showAlreadyArrived = false,
     onChangeRow,
 }: {
     row: CrewMemberRowState;
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
+    alreadyArrived?: boolean;
+    onAlreadyArrivedChange?: (checked: boolean) => void;
+    showAlreadyArrived?: boolean;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
 }): ReactElement {
     const status = lookupByEmployeeId(
@@ -248,6 +282,9 @@ function SingleCrewMemberCard({
                 employeeErrorKey="employee_id"
                 positionErrorKey="position_id"
                 arrivalErrorKey="planned_arrival_at"
+                alreadyArrived={alreadyArrived}
+                onAlreadyArrivedChange={onAlreadyArrivedChange}
+                showAlreadyArrived={showAlreadyArrived}
             />
         </div>
     );
@@ -259,6 +296,7 @@ function BulkDesktopRow({
     formOptions,
     errors,
     selectedEmployeeIds,
+    alreadyArrived = false,
     canRemove,
     isFocused = false,
     rowRef,
@@ -270,6 +308,7 @@ function BulkDesktopRow({
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
+    alreadyArrived?: boolean;
     canRemove: boolean;
     isFocused?: boolean;
     rowRef?: React.RefObject<HTMLTableRowElement | null>;
@@ -323,6 +362,7 @@ function BulkDesktopRow({
                     type="date"
                     className="h-10 text-xs"
                     value={row.planned_arrival_at ?? ''}
+                    required={alreadyArrived}
                     onChange={(event) =>
                         onChangeRow(index, {
                             ...row,
@@ -362,6 +402,7 @@ function BulkMobileCard({
     formOptions,
     errors,
     selectedEmployeeIds,
+    alreadyArrived = false,
     canRemove,
     isFocused = false,
     cardRef,
@@ -373,6 +414,7 @@ function BulkMobileCard({
     formOptions: CrewAssignmentCreateFormOptions;
     errors: Record<string, string | undefined>;
     selectedEmployeeIds: Set<number>;
+    alreadyArrived?: boolean;
     canRemove: boolean;
     isFocused?: boolean;
     cardRef?: React.RefObject<HTMLDivElement | null>;
@@ -439,13 +481,19 @@ function BulkMobileCard({
 
             <div className="space-y-2">
                 <Label htmlFor={`bulk-arrival-${index}`}>
-                    Arrival Date (optional)
+                    {alreadyArrived
+                        ? ACTUAL_ARRIVAL_DATE_LABEL
+                        : `${ARRIVAL_DATE_OPTIONAL_LABEL} (optional)`}
+                    {alreadyArrived ? (
+                        <span className="font-normal text-destructive"> *</span>
+                    ) : null}
                 </Label>
                 <Input
                     id={`bulk-arrival-${index}`}
                     type="date"
                     className="h-11"
                     value={row.planned_arrival_at ?? ''}
+                    required={alreadyArrived}
                     onChange={(event) =>
                         onChangeRow(index, {
                             ...row,
