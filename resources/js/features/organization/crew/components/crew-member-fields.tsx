@@ -9,10 +9,11 @@ import { getEmployeeStatusContainerClass } from '@/features/organization/crew/co
 import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
 import {
-    ACTUAL_ARRIVAL_DATE_HELPER,
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
     EXPECTED_ARRIVAL_DATE_HELPER,
+    actualArrivalDateHelper,
+    alreadyArrivedExplanation,
 } from '@/features/organization/crew/lib/already-arrived-start';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
@@ -54,6 +55,7 @@ type CrewMemberFieldsProps = {
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    hasPlanningPrefillArrival?: boolean;
 };
 
 function lookupByEmployeeId<T>(
@@ -90,9 +92,16 @@ export function CrewMemberFields({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    hasPlanningPrefillArrival = false,
 }: CrewMemberFieldsProps): ReactElement {
     const [positionDefaultedFromProfile, setPositionDefaultedFromProfile] =
         useState(false);
+    const arrivalHelper = alreadyArrived
+        ? actualArrivalDateHelper(hasPlanningPrefillArrival)
+        : ARRIVAL_DATE_HELPER;
+    const alreadyArrivedHelp = alreadyArrivedExplanation(
+        hasPlanningPrefillArrival,
+    );
 
     const resolvedEmployeeStatus =
         employeeStatus ??
@@ -294,11 +303,7 @@ export function CrewMemberFields({
                         });
                     }}
                 />
-                <p className="text-xs text-muted-foreground">
-                    {alreadyArrived
-                        ? ACTUAL_ARRIVAL_DATE_HELPER
-                        : ARRIVAL_DATE_HELPER}
-                </p>
+                <p className="text-xs text-muted-foreground">{arrivalHelper}</p>
                 <InputError message={errors[arrivalErrorKey]} />
                 {showAlreadyArrived && onAlreadyArrivedChange ? (
                     <AlreadyArrivedCheckbox
@@ -306,6 +311,7 @@ export function CrewMemberFields({
                         onCheckedChange={onAlreadyArrivedChange}
                         id="crew-already-arrived"
                         className="pt-1"
+                        explanation={alreadyArrivedHelp}
                     />
                 ) : null}
             </div>

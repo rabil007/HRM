@@ -22,10 +22,13 @@ import { CrewMembersSection } from '@/features/organization/crew/components/crew
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
 import {
-    ACTUAL_ARRIVAL_DATE_HELPER,
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
     EXPECTED_ARRIVAL_DATE_HELPER,
+    actualArrivalDateHelper,
+    alreadyArrivedExplanation,
+    normalizeArrivalDate,
+    resolveArrivalAfterAlreadyArrivedToggle,
 } from '@/features/organization/crew/lib/already-arrived-start';
 import {
     clearBulkCreateSession,
@@ -278,8 +281,50 @@ export function CrewAssignmentCreateForm({
     });
 
     const alreadyArrived = Boolean(form.data.already_arrived);
+    const planningPrefillArrival = planning_context?.planned_arrival_at ?? null;
+    const hasPlanningPrefillArrival =
+        normalizeArrivalDate(planningPrefillArrival) !== '';
+    const alreadyArrivedHelp = alreadyArrivedExplanation(
+        hasPlanningPrefillArrival,
+    );
+    const actualArrivalHelp = actualArrivalDateHelper(
+        hasPlanningPrefillArrival,
+    );
+
     const setAlreadyArrived = (checked: boolean): void => {
-        form.setData('already_arrived', checked);
+        if (fromNamedPlanning) {
+            form.setData({
+                ...form.data,
+                already_arrived: checked,
+                planned_arrival_at:
+                    resolveArrivalAfterAlreadyArrivedToggle({
+                        enabling: checked,
+                        currentArrival: form.data.planned_arrival_at,
+                        planningPrefillArrival,
+                    }) ?? '',
+            });
+
+            return;
+        }
+
+        form.setData({
+            ...form.data,
+            already_arrived: checked,
+            planned_arrival_at:
+                resolveArrivalAfterAlreadyArrivedToggle({
+                    enabling: checked,
+                    currentArrival: form.data.planned_arrival_at,
+                    planningPrefillArrival,
+                }) ?? '',
+            crew: form.data.crew.map((row) => ({
+                ...row,
+                planned_arrival_at: resolveArrivalAfterAlreadyArrivedToggle({
+                    enabling: checked,
+                    currentArrival: row.planned_arrival_at,
+                    planningPrefillArrival,
+                }),
+            })),
+        });
     };
 
     const conflictError = (
@@ -649,10 +694,11 @@ export function CrewAssignmentCreateForm({
                 planned_signoff_at: form.data.planned_signoff_at || null,
                 relieves_crew_assignment_id:
                     form.data.relieves_crew_assignment_id || null,
-                planned_arrival_at:
-                    row?.planned_arrival_at ||
-                    form.data.planned_arrival_at ||
-                    null,
+                planned_arrival_at: includeAlreadyArrived
+                    ? row?.planned_arrival_at || null
+                    : row?.planned_arrival_at ||
+                      form.data.planned_arrival_at ||
+                      null,
                 remarks: form.data.remarks,
                 submission_intent: intentParam,
                 already_arrived: includeAlreadyArrived,
@@ -845,7 +891,7 @@ export function CrewAssignmentCreateForm({
                                                 />
                                                 <p className="text-xs text-muted-foreground">
                                                     {alreadyArrived
-                                                        ? ACTUAL_ARRIVAL_DATE_HELPER
+                                                        ? actualArrivalHelp
                                                         : EXPECTED_ARRIVAL_DATE_HELPER}
                                                 </p>
                                                 <InputError
@@ -861,6 +907,9 @@ export function CrewAssignmentCreateForm({
                                                         }
                                                         id="planning-already-arrived"
                                                         className="pt-1"
+                                                        explanation={
+                                                            alreadyArrivedHelp
+                                                        }
                                                     />
                                                 ) : null}
                                             </div>
@@ -891,6 +940,9 @@ export function CrewAssignmentCreateForm({
                                                     setAlreadyArrived
                                                 }
                                                 showAlreadyArrived={can.start}
+                                                hasPlanningPrefillArrival={
+                                                    hasPlanningPrefillArrival
+                                                }
                                                 canAddRow={
                                                     can.start && !fromPlanning
                                                 }

@@ -13,12 +13,14 @@ export function AlreadyArrivedCheckbox({
     id = 'already-arrived',
     className,
     showExplanation = true,
+    explanation = ALREADY_ARRIVED_EXPLANATION,
 }: {
     checked: boolean;
     onCheckedChange: (checked: boolean) => void;
     id?: string;
     className?: string;
     showExplanation?: boolean;
+    explanation?: string;
 }): ReactElement {
     return (
         <div className={cn('space-y-2', className)}>
@@ -37,9 +39,7 @@ export function AlreadyArrivedCheckbox({
                 </Label>
             </div>
             {checked && showExplanation ? (
-                <p className="text-xs text-muted-foreground">
-                    {ALREADY_ARRIVED_EXPLANATION}
-                </p>
+                <p className="text-xs text-muted-foreground">{explanation}</p>
             ) : null}
         </div>
     );

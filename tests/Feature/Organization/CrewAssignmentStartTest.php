@@ -1200,6 +1200,95 @@ test('already arrived planning handoff preserves planned arrival independently o
             ->where('assignment.current_phase.code', 'p2a'));
 });
 
+test('already arrived planning handoff does not reuse omitted arrival as actual from the planning slot', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.movements.perform',
+    ]);
+    $vessel = makeCrewMovementVessel('Planning Prefill Guard Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_arrival_date' => '2026-10-02',
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $vacant->id,
+        ]))
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'client_id' => $vessel->client_id,
+            'planned_join_at' => '2026-10-10',
+            'already_arrived' => true,
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertRedirect(route('organization.crew-assignments.create', [
+            'planning_assignment_id' => $vacant->id,
+        ]))
+        ->assertSessionHasErrors(['planned_arrival_at']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('already arrived planning handoff accepts an explicitly confirmed actual date matching the planning forecast', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.planning.view',
+        'crew_operations.assignments.create',
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+    $vessel = makeCrewMovementVessel('Planning Confirmed Same Day Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $vacant = CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'position_id' => $rank->id,
+        'employee_id' => null,
+        'planned_arrival_date' => '2026-10-02',
+        'planned_join_date' => '2026-10-10',
+        'planned_leave_date' => '2026-11-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'client_id' => $vessel->client_id,
+            'planned_join_at' => '2026-10-10',
+            'planned_arrival_at' => '2026-10-02',
+            'already_arrived' => true,
+            'planning_assignment_id' => $vacant->id,
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->with(['currentPhase', 'planningAssignment'])
+        ->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-02')
+        ->and(CrewArrivalResolver::date($assignment, $company->timezone))->toBe('2026-10-02')
+        ->and($assignment->planningAssignment?->id)->toBe($vacant->id);
+});
+
 test('already arrived assignment keeps planned and actual arrival distinct in movement history', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
     grantCompanyPermissions($user, $company, [

@@ -24,6 +24,7 @@ import { CrewMemberFields } from '@/features/organization/crew/components/crew-m
 import {
     ACTUAL_ARRIVAL_DATE_LABEL,
     ARRIVAL_DATE_OPTIONAL_LABEL,
+    alreadyArrivedExplanation,
 } from '@/features/organization/crew/lib/already-arrived-start';
 import {
     bulkFieldError,
@@ -64,6 +65,7 @@ export function CrewMembersSection({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    hasPlanningPrefillArrival = false,
     onAddRow,
     onRemoveRow,
     onChangeRow,
@@ -78,6 +80,7 @@ export function CrewMembersSection({
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    hasPlanningPrefillArrival?: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
@@ -126,6 +129,9 @@ export function CrewMembersSection({
                     checked={alreadyArrived}
                     onCheckedChange={onAlreadyArrivedChange}
                     id="bulk-already-arrived"
+                    explanation={alreadyArrivedExplanation(
+                        hasPlanningPrefillArrival,
+                    )}
                 />
             ) : null}
 
@@ -138,6 +144,7 @@ export function CrewMembersSection({
                     alreadyArrived={alreadyArrived}
                     onAlreadyArrivedChange={onAlreadyArrivedChange}
                     showAlreadyArrived={showAlreadyArrived}
+                    hasPlanningPrefillArrival={hasPlanningPrefillArrival}
                     onChangeRow={onChangeRow}
                 />
             ) : (
@@ -241,6 +248,7 @@ function SingleCrewMemberCard({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    hasPlanningPrefillArrival = false,
     onChangeRow,
 }: {
     row: CrewMemberRowState;
@@ -250,6 +258,7 @@ function SingleCrewMemberCard({
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    hasPlanningPrefillArrival?: boolean;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
 }): ReactElement {
     const status = lookupByEmployeeId(
@@ -285,6 +294,7 @@ function SingleCrewMemberCard({
                 alreadyArrived={alreadyArrived}
                 onAlreadyArrivedChange={onAlreadyArrivedChange}
                 showAlreadyArrived={showAlreadyArrived}
+                hasPlanningPrefillArrival={hasPlanningPrefillArrival}
             />
         </div>
     );
