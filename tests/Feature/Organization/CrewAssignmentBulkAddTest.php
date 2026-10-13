@@ -595,3 +595,117 @@ test('bulk start coordinator shares one server timestamp and rolls back on a lat
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1)
         ->and(CrewAssignment::query()->whereIn('employee_id', [$first->id, $second->id])->count())->toBe(0);
 });
+
+test('bulk already arrived starts each row at active p2a with per-row actual arrival', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Ahmed Ali');
+    $vessel = makeCrewMovementVessel('Bulk Already Arrived Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 15:45:12', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employeeA->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                ],
+                [
+                    'employee_id' => $employeeB->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-05',
+                ],
+            ],
+        ]))
+        ->assertRedirect(route('organization.crew-assignments.index'));
+
+    $byEmployee = CrewAssignment::query()
+        ->where('company_id', $company->id)
+        ->with(['currentPhase', 'phases'])
+        ->get()
+        ->keyBy('employee_id');
+
+    expect($byEmployee)->toHaveCount(2)
+        ->and($byEmployee[$employeeA->id]->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($byEmployee[$employeeA->id]->phases)->toHaveCount(1)
+        ->and($byEmployee[$employeeA->id]->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-04')
+        ->and($byEmployee[$employeeA->id]->planned_arrival_at)->toBeNull()
+        ->and($byEmployee[$employeeB->id]->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($byEmployee[$employeeB->id]->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-05')
+        ->and($byEmployee[$employeeB->id]->planned_arrival_at)->toBeNull()
+        ->and($byEmployee[$employeeA->id]->started_at?->equalTo($byEmployee[$employeeB->id]->started_at))->toBeFalse();
+});
+
+test('bulk unchecked arrival date still stores forecast planned arrival', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
+    $vessel = makeCrewMovementVessel('Bulk Forecast Arrival Vessel', $company);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 15:45:12', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => false,
+            'crew' => [
+                [
+                    'employee_id' => $employee->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                ],
+            ],
+        ]))
+        ->assertRedirect();
+
+    $assignment = CrewAssignment::query()->where('company_id', $company->id)->with('currentPhase')->first();
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04')
+        ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-13');
+});
+
+test('bulk already arrived requires an actual arrival date on every row', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Missing Arrival');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employeeA->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                ],
+                [
+                    'employee_id' => $employeeB->id,
+                    'position_id' => $rank->id,
+                ],
+            ],
+        ]))
+        ->assertSessionHasErrors(['crew.1.planned_arrival_at']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('bulk already arrived rejects a future actual arrival date for one row', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingBulkAddCrewUser();
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employee->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-20',
+                ],
+            ],
+        ]))
+        ->assertSessionHasErrors(['crew.0.planned_arrival_at']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { VesselTransferRecommendationDialog } from '@/features/organization/crew/actions/vessel-transfer-recommendation-dialog';
+import { AlreadyArrivedCheckbox } from '@/features/organization/crew/components/already-arrived-checkbox';
 import { CrewAssignmentBulkReadinessPanel } from '@/features/organization/crew/components/crew-assignment-bulk-readiness-panel';
 import { CrewAssignmentCommonFields } from '@/features/organization/crew/components/crew-assignment-common-fields';
 import type { ConflictDialogData } from '@/features/organization/crew/components/crew-assignment-conflict-dialog';
@@ -20,6 +21,15 @@ import type { CrewMemberRowState } from '@/features/organization/crew/components
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
+import {
+    ACTUAL_ARRIVAL_DATE_LABEL,
+    ARRIVAL_DATE_OPTIONAL_LABEL,
+    EXPECTED_ARRIVAL_DATE_HELPER,
+    actualArrivalDateHelper,
+    alreadyArrivedExplanation,
+    normalizeArrivalDate,
+    resolveArrivalAfterAlreadyArrivedToggle,
+} from '@/features/organization/crew/lib/already-arrived-start';
 import {
     clearBulkCreateSession,
     loadBulkCreateSession,
@@ -168,6 +178,7 @@ type UnifiedCreateFormData = BulkAddCrewFormData & {
     relieves_crew_assignment_id?: number | null;
     submission_intent?: 'start' | 'draft';
     planning_assignment_id?: number;
+    already_arrived?: boolean;
 };
 
 export function CrewAssignmentCreateForm({
@@ -256,6 +267,7 @@ export function CrewAssignmentCreateForm({
             restoredBulkSession?.form.remarks ??
             planning_context?.remarks ??
             '',
+        already_arrived: false,
         crew:
             restoredBulkSession?.form.crew ??
             initialRows.rows.map(
@@ -267,6 +279,53 @@ export function CrewAssignmentCreateForm({
             ),
         submission_intent: can.start ? 'start' : 'draft',
     });
+
+    const alreadyArrived = Boolean(form.data.already_arrived);
+    const planningPrefillArrival = planning_context?.planned_arrival_at ?? null;
+    const hasPlanningPrefillArrival =
+        normalizeArrivalDate(planningPrefillArrival) !== '';
+    const alreadyArrivedHelp = alreadyArrivedExplanation(
+        hasPlanningPrefillArrival,
+    );
+    const actualArrivalHelp = actualArrivalDateHelper(
+        hasPlanningPrefillArrival,
+    );
+
+    const setAlreadyArrived = (checked: boolean): void => {
+        if (fromNamedPlanning) {
+            form.setData({
+                ...form.data,
+                already_arrived: checked,
+                planned_arrival_at:
+                    resolveArrivalAfterAlreadyArrivedToggle({
+                        enabling: checked,
+                        currentArrival: form.data.planned_arrival_at,
+                        planningPrefillArrival,
+                    }) ?? '',
+            });
+
+            return;
+        }
+
+        form.setData({
+            ...form.data,
+            already_arrived: checked,
+            planned_arrival_at:
+                resolveArrivalAfterAlreadyArrivedToggle({
+                    enabling: checked,
+                    currentArrival: form.data.planned_arrival_at,
+                    planningPrefillArrival,
+                }) ?? '',
+            crew: form.data.crew.map((row) => ({
+                ...row,
+                planned_arrival_at: resolveArrivalAfterAlreadyArrivedToggle({
+                    enabling: checked,
+                    currentArrival: row.planned_arrival_at,
+                    planningPrefillArrival,
+                }),
+            })),
+        });
+    };
 
     const conflictError = (
         form.errors as unknown as Record<string, string | undefined>
@@ -612,11 +671,15 @@ export function CrewAssignmentCreateForm({
         form.setData('submission_intent', intentParam);
 
         form.transform((): Record<string, unknown> => {
+            const includeAlreadyArrived =
+                intentParam === 'start' && alreadyArrived;
+
             if (fromNamedPlanning) {
                 return {
                     planned_arrival_at: form.data.planned_arrival_at || null,
                     remarks: form.data.remarks,
                     submission_intent: intentParam,
+                    already_arrived: includeAlreadyArrived,
                     planning_assignment_id:
                         planning_context?.planning_assignment_id ?? undefined,
                 };
@@ -631,12 +694,14 @@ export function CrewAssignmentCreateForm({
                 planned_signoff_at: form.data.planned_signoff_at || null,
                 relieves_crew_assignment_id:
                     form.data.relieves_crew_assignment_id || null,
-                planned_arrival_at:
-                    row?.planned_arrival_at ||
-                    form.data.planned_arrival_at ||
-                    null,
+                planned_arrival_at: includeAlreadyArrived
+                    ? row?.planned_arrival_at || null
+                    : row?.planned_arrival_at ||
+                      form.data.planned_arrival_at ||
+                      null,
                 remarks: form.data.remarks,
                 submission_intent: intentParam,
+                already_arrived: includeAlreadyArrived,
                 planning_assignment_id:
                     planning_context?.planning_assignment_id ?? undefined,
             };
@@ -659,6 +724,7 @@ export function CrewAssignmentCreateForm({
             vessel_id: data.vessel_id,
             planned_join_at: data.planned_join_at,
             remarks: data.remarks,
+            already_arrived: alreadyArrived,
             crew: data.crew.map((row) => ({
                 employee_id: row.employee_id,
                 position_id: row.position_id,
@@ -786,10 +852,18 @@ export function CrewAssignmentCreateForm({
                                             ) : null}
                                             <div className="space-y-2">
                                                 <Label htmlFor="planning-planned-arrival-at">
-                                                    Arrival Date{' '}
-                                                    <span className="font-normal text-muted-foreground">
-                                                        (optional)
-                                                    </span>
+                                                    {alreadyArrived
+                                                        ? ACTUAL_ARRIVAL_DATE_LABEL
+                                                        : ARRIVAL_DATE_OPTIONAL_LABEL}{' '}
+                                                    {alreadyArrived ? (
+                                                        <span className="font-normal text-destructive">
+                                                            *
+                                                        </span>
+                                                    ) : (
+                                                        <span className="font-normal text-muted-foreground">
+                                                            (optional)
+                                                        </span>
+                                                    )}
                                                 </Label>
                                                 <Input
                                                     id="planning-planned-arrival-at"
@@ -816,17 +890,28 @@ export function CrewAssignmentCreateForm({
                                                     }}
                                                 />
                                                 <p className="text-xs text-muted-foreground">
-                                                    Expected date the crew
-                                                    member will arrive at the
-                                                    joining location. Actual
-                                                    arrival is recorded later
-                                                    through Record Arrival.
+                                                    {alreadyArrived
+                                                        ? actualArrivalHelp
+                                                        : EXPECTED_ARRIVAL_DATE_HELPER}
                                                 </p>
                                                 <InputError
                                                     message={
                                                         formErrors.planned_arrival_at
                                                     }
                                                 />
+                                                {can.start ? (
+                                                    <AlreadyArrivedCheckbox
+                                                        checked={alreadyArrived}
+                                                        onCheckedChange={
+                                                            setAlreadyArrived
+                                                        }
+                                                        id="planning-already-arrived"
+                                                        className="pt-1"
+                                                        explanation={
+                                                            alreadyArrivedHelp
+                                                        }
+                                                    />
+                                                ) : null}
                                             </div>
                                         </>
                                     ) : (
@@ -849,6 +934,14 @@ export function CrewAssignmentCreateForm({
                                                 }
                                                 scrollFocusedRow={
                                                     scrollFocusedRow
+                                                }
+                                                alreadyArrived={alreadyArrived}
+                                                onAlreadyArrivedChange={
+                                                    setAlreadyArrived
+                                                }
+                                                showAlreadyArrived={can.start}
+                                                hasPlanningPrefillArrival={
+                                                    hasPlanningPrefillArrival
                                                 }
                                                 canAddRow={
                                                     can.start && !fromPlanning

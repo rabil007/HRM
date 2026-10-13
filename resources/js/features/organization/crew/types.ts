@@ -368,6 +368,7 @@ export interface BulkAddCrewFormData {
     planned_join_at: string;
     planned_arrival_at?: string | null;
     remarks: string;
+    already_arrived?: boolean;
     crew: BulkAddCrewRow[];
 }
 

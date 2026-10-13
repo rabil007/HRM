@@ -4,9 +4,17 @@ import { AppSelect, AppSelectItem } from '@/components/app-select';
 import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AlreadyArrivedCheckbox } from '@/features/organization/crew/components/already-arrived-checkbox';
 import { getEmployeeStatusContainerClass } from '@/features/organization/crew/components/crew-employee-operational-status';
 import { CrewEmployeeStatusBadge } from '@/features/organization/crew/components/crew-employee-status-badge';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import {
+    ACTUAL_ARRIVAL_DATE_LABEL,
+    ARRIVAL_DATE_OPTIONAL_LABEL,
+    EXPECTED_ARRIVAL_DATE_HELPER,
+    actualArrivalDateHelper,
+    alreadyArrivedExplanation,
+} from '@/features/organization/crew/lib/already-arrived-start';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type {
     ActiveOnVesselAssignment,
@@ -22,8 +30,7 @@ export type CrewMemberFieldsData = {
     planned_arrival_at?: string | null;
 };
 
-export const ARRIVAL_DATE_HELPER =
-    'Expected date the crew member will arrive at the joining location. Actual arrival is recorded later through Record Arrival.';
+export const ARRIVAL_DATE_HELPER = EXPECTED_ARRIVAL_DATE_HELPER;
 
 type CrewMemberFieldsProps = {
     data: CrewMemberFieldsData;
@@ -45,6 +52,10 @@ type CrewMemberFieldsProps = {
     employeeErrorKey?: string;
     positionErrorKey?: string;
     arrivalErrorKey?: string;
+    alreadyArrived?: boolean;
+    onAlreadyArrivedChange?: (checked: boolean) => void;
+    showAlreadyArrived?: boolean;
+    hasPlanningPrefillArrival?: boolean;
 };
 
 function lookupByEmployeeId<T>(
@@ -78,9 +89,19 @@ export function CrewMemberFields({
     employeeErrorKey = 'employee_id',
     positionErrorKey = 'position_id',
     arrivalErrorKey = 'planned_arrival_at',
+    alreadyArrived = false,
+    onAlreadyArrivedChange,
+    showAlreadyArrived = false,
+    hasPlanningPrefillArrival = false,
 }: CrewMemberFieldsProps): ReactElement {
     const [positionDefaultedFromProfile, setPositionDefaultedFromProfile] =
         useState(false);
+    const arrivalHelper = alreadyArrived
+        ? actualArrivalDateHelper(hasPlanningPrefillArrival)
+        : ARRIVAL_DATE_HELPER;
+    const alreadyArrivedHelp = alreadyArrivedExplanation(
+        hasPlanningPrefillArrival,
+    );
 
     const resolvedEmployeeStatus =
         employeeStatus ??
@@ -260,10 +281,16 @@ export function CrewMemberFields({
 
             <div className="space-y-2">
                 <Label htmlFor="crew-planned-arrival-at">
-                    Arrival Date{' '}
-                    <span className="font-normal text-muted-foreground">
-                        (optional)
-                    </span>
+                    {alreadyArrived
+                        ? ACTUAL_ARRIVAL_DATE_LABEL
+                        : ARRIVAL_DATE_OPTIONAL_LABEL}{' '}
+                    {alreadyArrived ? (
+                        <span className="font-normal text-destructive">*</span>
+                    ) : (
+                        <span className="font-normal text-muted-foreground">
+                            (optional)
+                        </span>
+                    )}
                 </Label>
                 <Input
                     id="crew-planned-arrival-at"
@@ -276,10 +303,17 @@ export function CrewMemberFields({
                         });
                     }}
                 />
-                <p className="text-xs text-muted-foreground">
-                    {ARRIVAL_DATE_HELPER}
-                </p>
+                <p className="text-xs text-muted-foreground">{arrivalHelper}</p>
                 <InputError message={errors[arrivalErrorKey]} />
+                {showAlreadyArrived && onAlreadyArrivedChange ? (
+                    <AlreadyArrivedCheckbox
+                        checked={alreadyArrived}
+                        onCheckedChange={onAlreadyArrivedChange}
+                        id="crew-already-arrived"
+                        className="pt-1"
+                        explanation={alreadyArrivedHelp}
+                    />
+                ) : null}
             </div>
 
             {showOperationalStatus && currentPhase ? (

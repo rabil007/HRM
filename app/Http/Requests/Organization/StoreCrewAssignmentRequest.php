@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization;
 
 use App\Enums\CrewAssignmentSubmissionIntent;
 use App\Models\CrewPlanningAssignment;
+use App\Support\CrewMovements\CrewAlreadyArrivedStart;
 use App\Support\CrewMovements\CrewAssignmentConflictContext;
 use App\Support\CrewMovements\CrewAssignmentConflictEvaluator;
 use App\Support\Employees\ActiveCompanyEmployeeRule;
@@ -108,6 +109,7 @@ class StoreCrewAssignmentRequest extends FormRequest
             'planned_arrival_at' => ['nullable', 'date'],
             'planned_join_at' => ['nullable', 'date'],
             'planned_signoff_at' => ['nullable', 'date'],
+            'already_arrived' => ['sometimes', 'boolean'],
             'relieves_crew_assignment_id' => ['nullable', 'integer', Rule::exists('crew_assignments', 'id')->where('company_id', $companyId)],
             'planning_assignment_id' => ['nullable', 'integer', Rule::exists('crew_planning_assignments', 'id')->where('company_id', $companyId)],
             'remarks' => ['nullable', 'string', 'max:1000'],
@@ -153,24 +155,56 @@ class StoreCrewAssignmentRequest extends FormRequest
             $plannedArrival = $this->input('planned_arrival_at');
             $plannedJoin = $this->input('planned_join_at');
             $plannedSignoff = $this->input('planned_signoff_at');
+            $intent = $this->submissionIntent();
+            $alreadyArrived = $intent === CrewAssignmentSubmissionIntent::Start
+                && CrewAlreadyArrivedStart::isEnabled($this->input('already_arrived'));
+
+            if ($alreadyArrived) {
+                CrewAlreadyArrivedStart::validateActualArrivalDate(
+                    $validator,
+                    $companyId,
+                    $plannedArrival,
+                    'planned_arrival_at',
+                );
+
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+            }
 
             $arrivalCarbon = $plannedArrival !== null && $plannedArrival !== '' ? Carbon::parse($plannedArrival, $timezone) : null;
             $joinCarbon = $plannedJoin !== null && $plannedJoin !== '' ? Carbon::parse($plannedJoin, $timezone) : null;
             $signoffCarbon = $plannedSignoff !== null && $plannedSignoff !== '' ? Carbon::parse($plannedSignoff, $timezone) : null;
 
             if ($arrivalCarbon !== null && $joinCarbon !== null && $arrivalCarbon->toDateString() > $joinCarbon->toDateString()) {
-                $validator->errors()->add('planned_arrival_at', 'Arrival Date cannot be after Expected Vessel Join.');
+                $validator->errors()->add(
+                    'planned_arrival_at',
+                    $alreadyArrived
+                        ? 'Actual Arrival Date cannot be after Expected Vessel Join.'
+                        : 'Arrival Date cannot be after Expected Vessel Join.',
+                );
             }
 
             if ($joinCarbon !== null && $signoffCarbon !== null && $signoffCarbon->toDateString() < $joinCarbon->toDateString()) {
                 $validator->errors()->add('planned_signoff_at', 'Expected Sign-off cannot be before Expected Vessel Join.');
             }
 
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
             $conflictEvaluator = new CrewAssignmentConflictEvaluator;
-            $intent = $this->submissionIntent();
             $operationalStartAt = $intent === CrewAssignmentSubmissionIntent::Start
-                ? Carbon::now($timezone)
+                ? ($alreadyArrived && $arrivalCarbon !== null
+                    ? $arrivalCarbon->copy()->startOfDay()
+                    : Carbon::now($timezone))
                 : null;
+
+            // When Already Arrived, the form date is actual arrival. Forecast planned arrival
+            // (if any) comes from the linked Crew Planning slot, not from that form field.
+            $plannedArrivalForConflict = $alreadyArrived
+                ? $this->planningPlannedArrivalCarbon($companyId, $timezone)
+                : $arrivalCarbon;
 
             $conflictContext = new CrewAssignmentConflictContext(
                 companyId: $companyId,
@@ -178,7 +212,7 @@ class StoreCrewAssignmentRequest extends FormRequest
                 action: $intent->value,
                 plannedJoinAt: $joinCarbon,
                 plannedSignoffAt: $signoffCarbon,
-                plannedArrivalAt: $arrivalCarbon,
+                plannedArrivalAt: $plannedArrivalForConflict,
                 operationalStartAt: $operationalStartAt,
                 vesselId: $vesselId !== null && $vesselId !== '' ? (int) $vesselId : null,
                 positionId: $this->conflictPositionId($companyId),
@@ -208,5 +242,25 @@ class StoreCrewAssignmentRequest extends FormRequest
         $positionId = $this->input('position_id');
 
         return $positionId !== null && $positionId !== '' ? (int) $positionId : null;
+    }
+
+    private function planningPlannedArrivalCarbon(int $companyId, string $timezone): ?Carbon
+    {
+        $planningAssignmentId = $this->input('planning_assignment_id');
+
+        if ($planningAssignmentId === null || $planningAssignmentId === '') {
+            return null;
+        }
+
+        $plannedArrivalDate = CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereKey((int) $planningAssignmentId)
+            ->value('planned_arrival_date');
+
+        if ($plannedArrivalDate === null || $plannedArrivalDate === '') {
+            return null;
+        }
+
+        return Carbon::parse((string) $plannedArrivalDate, $timezone)->startOfDay();
     }
 }
