@@ -12,11 +12,15 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentSequence;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
+use App\Models\CrewTimesheet;
+use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\PayrollWorkAllocation;
+use App\Models\SalaryInput;
+use App\Models\SalaryInputType;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewOperations\Reset\CrewOperationsResetAnalyzer;
@@ -263,4 +267,151 @@ test('unexpected office payroll allocation linkage blocks reset', function () {
         ->assertFailed();
 
     expect(CrewAssignment::query()->whereKey($fixtures['assignment']->id)->exists())->toBeTrue();
+});
+
+test('reset deletes salary inputs only for eligible payroll employee-period pairs', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-15 18:00:00', CrewPhaseStatus::Completed);
+    runDailyCrewPayrollPipeline($fixtures);
+
+    $otherEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'position_id' => $fixtures['rank']->id,
+    ]);
+
+    $inputType = SalaryInputType::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'name' => 'Reset Bonus',
+        'code' => 'reset_bonus_'.fake()->unique()->numerify('###'),
+        'is_addition' => true,
+        'status' => 'active',
+        'sort_order' => 1,
+    ]);
+
+    $linkedInput = SalaryInput::factory()->for($fixtures['company'])->create([
+        'employee_id' => $fixtures['employee']->id,
+        'period_id' => $fixtures['period']->id,
+        'salary_input_type_id' => $inputType->id,
+        'amount' => 50,
+    ]);
+
+    $unrelatedInput = SalaryInput::factory()->for($fixtures['company'])->create([
+        'employee_id' => $otherEmployee->id,
+        'period_id' => $fixtures['period']->id,
+        'salary_input_type_id' => $inputType->id,
+        'amount' => 75,
+    ]);
+
+    runCrewResetWithConfirmation($this, $fixtures['company']->id)->assertSuccessful();
+
+    expect(SalaryInput::query()->whereKey($linkedInput->id)->exists())->toBeFalse()
+        ->and(SalaryInput::query()->whereKey($unrelatedInput->id)->exists())->toBeTrue();
+});
+
+test('reset preserves crew payroll without crew-operations allocations when timesheets exist in period', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-15 18:00:00', CrewPhaseStatus::Completed);
+    $pipeline = runDailyCrewPayrollPipeline($fixtures);
+
+    $orphanedRecordId = (int) $pipeline['record']->id;
+    PayrollWorkAllocation::query()->where('payroll_record_id', $orphanedRecordId)->delete();
+
+    $plan = app(CrewOperationsResetAnalyzer::class)->analyze($fixtures['company']->id);
+
+    expect($plan->warnings)->not->toBeEmpty()
+        ->and($plan->eligiblePayrollRecordIds)->not->toContain($orphanedRecordId);
+
+    runCrewResetWithConfirmation($this, $fixtures['company']->id)->assertSuccessful();
+
+    expect(PayrollRecord::query()->whereKey($orphanedRecordId)->exists())->toBeTrue();
+});
+
+test('dry run counts soft-deleted crew timesheets slated for permanent removal', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+
+    $timesheet = CrewTimesheet::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'period_id' => $fixtures['period']->id,
+    ]);
+    $timesheet->delete();
+
+    $plan = app(CrewOperationsResetAnalyzer::class)->analyze($fixtures['company']->id);
+
+    $timesheetRow = collect($plan->rows)->firstWhere('entity', 'crew_timesheets');
+
+    expect($timesheetRow['delete'])->toBeGreaterThanOrEqual(1);
+
+    runCrewResetWithConfirmation($this, $fixtures['company']->id)->assertSuccessful();
+
+    expect(CrewTimesheet::query()->withTrashed()->whereKey($timesheet->id)->exists())->toBeFalse();
+});
+
+test('mixed in-scope timesheet and foreign assignment on one allocation blocks reset', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-10 18:00:00', CrewPhaseStatus::Completed);
+    runDailyCrewPayrollPipeline($fixtures);
+
+    $other = makeDailyCrewTimelineFixtures();
+    $otherAssignment = $other['assignment'];
+
+    $contractId = EmployeeContract::query()
+        ->where('employee_id', $fixtures['employee']->id)
+        ->where('company_id', $fixtures['company']->id)
+        ->value('id');
+
+    $timesheetId = CrewTimesheet::query()
+        ->where('employee_id', $fixtures['employee']->id)
+        ->where('period_id', $fixtures['period']->id)
+        ->value('id');
+
+    PayrollWorkAllocation::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $fixtures['employee']->id,
+        'payroll_period_id' => $fixtures['period']->id,
+        'crew_timesheet_id' => $timesheetId,
+        'crew_assignment_id' => $otherAssignment->id,
+        'contract_id' => $contractId,
+        'work_date' => '2026-07-28',
+        'pay_category' => CrewTimesheetPayCategory::Onsite,
+        'period_classification' => PayrollWorkPeriodClassification::Current,
+        'status' => PayrollWorkAllocationStatus::Reserved,
+        'basic_daily_rate' => 0,
+        'site_allowance_daily_rate' => 0,
+        'supplementary_allowance_daily_rate' => 0,
+        'basic_amount' => 0,
+        'site_allowance_amount' => 0,
+        'supplementary_allowance_amount' => 0,
+        'total_amount' => 0,
+        'active_allocation_key' => sprintf('%d:%d:%s', $fixtures['company']->id, $fixtures['employee']->id, '2026-07-28'),
+    ]);
+
+    $this->artisan('crew:reset', ['--dry-run' => true, '--company' => $fixtures['company']->id])
+        ->assertFailed();
+});
+
+test('reset removes only crew-operations payroll for one employee when another shares the period', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-15 18:00:00', CrewPhaseStatus::Completed);
+    runDailyCrewPayrollPipeline($fixtures);
+
+    $linkedRecordId = PayrollRecord::query()
+        ->where('employee_id', $fixtures['employee']->id)
+        ->where('period_id', $fixtures['period']->id)
+        ->value('id');
+
+    $otherEmployee = Employee::factory()->forCompany($fixtures['company'])->create([
+        'position_id' => $fixtures['rank']->id,
+    ]);
+
+    $otherCrewRecord = PayrollRecord::factory()->create([
+        'company_id' => $fixtures['company']->id,
+        'employee_id' => $otherEmployee->id,
+        'period_id' => $fixtures['period']->id,
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    runCrewResetWithConfirmation($this, $fixtures['company']->id)->assertSuccessful();
+
+    expect(PayrollRecord::query()->whereKey($linkedRecordId)->exists())->toBeFalse()
+        ->and(PayrollRecord::query()->whereKey($otherCrewRecord->id)->exists())->toBeTrue();
 });

@@ -6,13 +6,10 @@ use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
-use App\Models\CrewAssignmentPhase;
 use App\Models\CrewAssignmentSequence;
 use App\Models\CrewMovementCorrection;
-use App\Models\CrewOperationalAlert;
 use App\Models\CrewPlanningAssignment;
 use App\Models\CrewScheduledMovement;
-use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetPreparation;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Models\CrewTimesheetPreparationSkip;
@@ -22,7 +19,7 @@ use App\Models\EmployeeTraining;
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
 use App\Models\PayrollRecord;
-use App\Models\PayrollWorkAllocation;
+use App\Models\SalaryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -31,18 +28,25 @@ final class CrewOperationsResetAnalyzer
 {
     public function analyze(?int $companyId = null): CrewOperationsResetPlan
     {
-        $assignmentIds = $this->assignmentIds($companyId);
-        $phaseIds = $this->phaseIds($assignmentIds);
-        $crewTimesheetIds = $this->crewTimesheetIds($companyId);
-        $eligiblePayrollRecordIds = $this->eligibleCrewPayrollRecordIds($companyId, $assignmentIds, $crewTimesheetIds);
-        $companyIds = $this->resolveCompanyIds($companyId, $assignmentIds);
+        $scope = CrewOperationsResetScope::resolve($companyId);
 
-        $blockingIssues = $this->detectBlockingIssues($companyId, $assignmentIds);
         $warnings = [];
+        if ($scope->ambiguousCrewPayrollRecordIds !== []) {
+            $warnings[] = sprintf(
+                '%d crew payroll record(s) share a period and employee with in-scope timesheets but have no crew-operations work allocations; they will be preserved.',
+                count($scope->ambiguousCrewPayrollRecordIds),
+            );
+        }
 
         $manualSeaServicePreserve = EmployeeSeaService::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
             ->whereNull('crew_assignment_phase_id')
+            ->count();
+
+        $syncedSeaServiceDelete = EmployeeSeaService::query()
+            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
+            ->whereNotNull('crew_assignment_phase_id')
+            ->withTrashed()
             ->count();
 
         $manualTrainingPreserve = EmployeeTraining::query()
@@ -53,43 +57,51 @@ final class CrewOperationsResetAnalyzer
         $officePayrollPreserve = PayrollRecord::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
             ->where('payroll_category', PayrollCategory::Office)
+            ->withTrashed()
             ->count();
 
         $crewPayrollPreserve = PayrollRecord::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
             ->where('payroll_category', PayrollCategory::Crew)
-            ->whereNotIn('id', $eligiblePayrollRecordIds)
+            ->whereNotIn('id', $scope->eligiblePayrollRecordIds)
+            ->withTrashed()
             ->count();
+
+        $salaryInputDelete = $this->countSalaryInputsForEligiblePayroll($companyId, $scope->eligiblePayrollRecordIds);
 
         $activityDelete = Activity::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->where(function (Builder $sub) use ($assignmentIds): void {
-                $sub->where(function (Builder $inner) use ($assignmentIds): void {
+            ->where(function (Builder $sub) use ($scope, $companyId): void {
+                $sub->where(function (Builder $inner) use ($scope): void {
                     $inner->where('subject_type', CrewAssignment::class)
-                        ->whereIn('subject_id', $assignmentIds);
-                })->orWhere(function (Builder $inner): void {
+                        ->whereIn('subject_id', $scope->assignmentIds);
+                })->orWhere(function (Builder $inner) use ($companyId): void {
                     $inner->where('subject_type', CrewPlanningAssignment::class);
+                    if ($companyId !== null) {
+                        $inner->where('company_id', $companyId);
+                    }
                 });
             })
             ->count();
 
         $rows = [
-            $this->row('payroll_work_allocations (crew-linked)', $this->countCrewLinkedAllocations($companyId, $assignmentIds, $crewTimesheetIds), 0, 'Crew operations payroll allocations only'),
-            $this->row('payroll_records (eligible crew)', count($eligiblePayrollRecordIds), $crewPayrollPreserve, 'Manual or unrelated crew payroll preserved'),
-            $this->row('crew_timesheet_segments', CrewTimesheetSegment::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
-            $this->row('crew_timesheets', count($crewTimesheetIds), 0, 'Includes soft-deleted rows'),
+            $this->row('payroll_work_allocations (crew-operations)', $scope->countDeletableAllocations(), 0, 'Strict in-scope crew linkage only'),
+            $this->row('salary_inputs (eligible crew payroll pairs)', $salaryInputDelete, 0, 'Exact employee + period pairs only'),
+            $this->row('payroll_records (eligible crew)', count($scope->eligiblePayrollRecordIds), $crewPayrollPreserve, 'Manual or ambiguous crew payroll preserved'),
+            $this->row('crew_timesheet_segments', $this->countSegments($companyId), 0, 'Includes soft-deleted rows'),
+            $this->row('crew_timesheets', count($scope->crewTimesheetIds), 0, 'Includes soft-deleted rows'),
             $this->row('crew_timesheet_preparation_skips', CrewTimesheetPreparationSkip::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
-            $this->row('crew_timesheet_preparation_lines', CrewTimesheetPreparationLine::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
-            $this->row('crew_timesheet_preparations', CrewTimesheetPreparation::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
+            $this->row('crew_timesheet_preparation_lines', CrewTimesheetPreparationLine::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->withTrashed()->count(), 0, 'Includes soft-deleted rows'),
+            $this->row('crew_timesheet_preparations', CrewTimesheetPreparation::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->withTrashed()->count(), 0, 'Includes soft-deleted rows'),
             $this->row('crew_movement_corrections', CrewMovementCorrection::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
             $this->row('crew_scheduled_movements', CrewScheduledMovement::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
             $this->row('crew_accommodation_stays', CrewAccommodationStay::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
             $this->row('employee_trainings (assignment-generated)', EmployeeTraining::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->whereNotNull('source_crew_assignment_phase_id')->count(), $manualTrainingPreserve, 'Manual training preserved'),
-            $this->row('employee_sea_services (assignment-synced)', EmployeeSeaService::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->whereNotNull('crew_assignment_phase_id')->count(), $manualSeaServicePreserve, 'Manual sea service preserved'),
+            $this->row('employee_sea_services (assignment-synced)', $syncedSeaServiceDelete, $manualSeaServicePreserve, 'Manual sea service preserved'),
             $this->row('historical_crew_import_rows', HistoricalCrewImportRow::query()->when($companyId !== null, fn (Builder $q) => $q->whereIn('historical_crew_import_batch_id', HistoricalCrewImportBatch::query()->where('company_id', $companyId)->select('id')))->count(), 0, ''),
             $this->row('crew_planning_assignments', CrewPlanningAssignment::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->withTrashed()->count(), 0, 'Operational planning rows only'),
-            $this->row('crew_assignments', count($assignmentIds), 0, 'Includes voided and soft-deleted rows'),
-            $this->row('crew_assignment_phases', count($phaseIds), 0, 'Removed via assignment cleanup'),
+            $this->row('crew_assignments', count($scope->assignmentIds), 0, 'Includes voided and soft-deleted rows'),
+            $this->row('crew_assignment_phases', count($scope->phaseIds), 0, 'Includes soft-deleted rows'),
             $this->row('historical_crew_import_batches', HistoricalCrewImportBatch::query()->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))->count(), 0, ''),
             $this->row('crew_operational_alerts (+ deliveries)', $this->operationalAlertDeleteCount($companyId), 0, 'Recipients and delivery rows included'),
             $this->row('activity_log (crew assignment & planning)', $activityDelete, 0, 'Assignment-related audit rows'),
@@ -97,219 +109,54 @@ final class CrewOperationsResetAnalyzer
             $this->row('employees / vessels / settings', 0, 1, 'Master data always preserved'),
         ];
 
-        $sequenceRows = $this->sequenceRows($companyIds);
+        $sequenceRows = $this->sequenceRows($scope->companyIds);
 
         return new CrewOperationsResetPlan(
             companyId: $companyId,
             rows: $rows,
             sequenceRows: $sequenceRows,
-            blockingIssues: $blockingIssues,
+            blockingIssues: $scope->blockingIssues,
             warnings: $warnings,
-            assignmentIds: $assignmentIds,
-            phaseIds: $phaseIds,
-            crewTimesheetIds: $crewTimesheetIds,
-            eligiblePayrollRecordIds: $eligiblePayrollRecordIds,
-            companyIds: $companyIds,
+            assignmentIds: $scope->assignmentIds,
+            phaseIds: $scope->phaseIds,
+            crewTimesheetIds: $scope->crewTimesheetIds,
+            eligiblePayrollRecordIds: $scope->eligiblePayrollRecordIds,
+            companyIds: $scope->companyIds,
         );
     }
 
     /**
-     * @return list<int>
+     * @param  list<int>  $eligiblePayrollRecordIds
      */
-    private function assignmentIds(?int $companyId): array
+    private function countSalaryInputsForEligiblePayroll(?int $companyId, array $eligiblePayrollRecordIds): int
     {
-        return CrewAssignment::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->withTrashed()
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @return list<int>
-     */
-    private function phaseIds(array $assignmentIds): array
-    {
-        if ($assignmentIds === []) {
-            return [];
-        }
-
-        return CrewAssignmentPhase::query()
-            ->whereIn('crew_assignment_id', $assignmentIds)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function crewTimesheetIds(?int $companyId): array
-    {
-        return CrewTimesheet::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->withTrashed()
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @param  list<int>  $crewTimesheetIds
-     * @return list<int>
-     */
-    private function eligibleCrewPayrollRecordIds(?int $companyId, array $assignmentIds, array $crewTimesheetIds): array
-    {
-        $ids = [];
-
-        if ($assignmentIds !== [] || $crewTimesheetIds !== []) {
-            $allocationQuery = PayrollWorkAllocation::query()
-                ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-                ->whereNotNull('payroll_record_id')
-                ->where(fn (Builder $inner) => $this->applyCrewLinkageScope($inner, $assignmentIds, $crewTimesheetIds));
-
-            $ids = array_merge($ids, $allocationQuery->pluck('payroll_record_id')->map(fn ($id) => (int) $id)->all());
-        }
-
-        if ($crewTimesheetIds !== []) {
-            $timesheetLinked = PayrollRecord::query()
-                ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-                ->where('payroll_category', PayrollCategory::Crew)
-                ->whereExists(function ($sub) use ($crewTimesheetIds): void {
-                    $sub->from('crew_timesheets')
-                        ->whereColumn('crew_timesheets.period_id', 'payroll_records.period_id')
-                        ->whereColumn('crew_timesheets.employee_id', 'payroll_records.employee_id')
-                        ->whereIn('crew_timesheets.id', $crewTimesheetIds);
-                })
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
-
-            $ids = array_merge($ids, $timesheetLinked);
-        }
-
-        $ids = array_values(array_unique(array_filter($ids)));
-
-        if ($ids === []) {
-            return [];
-        }
-
-        return PayrollRecord::query()
-            ->whereIn('id', $ids)
-            ->where('payroll_category', PayrollCategory::Crew)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @return list<int>
-     */
-    private function resolveCompanyIds(?int $companyId, array $assignmentIds): array
-    {
-        if ($companyId !== null) {
-            return [$companyId];
-        }
-
-        $fromAssignments = CrewAssignment::query()
-            ->withTrashed()
-            ->distinct()
-            ->pluck('company_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        $fromSequences = CrewAssignmentSequence::query()
-            ->distinct()
-            ->pluck('company_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        return array_values(array_unique(array_merge($fromAssignments, $fromSequences)));
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @return list<string>
-     */
-    private function detectBlockingIssues(?int $companyId, array $assignmentIds): array
-    {
-        if ($assignmentIds === []) {
-            return [];
-        }
-
-        $issues = [];
-
-        $officeAllocationCount = PayrollWorkAllocation::query()
-            ->whereIn('crew_assignment_id', $assignmentIds)
-            ->whereNotNull('payroll_record_id')
-            ->whereHas('payrollRecord', fn (Builder $q) => $q->where('payroll_category', PayrollCategory::Office))
-            ->count();
-
-        if ($officeAllocationCount > 0) {
-            $issues[] = "Found {$officeAllocationCount} payroll work allocation(s) linking crew assignments to office payroll records.";
-        }
-
-        $foreignReliefCount = CrewAssignment::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', '!=', $companyId))
-            ->where(function (Builder $inner) use ($assignmentIds): void {
-                $inner->whereIn('relieves_crew_assignment_id', $assignmentIds)
-                    ->orWhereIn('previous_assignment_id', $assignmentIds);
-            })
-            ->count();
-
-        if ($foreignReliefCount > 0) {
-            $issues[] = "Found {$foreignReliefCount} crew assignment(s) outside the selected company scope referencing assignments targeted for deletion.";
-        }
-
-        return $issues;
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @param  list<int>  $crewTimesheetIds
-     */
-    private function countCrewLinkedAllocations(?int $companyId, array $assignmentIds, array $crewTimesheetIds): int
-    {
-        if ($assignmentIds === [] && $crewTimesheetIds === []) {
+        if ($eligiblePayrollRecordIds === []) {
             return 0;
         }
 
-        return PayrollWorkAllocation::query()
+        return SalaryInput::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->where(fn (Builder $inner) => $this->applyCrewLinkageScope($inner, $assignmentIds, $crewTimesheetIds))
+            ->whereExists(function ($sub) use ($eligiblePayrollRecordIds): void {
+                $sub->from('payroll_records')
+                    ->whereColumn('payroll_records.employee_id', 'salary_inputs.employee_id')
+                    ->whereColumn('payroll_records.period_id', 'salary_inputs.period_id')
+                    ->whereIn('payroll_records.id', $eligiblePayrollRecordIds);
+            })
             ->count();
     }
 
-    /**
-     * @param  list<int>  $assignmentIds
-     * @param  list<int>  $crewTimesheetIds
-     */
-    private function applyCrewLinkageScope(Builder $inner, array $assignmentIds, array $crewTimesheetIds): void
+    private function countSegments(?int $companyId): int
     {
-        $started = false;
-
-        if ($assignmentIds !== []) {
-            $inner->whereIn('crew_assignment_id', $assignmentIds);
-            $started = true;
-        }
-
-        if ($crewTimesheetIds !== []) {
-            if ($started) {
-                $inner->orWhereIn('crew_timesheet_id', $crewTimesheetIds);
-            } else {
-                $inner->whereIn('crew_timesheet_id', $crewTimesheetIds);
-            }
-        }
+        return CrewTimesheetSegment::query()
+            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
+            ->withTrashed()
+            ->count();
     }
 
     private function operationalAlertDeleteCount(?int $companyId): int
     {
-        $alertIds = CrewOperationalAlert::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
+        $alertIds = DB::table('crew_operational_alerts')
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
             ->pluck('id');
 
         if ($alertIds->isEmpty()) {

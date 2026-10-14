@@ -36,19 +36,33 @@ final class CrewOperationsResetExecutor
         }
 
         DB::transaction(function () use ($plan): void {
-            $companyId = $plan->companyId;
-            $assignmentIds = $plan->assignmentIds;
-            $phaseIds = $plan->phaseIds;
-            $crewTimesheetIds = $plan->crewTimesheetIds;
-            $eligiblePayrollRecordIds = $plan->eligiblePayrollRecordIds;
+            $scope = CrewOperationsResetScope::resolve($plan->companyId);
 
-            $this->deleteCrewLinkedAllocations($companyId, $assignmentIds, $crewTimesheetIds);
+            if ($scope->isBlocked()) {
+                throw new RuntimeException(
+                    'Crew operations reset is blocked after revalidation: '.implode(' ', $scope->blockingIssues),
+                );
+            }
+
+            $companyId = $scope->companyId;
+            $assignmentIds = $scope->assignmentIds;
+            $eligiblePayrollRecordIds = $scope->eligiblePayrollRecordIds;
+
+            if ($scope->deletableAllocationIds !== []) {
+                PayrollWorkAllocation::query()
+                    ->whereIn('id', $scope->deletableAllocationIds)
+                    ->delete();
+            }
 
             if ($eligiblePayrollRecordIds !== []) {
                 SalaryInput::query()
                     ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-                    ->whereIn('period_id', PayrollRecord::query()->whereIn('id', $eligiblePayrollRecordIds)->select('period_id'))
-                    ->whereIn('employee_id', PayrollRecord::query()->whereIn('id', $eligiblePayrollRecordIds)->select('employee_id'))
+                    ->whereExists(function ($sub) use ($eligiblePayrollRecordIds): void {
+                        $sub->from('payroll_records')
+                            ->whereColumn('payroll_records.employee_id', 'salary_inputs.employee_id')
+                            ->whereColumn('payroll_records.period_id', 'salary_inputs.period_id')
+                            ->whereIn('payroll_records.id', $eligiblePayrollRecordIds);
+                    })
                     ->delete();
 
                 PayrollRecord::query()
@@ -59,7 +73,8 @@ final class CrewOperationsResetExecutor
 
             CrewTimesheetSegment::query()
                 ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-                ->delete();
+                ->withTrashed()
+                ->forceDelete();
 
             CrewTimesheet::query()
                 ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
@@ -131,24 +146,8 @@ final class CrewOperationsResetExecutor
 
             $this->deleteOperationalAlerts($companyId);
             $this->deleteAssignmentActivity($companyId, $assignmentIds);
-            $this->resetAssignmentSequences($plan->companyIds);
+            $this->resetAssignmentSequences($scope->companyIds);
         });
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @param  list<int>  $crewTimesheetIds
-     */
-    private function deleteCrewLinkedAllocations(?int $companyId, array $assignmentIds, array $crewTimesheetIds): void
-    {
-        if ($assignmentIds === [] && $crewTimesheetIds === []) {
-            return;
-        }
-
-        PayrollWorkAllocation::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->where(fn (Builder $inner) => $this->applyCrewLinkageScope($inner, $assignmentIds, $crewTimesheetIds))
-            ->delete();
     }
 
     /**
@@ -156,9 +155,9 @@ final class CrewOperationsResetExecutor
      */
     private function clearAssignmentGraphReferences(?int $companyId, array $assignmentIds): void
     {
-        $assignmentQuery = CrewAssignment::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->withTrashed();
+        if ($assignmentIds === []) {
+            return;
+        }
 
         $assignmentUpdates = [
             'current_phase_id' => null,
@@ -170,18 +169,25 @@ final class CrewOperationsResetExecutor
             $assignmentUpdates['crew_planning_assignment_id'] = null;
         }
 
-        $assignmentQuery->update($assignmentUpdates);
+        CrewAssignment::query()
+            ->whereIn('id', $assignmentIds)
+            ->withTrashed()
+            ->update($assignmentUpdates);
 
         CrewPlanningAssignment::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
             ->withTrashed()
+            ->where(function (Builder $inner) use ($assignmentIds): void {
+                $inner->whereIn('crew_assignment_id', $assignmentIds)
+                    ->orWhereIn('relieves_crew_assignment_id', $assignmentIds);
+            })
             ->update([
                 'crew_assignment_id' => null,
                 'relieves_crew_assignment_id' => null,
             ]);
 
         HistoricalCrewImportRow::query()
-            ->when($assignmentIds !== [], fn (Builder $q) => $q->whereIn('crew_assignment_id', $assignmentIds))
+            ->whereIn('crew_assignment_id', $assignmentIds)
             ->update(['crew_assignment_id' => null]);
     }
 
@@ -224,28 +230,6 @@ final class CrewOperationsResetExecutor
                 });
             })
             ->delete();
-    }
-
-    /**
-     * @param  list<int>  $assignmentIds
-     * @param  list<int>  $crewTimesheetIds
-     */
-    private function applyCrewLinkageScope(Builder $inner, array $assignmentIds, array $crewTimesheetIds): void
-    {
-        $started = false;
-
-        if ($assignmentIds !== []) {
-            $inner->whereIn('crew_assignment_id', $assignmentIds);
-            $started = true;
-        }
-
-        if ($crewTimesheetIds !== []) {
-            if ($started) {
-                $inner->orWhereIn('crew_timesheet_id', $crewTimesheetIds);
-            } else {
-                $inner->whereIn('crew_timesheet_id', $crewTimesheetIds);
-            }
-        }
     }
 
     /**
