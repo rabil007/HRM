@@ -113,6 +113,102 @@ describe('CrewAssignmentPhaseTimeline render', () => {
         assert.ok(html.includes('aria-selected="true"'));
     });
 
+    it('renders expected arrival for active current P0 with assignment forecast', async () => {
+        const html = await renderTimeline(
+            assignment({
+                status: 'active',
+                status_label: 'Active',
+                planned_arrival_at: '2026-10-17',
+                current_phase: {
+                    id: 11,
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                },
+                phase_timeline: [
+                    phase({
+                        id: 11,
+                        phase_code: 'p0',
+                        phase_label: 'Pre-Mobilisation',
+                        status: 'active',
+                        status_label: 'Active',
+                        planned_start_at: null,
+                        planned_end_at: null,
+                        actual_start_at: '2026-10-14',
+                        actual_end_at: null,
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Expected Arrival:'));
+        assert.ok(html.includes('17-10-2026'));
+        assert.ok(!html.includes('Planned:'));
+        assert.ok(!html.includes('Not recorded'));
+        assert.ok(!html.includes('variance unavailable (no planned dates)'));
+        assert.ok(html.includes('In progress'));
+    });
+
+    it('preserves planned-not-recorded fallback when forecast is missing', async () => {
+        const html = await renderTimeline(
+            assignment({
+                current_phase: {
+                    id: 11,
+                    code: 'p0',
+                    label: 'Pre-Mobilisation',
+                },
+                phase_timeline: [
+                    phase({
+                        id: 11,
+                        phase_code: 'p0',
+                        phase_label: 'Pre-Mobilisation',
+                        planned_start_at: null,
+                        planned_end_at: null,
+                        actual_start_at: '2026-10-14',
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Not recorded'));
+        assert.ok(html.includes('variance unavailable (no planned dates)'));
+    });
+
+    it('does not show expected arrival on completed historical P0 after forecast update', async () => {
+        const html = await renderTimeline(
+            assignment({
+                planned_arrival_at: '2026-12-01',
+                current_phase: {
+                    id: 20,
+                    code: 'p2a',
+                    label: 'Join Standby',
+                },
+                phase_timeline: [
+                    phase({
+                        id: 11,
+                        phase_code: 'p0',
+                        phase_label: 'Pre-Mobilisation',
+                        status: 'completed',
+                        status_label: 'Completed',
+                        planned_start_at: null,
+                        planned_end_at: null,
+                        actual_start_at: '2026-10-01',
+                        actual_end_at: '2026-10-10',
+                    }),
+                    phase({
+                        id: 20,
+                        phase_code: 'p2a',
+                        phase_label: 'Join Standby',
+                        status: 'active',
+                        status_label: 'Active',
+                        actual_start_at: '2026-10-11',
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(!html.includes('Expected Arrival:'));
+    });
+
     it('renders historical completed timelines without inventing open elapsed ends', async () => {
         const html = await renderTimeline(
             assignment({

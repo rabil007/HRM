@@ -8,6 +8,8 @@ import {
     formatElapsedDayPhrase,
     phaseHasPlannedDates,
 } from './phase-timeline-math.ts';
+import { shouldShowP0ExpectedArrival } from './phase-timeline-p0-expected-arrival.ts';
+import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 import { summarizePhaseVariance } from './phase-timeline-variance.ts';
 
 export type PhaseDateLineSummary = {
@@ -15,6 +17,8 @@ export type PhaseDateLineSummary = {
     showActual: boolean;
     showVariance: boolean;
     hasPlanned: boolean;
+    showExpectedArrival: boolean;
+    expectedArrivalLabel: string | null;
     plannedStartLabel: string;
     plannedEndLabel: string | null;
     actualStartLabel: string;
@@ -50,6 +54,7 @@ export function buildPhaseDateLineSummary(
     options?: {
         timeZone?: string | null;
         formatDate?: (value: string | null | undefined) => string;
+        p0ExpectedArrivalContext?: P0ExpectedArrivalContext;
     },
 ): PhaseDateLineSummary {
     const timeZone = options?.timeZone;
@@ -63,6 +68,14 @@ export function buildPhaseDateLineSummary(
     const showActual = mode !== 'planned_only';
     const showVariance = mode === 'plan_vs_actual';
     const hasPlanned = phaseHasPlannedDates(phase);
+    const p0Context = options?.p0ExpectedArrivalContext;
+    const showExpectedArrival =
+        p0Context !== undefined &&
+        shouldShowP0ExpectedArrival(phase, mode, p0Context) &&
+        !hasPlanned;
+    const expectedArrivalLabel = showExpectedArrival
+        ? formatDateLabel(p0Context!.plannedArrivalAt, '—', formatDate)
+        : null;
 
     const plannedStartLabel = formatDateLabel(
         phase.planned_start_at,
@@ -141,6 +154,8 @@ export function buildPhaseDateLineSummary(
         showActual,
         showVariance,
         hasPlanned,
+        showExpectedArrival,
+        expectedArrivalLabel,
         plannedStartLabel,
         plannedEndLabel,
         actualStartLabel,

@@ -5,6 +5,8 @@ import {
     phaseHasPlannedDates,
     signedDayDelta,
 } from './phase-timeline-math.ts';
+import { shouldUseNeutralP0InProgressHeadline } from './phase-timeline-p0-expected-arrival.ts';
+import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 
 export type PhaseVarianceTone =
     | 'neutral'
@@ -38,6 +40,9 @@ function phaseIsActive(phase: PhaseTimelineItem): boolean {
 export function summarizePhaseVariance(
     phase: PhaseTimelineItem,
     timeZone?: string | null,
+    options?: {
+        p0ExpectedArrivalContext?: P0ExpectedArrivalContext;
+    },
 ): PhaseVarianceSummary {
     const hasPlannedDates = phaseHasPlannedDates(phase);
     const hasActualDates = Boolean(
@@ -132,10 +137,19 @@ export function summarizePhaseVariance(
     let tone: PhaseVarianceTone = 'neutral';
     let headline = 'No plan/actual comparison';
 
+    const neutralP0InProgress =
+        options?.p0ExpectedArrivalContext !== undefined &&
+        shouldUseNeutralP0InProgressHeadline(
+            phase,
+            options.p0ExpectedArrivalContext,
+        );
+
     if (!hasPlannedDates && hasActualDates) {
         tone = phase.status === 'completed' ? 'success' : 'pending';
         headline = isInProgress
-            ? 'In progress · variance unavailable (no planned dates)'
+            ? neutralP0InProgress
+                ? 'In progress'
+                : 'In progress · variance unavailable (no planned dates)'
             : phase.status === 'completed'
               ? 'Completed · variance unavailable (no planned dates)'
               : 'Actual recorded · variance unavailable (no planned dates)';
