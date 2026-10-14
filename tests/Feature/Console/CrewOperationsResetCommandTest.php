@@ -29,19 +29,7 @@ use App\Support\CrewOperations\Reset\CrewOperationsResetExecutor;
 use App\Support\CrewOperations\Reset\CrewOperationsResetSalaryInputOwnership;
 use App\Support\CrewOperations\Reset\CrewOperationsResetScope;
 use App\Support\Payroll\Actions\RecalculateCrewPayroll;
-use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Testing\PendingCommand;
-
-const CREW_RESET_CONFIRMATION = 'RESET CREW OPERATIONS DATA';
-
-function runCrewResetWithConfirmation(TestCase $test, ?int $companyId = null): PendingCommand
-{
-    $parameters = $companyId !== null ? ['--company' => $companyId] : [];
-
-    return $test->artisan('crew:reset', $parameters)
-        ->expectsQuestion('Type `'.CREW_RESET_CONFIRMATION.'` to permanently delete the rows listed above', CREW_RESET_CONFIRMATION);
-}
 
 test('dry run does not mutate crew operations data', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
