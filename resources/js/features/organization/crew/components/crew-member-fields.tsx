@@ -16,6 +16,7 @@ import {
     actualArrivalDateHelper,
     alreadyArrivedExplanation,
 } from '@/features/organization/crew/lib/already-arrived-start';
+import { SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE } from '@/features/organization/crew/lib/crew-assignment-create-arrival-field';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
 import type { PreJoinAccommodationFields as PreJoinAccommodationValue } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type {
@@ -61,6 +62,8 @@ type CrewMemberFieldsProps = {
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    showPreJoinAccommodation?: boolean;
+    showAlreadyArrivedFooterNote?: boolean;
     hasPlanningPrefillArrival?: boolean;
 };
 
@@ -98,6 +101,8 @@ export function CrewMemberFields({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    showPreJoinAccommodation = false,
+    showAlreadyArrivedFooterNote = false,
     hasPlanningPrefillArrival = false,
 }: CrewMemberFieldsProps): ReactElement {
     const [positionDefaultedFromProfile, setPositionDefaultedFromProfile] =
@@ -310,6 +315,11 @@ export function CrewMemberFields({
                     }}
                 />
                 <p className="text-xs text-muted-foreground">{arrivalHelper}</p>
+                {showAlreadyArrivedFooterNote ? (
+                    <p className="text-xs text-muted-foreground">
+                        {SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE}
+                    </p>
+                ) : null}
                 <InputError message={errors[arrivalErrorKey]} />
                 {showAlreadyArrived && onAlreadyArrivedChange ? (
                     <AlreadyArrivedCheckbox
@@ -320,12 +330,7 @@ export function CrewMemberFields({
                         explanation={alreadyArrivedHelp}
                     />
                 ) : null}
-                {alreadyArrived && !showAlreadyArrived ? (
-                    <p className="text-xs text-muted-foreground">
-                        {alreadyArrivedHelp}
-                    </p>
-                ) : null}
-                {alreadyArrived ? (
+                {alreadyArrived || showPreJoinAccommodation ? (
                     <PreJoinAccommodationFields
                         value={{
                             accommodation_status:

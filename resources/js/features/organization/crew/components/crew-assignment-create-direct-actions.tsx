@@ -16,8 +16,6 @@ function DirectActionButton({
     disabled,
     processing,
     onClick,
-    onPointerEnter,
-    onFocus,
 }: {
     label: string;
     tooltip: string;
@@ -25,8 +23,6 @@ function DirectActionButton({
     disabled: boolean;
     processing: boolean;
     onClick: () => void;
-    onPointerEnter?: () => void;
-    onFocus?: () => void;
 }): ReactElement {
     return (
         <Tooltip>
@@ -36,8 +32,6 @@ function DirectActionButton({
                     variant={variant}
                     disabled={disabled}
                     onClick={onClick}
-                    onPointerEnter={onPointerEnter}
-                    onFocus={onFocus}
                     className="h-11 rounded-xl px-6"
                 >
                     {processing ? <Spinner className="mr-2" /> : null}
@@ -56,7 +50,6 @@ export function CrewAssignmentCreateDirectActions({
     processing,
     activeAction,
     onSubmit,
-    onPrepareAlreadyArrivedUi,
     startBlocked,
     draftBlocked,
 }: {
@@ -64,7 +57,6 @@ export function CrewAssignmentCreateDirectActions({
     processing: boolean;
     activeAction: CrewAssignmentSingleSubmitAction | null;
     onSubmit: (action: CrewAssignmentSingleSubmitAction) => void;
-    onPrepareAlreadyArrivedUi: () => void;
     startBlocked: boolean;
     draftBlocked: boolean;
 }): ReactElement {
@@ -85,8 +77,6 @@ export function CrewAssignmentCreateDirectActions({
                             processing && activeAction === 'already_arrived'
                         }
                         onClick={() => onSubmit('already_arrived')}
-                        onPointerEnter={onPrepareAlreadyArrivedUi}
-                        onFocus={onPrepareAlreadyArrivedUi}
                     />
                     <DirectActionButton
                         label="Start Pre-Mobilisation"

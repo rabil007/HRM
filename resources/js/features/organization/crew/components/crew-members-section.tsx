@@ -66,6 +66,8 @@ export function CrewMembersSection({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    showPreJoinAccommodation = false,
+    showAlreadyArrivedFooterNote = false,
     hasPlanningPrefillArrival = false,
     onAddRow,
     onRemoveRow,
@@ -81,6 +83,8 @@ export function CrewMembersSection({
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    showPreJoinAccommodation?: boolean;
+    showAlreadyArrivedFooterNote?: boolean;
     hasPlanningPrefillArrival?: boolean;
     onAddRow: () => void;
     onRemoveRow: (index: number) => void;
@@ -145,6 +149,8 @@ export function CrewMembersSection({
                     alreadyArrived={alreadyArrived}
                     onAlreadyArrivedChange={onAlreadyArrivedChange}
                     showAlreadyArrived={showAlreadyArrived}
+                    showPreJoinAccommodation={showPreJoinAccommodation}
+                    showAlreadyArrivedFooterNote={showAlreadyArrivedFooterNote}
                     hasPlanningPrefillArrival={hasPlanningPrefillArrival}
                     onChangeRow={onChangeRow}
                 />
@@ -249,6 +255,8 @@ function SingleCrewMemberCard({
     alreadyArrived = false,
     onAlreadyArrivedChange,
     showAlreadyArrived = false,
+    showPreJoinAccommodation = false,
+    showAlreadyArrivedFooterNote = false,
     hasPlanningPrefillArrival = false,
     onChangeRow,
 }: {
@@ -259,6 +267,8 @@ function SingleCrewMemberCard({
     alreadyArrived?: boolean;
     onAlreadyArrivedChange?: (checked: boolean) => void;
     showAlreadyArrived?: boolean;
+    showPreJoinAccommodation?: boolean;
+    showAlreadyArrivedFooterNote?: boolean;
     hasPlanningPrefillArrival?: boolean;
     onChangeRow: (index: number, row: BulkAddCrewRow) => void;
 }): ReactElement {
@@ -295,6 +305,8 @@ function SingleCrewMemberCard({
                 alreadyArrived={alreadyArrived}
                 onAlreadyArrivedChange={onAlreadyArrivedChange}
                 showAlreadyArrived={showAlreadyArrived}
+                showPreJoinAccommodation={showPreJoinAccommodation}
+                showAlreadyArrivedFooterNote={showAlreadyArrivedFooterNote}
                 hasPlanningPrefillArrival={hasPlanningPrefillArrival}
             />
         </div>

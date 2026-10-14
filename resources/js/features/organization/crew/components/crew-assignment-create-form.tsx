@@ -53,6 +53,11 @@ import {
 import { resolveSingleSubmitRequest } from '@/features/organization/crew/lib/crew-assignment-create-actions';
 import type { CrewAssignmentSingleSubmitAction } from '@/features/organization/crew/lib/crew-assignment-create-actions';
 import {
+    resolveCrewMemberArrivalPresentation,
+    shouldShowSingleCreatePreJoinAccommodation,
+    SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE,
+} from '@/features/organization/crew/lib/crew-assignment-create-arrival-field';
+import {
     clearCreateFormDateErrors,
     dependentCreateDateErrorKeys,
     resolveArrivalDateDisplayError,
@@ -249,8 +254,6 @@ export function CrewAssignmentCreateForm({
     const [scrollFocusedRow, setScrollFocusedRow] = useState(false);
     const [activeSingleSubmit, setActiveSingleSubmit] =
         useState<CrewAssignmentSingleSubmitAction | null>(null);
-    const [singleAlreadyArrivedUi, setSingleAlreadyArrivedUi] = useState(false);
-
     const form = useForm<UnifiedCreateFormData>({
         client_id:
             prefill?.client_id ??
@@ -361,9 +364,7 @@ export function CrewAssignmentCreateForm({
 
     const bulkMode = !fromPlanning && isBulkCreateMode(rows.length);
 
-    const alreadyArrived = bulkMode
-        ? Boolean(form.data.already_arrived)
-        : singleAlreadyArrivedUi;
+    const bulkAlreadyArrived = bulkMode && Boolean(form.data.already_arrived);
     const singleRow = rows[0] ?? null;
     const effectiveEmployeeId = resolveCreateEffectiveEmployeeId(
         planning_context?.employee_id ?? null,
@@ -414,6 +415,15 @@ export function CrewAssignmentCreateForm({
         planningActiveAssignmentConflict: Boolean(
             planningActiveAssignmentConflict,
         ),
+    });
+    const showSingleCreatePreJoin = shouldShowSingleCreatePreJoinAccommodation({
+        useDirectCreateActions: footerActions.useDirectCreateActions,
+        canStart: can.start,
+        bulkMode,
+    });
+    const arrivalPresentation = resolveCrewMemberArrivalPresentation({
+        bulkAlreadyArrived,
+        showSingleCreatePreJoin,
     });
 
     const bulkSummary = summarizeBulkRows(form.data.crew, (employeeId) =>
@@ -747,11 +757,6 @@ export function CrewAssignmentCreateForm({
         const postUrl = storeAssignment.url();
 
         form.post(postUrl, {
-            onError: () => {
-                if (action === 'already_arrived') {
-                    setSingleAlreadyArrivedUi(true);
-                }
-            },
             onFinish: () => {
                 setActiveSingleSubmit(null);
                 form.transform((data) => data);
@@ -762,12 +767,6 @@ export function CrewAssignmentCreateForm({
     const submitSingleAction = (
         action: CrewAssignmentSingleSubmitAction,
     ): void => {
-        if (action === 'already_arrived') {
-            setSingleAlreadyArrivedUi(true);
-        } else if (!bulkMode) {
-            setSingleAlreadyArrivedUi(false);
-        }
-
         const { submissionIntent, alreadyArrived: alreadyArrivedFlag } =
             resolveSingleSubmitRequest(action);
         submitSingle(submissionIntent, alreadyArrivedFlag, action);
@@ -783,12 +782,12 @@ export function CrewAssignmentCreateForm({
             vessel_id: data.vessel_id,
             planned_join_at: data.planned_join_at,
             remarks: data.remarks,
-            already_arrived: alreadyArrived,
+            already_arrived: bulkAlreadyArrived,
             crew: data.crew.map((row) => ({
                 employee_id: row.employee_id,
                 position_id: row.position_id,
                 planned_arrival_at: row.planned_arrival_at || null,
-                ...(alreadyArrived
+                ...(bulkAlreadyArrived
                     ? preJoinAccommodationPayload({
                           accommodation_status:
                               row.accommodation_status ?? 'hotel',
@@ -916,10 +915,10 @@ export function CrewAssignmentCreateForm({
                                             ) : null}
                                             <div className="space-y-2">
                                                 <Label htmlFor="planning-planned-arrival-at">
-                                                    {alreadyArrived
+                                                    {arrivalPresentation.useActualArrivalLabel
                                                         ? ACTUAL_ARRIVAL_DATE_LABEL
                                                         : ARRIVAL_DATE_OPTIONAL_LABEL}{' '}
-                                                    {alreadyArrived ? (
+                                                    {arrivalPresentation.useActualArrivalLabel ? (
                                                         <span className="font-normal text-destructive">
                                                             *
                                                         </span>
@@ -954,23 +953,30 @@ export function CrewAssignmentCreateForm({
                                                     }}
                                                 />
                                                 <p className="text-xs text-muted-foreground">
-                                                    {alreadyArrived
+                                                    {arrivalPresentation.useActualArrivalLabel
                                                         ? actualArrivalHelp
                                                         : EXPECTED_ARRIVAL_DATE_HELPER}
                                                 </p>
+                                                {arrivalPresentation.showAlreadyArrivedFooterNote ? (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {
+                                                            SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE
+                                                        }
+                                                    </p>
+                                                ) : null}
                                                 <InputError
                                                     message={
                                                         formErrors.planned_arrival_at
                                                     }
                                                 />
-                                                {alreadyArrived ? (
+                                                {bulkAlreadyArrived ? (
                                                     <p className="text-xs text-muted-foreground">
                                                         {alreadyArrivedExplanation(
                                                             hasPlanningPrefillArrival,
                                                         )}
                                                     </p>
                                                 ) : null}
-                                                {alreadyArrived ? (
+                                                {arrivalPresentation.showPreJoinAccommodation ? (
                                                     <PreJoinAccommodationFields
                                                         value={{
                                                             accommodation_status:
@@ -1029,12 +1035,20 @@ export function CrewAssignmentCreateForm({
                                                 scrollFocusedRow={
                                                     scrollFocusedRow
                                                 }
-                                                alreadyArrived={alreadyArrived}
+                                                alreadyArrived={
+                                                    bulkAlreadyArrived
+                                                }
                                                 onAlreadyArrivedChange={
                                                     setAlreadyArrived
                                                 }
                                                 showAlreadyArrived={
                                                     bulkMode && can.start
+                                                }
+                                                showPreJoinAccommodation={
+                                                    arrivalPresentation.showPreJoinAccommodation
+                                                }
+                                                showAlreadyArrivedFooterNote={
+                                                    arrivalPresentation.showAlreadyArrivedFooterNote
                                                 }
                                                 hasPlanningPrefillArrival={
                                                     hasPlanningPrefillArrival
@@ -1044,9 +1058,6 @@ export function CrewAssignmentCreateForm({
                                                 }
                                                 onAddRow={() => {
                                                     const next = newCrewRow();
-                                                    setSingleAlreadyArrivedUi(
-                                                        false,
-                                                    );
                                                     setActiveSingleSubmit(null);
                                                     setRowKeys((keys) => [
                                                         ...keys,
@@ -1164,11 +1175,6 @@ export function CrewAssignmentCreateForm({
                                                     activeSingleSubmit
                                                 }
                                                 onSubmit={submitSingleAction}
-                                                onPrepareAlreadyArrivedUi={() =>
-                                                    setSingleAlreadyArrivedUi(
-                                                        true,
-                                                    )
-                                                }
                                                 startBlocked={
                                                     singleStartBlocked
                                                 }
