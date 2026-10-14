@@ -1,4 +1,4 @@
-import { ExternalLink, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import { ExternalLink, Link2, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,11 @@ type TrainingListRowActionsProps = {
     certificateUrl?: string | null;
     onEdit?: () => void;
     onReplace?: () => void;
+    onLink?: () => void;
     onDelete?: () => void;
     showEdit?: boolean;
     showReplace?: boolean;
+    showLink?: boolean;
     showDelete?: boolean;
     className?: string;
 };
@@ -24,9 +26,11 @@ export function TrainingListRowActions({
     certificateUrl,
     onEdit,
     onReplace,
+    onLink,
     onDelete,
     showEdit = false,
     showReplace = false,
+    showLink = false,
     showDelete = false,
     className,
 }: TrainingListRowActionsProps): ReactElement {
@@ -59,6 +63,19 @@ export function TrainingListRowActions({
                     <a href={certificateUrl} target="_blank" rel="noreferrer">
                         <ExternalLink className="size-4" />
                     </a>
+                </Button>
+            ) : null}
+            {showLink && onLink ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={iconButtonClass}
+                    title="Link existing document"
+                    aria-label="Link existing document"
+                    onClick={onLink}
+                >
+                    <Link2 className="size-4" />
                 </Button>
             ) : null}
             {showReplace && onReplace ? (

@@ -146,6 +146,10 @@ class StoresEmployeeTrainingCertificate
 
     public function deleteForTraining(EmployeeTraining $training): void
     {
+        if ($training->employee_document_id !== null) {
+            return;
+        }
+
         $this->deletePaths(
             $this->resolveCertificatePaths($training),
             (int) $training->company_id,

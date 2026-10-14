@@ -6,14 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeTrainingsRequest;
 use App\Http\Requests\Organization\Employee\BulkStoreEmployeeTrainingRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeTrainingRequest;
+use App\Http\Requests\Organization\Employee\LinkEmployeeTrainingDocumentRequest;
 use App\Http\Requests\Organization\Employee\ReplaceEmployeeTrainingCertificateRequest;
 use App\Models\Country;
 use App\Models\Course;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
 use App\Support\EmployeeTrainings\TrainingAccess;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentPermissions;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +27,10 @@ use Illuminate\Validation\ValidationException;
 
 class EmployeeTrainingController extends Controller
 {
-    public function __construct(private StoresEmployeeTrainingCertificate $certificateStore) {}
+    public function __construct(
+        private StoresEmployeeTrainingCertificate $certificateStore,
+        private TrainingCertificateDocumentIntegration $certificateDocuments,
+    ) {}
 
     /** @var array<string, string> */
     private const TRAINING_REQUEST_FIELD_ALIASES = [
@@ -78,13 +85,13 @@ class EmployeeTrainingController extends Controller
         ]);
 
         if ($request->hasFile('certificate')) {
-            $training->update(
-                $this->certificateStore->store(
-                    $request->file('certificate'),
-                    $companyId,
-                    $employee->id,
-                    trainingId: $training->id,
-                ),
+            TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
+            $this->certificateDocuments->attachUploadedCertificate(
+                $training,
+                $employee,
+                $request->file('certificate'),
+                $companyId,
+                $request->user()?->id,
             );
         }
 
@@ -133,13 +140,13 @@ class EmployeeTrainingController extends Controller
             $nextSort++;
 
             if ($hasCertificate) {
-                $training->update(
-                    $this->certificateStore->store(
-                        $request->file("trainings.{$index}.certificate"),
-                        $companyId,
-                        $employee->id,
-                        $index,
-                    ),
+                TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
+                $this->certificateDocuments->attachUploadedCertificate(
+                    $training,
+                    $employee,
+                    $request->file("trainings.{$index}.certificate"),
+                    $companyId,
+                    $request->user()?->id,
                 );
             }
         }
@@ -181,6 +188,7 @@ class EmployeeTrainingController extends Controller
         );
 
         $training->update($attributes);
+        $this->certificateDocuments->syncTrainingDatesToLinkedDocument($training->refresh());
 
         return back()->with('success', 'Training record updated.');
     }
@@ -194,16 +202,54 @@ class EmployeeTrainingController extends Controller
 
         TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
-        $this->certificateStore->replace(
-            $training,
-            $request->file('file'),
-            $companyId,
-            $employee->id,
-            $request->user()?->id,
-            $request->validated(),
-        );
+        if ($training->usesIntegratedCertificateDocument()) {
+            $this->certificateDocuments->replaceLinkedCertificate(
+                $training,
+                $employee,
+                $request->file('file'),
+                $companyId,
+                $request->user()?->id,
+                $request->validated(),
+            );
+        } else {
+            $this->certificateStore->replace(
+                $training,
+                $request->file('file'),
+                $companyId,
+                $employee->id,
+                $request->user()?->id,
+                $request->validated(),
+            );
+        }
 
         return back()->with('success', 'Training certificate replaced.');
+    }
+
+    public function linkDocument(
+        LinkEmployeeTrainingDocumentRequest $request,
+        Employee $employee,
+        EmployeeTraining $training,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
+
+        $document = EmployeeDocument::query()
+            ->whereKey($request->validated('employee_document_id'))
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->firstOrFail();
+
+        $this->certificateDocuments->linkExistingDocument(
+            $training,
+            $employee,
+            $document,
+            $companyId,
+            $request->user(),
+            (bool) $request->boolean('confirm_replace_link'),
+        );
+
+        return back()->with('success', 'Training certificate linked to employee document.');
     }
 
     public function destroy(Request $request, Employee $employee, EmployeeTraining $training): RedirectResponse
@@ -212,6 +258,7 @@ class EmployeeTrainingController extends Controller
 
         TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
+        $this->certificateDocuments->unlinkDocument($training);
         $this->certificateStore->deleteForTraining($training);
         $training->delete();
 
@@ -237,6 +284,7 @@ class EmployeeTrainingController extends Controller
         }
 
         foreach ($trainings as $training) {
+            $this->certificateDocuments->unlinkDocument($training);
             $this->certificateStore->deleteForTraining($training);
             $training->delete();
         }

@@ -49,6 +49,21 @@ final class EmployeePrivateFile
         return null;
     }
 
+    public static function resolveCompanyOwnedFile(
+        ?string $relativePath,
+        int $companyId,
+    ): ?ResolvedEmployeeFile {
+        foreach (EmployeePrivateFileKind::cases() as $kind) {
+            $resolved = self::resolve($relativePath, $companyId, $kind);
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
     public static function deleteStored(
         ?string $relativePath,
         int $companyId,
@@ -68,6 +83,38 @@ final class EmployeePrivateFile
             return false;
         }
 
+        return self::deleteStoredPath($path, $companyId, $kind);
+    }
+
+    public static function deleteCompanyOwnedFile(
+        ?string $relativePath,
+        int $companyId,
+    ): bool {
+        $path = self::normalizedRelativePath($relativePath);
+
+        if ($path === null) {
+            return false;
+        }
+
+        foreach (EmployeePrivateFileKind::cases() as $kind) {
+            if (self::validatedRelativePath($path, $companyId, $kind) !== null) {
+                return self::deleteStoredPath($path, $companyId, $kind);
+            }
+        }
+
+        Log::warning('Employee private file delete rejected: invalid or cross-tenant path.', [
+            'company_id' => $companyId,
+            'path' => $relativePath,
+        ]);
+
+        return false;
+    }
+
+    private static function deleteStoredPath(
+        string $path,
+        int $companyId,
+        EmployeePrivateFileKind $kind,
+    ): bool {
         $allDeleted = true;
 
         foreach ([self::DISK, self::LEGACY_DISK] as $disk) {

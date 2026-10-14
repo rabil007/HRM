@@ -54,6 +54,7 @@ export type EmployeeTrainingTabProps = {
     canUpdate: boolean;
     canDelete: boolean;
     canImport: boolean;
+    canManageCertificateDocuments?: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
     standalone?: boolean;
     showBackFrom?: TrainingShowBackContext['from'];
@@ -88,6 +89,7 @@ export function EmployeeTrainingTab({
     canUpdate,
     canDelete,
     canImport,
+    canManageCertificateDocuments = false,
     templateFields = null,
     standalone = false,
     showBackFrom = 'profile',
@@ -109,6 +111,7 @@ export function EmployeeTrainingTab({
     const [replaceTraining, setReplaceTraining] = useState<TrainingItem | null>(
         null,
     );
+    const [linkTraining, setLinkTraining] = useState<TrainingItem | null>(null);
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
         null,
     );
@@ -385,6 +388,11 @@ export function EmployeeTrainingTab({
                                             certificateUrl={row.certificate_url}
                                             showEdit={canUpdate}
                                             onEdit={() => openEditDialog(row)}
+                                            showLink={
+                                                canManageCertificateDocuments &&
+                                                canUpdate
+                                            }
+                                            onLink={() => setLinkTraining(row)}
                                             showReplace={
                                                 canUpdate &&
                                                 !!row.certificate_url
@@ -425,6 +433,11 @@ export function EmployeeTrainingTab({
                     onEditTrainingChange={setEditTraining}
                     replaceTraining={replaceTraining}
                     onReplaceTrainingChange={setReplaceTraining}
+                    linkTraining={linkTraining}
+                    onLinkTrainingChange={setLinkTraining}
+                    canManageCertificateDocuments={
+                        canManageCertificateDocuments
+                    }
                     deleteTrainingId={deleteTrainingId}
                     onDeleteTrainingIdChange={setDeleteTrainingId}
                     templateFields={templateFields}

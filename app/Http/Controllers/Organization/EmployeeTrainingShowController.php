@@ -31,6 +31,9 @@ class EmployeeTrainingShowController extends Controller
             'course:id,name',
             'country:id,name',
             'versions.replacer:id,name',
+            'employeeDocument.uploader:id,name',
+            'employeeDocument.versions.uploader:id,name',
+            'employeeDocument.versions.replacer:id,name',
             'sourceCrewAssignmentPhase.assignment:id,assignment_no',
         ]);
 

@@ -1,0 +1,381 @@
+<?php
+
+namespace App\Support\EmployeeTrainings;
+
+use App\Models\Employee;
+use App\Models\EmployeeDocument;
+use App\Models\EmployeeDocumentVersion;
+use App\Models\EmployeeTraining;
+use App\Models\EmployeeTrainingVersion;
+use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentExpiry;
+use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class TrainingCertificateDocumentIntegration
+{
+    public function __construct(
+        private StoresEmployeeDocument $documentStore,
+        private TrainingCertificateDocumentTypeResolver $documentTypeResolver,
+    ) {}
+
+    public function attachUploadedCertificate(
+        EmployeeTraining $training,
+        Employee $employee,
+        UploadedFile $file,
+        int $companyId,
+        ?int $userId,
+    ): EmployeeDocument {
+        TrainingCertificateDocumentPermissions::assertCanUploadOrLink(auth()->user());
+
+        $training->loadMissing('course:id,name');
+
+        return DB::transaction(function () use ($training, $employee, $file, $companyId, $userId) {
+            $documentType = $this->documentTypeResolver->resolve();
+
+            $document = $this->documentStore->create(
+                $employee,
+                $documentType,
+                $file,
+                $this->documentMetadataFromTraining($training),
+                $companyId,
+                $userId,
+            );
+
+            $this->assignDocumentToTraining($training, $document);
+
+            return $document;
+        });
+    }
+
+    public function linkExistingDocument(
+        EmployeeTraining $training,
+        Employee $employee,
+        EmployeeDocument $document,
+        int $companyId,
+        ?User $user,
+        bool $confirmReplaceLink = false,
+    ): void {
+        TrainingCertificateDocumentPermissions::assertCanUploadOrLink($user);
+
+        $this->assertDocumentLinkable($training, $employee, $document, $companyId, $confirmReplaceLink);
+
+        DB::transaction(function () use ($training, $document): void {
+            $this->assignDocumentToTraining($training, $document);
+            $this->syncTrainingDatesFromDocument($training, $document);
+        });
+    }
+
+    /**
+     * @param  array<string, mixed>  $trainingMetadata
+     */
+    public function replaceLinkedCertificate(
+        EmployeeTraining $training,
+        Employee $employee,
+        UploadedFile $file,
+        int $companyId,
+        ?int $userId,
+        array $trainingMetadata = [],
+    ): EmployeeTraining {
+        TrainingCertificateDocumentPermissions::assertCanReplace(auth()->user());
+
+        $document = $this->resolveLinkedDocument($training);
+
+        if ($document === null) {
+            throw ValidationException::withMessages([
+                'file' => 'This training record does not have a linked employee document.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($training, $employee, $document, $file, $companyId, $userId, $trainingMetadata) {
+            $documentData = [];
+
+            if (array_key_exists('issue_date', $trainingMetadata)) {
+                $documentData['issue_date'] = $trainingMetadata['issue_date'] ?? null;
+            }
+
+            if (array_key_exists('expiry_date', $trainingMetadata)) {
+                $documentData['expiry_date'] = $trainingMetadata['expiry_date'] ?? null;
+            }
+
+            $this->documentStore->replace(
+                $document,
+                $file,
+                $companyId,
+                $employee->id,
+                $userId,
+                $documentData,
+            );
+
+            $document->refresh();
+            $this->mirrorCertificateFieldsOntoTraining($training, $document);
+            $this->applyTrainingMetadata($training, $trainingMetadata);
+
+            return $training->refresh();
+        });
+    }
+
+    public function syncTrainingDatesToLinkedDocument(EmployeeTraining $training): void
+    {
+        $document = $this->resolveLinkedDocument($training);
+
+        if ($document === null) {
+            return;
+        }
+
+        $document->update([
+            'issue_date' => $training->issue_date?->toDateString(),
+            'expiry_date' => $training->expiry_date?->toDateString(),
+            'status' => DocumentExpiry::persistedStatus($training->expiry_date?->toDateString()),
+            'title' => $this->documentTitleForTraining($training),
+        ]);
+    }
+
+    public function syncLinkedTrainingsFromDocument(EmployeeDocument $document): void
+    {
+        EmployeeTraining::query()
+            ->where('employee_document_id', $document->id)
+            ->where('company_id', $document->company_id)
+            ->each(function (EmployeeTraining $training) use ($document): void {
+                $this->mirrorCertificateFieldsOntoTraining($training, $document);
+                $training->update([
+                    'issue_date' => $document->issue_date?->toDateString(),
+                    'expiry_date' => $document->expiry_date?->toDateString(),
+                ]);
+            });
+    }
+
+    public function unlinkDocument(EmployeeTraining $training): void
+    {
+        $training->update(['employee_document_id' => null]);
+    }
+
+    public function resolveLinkedDocument(EmployeeTraining $training): ?EmployeeDocument
+    {
+        if ($training->employee_document_id === null) {
+            return null;
+        }
+
+        return EmployeeDocument::query()
+            ->whereKey($training->employee_document_id)
+            ->where('company_id', $training->company_id)
+            ->where('employee_id', $training->employee_id)
+            ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function documentMetadataFromTraining(EmployeeTraining $training): array
+    {
+        return [
+            'title' => $this->documentTitleForTraining($training),
+            'issue_date' => $training->issue_date?->toDateString(),
+            'expiry_date' => $training->expiry_date?->toDateString(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function mirrorCertificateFieldsFromDocument(EmployeeDocument $document): array
+    {
+        return [
+            'certificate_path' => $document->file_path,
+            'certificate_original_filename' => $document->original_filename,
+            'certificate_mime_type' => $document->mime_type,
+            'certificate_size_bytes' => $document->size_bytes,
+            'certificate_checksum' => $document->checksum,
+            'current_version' => (int) $document->current_version,
+            'replaced_at' => $document->replaced_at,
+        ];
+    }
+
+    public function migrateLegacyTrainingCertificate(EmployeeTraining $training, bool $dryRun = false): string
+    {
+        if ($training->employee_document_id !== null) {
+            return 'already_linked';
+        }
+
+        if ($training->certificate_path === null || $training->certificate_path === '') {
+            return 'skipped_no_file';
+        }
+
+        if (EmployeeTraining::query()
+            ->where('employee_document_id', '>', 0)
+            ->where('certificate_path', $training->certificate_path)
+            ->where('company_id', $training->company_id)
+            ->exists()) {
+            return 'skipped_duplicate_path';
+        }
+
+        if ($dryRun) {
+            return 'would_link';
+        }
+
+        return DB::transaction(function () use ($training): string {
+            $training->loadMissing(['course:id,name', 'versions']);
+
+            $documentType = $this->documentTypeResolver->resolve();
+
+            $document = EmployeeDocument::query()->create([
+                'company_id' => $training->company_id,
+                'employee_id' => $training->employee_id,
+                'document_type_id' => $documentType->id,
+                'type' => 'other',
+                'document_type' => (string) $documentType->id,
+                'title' => $this->documentTitleForTraining($training),
+                'file_path' => $training->certificate_path,
+                'original_filename' => $training->certificate_original_filename,
+                'mime_type' => $training->certificate_mime_type,
+                'size_bytes' => $training->certificate_size_bytes,
+                'checksum' => $training->certificate_checksum ?? '',
+                'current_version' => (int) ($training->current_version ?? 1),
+                'issue_date' => $training->issue_date?->toDateString(),
+                'expiry_date' => $training->expiry_date?->toDateString(),
+                'status' => DocumentExpiry::persistedStatus($training->expiry_date?->toDateString()),
+                'uploaded_by' => null,
+                'replaced_at' => $training->replaced_at,
+            ]);
+
+            $archivedVersions = $training->versions
+                ->sortBy('version')
+                ->values();
+
+            foreach ($archivedVersions as $version) {
+                if (! $version instanceof EmployeeTrainingVersion) {
+                    continue;
+                }
+
+                EmployeeDocumentVersion::query()->firstOrCreate(
+                    [
+                        'employee_document_id' => $document->id,
+                        'version' => (int) $version->version,
+                    ],
+                    [
+                        'company_id' => $training->company_id,
+                        'employee_id' => $training->employee_id,
+                        'file_path' => $version->file_path,
+                        'original_filename' => $version->original_filename,
+                        'mime_type' => $version->mime_type,
+                        'size_bytes' => $version->size_bytes,
+                        'checksum' => $version->checksum,
+                        'uploaded_by' => null,
+                        'uploaded_at' => $version->created_at,
+                        'replaced_by' => $version->replaced_by,
+                    ],
+                );
+            }
+
+            $training->update(['employee_document_id' => $document->id]);
+
+            return 'linked';
+        });
+    }
+
+    private function assignDocumentToTraining(EmployeeTraining $training, EmployeeDocument $document): void
+    {
+        abort_unless(
+            (int) $document->company_id === (int) $training->company_id
+            && (int) $document->employee_id === (int) $training->employee_id,
+            422,
+            'Document does not belong to this employee.',
+        );
+
+        $training->update([
+            'employee_document_id' => $document->id,
+            ...$this->mirrorCertificateFieldsFromDocument($document),
+        ]);
+    }
+
+    private function assertDocumentLinkable(
+        EmployeeTraining $training,
+        Employee $employee,
+        EmployeeDocument $document,
+        int $companyId,
+        bool $confirmReplaceLink,
+    ): void {
+        abort_unless(
+            (int) $document->company_id === $companyId
+            && (int) $document->employee_id === (int) $employee->id,
+            403,
+        );
+
+        $document->loadMissing('documentType:id,title');
+
+        $trainingCertificateType = $this->documentTypeResolver->resolve();
+
+        abort_unless(
+            (int) $document->document_type_id === (int) $trainingCertificateType->id,
+            422,
+            'Only documents with type Training Certificate can be linked to training records.',
+        );
+
+        $existingLink = EmployeeTraining::query()
+            ->where('company_id', $companyId)
+            ->where('employee_document_id', $document->id)
+            ->where('id', '!=', $training->id)
+            ->first();
+
+        if ($existingLink !== null) {
+            throw ValidationException::withMessages([
+                'employee_document_id' => 'This document is already linked to another training record.',
+            ]);
+        }
+
+        if (
+            $training->employee_document_id !== null
+            && (int) $training->employee_document_id !== (int) $document->id
+            && ! $confirmReplaceLink
+        ) {
+            throw ValidationException::withMessages([
+                'confirm_replace_link' => 'Confirm replacing the current linked document before associating a different one.',
+            ]);
+        }
+    }
+
+    private function syncTrainingDatesFromDocument(EmployeeTraining $training, EmployeeDocument $document): void
+    {
+        $training->update([
+            'issue_date' => $document->issue_date?->toDateString(),
+            'expiry_date' => $document->expiry_date?->toDateString(),
+            ...$this->mirrorCertificateFieldsFromDocument($document),
+        ]);
+    }
+
+    private function mirrorCertificateFieldsOntoTraining(EmployeeTraining $training, EmployeeDocument $document): void
+    {
+        $training->update($this->mirrorCertificateFieldsFromDocument($document));
+    }
+
+    /**
+     * @param  array<string, mixed>  $trainingMetadata
+     */
+    private function applyTrainingMetadata(EmployeeTraining $training, array $trainingMetadata): void
+    {
+        $attributes = [];
+
+        foreach (['issue_date', 'expiry_date', 'institute_center', 'country_id'] as $key) {
+            if (array_key_exists($key, $trainingMetadata)) {
+                $attributes[$key] = $trainingMetadata[$key] ?? null;
+            }
+        }
+
+        if ($attributes !== []) {
+            $training->update($attributes);
+            $this->syncTrainingDatesToLinkedDocument($training->refresh());
+        }
+    }
+
+    private function documentTitleForTraining(EmployeeTraining $training): string
+    {
+        $training->loadMissing('course:id,name');
+
+        $courseName = trim((string) ($training->course?->name ?? ''));
+
+        return $courseName !== '' ? $courseName : 'Training Certificate';
+    }
+}

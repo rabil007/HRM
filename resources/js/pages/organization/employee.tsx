@@ -1530,6 +1530,10 @@ function EmployeeDetailsPage({
                                                         can?.training_import ??
                                                         false
                                                     }
+                                                    canManageCertificateDocuments={
+                                                        can?.training_manage_certificate_documents ??
+                                                        false
+                                                    }
                                                     ensureEmployee={
                                                         isCreateMode &&
                                                         !isConversionMode

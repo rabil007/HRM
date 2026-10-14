@@ -245,6 +245,9 @@ export type TrainingItem = {
     country_id: number | null;
     country_name: string | null;
     certificate_url: string | null;
+    employee_document_id?: number | null;
+    certificate_document_url?: string | null;
+    uses_integrated_certificate_document?: boolean;
     created_at: string;
 };
 
@@ -426,6 +429,8 @@ export type EmployeePageProps = {
         training_update: boolean;
         training_delete: boolean;
         training_import: boolean;
+        training_manage_certificate_documents: boolean;
+        training_view_documents: boolean;
         deployments_view: boolean;
     };
     branches: BranchOption[];

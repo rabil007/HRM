@@ -72,6 +72,7 @@ export function TrainingContent({
     const [replaceTraining, setReplaceTraining] = useState<TrainingItem | null>(
         null,
     );
+    const [linkTraining, setLinkTraining] = useState<TrainingItem | null>(null);
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
         null,
     );
@@ -155,6 +156,10 @@ export function TrainingContent({
 
     const handleReplace = (row: TrainingListItem) => {
         setReplaceTraining(bindManagementTraining(row));
+    };
+
+    const handleLink = (row: TrainingListItem) => {
+        setLinkTraining(bindManagementTraining(row));
     };
 
     const handleDelete = (row: TrainingListItem) => {
@@ -325,12 +330,16 @@ export function TrainingContent({
                                     )}
                                     canUpdate={can.update}
                                     canDelete={can.delete}
+                                    canManageCertificateDocuments={
+                                        can.manage_certificate_documents
+                                    }
                                     selected={selection.isSelected(row.id)}
                                     onToggleSelection={() =>
                                         selection.toggle(row.id)
                                     }
                                     onEdit={handleEdit}
                                     onReplace={handleReplace}
+                                    onLink={handleLink}
                                     onDelete={handleDelete}
                                 />
                             ))}
@@ -363,6 +372,11 @@ export function TrainingContent({
                     onEditTrainingChange={setEditTraining}
                     replaceTraining={replaceTraining}
                     onReplaceTrainingChange={setReplaceTraining}
+                    linkTraining={linkTraining}
+                    onLinkTrainingChange={setLinkTraining}
+                    canManageCertificateDocuments={
+                        can.manage_certificate_documents
+                    }
                     deleteTrainingId={deleteTrainingId}
                     onDeleteTrainingIdChange={setDeleteTrainingId}
                     partialReloadKeys={['trainings', 'summary', 'pagination']}

@@ -6,7 +6,6 @@ use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
-use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Symfony\Component\HttpFoundation\Response;
 
 class TrainingCertificateDownloadService
@@ -70,11 +69,7 @@ class TrainingCertificateDownloadService
             return redirect()->away($filePath);
         }
 
-        $resolved = EmployeePrivateFile::resolve(
-            $filePath,
-            $companyId,
-            EmployeePrivateFileKind::TrainingCertificate,
-        );
+        $resolved = EmployeePrivateFile::resolveCompanyOwnedFile($filePath, $companyId);
 
         abort_if($resolved === null, 404, 'File not found.');
 

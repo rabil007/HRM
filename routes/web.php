@@ -172,6 +172,7 @@ use App\Http\Controllers\Organization\EmployeeSalaryDeclarationPrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeSeaServicesBrowseController;
 use App\Http\Controllers\Organization\EmployeeSmartSearchController;
+use App\Http\Controllers\Organization\EmployeeTrainingCertificateDocumentSearchController;
 use App\Http\Controllers\Organization\EmployeeTrainingCertificateFileController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeTrainingsBrowseController;
@@ -1406,6 +1407,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/training', [EmployeeTrainingController::class, 'store'])->middleware('can:training.create')->name('organization.employees.training.store');
     Route::put('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'update'])->middleware('can:training.update')->name('organization.employees.training.update');
     Route::post('organization/employees/{employee}/training/{training}/replace', [EmployeeTrainingController::class, 'replace'])->middleware('can:training.update')->name('organization.employees.training.replace');
+    Route::post('organization/employees/{employee}/training/{training}/link-document', [EmployeeTrainingController::class, 'linkDocument'])->middleware('can:training.update')->name('organization.employees.training.link-document');
+    Route::get('organization/employees/{employee}/training/documents/search', EmployeeTrainingCertificateDocumentSearchController::class)->middleware('can:training.update')->name('organization.employees.training.documents.search');
     Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:training.delete')->name('organization.employees.training.bulk-destroy');
     Route::delete('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'destroy'])->middleware('can:training.delete')->name('organization.employees.training.destroy');
 

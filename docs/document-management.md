@@ -406,6 +406,27 @@ Path: `/organization/employees/{id}#documents`
 - Version history endpoint for replacements
 - Historical uploaded files remain even if the type is no longer required for this employee
 
+## Training certificate integration
+
+Training completion metadata stays on `employee_trainings`. The **employee document** is the authoritative owner of the certificate file, versions, preview/download, and expiry monitoring once integrated.
+
+| Concern | Owner |
+| --- | --- |
+| Course, institute, training dates, training status | Training (`employee_trainings`) |
+| File storage, versions, document metadata, expiry alerts | Documents (`employee_documents` + `employee_document_versions`) |
+| Link | `employee_trainings.employee_document_id` (nullable) |
+
+New certificate uploads from Training create (or link) a `Training Certificate` document type row titled with the **course name**. Replacing from Training or from Documents uses the **document version engine only** for integrated records; legacy training-only version rows remain readable until backfilled.
+
+Cross-domain certificate actions require **both** training permissions and `documents.upload` (see `TrainingCertificateDocumentPermissions`). Deleting a training record unlinks but **preserves** the document. Deleting a document linked to training is blocked until associations are removed.
+
+Legacy certificates without a link are backfilled idempotently (no automatic production run):
+
+```bash
+php artisan training:backfill-certificate-documents --dry-run
+php artisan training:backfill-certificate-documents --company=1
+```
+
 ## Employee profile templates and create employee
 
 Employee profile templates can require documents with optional metadata:
