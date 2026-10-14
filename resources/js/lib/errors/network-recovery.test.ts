@@ -3,7 +3,11 @@ import { registerHooks } from 'node:module';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
 const notifications: Array<{ type: string; message: string }> = [];
-(globalThis as typeof globalThis & { __omsNetworkTestNotifications: typeof notifications }).__omsNetworkTestNotifications = notifications;
+(
+    globalThis as typeof globalThis & {
+        __omsNetworkTestNotifications: typeof notifications;
+    }
+).__omsNetworkTestNotifications = notifications;
 
 registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -32,7 +36,10 @@ const {
     resetNetworkRecoveryStateForTests,
 } = await import('./network-recovery.ts');
 
-const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+const originalNavigator = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'navigator',
+);
 const originalNow = Date.now;
 let now = 10_000;
 let online = false;
@@ -47,12 +54,18 @@ before(() => {
 
 after(() => {
     Date.now = originalNow;
+
     if (originalNavigator) {
         Object.defineProperty(globalThis, 'navigator', originalNavigator);
     } else {
         delete (globalThis as { navigator?: Navigator }).navigator;
     }
-    delete (globalThis as typeof globalThis & { __omsNetworkTestNotifications?: typeof notifications }).__omsNetworkTestNotifications;
+
+    delete (
+        globalThis as typeof globalThis & {
+            __omsNetworkTestNotifications?: typeof notifications;
+        }
+    ).__omsNetworkTestNotifications;
 });
 
 beforeEach(() => {
@@ -65,7 +78,10 @@ beforeEach(() => {
 describe('network recovery toasts', () => {
     it('shows the first offline network failure immediately, without double debounce', () => {
         notifyNetworkFailure();
-        assert.deepEqual(notifications.map((event) => event.type), ['warning']);
+        assert.deepEqual(
+            notifications.map((event) => event.type),
+            ['warning'],
+        );
         assert.equal(getNetworkRecoveryStateForTests().offlineNotified, true);
 
         notifyNetworkFailure();
@@ -76,7 +92,10 @@ describe('network recovery toasts', () => {
     it('uses the server-unreachable message when the browser reports online', () => {
         online = true;
         notifyNetworkFailure();
-        assert.deepEqual(notifications.map((event) => event.type), ['error']);
+        assert.deepEqual(
+            notifications.map((event) => event.type),
+            ['error'],
+        );
         notifyNetworkFailure();
         assert.equal(notifications.length, 1);
     });
@@ -91,6 +110,9 @@ describe('network recovery toasts', () => {
         now += 5_000;
         online = true;
         notifyOnline();
-        assert.deepEqual(notifications.map((event) => event.type), ['warning', 'success']);
+        assert.deepEqual(
+            notifications.map((event) => event.type),
+            ['warning', 'success'],
+        );
     });
 });
