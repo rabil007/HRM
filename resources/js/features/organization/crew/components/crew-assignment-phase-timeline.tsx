@@ -28,6 +28,7 @@ import {
     shouldHideP0MobilisationActivationLines,
 } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { P0ExpectedArrivalContext } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import { buildPhaseMetadataRows } from '@/features/organization/crew/lib/phase-timeline-phase-metadata';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
 import type {
@@ -162,22 +163,6 @@ function AssignmentMilestones({
     );
 }
 
-function phaseDetailEntries(
-    phase: PhaseTimelineItem,
-): Array<[string, unknown]> {
-    if (!phase.details) {
-        return [];
-    }
-
-    return Object.entries(phase.details).filter(([key]) => {
-        if (phase.phase_code === 'p2b' && key === 'course') {
-            return false;
-        }
-
-        return true;
-    });
-}
-
 function phaseStatusLine(
     phase: PhaseTimelineItem,
     index: number,
@@ -196,10 +181,6 @@ function phaseStatusLine(
 
     if (index === 0) {
         parts.push('Sequence start');
-    }
-
-    if (phase.phase_code === 'p2b' && phase.details?.course) {
-        parts.push(String(phase.details.course));
     }
 
     return parts.join(' · ');
@@ -244,11 +225,7 @@ function PhaseDateLines({
     });
 
     if (hideP0Activation && mode === 'actual_only') {
-        return (
-            <p className="text-xs text-muted-foreground">
-                Waiting for crew arrival
-            </p>
-        );
+        return <></>;
     }
 
     return (
@@ -361,7 +338,7 @@ function PhaseTimelineRow({
         formatDate: formatDisplayDate,
         p0ExpectedArrivalContext,
     });
-    const detailEntries = phaseDetailEntries(phase);
+    const metadataRows = buildPhaseMetadataRows(phase);
     const showVarianceHeadline =
         lines.showVariance &&
         !(
@@ -502,18 +479,14 @@ function PhaseTimelineRow({
                         Remarks: {phase.remarks}
                     </p>
                 ) : null}
-                {detailEntries.length > 0 ? (
+                {metadataRows.length > 0 ? (
                     <dl className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-                        {detailEntries.map(([key, value]) => (
-                            <div key={key}>
+                        {metadataRows.map((row) => (
+                            <div key={row.key}>
                                 <dt className="font-medium text-foreground/80">
-                                    {key.replaceAll('_', ' ')}
+                                    {row.label}
                                 </dt>
-                                <dd>
-                                    {value === null || value === undefined
-                                        ? '—'
-                                        : String(value)}
-                                </dd>
+                                <dd>{row.value}</dd>
                             </div>
                         ))}
                     </dl>
@@ -529,15 +502,17 @@ export function CrewAssignmentPhaseTimeline({
     correctablePhaseIds,
     onCorrect,
     onCancelPending,
+    initialDisplayMode = 'plan_vs_actual',
 }: {
     assignment: CrewAssignmentDetail;
     can: CrewAssignmentPagePermissions;
     correctablePhaseIds: Set<number>;
     onCorrect: (phaseId: number) => void;
     onCancelPending: (correctionId: number) => void;
+    initialDisplayMode?: PhaseTimelineDisplayMode;
 }): ReactElement {
     const [mode, setMode] =
-        useState<PhaseTimelineDisplayMode>('plan_vs_actual');
+        useState<PhaseTimelineDisplayMode>(initialDisplayMode);
     const timeZone = assignment.company_timezone;
     const today = useCompanyLocalDate(timeZone);
 
