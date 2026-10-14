@@ -1,6 +1,3 @@
-import type { CrewMobilisationReadiness } from '@/features/organization/crew/types';
-import type { PaginationMeta } from '@/types/pagination';
-
 export type GanttPositionRow = {
     row_key: string;
     position_id: number;
