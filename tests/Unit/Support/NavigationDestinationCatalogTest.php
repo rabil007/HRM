@@ -89,7 +89,7 @@ test('planning view cannot unlock crew operations settings destination', functio
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeFalse()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeTrue()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.relief-desk'))->toBeTrue()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-relief'))->toBeFalse()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.readiness'))->toBeTrue();
 });
 
@@ -101,7 +101,7 @@ test('assignments view unlocks crew readiness destination', function () {
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.readiness'))->toBeTrue()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.relief-desk'))->toBeFalse();
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-relief'))->toBeFalse();
 });
 
 test('settings view unlocks crew operations settings destination', function () {
@@ -112,7 +112,7 @@ test('settings view unlocks crew operations settings destination', function () {
 
     expect(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.settings'))->toBeTrue()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.planning'))->toBeFalse()
-        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.relief-desk'))->toBeFalse()
+        ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'reports.crew-relief'))->toBeFalse()
         ->and(NavigationDestinationCatalog::isAccessibleKey($user, 'crew.readiness'))->toBeFalse();
 });
 
@@ -162,7 +162,7 @@ test('leave and crew report destinations are grouped under Attendance and Crew O
         'Overview',
         'Crew Assignments',
         'Planning',
-        'Relief Desk',
+        'Crew Relief Report',
         'Crew Readiness',
         'Vessels',
         'Movement Corrections',

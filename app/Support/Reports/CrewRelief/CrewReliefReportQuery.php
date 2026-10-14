@@ -3,11 +3,17 @@
 namespace App\Support\Reports\CrewRelief;
 
 use App\Enums\CrewPhaseCode;
+use App\Enums\CrewReliefRisk;
+use App\Enums\CrewReliefStatus;
 use App\Models\Client;
 use App\Models\CrewAssignment;
 use App\Models\CrewPlanningAssignment;
 use App\Models\User;
+use App\Support\CrewMovements\CrewReliefFocusMatcher;
 use App\Support\CrewMovements\CrewReliefPlanningLoader;
+use App\Support\CrewMovements\CrewReliefReadinessResolver;
+use App\Support\CrewMovements\CrewReliefReadinessResult;
+use App\Support\CrewMovements\CrewReliefVisibility;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewPositionCatalog;
@@ -43,6 +49,7 @@ final class CrewReliefReportQuery
         private readonly CrewReliefAttentionResolver $attentionResolver = new CrewReliefAttentionResolver,
         private readonly CrewReliefPlanningLoader $loader = new CrewReliefPlanningLoader,
         private readonly CrewReliefReportPresenter $presenter = new CrewReliefReportPresenter,
+        private readonly CrewReliefReadinessResolver $readinessResolver = new CrewReliefReadinessResolver,
         ?CarbonInterface $asOf = null,
     ) {
         $this->timezone = CompanyTimezone::forCompanyId($this->companyId);
@@ -62,7 +69,8 @@ final class CrewReliefReportQuery
      *         signing_off_next_7_days: int,
      *         no_relief_assigned: int,
      *         relief_not_ready: int,
-     *         overdue_signoffs: int
+     *         overdue_signoffs: int,
+     *         missing_planned_signoff: int
      *     },
      *     filters: array<string, mixed>,
      *     filter_options: array<string, mixed>
@@ -129,39 +137,8 @@ final class CrewReliefReportQuery
                 return null;
             }
 
-            $plan = $this->cachedPlans->get($item['id']);
-            $reliefEmployee = null;
-            if ($plan !== null && $plan->employee !== null) {
-                $reliefEmployee = [
-                    'id' => (int) $plan->employee->id,
-                    'name' => (string) $plan->employee->name,
-                    'employee_no' => $plan->employee->employee_no !== null ? (string) $plan->employee->employee_no : null,
-                ];
-            }
-
-            $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
-            $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
-            $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
-
-            $rowPayload = [
-                'assignment' => $assignment,
-                'actual_joined_date' => $actualJoinedDate,
-                'days_onboard' => $daysOnboard,
-                'planned_signoff_at' => $item['planned_signoff_at'],
-                'days_until_signoff' => $item['days_until_signoff'],
-                'days_to_signoff_label' => $this->statusResolver->daysToSignoffLabel($item['days_until_signoff']),
-                'has_relief' => $item['has_relief'],
-                'relief_employee' => $reliefEmployee,
-                'relief_status' => $item['relief_status_info']['display_label'],
-                'relief_phase_code' => $item['relief_status_info']['phase_code'],
-                'relief_planned_join' => $item['relief_planned_join'],
-                'readiness' => $item['readiness'],
-                'next_assignment' => $nextAssignment,
-                'attention' => $item['attention'],
-            ];
-
             return $this->presenter->present(
-                $rowPayload,
+                $this->hydratedRowPayload($assignment, $item),
                 $this->user,
                 $this->companyId,
                 $this->authorizedReliefEmployeeIds,
@@ -230,39 +207,8 @@ final class CrewReliefReportQuery
                 return null;
             }
 
-            $plan = $this->cachedPlans->get($item['id']);
-            $reliefEmployee = null;
-            if ($plan !== null && $plan->employee !== null) {
-                $reliefEmployee = [
-                    'id' => (int) $plan->employee->id,
-                    'name' => (string) $plan->employee->name,
-                    'employee_no' => $plan->employee->employee_no !== null ? (string) $plan->employee->employee_no : null,
-                ];
-            }
-
-            $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
-            $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
-            $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
-
-            $rowPayload = [
-                'assignment' => $assignment,
-                'actual_joined_date' => $actualJoinedDate,
-                'days_onboard' => $daysOnboard,
-                'planned_signoff_at' => $item['planned_signoff_at'],
-                'days_until_signoff' => $item['days_until_signoff'],
-                'days_to_signoff_label' => $this->statusResolver->daysToSignoffLabel($item['days_until_signoff']),
-                'has_relief' => $item['has_relief'],
-                'relief_employee' => $reliefEmployee,
-                'relief_status' => $item['relief_status_info']['display_label'],
-                'relief_phase_code' => $item['relief_status_info']['phase_code'],
-                'relief_planned_join' => $item['relief_planned_join'],
-                'readiness' => $item['readiness'],
-                'next_assignment' => $nextAssignment,
-                'attention' => $item['attention'],
-            ];
-
             return $this->presenter->present(
-                $rowPayload,
+                $this->hydratedRowPayload($assignment, $item),
                 $this->user,
                 $this->companyId,
                 $this->authorizedReliefEmployeeIds,
@@ -281,9 +227,6 @@ final class CrewReliefReportQuery
 
         // 1. Authoritative active On Vessel constraint with company and visibility scoping
         CurrentOnboardCrewQuery::applyConstraint($query, $this->companyId, $this->user);
-
-        // Must have planned sign-off
-        $query->whereNotNull('planned_signoff_at');
 
         // 2. SQL filters
         $this->applySqlFilters($query);
@@ -317,41 +260,52 @@ final class CrewReliefReportQuery
         );
 
         // 6. Pre-filter authorized relief employees for candidate privacy scoping
-        $reliefEmpIds = $this->cachedPlans
-            ->pluck('employee_id')
-            ->filter(fn (?int $id): bool => $id !== null && $id > 0)
-            ->unique()
-            ->values()
-            ->all();
+        $readinessBySourceId = $rawCandidates->mapWithKeys(function (CrewAssignment $assignment): array {
+            $sourceId = (int) $assignment->id;
+            $plan = $this->tenantSafePlan($this->cachedPlans->get($sourceId));
 
-        $this->authorizedReliefEmployeeIds = EmployeeVisibilityScope::filterAuthorizedEmployeeIds(
+            return [
+                $sourceId => $this->readinessResolver->forPreloadedPlan(
+                    $assignment,
+                    $plan,
+                    $this->today,
+                    $this->timezone,
+                ),
+            ];
+        });
+
+        $this->authorizedReliefEmployeeIds = CrewReliefVisibility::authorizedReliefEmployeeIdsFromResults(
+            $readinessBySourceId->values(),
             $this->user,
             $this->companyId,
-            $reliefEmpIds,
-        );
+        ) ?? [];
 
         // 7. Map lightweight domain properties with privacy normalization
-        return $rawCandidates->map(function (CrewAssignment $assignment) use ($conflicts): array {
+        return $rawCandidates->map(function (CrewAssignment $assignment) use ($conflicts, $readinessBySourceId): array {
             $sourceId = (int) $assignment->id;
-            $plan = $this->cachedPlans->get($sourceId);
-            $hasRelief = $plan !== null;
+            $plan = $this->tenantSafePlan($this->cachedPlans->get($sourceId));
+            $relief = $readinessBySourceId->get($sourceId);
 
-            $reliefEmployeeId = ($plan !== null && $plan->employee_id !== null)
-                ? (int) $plan->employee_id
-                : null;
-
-            $isReliefRestricted = false;
-            if ($reliefEmployeeId !== null) {
-                $isReliefRestricted = ! in_array($reliefEmployeeId, $this->authorizedReliefEmployeeIds, true);
+            if (! $relief instanceof CrewReliefReadinessResult) {
+                $relief = $this->readinessResolver->forPreloadedPlan(
+                    $assignment,
+                    $plan,
+                    $this->today,
+                    $this->timezone,
+                );
             }
 
-            $signoffDate = $assignment->planned_signoff_at !== null
-                ? $assignment->planned_signoff_at->copy()->timezone($this->timezone)->toDateString()
-                : null;
+            $sanitizedRelief = $relief->sanitizeForViewer(
+                $this->user,
+                $this->companyId,
+                $this->authorizedReliefEmployeeIds,
+            );
 
-            $daysUntil = $signoffDate !== null
-                ? $this->statusResolver->daysUntilSignoff($signoffDate, $this->timezone, $this->today)
-                : null;
+            $hasRelief = $sanitizedRelief->status !== CrewReliefStatus::NoRelief;
+            $signoffDate = $sanitizedRelief->sourcePlannedSignoffDate;
+            $daysUntil = $sanitizedRelief->daysUntilSignoff;
+            $missingPlannedSignoff = $signoffDate === null;
+            $isReliefRestricted = $relief->reliefEmployee !== null && $sanitizedRelief->reliefEmployee === null;
 
             if ($isReliefRestricted) {
                 $reliefStatusInfo = [
@@ -385,9 +339,8 @@ final class CrewReliefReportQuery
                 }
             } else {
                 $reliefStatusInfo = $this->statusResolver->resolveReliefStatusInfo($plan, $this->timezone);
-                $reliefPlannedJoin = $reliefStatusInfo['planned_join_date'];
+                $reliefPlannedJoin = $sanitizedRelief->reliefPlannedJoinDate ?? $reliefStatusInfo['planned_join_date'];
 
-                // Relief timing problem: relief joins after outgoing crew's planned signoff
                 $joinsLate = false;
                 $daysLate = 0;
                 if ($reliefPlannedJoin !== null && $signoffDate !== null && $reliefPlannedJoin > $signoffDate) {
@@ -398,13 +351,15 @@ final class CrewReliefReportQuery
                     );
                 }
 
-                // Relief conflict using typed non-colliding key
                 $planKey = CrewReliefPlanKey::for($plan);
                 $reliefConflict = $planKey !== null ? ($conflicts[$planKey] ?? null) : null;
 
-                $reliefPhaseCode = $reliefStatusInfo['phase_code'] !== null
-                    ? CrewPhaseCode::tryFrom($reliefStatusInfo['phase_code'])
-                    : null;
+                $reliefPhaseCode = $sanitizedRelief->reliefPhase['code'] ?? null;
+                $reliefPhaseCode = $reliefPhaseCode !== null
+                    ? CrewPhaseCode::tryFrom($reliefPhaseCode)
+                    : ($reliefStatusInfo['phase_code'] !== null
+                        ? CrewPhaseCode::tryFrom($reliefStatusInfo['phase_code'])
+                        : null);
 
                 $readiness = $this->statusResolver->resolveReadiness(
                     $hasRelief,
@@ -421,6 +376,7 @@ final class CrewReliefReportQuery
                     'days_late' => $daysLate,
                     'relief_phase_code' => $reliefPhaseCode,
                     'readiness' => $readiness['code'],
+                    'missing_planned_signoff' => $missingPlannedSignoff,
                 ]);
             }
 
@@ -428,6 +384,7 @@ final class CrewReliefReportQuery
                 'id' => $sourceId,
                 'planned_signoff_at' => $signoffDate,
                 'days_until_signoff' => $daysUntil,
+                'missing_planned_signoff' => $missingPlannedSignoff,
                 'has_relief' => $hasRelief,
                 'relief_status_info' => $reliefStatusInfo,
                 'relief_planned_join' => $reliefPlannedJoin,
@@ -435,7 +392,8 @@ final class CrewReliefReportQuery
                 'relief_phase_code' => $reliefPhaseCode,
                 'readiness' => $readiness,
                 'attention' => $attention,
-                'relief_employee_id' => $reliefEmployeeId,
+                'relief_result' => $sanitizedRelief,
+                'relief_result_raw' => $relief,
                 'is_relief_restricted' => $isReliefRestricted,
             ];
         })->values();
@@ -527,16 +485,31 @@ final class CrewReliefReportQuery
             if ($to !== null) {
                 $query->where('planned_signoff_at', '<=', $to);
             }
-        } else {
-            // Apply preset or default horizon (30 days + overdue)
-            match ($this->filters->preset) {
-                CrewReliefReportFilters::PRESET_NEXT_7_DAYS => $query->where('planned_signoff_at', '<=', $this->today->addDays(7)->endOfDay()),
-                CrewReliefReportFilters::PRESET_NEXT_14_DAYS => $query->where('planned_signoff_at', '<=', $this->today->addDays(14)->endOfDay()),
-                CrewReliefReportFilters::PRESET_OVERDUE => $query->where('planned_signoff_at', '<', $this->today->startOfDay()),
-                CrewReliefReportFilters::PRESET_ALL => null,
-                default => $query->where('planned_signoff_at', '<=', $this->today->addDays(30)->endOfDay()),
-            };
+
+            return;
         }
+
+        if ($this->filters->preset === CrewReliefReportFilters::PRESET_ALL) {
+            return;
+        }
+
+        if ($this->filters->preset === CrewReliefReportFilters::PRESET_OVERDUE) {
+            $query->where('planned_signoff_at', '<', $this->today->startOfDay());
+
+            return;
+        }
+
+        $horizonDays = match ($this->filters->preset) {
+            CrewReliefReportFilters::PRESET_NEXT_7_DAYS => 7,
+            CrewReliefReportFilters::PRESET_NEXT_14_DAYS => 14,
+            default => 30,
+        };
+
+        $horizonEnd = $this->today->addDays($horizonDays)->endOfDay();
+        $query->where(function (Builder $q) use ($horizonEnd): void {
+            $q->whereNull('planned_signoff_at')
+                ->orWhere('planned_signoff_at', '<=', $horizonEnd);
+        });
     }
 
     /**
@@ -555,12 +528,14 @@ final class CrewReliefReportQuery
             'no_relief_assigned' => 0,
             'relief_not_ready' => 0,
             'overdue_signoffs' => 0,
+            'missing_planned_signoff' => 0,
         ];
 
         foreach ($candidates as $row) {
             $days = $row['days_until_signoff'];
             $hasRelief = $row['has_relief'];
             $readinessCode = $row['readiness']['code'];
+            $reliefResult = $row['relief_result'] ?? null;
 
             if ($days !== null && $days >= 0 && $days <= 7) {
                 $summary['signing_off_next_7_days']++;
@@ -577,6 +552,11 @@ final class CrewReliefReportQuery
             if ($days !== null && $days < 0) {
                 $summary['overdue_signoffs']++;
             }
+
+            if ($row['missing_planned_signoff'] ?? false) {
+                $summary['missing_planned_signoff']++;
+            }
+
         }
 
         return $summary;
@@ -588,15 +568,38 @@ final class CrewReliefReportQuery
      */
     private function applyInMemoryFilters(Collection $candidates): Collection
     {
-        return $candidates->filter(function (array $row): bool {
-            // Readiness filter
+        $reliefStatus = CrewReliefStatus::tryFrom($this->filters->reliefStatus);
+        $reliefRisk = CrewReliefRisk::tryFrom($this->filters->reliefRisk);
+        $focus = $this->filters->focus;
+
+        return $candidates->filter(function (array $row) use ($reliefStatus, $reliefRisk, $focus): bool {
+            $reliefResult = $row['relief_result'] ?? null;
+
+            if ($reliefStatus !== null) {
+                if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->status !== $reliefStatus) {
+                    return false;
+                }
+            }
+
+            if ($reliefRisk !== null) {
+                if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->risk !== $reliefRisk) {
+                    return false;
+                }
+            }
+
+            if ($focus !== '') {
+                if (! $reliefResult instanceof CrewReliefReadinessResult
+                    || ! CrewReliefFocusMatcher::matches($reliefResult, $focus)) {
+                    return false;
+                }
+            }
+
             if ($this->filters->readiness !== '' && $this->filters->readiness !== 'all') {
                 if ($row['readiness']['code'] !== $this->filters->readiness) {
                     return false;
                 }
             }
 
-            // Attention filter
             if ($this->filters->attention !== '' && $this->filters->attention !== 'all') {
                 if ($row['attention']['level'] !== $this->filters->attention
                     && $row['attention']['reason'] !== $this->filters->attention) {
@@ -604,7 +607,6 @@ final class CrewReliefReportQuery
                 }
             }
 
-            // Preset in-memory filters
             if ($this->filters->preset === CrewReliefReportFilters::PRESET_NO_RELIEF) {
                 if ($row['has_relief']) {
                     return false;
@@ -615,6 +617,10 @@ final class CrewReliefReportQuery
                 }
             } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_OVERDUE) {
                 if ($row['days_until_signoff'] === null || $row['days_until_signoff'] >= 0) {
+                    return false;
+                }
+            } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_MISSING_PLANNED_SIGNOFF) {
+                if (! ($row['missing_planned_signoff'] ?? false)) {
                     return false;
                 }
             }
@@ -630,9 +636,8 @@ final class CrewReliefReportQuery
     private function sortCandidateSummaries(Collection $candidates): Collection
     {
         return $candidates->sort(function (array $left, array $right): int {
-            // 1. Urgency rank
-            $leftRank = (int) $left['attention']['urgency_rank'];
-            $rightRank = (int) $right['attention']['urgency_rank'];
+            $leftRank = $this->operationalUrgencyRank($left);
+            $rightRank = $this->operationalUrgencyRank($right);
 
             if ($leftRank !== $rightRank) {
                 return $leftRank <=> $rightRank;
@@ -699,7 +704,139 @@ final class CrewReliefReportQuery
                 ['value' => 'critical', 'label' => 'Critical / Red'],
                 ['value' => 'warning', 'label' => 'Warning / Amber'],
                 ['value' => 'healthy', 'label' => 'Healthy / Green'],
+                ['value' => CrewReliefAttentionResolver::REASON_MISSING_PLANNED_SIGNOFF, 'label' => 'Missing Planned Sign-Off'],
             ],
+            'relief_statuses' => collect(CrewReliefStatus::filterable())
+                ->map(fn (CrewReliefStatus $status): array => [
+                    'value' => $status->value,
+                    'label' => $status->label(),
+                ])
+                ->values()
+                ->all(),
+            'relief_risks' => collect(CrewReliefRisk::filterable())
+                ->map(fn (CrewReliefRisk $risk): array => [
+                    'value' => $risk->value,
+                    'label' => $risk->label(),
+                ])
+                ->values()
+                ->all(),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private function hydratedRowPayload(CrewAssignment $assignment, array $item): array
+    {
+        $reliefResult = $item['relief_result'] ?? null;
+        $reliefResultRaw = $item['relief_result_raw'] ?? $reliefResult;
+        $reliefEmployee = null;
+
+        if ($reliefResult instanceof CrewReliefReadinessResult && $reliefResult->reliefEmployee !== null) {
+            $reliefEmployee = $reliefResult->reliefEmployee;
+        }
+
+        $actualJoinedDate = $this->statusResolver->actualJoinedDate($assignment, $this->timezone);
+        $daysOnboard = $this->statusResolver->daysOnboard($assignment, $this->timezone, $this->today);
+        $nextAssignment = $this->statusResolver->resolveNextAssignment($assignment);
+
+        return [
+            'assignment' => $assignment,
+            'actual_joined_date' => $actualJoinedDate,
+            'days_onboard' => $daysOnboard,
+            'planned_signoff_at' => $item['planned_signoff_at'],
+            'days_until_signoff' => $item['days_until_signoff'],
+            'days_to_signoff_label' => $item['missing_planned_signoff'] ?? false
+                ? 'Missing Planned Sign-Off'
+                : $this->statusResolver->daysToSignoffLabel($item['days_until_signoff']),
+            'missing_planned_signoff' => $item['missing_planned_signoff'] ?? false,
+            'has_relief' => $item['has_relief'],
+            'relief_employee' => $reliefEmployee,
+            'relief_status' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->status->label()
+                : ($item['relief_status_info']['display_label'] ?? '—'),
+            'relief_status_code' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->status->value
+                : null,
+            'relief_risk' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->risk->value
+                : null,
+            'relief_risk_label' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->risk->label()
+                : null,
+            'relief_phase_code' => $item['relief_phase_code'] instanceof CrewPhaseCode
+                ? $item['relief_phase_code']->value
+                : ($item['relief_status_info']['phase_code'] ?? null),
+            'relief_phase_label' => $reliefResult instanceof CrewReliefReadinessResult
+                ? ($reliefResult->reliefPhase['label'] ?? null)
+                : ($item['relief_status_info']['phase_label'] ?? null),
+            'relief_planned_join' => $item['relief_planned_join'],
+            'relief_planning_assignment_id' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->reliefPlanningAssignmentId
+                : null,
+            'relief_crew_assignment_id' => $reliefResult instanceof CrewReliefReadinessResult
+                ? $reliefResult->reliefCrewAssignmentId
+                : null,
+            'readiness' => $item['readiness'],
+            'next_assignment' => $nextAssignment,
+            'attention' => $item['attention'],
+            'relief_result' => $reliefResultRaw instanceof CrewReliefReadinessResult
+                ? $reliefResultRaw
+                : $reliefResult,
+            'is_relief_restricted' => $item['is_relief_restricted'] ?? false,
+        ];
+    }
+
+    private function operationalUrgencyRank(array $row): int
+    {
+        $days = $row['days_until_signoff'];
+        $relief = $row['relief_result'] ?? null;
+
+        if ($days !== null && $days < 0) {
+            return 0;
+        }
+
+        if ($days === 0) {
+            return 1;
+        }
+
+        if ($relief instanceof CrewReliefReadinessResult && $relief->risk === CrewReliefRisk::Critical) {
+            return 2;
+        }
+
+        if ($days === null) {
+            return 3;
+        }
+
+        if ($relief instanceof CrewReliefReadinessResult && $relief->risk === CrewReliefRisk::Warning) {
+            return 4;
+        }
+
+        return 5;
+    }
+
+    private function tenantSafePlan(CrewAssignment|CrewPlanningAssignment|null $plan): CrewAssignment|CrewPlanningAssignment|null
+    {
+        if ($plan === null || (int) $plan->company_id !== $this->companyId) {
+            return null;
+        }
+
+        $employee = $plan->employee;
+
+        if ($employee !== null && (int) $employee->company_id !== $this->companyId) {
+            $plan->setRelation('employee', null);
+        }
+
+        if ($plan instanceof CrewPlanningAssignment) {
+            $linked = $plan->crewAssignment;
+
+            if ($linked !== null && (int) $linked->company_id !== $this->companyId) {
+                $plan->setRelation('crewAssignment', null);
+                $plan->crew_assignment_id = null;
+            }
+        }
+
+        return $plan;
     }
 }

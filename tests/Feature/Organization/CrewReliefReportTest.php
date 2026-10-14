@@ -3,6 +3,7 @@
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewReliefStatus;
 use App\Exports\CrewReliefExport;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -227,7 +228,8 @@ test('attention rules: relief in training (P2B) is flagged as relief not ready w
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
             ->where('rows.0.relief_employee.name', $reliefEmployee->name)
-            ->where('rows.0.relief_status', 'P2B Training')
+            ->where('rows.0.relief_status', CrewReliefStatus::Mobilising->label())
+            ->where('rows.0.relief_phase_label', CrewPhaseCode::Training->label())
             ->where('rows.0.readiness', 'in_progress')
             ->where('rows.0.attention.level', 'warning')
             ->where('rows.0.attention.label', 'Relief still in training')
@@ -285,7 +287,7 @@ test('attention rules: relief ready (P3) with matching date is healthy', functio
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
-            ->where('rows.0.relief_status', 'P3 Ready to Join')
+            ->where('rows.0.relief_status', CrewReliefStatus::ReadyToJoin->label())
             ->where('rows.0.readiness', 'ready')
             ->where('rows.0.attention.level', 'healthy')
             ->where('rows.0.attention.label', 'Relief ready')
@@ -317,7 +319,7 @@ test('attention rules: relief assignment conflict is flagged as critical', funct
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.reports.crew-relief.index'))
+        ->get(route('organization.reports.crew-relief.index', ['vessel_id' => $vessel->id]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
@@ -725,7 +727,7 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
         ->and(CrewReliefPlanKey::for($planningAssignment))->toBe("planning:{$collisionId}");
 
     $this->actingAs($user)
-        ->get(route('organization.reports.crew-relief.index'))
+        ->get(route('organization.reports.crew-relief.index', ['vessel_id' => $vessel->id]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 2)
@@ -1056,9 +1058,9 @@ test('summary reflects readiness and attention filters for the filtered report s
         'assignment_no' => 'CA-OTHER-ACTIVE',
     ]);
 
-    // Unfiltered request: summary includes all 3 candidates
+    // Unfiltered request scoped to the primary vessel: summary includes all 3 candidates
     $this->actingAs($user)
-        ->get(route('organization.reports.crew-relief.index'))
+        ->get(route('organization.reports.crew-relief.index', ['vessel_id' => $vessel->id]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 3)
@@ -1081,7 +1083,10 @@ test('summary reflects readiness and attention filters for the filtered report s
 
     // Filter by readiness=not_assigned: summary counts ONLY the not_assigned filtered scope
     $this->actingAs($user)
-        ->get(route('organization.reports.crew-relief.index', ['readiness' => 'not_assigned']))
+        ->get(route('organization.reports.crew-relief.index', [
+            'vessel_id' => $vessel->id,
+            'readiness' => 'not_assigned',
+        ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)

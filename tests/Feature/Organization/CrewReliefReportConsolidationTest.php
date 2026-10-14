@@ -30,6 +30,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  * }
  */
 function makeReliefDeskFixtures(array $permissions = [
+    'reports.crew_relief.view',
     'crew_operations.planning.view',
     'crew_operations.planning.create',
     'crew_operations.assignments.view',
@@ -101,12 +102,27 @@ afterEach(function () {
     CarbonImmutable::setTestNow();
 });
 
-test('guests cannot open the relief desk', function () {
-    $this->get(route('organization.crew-relief-desk.index'))
+test('guests cannot open the crew relief report', function () {
+    $this->get(route('organization.reports.crew-relief.index'))
         ->assertRedirect(route('login'));
 });
 
-test('users without planning view cannot open the relief desk', function () {
+test('legacy relief desk url redirects to crew relief report', function () {
+    $fixtures = makeReliefDeskFixtures();
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.crew-relief-desk.index', [
+            'vessel_id' => $fixtures['vessel']->id,
+            'focus' => 'needs_relief',
+        ]))
+        ->assertRedirect(route('organization.reports.crew-relief.index', [
+            'vessel_id' => $fixtures['vessel']->id,
+            'focus' => 'needs_relief',
+            'preset' => 'next_30_days',
+        ]));
+});
+
+test('users without report view cannot open the crew relief report', function () {
     $fixtures = makeCrewAssignmentFixtures();
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
         'crew_operations.assignments.view',
@@ -114,7 +130,7 @@ test('users without planning view cannot open the relief desk', function () {
     $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertForbidden();
 });
 
@@ -130,23 +146,21 @@ test('relief desk lists active p4 crew with no relief', function () {
     );
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/crew-relief-desk/index')
-            ->has('vessels')
-            ->has('positions')
-            ->has('relief_desk.rows', 1)
-            ->where('relief_desk.rows.0.id', $source->id)
-            ->where('relief_desk.rows.0.employee.name', 'Ahmed Ali')
-            ->where('relief_desk.rows.0.position.id', $fixtures['rank']->id)
-            ->where('relief_desk.rows.0.position.name', $fixtures['rank']->title)
-            ->missing('relief_desk.rows.0.rank')
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
-            ->where('relief_desk.rows.0.relief_risk', CrewReliefRisk::Critical->value)
-            ->where('relief_desk.rows.0.recommended_action.key', 'plan_relief')
-            ->where('relief_desk.rows.0.recommended_action.label', 'Plan Relief')
-            ->where('relief_desk.summary.needs_relief', 1)
+            ->component('organization/reports/crew-relief/index')
+            ->has('rows', 1)
+            ->where('rows.0.id', $source->id)
+            ->where('rows.0.employee.name', 'Ahmed Ali')
+            ->where('rows.0.position.id', $fixtures['rank']->id)
+            ->where('rows.0.position.name', $fixtures['rank']->title)
+            ->where('rows.0.relief_status', CrewReliefStatus::NoRelief->label())
+            ->where('rows.0.relief_status_code', CrewReliefStatus::NoRelief->value)
+            ->where('rows.0.relief_risk', CrewReliefRisk::Critical->value)
+            ->where('rows.0.recommended_action.key', 'plan_relief')
+            ->where('rows.0.recommended_action.label', 'Plan Relief')
+            ->where('summary.no_relief_assigned', 1)
         );
 });
 
@@ -166,28 +180,28 @@ test('relief desk includes missing planned sign-off as attention', function () {
     );
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.id', $source->id)
-            ->where('relief_desk.rows.0.missing_planned_signoff', true)
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
+            ->where('rows.0.id', $source->id)
+            ->where('rows.0.missing_planned_signoff', true)
+            ->where('rows.0.relief_status', CrewReliefStatus::NoRelief->label())
         );
 });
 
-test('relief desk excludes p4 sign-offs beyond the default 30 day horizon', function () {
+test('crew relief report excludes p4 sign-offs beyond the default 30 day horizon', function () {
     $fixtures = makeReliefDeskFixtures();
     makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 45, 'Far Away');
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('relief_desk.rows', 0));
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index', ['horizon' => 'all']))
+        ->get(route('organization.reports.crew-relief.index', ['preset' => 'all']))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('relief_desk.rows', 1));
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 1));
 });
 
 test('relief desk shows planning-only relief as open relief plan', function () {
@@ -197,15 +211,15 @@ test('relief desk shows planning-only relief as open relief plan', function () {
     $plan = makeReliefPlanFor($source, $relief, $fixtures['today']->addDays(12));
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReliefPlanned->value)
-            ->where('relief_desk.rows.0.relief_employee.name', 'Sameer Khan')
-            ->where('relief_desk.rows.0.relief_planning_assignment_id', $plan->id)
-            ->where('relief_desk.rows.0.recommended_action.key', 'open_relief_plan')
-            ->where('relief_desk.rows.0.recommended_action.label', 'Open Relief Plan')
-            ->where('relief_desk.rows.0.recommended_action.href', function (?string $value) use ($plan) {
+            ->where('rows.0.relief_status', CrewReliefStatus::ReliefPlanned->label())
+            ->where('rows.0.relief_employee.name', 'Sameer Khan')
+            ->where('rows.0.relief_planning_assignment_id', $plan->id)
+            ->where('rows.0.recommended_action.key', 'open_relief_plan')
+            ->where('rows.0.recommended_action.label', 'Open Relief Plan')
+            ->where('rows.0.recommended_action.href', function (?string $value) use ($plan) {
                 expect($value)->toBeString()
                     ->and($value)->toContain('planning_assignment_id='.$plan->id)
                     ->and($value)->not->toContain('view=relief')
@@ -227,11 +241,11 @@ test('relief desk does not treat draft conversion as committed relief', function
     createAssignmentFromPlanning($plan, $fixtures['user']->id);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', null)
+            ->where('rows.0.relief_status', CrewReliefStatus::NoRelief->label())
+            ->where('rows.0.relief_crew_assignment_id', null)
         );
 });
 
@@ -252,11 +266,12 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', $status->value)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', $linked->id)
+            ->where('rows.0.relief_status', $status->label())
+            ->where('rows.0.relief_status_code', $status->value)
+            ->where('rows.0.relief_crew_assignment_id', $linked->id)
         );
 })->with([
     'p0' => [CrewPhaseCode::PreMobilisation, CrewReliefStatus::Mobilising],
@@ -283,24 +298,24 @@ test('relief desk filter options exclude ready to join but still resolve histori
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReadyToJoin->value)
-            ->where('relief_desk.filter_options.relief_statuses', fn ($statuses) => collect($statuses)
+            ->where('rows.0.relief_status', CrewReliefStatus::ReadyToJoin->label())
+            ->where('filter_options.relief_statuses', fn ($statuses) => collect($statuses)
                 ->pluck('value')
                 ->contains(CrewReliefStatus::ReadyToJoin->value) === false)
         );
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index', [
+        ->get(route('organization.reports.crew-relief.index', [
             'relief_status' => CrewReliefStatus::ReadyToJoin->value,
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.filters.relief_status', CrewReliefStatus::ReadyToJoin->value)
-            ->has('relief_desk.rows', 1)
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReadyToJoin->value)
+            ->where('filters.relief_status', CrewReliefStatus::ReadyToJoin->value)
+            ->has('rows', 1)
+            ->where('rows.0.relief_status', CrewReliefStatus::ReadyToJoin->label())
         );
 });
 
@@ -321,12 +336,12 @@ test('relief desk shows relief onboard without closing the source assignment', f
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::ReliefOnboard->value)
-            ->where('relief_desk.rows.0.recommended_action.key', 'review_source')
-            ->where('relief_desk.rows.0.recommended_action.label', 'Review Source Assignment')
+            ->where('rows.0.relief_status', CrewReliefStatus::ReliefOnboard->label())
+            ->where('rows.0.recommended_action.key', 'open_current_assignment')
+            ->where('rows.0.recommended_action.label', 'Open Current Assignment')
         );
 
     expect($source->fresh()->status)->toBe(CrewAssignmentStatus::Active)
@@ -351,11 +366,11 @@ test('cancelled completed and soft-deleted reliefs do not count as operational r
     $deletedPlan->delete();
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('relief_desk.rows', 3)
-            ->where('relief_desk.summary.needs_relief', 3)
+            ->has('rows', 3)
+            ->where('summary.no_relief_assigned', 3)
         );
 });
 
@@ -374,11 +389,11 @@ test('relief desk risk follows existing readiness semantics', function (int $day
     }
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', $status)
-            ->where('relief_desk.rows.0.relief_risk', $risk)
+            ->where('rows.0.relief_status_code', $status)
+            ->where('rows.0.relief_risk', $risk)
         );
 })->with([
     'far no relief' => [20, CrewReliefStatus::NoRelief->value, CrewReliefRisk::None->value],
@@ -445,12 +460,11 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     };
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.mobilisation_readiness.status', $expectedStatus)
-            ->where('relief_desk.rows.0.mobilisation_readiness.status_label', $expectedLabel)
-            ->where('relief_desk.rows.0.recommended_action.key', 'open_relief_assignment')
+            ->where('rows.0.recommended_action.key', 'open_relief_assignment')
+            ->where('rows.0.readiness', 'in_progress')
         );
 })->with([
     'no checks configured' => ['none'],
@@ -461,23 +475,23 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
 
 test('plan relief is hidden without planning create permission', function () {
     $fixtures = makeReliefDeskFixtures([
-        'crew_operations.planning.view',
+        'reports.crew_relief.view',
         'crew_operations.assignments.view',
     ]);
     makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 4, 'No Create');
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.recommended_action.key', 'plan_relief')
-            ->where('relief_desk.rows.0.recommended_action.href', null)
+            ->where('rows.0.recommended_action.key', 'plan_relief')
+            ->where('rows.0.recommended_action.href', null)
         );
 });
 
 test('open assignment actions are hidden without assignment view permission', function () {
     $fixtures = makeReliefDeskFixtures([
-        'crew_operations.planning.view',
+        'reports.crew_relief.view',
         'crew_operations.planning.create',
     ]);
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 9, 'Hidden Assignment');
@@ -491,12 +505,12 @@ test('open assignment actions are hidden without assignment view permission', fu
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.recommended_action.href', null)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', null)
-            ->where('relief_desk.rows.0.source_href', null)
+            ->where('rows.0.recommended_action.href', null)
+            ->where('rows.0.relief_crew_assignment_id', null)
+            ->where('rows.0.source_href', null)
         );
 });
 
@@ -505,10 +519,10 @@ test('plan relief href uses the existing planning create workflow', function () 
     $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 5, 'Prefill Source');
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.recommended_action.href', function (?string $value) use ($source) {
+            ->where('rows.0.recommended_action.href', function (?string $value) use ($source) {
                 expect($value)->toBeString()
                     ->and($value)->toContain('open_create=1')
                     ->and($value)->toContain('relieves_crew_assignment_id='.$source->id)
@@ -532,13 +546,12 @@ test('focus filters limit the desk to matching operational buckets', function ()
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index', ['focus' => 'needs_relief']))
+        ->get(route('organization.reports.crew-relief.index', ['focus' => 'needs_relief']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('relief_desk.rows', 1)
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
-            ->where('relief_desk.summary.needs_relief', 1)
-            ->where('relief_desk.summary.ready', 1)
+            ->has('rows', 1)
+            ->where('rows.0.relief_status', CrewReliefStatus::NoRelief->label())
+            ->where('summary.no_relief_assigned', 1)
         );
 });
 
@@ -549,9 +562,9 @@ test('another company source assignment cannot appear on the relief desk', funct
     makeReliefDeskOnboard($other['company'], $other['rank'], $foreignVessel, $fixtures['today'], 3, 'Foreign Crew');
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('relief_desk.rows', 0));
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
 });
 
 test('another company planning row is ignored for a local source assignment', function () {
@@ -572,11 +585,11 @@ test('another company planning row is ignored for a local source assignment', fu
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_status', CrewReliefStatus::NoRelief->value)
-            ->where('relief_desk.rows.0.relief_employee', null)
+            ->where('rows.0.relief_status', CrewReliefStatus::NoRelief->label())
+            ->where('rows.0.relief_employee', null)
         );
 });
 
@@ -608,11 +621,11 @@ test('linked relief assignment from another company is not exposed', function ()
     ]);
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', null)
-            ->where('relief_desk.rows.0.relief_employee.name', 'Local Plan Employee')
+            ->where('rows.0.relief_crew_assignment_id', null)
+            ->where('rows.0.relief_employee.name', 'Local Plan Employee')
         );
 });
 
@@ -630,10 +643,10 @@ test('crew planning gantt view is unchanged when relief desk is unused', functio
         );
 });
 
-test('old crew planning view relief url redirects to standalone relief desk preserving filters', function () {
+test('old crew planning view relief url redirects to crew relief report preserving filters', function () {
     $fixtures = makeReliefDeskFixtures();
 
-    $this->actingAs($fixtures['user'])
+    $response = $this->actingAs($fixtures['user'])
         ->get(route('organization.crew-planning.index', [
             'view' => 'relief',
             'search' => 'Ahmed',
@@ -647,17 +660,13 @@ test('old crew planning view relief url redirects to standalone relief desk pres
             'from' => '2026-01-01',
             'to' => '2026-03-31',
             'zoom' => 'month',
-        ]))
-        ->assertRedirect(route('organization.crew-relief-desk.index', [
-            'search' => 'Ahmed',
-            'vessel_id' => $fixtures['vessel']->id,
-            'position_id' => $fixtures['rank']->id,
-            'focus' => 'needs_relief',
-            'relief_status' => CrewReliefStatus::NoRelief->value,
-            'planned_signoff_from' => '2026-10-01',
-            'planned_signoff_to' => '2026-10-31',
-            'horizon' => 'all',
         ]));
+    $response->assertRedirect();
+    $location = (string) $response->headers->get('Location');
+    expect($location)->toContain('organization/reports/crew-relief')
+        ->and($location)->toContain('search=Ahmed')
+        ->and($location)->toContain('preset=all')
+        ->and($location)->toContain('focus=needs_relief');
 });
 
 test('crew planning onboard by vessel view remains unaffected', function () {
@@ -695,18 +704,18 @@ test('relief desk sorts known imminent sign-offs ahead of missing planned sign-o
     makeReliefDeskOnboard($company, $rank, makeCrewMovementVessel('Overdue Vessel', $company), $today, -3, 'Ahmed');
 
     $this->actingAs($fixtures['user'])
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('relief_desk.rows', 7)
-            ->where('relief_desk.rows.0.employee.name', 'Ahmed')
-            ->where('relief_desk.rows.1.employee.name', 'John')
-            ->where('relief_desk.rows.2.employee.name', 'Sameer')
-            ->where('relief_desk.rows.3.employee.name', 'Ali')
-            ->where('relief_desk.rows.4.employee.name', 'Ravi')
-            ->where('relief_desk.rows.4.missing_planned_signoff', true)
-            ->where('relief_desk.rows.5.employee.name', 'Manoj')
-            ->where('relief_desk.rows.6.employee.name', 'Good')
+            ->has('rows', 7)
+            ->where('rows.0.employee.name', 'Ahmed')
+            ->where('rows.1.employee.name', 'John')
+            ->where('rows.2.employee.name', 'Sameer')
+            ->where('rows.3.employee.name', 'Ali')
+            ->where('rows.4.employee.name', 'Ravi')
+            ->where('rows.4.missing_planned_signoff', true)
+            ->where('rows.5.employee.name', 'Manoj')
+            ->where('rows.6.employee.name', 'Good')
         );
 });
 
@@ -731,7 +740,7 @@ test('open relief plan prefill targets the company-owned planning assignment', f
             ->where('relief_prefill.planning_assignment_id', $plan->id)
             ->where('relief_prefill.open_create', false)
             ->where('relief_prefill.vessel_id', $fixtures['vessel']->id)
-            ->where('relief_prefill.position_id', $fixtures['position']->id)
+            ->where('relief_prefill.position_id', $fixtures['rank']->id)
             ->where('bars', fn ($bars) => collect($bars)->contains(fn ($bar) => (int) $bar['id'] === $plan->id))
         );
 });

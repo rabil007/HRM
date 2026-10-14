@@ -283,6 +283,10 @@ final class CrewReliefReadinessResolver
             ? $plan->crewAssignment
             : $plan->crewAssignment()->with('currentPhase')->first();
 
+        if ($linked !== null && (int) $linked->company_id !== (int) $source->company_id) {
+            $linked = null;
+        }
+
         $status = $this->resolveStatus($plan, $linked);
         $risk = $this->riskFor($status, $daysUntil);
         $phase = $linked?->currentPhase;

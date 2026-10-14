@@ -34,7 +34,7 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P6 and completed assignments with no newer Draft/Active assignment) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel scheduling and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
-| **Relief Desk** | `/organization/crew-operations/relief-desk` | Standalone replacement-management workspace of active P4 crew with upcoming/overdue/missing Planned Sign-Off, derived relief status, and mobilisation readiness |
+| **Crew Relief Report** | `/organization/reports/crew-relief` | Operational relief monitoring for active P4 crew (sign-off windows, missing forecasts, relief status/risk, readiness, and exports). Legacy `/organization/crew-operations/relief-desk` redirects here. |
 | **Crew Readiness** | `/organization/crew-operations/readiness` | Standalone operational workspace tracking upcoming crew preparing to mobilise (future named Planning rows + pre-join Assignments) and their document compliance readiness before joining |
 
 ### Operational Model Distinction
@@ -42,17 +42,17 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 OMS-HRM maintains an explicit separation of concerns across the four operational pillars of Crew Operations:
 
 - **Crew Planning** (`/organization/crew-planning`): Future vessel and rank scheduling (Gantt, availability, and vacant/named plan requirements). Planning decides the future.
-- **Relief Desk** (`/organization/crew-operations/relief-desk`): Who needs replacement and relief progress. Operational tracking of onboard crew sign-off windows, risk levels, and identified relief candidates.
+- **Crew Relief Report** (`/organization/reports/crew-relief`): Who needs replacement and relief progress. Monitors onboard crew sign-off windows, missing planned sign-off, risk levels, readiness, and identified relief candidates.
 - **Crew Readiness** (`/organization/crew-operations/readiness`): Who is preparing to mobilise, when they are expected to join, and what currently requires attention before mobilisation. Unified derived view of eligible future named planning rows and pre-join operational assignments with authoritative document compliance checks.
 - **Crew Assignments** (`/organization/crew`): Actual operational mobilisation and lifecycle execution (Draft → P0 → P2A/P2B → P4 → P5 → P6). Crew Assignment controls execution.
 
-Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Relief Desk** (`/organization/crew-operations/relief-desk`) is a standalone operational replacement-management workspace over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`). It is not a new Relief entity or workflow. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
+Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Crew Relief Report** (`/organization/reports/crew-relief`) is the operational replacement-monitoring surface over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`); legacy Relief Desk URLs redirect here. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
 
 Crew Readiness operational semantics:
 - **Ready vs No Checks Configured**: In Crew Readiness presentation, summary metrics, and filtering, `Ready` strictly means status is Ready AND has configured checks (`hasConfiguredChecks()`). Crew with zero configured checks are presented and filtered as `No Checks Configured` (`focus=no_checks`), ensuring the summary card, quick view focus, and dropdown filter return the exact same population.
 - **Joining in 7 Days**: Strictly counts today through +7 days (`0 <= days_until_join <= 7`). Overdue crew (`days_until_join < 0`) are excluded from this metric and have dedicated overdue indicators and sorting.
 - **Join Window Semantics**: Finite windows (`7`, `14`, `30` days, labeled `Overdue + next X days`) require a dated expected join (`join IS NOT NULL AND join <= cutoff`), retaining dated overdue pre-join records because operationally they require attention, while excluding undated records. `window=all` (`All pre-join`) includes undated pre-join records.
-- **Crew Planning Focus Links**: Navigating from Crew Readiness or Relief Desk to Crew Planning with an authorized `planning_assignment_id` automatically adjusts the Gantt date range if needed (unless the caller explicitly supplied valid custom `from`/`to`), guaranteeing the target plan bar is loaded and focused even if it falls outside the default 2-month window.
+- **Crew Planning Focus Links**: Navigating from Crew Readiness or Crew Relief Report to Crew Planning with an authorized `planning_assignment_id` automatically adjusts the Gantt date range if needed (unless the caller explicitly supplied valid custom `from`/`to`), guaranteeing the target plan bar is loaded and focused even if it falls outside the default 2-month window.
 
 Vessel View / Onboard by Vessel answers: which vessels currently have crew onboard, and who is onboard each vessel.
 
@@ -813,7 +813,7 @@ New operational Crew activity cannot use a legacy-unassigned Vessel, an inactive
 
 Editable pre-P4 Crew Assignments may retain an unchanged legacy or inactive Vessel/Client snapshot during unrelated field edits (remarks, planned dates, rank). Changing Vessel or Client on that record applies today’s strict operational rules — an inactive existing Vessel cannot participate in a Client-only change.
 
-Current Crew and Relief Desk Client/Vessel filter options that cascade by Client are derived from stored `crew_assignments` Client↔Vessel pairs, not from today’s `Vessel.client_id`. Historical Movement History filters continue to query assignment snapshot columns independently.
+Current Crew and Crew Relief Report Client/Vessel filter options that cascade by Client are derived from stored `crew_assignments` Client↔Vessel pairs, not from today’s `Vessel.client_id`. Historical Movement History filters continue to query assignment snapshot columns independently.
 
 `SeaServiceSyncService` copies `CrewAssignment.client_id` into `EmployeeSeaService.client_id`. Changing `Vessel.client_id` later must **never** rewrite historical assignments, phases, timesheets, payroll, or sea service. Sea Service create/edit must not force historical rows to match the Vessel’s current Client; inline Vessel creation from Sea Service requires an explicit current Client (and Vessel Type) for the new master record.
 
@@ -979,26 +979,15 @@ P0
 
 **Start Mobilisation** begins the operational P0 cycle. Planning forecasts never create P4 actuals, Sea Service, or payroll actuals, and do not automatically disembark the source crew.
 
-### Relief Desk
+### Crew Relief Report (retired Relief Desk UI)
 
-`/organization/crew-operations/relief-desk` is the standalone replacement-management workspace for upcoming crew changes (legacy `/organization/crew-planning?view=relief` redirects here preserving filter state). Source rows are company-scoped **active P4** assignments with an operationally active employee. The default horizon is **next 30 days plus overdue**, and assignments **missing Planned Sign-Off** still surface because Operations cannot plan relief without a forecast.
+`/organization/reports/crew-relief` is the replacement-monitoring report for upcoming crew changes. Legacy `/organization/crew-operations/relief-desk` and `/organization/crew-planning?view=relief` redirect here (filter params preserved where practical). Source rows are company-scoped **active P4** assignments with an operationally active employee. The default horizon is **next 30 days plus overdue**, and assignments **missing Planned Sign-Off** still surface because Operations cannot plan relief without a forecast.
 
-Status and risk come only from `CrewReliefReadinessResolver` / `CrewReliefStatusQuery` semantics. Mobilisation Readiness on a linked pre-join relief assignment is **advisory** (`CrewMobilisationReadinessResolver`) and never blocks planning or movement. Ready to Join / Relief Onboard never automatically disembarks the source crew.
+Status and risk use shared `CrewReliefReadinessResolver` semantics with report readiness/attention presentation. Ready to Join / Relief Onboard never automatically disembarks the source crew.
 
-Row actions reuse existing routes: Plan Relief opens the Planning create sheet with vessel/rank/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan stays on Planning and targets the existing bar via `planning_assignment_id` (opens the current edit sheet when the bar is in range); Open Relief Assignment / Review Source Assignment use Crew Assignment show when `crew_operations.assignments.view` is granted.
+Row actions reuse existing routes: Plan Relief opens Planning with vessel/position/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan targets the existing bar via `planning_assignment_id`; Open Relief Assignment / Open Current Assignment use Crew Assignment show when permitted.
 
-Default desk order is operational urgency, then nearest Planned Sign-Off:
-
-1. Overdue
-2. Due today
-3. Critical relief risk / sign-off within 7 days
-4. Missing Planned Sign-Off
-5. Warning relief risk / sign-off within 14 days
-6. Normal / Good, then later cases
-
-The quick-view strip uses the `not_ready` focus key and labels it **Relief Not Ready** (replacement not yet operationally ready), which is distinct from Mobilisation Readiness **Not Ready**.
-
-Saved Views are not used on Relief Desk (Crew Planning has no Saved Views page key). Projected Manning context is deferred; the desk does not add a second projection engine.
+Default sort is operational urgency, then nearest Planned Sign-Off (overdue → due today → critical risk → missing planned sign-off → warning risk → normal).
 
 ### Deferred
 
@@ -1095,7 +1084,7 @@ Overlap/excess remains supporting copy (for example `+1 temporary overlap`). It 
 
 **Sources (unchanged):** `VesselManning` (required), `CurrentOnboardCrewQuery` (actual onboard), `CrewProjectedManningQuery` (projected coverage), `CrewReliefReadinessResolver` (relief labels). Planned Sign-Off is forecast only and does not disembark anyone. Planned relief is not actual onboard until active P4. Relief status and Mobilisation Readiness are advisory and never override projected coverage or block movement.
 
-Health is derived at read time. Viewing it is not audited. Actions link into existing Relief Desk, Crew Planning, Current Crew, and Edit Manning workflows.
+Health is derived at read time. Viewing it is not audited. Actions link into Crew Relief Report, Crew Planning, Current Crew, and Edit Manning workflows.
 
 Compact index health reuses one company-level projection plus one onboard query — not one projection per vessel. Optional server-side `health=` filter (`critical`, `at_risk`, `healthy`, `not_configured`) sits beside Configured/Pending Manning filters; those remain configuration completeness, not coverage.
 

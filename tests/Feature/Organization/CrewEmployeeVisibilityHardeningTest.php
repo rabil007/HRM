@@ -208,15 +208,17 @@ test('relief desk hides hidden relief employee identity while keeping source vis
 
     restrictUserToDepartments($user, $company, [$marineDept->id]);
 
+    grantCompanyPermissions($user, $company, ['reports.crew_relief.view']);
+
     $this->actingAs($user)
-        ->get(route('organization.crew-relief-desk.index'))
+        ->get(route('organization.reports.crew-relief.index', ['preset' => 'all']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('relief_desk.rows', 1)
-            ->where('relief_desk.rows.0.employee.name', $marine->name)
-            ->where('relief_desk.rows.0.relief_employee', null)
-            ->where('relief_desk.rows.0.relief_planning_assignment_id', null)
-            ->where('relief_desk.rows.0.relief_crew_assignment_id', null));
+            ->has('rows', 1)
+            ->where('rows.0.employee.name', $marine->name)
+            ->where('rows.0.relief_employee', null)
+            ->where('rows.0.relief_planning_assignment_id', null)
+            ->where('rows.0.relief_crew_assignment_id', null));
 
     CarbonImmutable::setTestNow();
 });

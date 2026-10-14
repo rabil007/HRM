@@ -92,6 +92,9 @@ export function CrewReliefFiltersSheet({
                 planned_signoff_to: draft.planned_signoff_to,
                 readiness: draft.readiness,
                 attention: draft.attention,
+                relief_status: draft.relief_status,
+                relief_risk: draft.relief_risk,
+                focus: draft.focus,
             });
         }
 
@@ -152,6 +155,24 @@ export function CrewReliefFiltersSheet({
                     options={options.attention_options}
                     onChange={(attention) =>
                         setDraft((prev) => ({ ...prev, attention }))
+                    }
+                />
+
+                <SelectFilter
+                    label="Relief Status"
+                    value={draft.relief_status}
+                    options={options.relief_statuses}
+                    onChange={(relief_status) =>
+                        setDraft((prev) => ({ ...prev, relief_status }))
+                    }
+                />
+
+                <SelectFilter
+                    label="Relief Risk"
+                    value={draft.relief_risk}
+                    options={options.relief_risks}
+                    onChange={(relief_risk) =>
+                        setDraft((prev) => ({ ...prev, relief_risk }))
                     }
                 />
 

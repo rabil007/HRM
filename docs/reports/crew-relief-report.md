@@ -88,7 +88,8 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
 ## 6. Filters, Validation & Pagination Architecture
 
 - **Safe Form Request Validation:** Filter parameters are validated via `CrewReliefReportRequest`, enforcing valid date formats, `planned_signoff_to >= planned_signoff_from`, and enumerated values. Malformed filter queries are handled safely without 500 errors.
-- **Server-Side Filters:** Search (crew name, staff ID, remarks, vessel, rank, client, and relief crew name/ID), Vessel, Client, Rank, Planned Sign-off Date Range (From/To), Readiness, and Attention.
+- **Server-Side Filters:** Search (crew name, staff ID, remarks, vessel, rank, client, and relief crew name/ID), Vessel, Client, Position, Planned Sign-off Date Range (From/To), Relief Status, Relief Risk, Readiness, Attention, and operational focus presets.
+- **Missing Planned Sign-Off:** Active P4 crew without `planned_signoff_at` appear in the default horizon and **All Onboard** scope (never with invented dates). Rows show **Missing Planned Sign-Off** in the sign-off columns.
 - **Lightweight Candidate Query & Pagination:**
   - Pushes company scoping, current P4 active constraint, employee visibility, search, vessel, client, rank, signoff date ranges, date presets, and base ordering to SQL before hydration.
   - Batch-resolves relief plans and conflicts on lightweight candidate summaries (`['id', 'planned_signoff_at']`).
@@ -102,6 +103,9 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
   - `No Relief`: Assignments with approaching sign-off and no relief assigned.
   - `Not Ready`: Assignments where relief is still in preparation or at risk.
   - `Overdue`: All onboard assignments whose planned sign-off date has passed.
+  - `Missing Planned Sign-Off`: Onboard crew with no planned sign-off forecast recorded.
+  - `All Onboard`: Every active P4 assignment regardless of sign-off horizon.
+- **Row actions:** Plan Relief, Open Relief Plan, Open Relief Assignment, and Open Current Assignment deep-link into Crew Planning or Crew Assignments (permission-gated).
 
 ---
 
