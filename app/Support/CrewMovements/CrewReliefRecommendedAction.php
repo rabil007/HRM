@@ -20,13 +20,14 @@ final class CrewReliefRecommendedAction
         $canViewAssignments = $user->can('crew_operations.assignments.view');
         $canViewPlanning = $user->can('crew_operations.planning.view');
         $canCreatePlanning = $user->can('crew_operations.planning.create');
+        $canPlanRelief = $canViewPlanning && $canCreatePlanning;
 
         if (! $reliefEmployeeVisible) {
             return match ($relief->status) {
                 CrewReliefStatus::NoRelief => [
                     'key' => 'plan_relief',
                     'label' => 'Plan Relief',
-                    'href' => $canCreatePlanning ? self::planReliefHref($source) : null,
+                    'href' => $canPlanRelief ? self::planReliefHref($source) : null,
                 ],
                 CrewReliefStatus::ReliefPlanned => [
                     'key' => 'open_relief_plan',
@@ -58,7 +59,7 @@ final class CrewReliefRecommendedAction
             CrewReliefStatus::NoRelief => [
                 'key' => 'plan_relief',
                 'label' => 'Plan Relief',
-                'href' => $canCreatePlanning ? self::planReliefHref($source) : null,
+                'href' => $canPlanRelief ? self::planReliefHref($source) : null,
             ],
             CrewReliefStatus::ReliefPlanned => [
                 'key' => 'open_relief_plan',

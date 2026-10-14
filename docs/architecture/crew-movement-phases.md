@@ -985,7 +985,7 @@ P0
 
 Status and risk use shared `CrewReliefReadinessResolver` semantics with report readiness/attention presentation. Ready to Join / Relief Onboard never automatically disembarks the source crew.
 
-Row actions reuse existing routes: Plan Relief opens Planning with vessel/position/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan targets the existing bar via `planning_assignment_id`; Open Relief Assignment / Open Current Assignment use Crew Assignment show when permitted.
+Row actions reuse existing routes: Plan Relief requires Planning view + create and opens Planning with vessel/position/`relieves_crew_assignment_id`/join date prefill; Open Relief Plan requires Planning view and targets the existing bar via `planning_assignment_id`; Open Relief Assignment / Open Current Assignment use Crew Assignment show when permitted. Lightweight candidate queries select `id`, `company_id`, and `planned_signoff_at` before batch relief resolution.
 
 Default sort is operational urgency, then nearest Planned Sign-Off (overdue → due today → critical risk → missing planned sign-off → warning risk → normal).
 

@@ -214,6 +214,31 @@ describe('accessible favorite rendering', () => {
         );
     });
 
+    it('normalizes legacy relief desk favorite keys to crew relief report', () => {
+        const items = resolveAccessibleFavoriteItems(
+            ['crew.relief-desk'],
+            (href) => isSidebarUrlVisible(href, ['reports.crew_relief.view']),
+        );
+
+        assert.deepEqual(
+            items.map((item) => item.key),
+            ['reports.crew-relief'],
+        );
+        assert.equal(items[0]?.url, '/organization/reports/crew-relief');
+    });
+
+    it('deduplicates legacy and current crew relief favorite keys', () => {
+        const items = resolveAccessibleFavoriteItems(
+            ['crew.relief-desk', 'reports.crew-relief'],
+            (href) => isSidebarUrlVisible(href, ['reports.crew_relief.view']),
+        );
+
+        assert.deepEqual(
+            items.map((item) => item.key),
+            ['reports.crew-relief'],
+        );
+    });
+
     it('preserves insertion order and skips unknown keys', () => {
         const items = resolveAccessibleFavoriteItems(
             ['documents', 'employees', 'documents', 'not-a-key'],

@@ -256,6 +256,28 @@ test('users without module navigation permissions can only favorite dashboard', 
     expect($user->navigationFavorites()->pluck('destination_key')->all())->toBe(['dashboard']);
 });
 
+test('legacy relief desk favorite key normalizes to crew relief report', function () {
+    [$user, $company] = favoriteUserWithCompany(['reports.crew_relief.view']);
+
+    NavigationFavorite::factory()->create([
+        'user_id' => $user->id,
+        'destination_key' => 'crew.relief-desk',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->get('/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('favorite_destination_keys', ['reports.crew-relief'])
+        );
+
+    removeFavorite($user, $company->id, 'reports.crew-relief')->assertRedirect('/dashboard');
+
+    expect($user->navigationFavorites()->count())->toBe(0);
+});
+
 test('renamed catalog keys remain stored and can be removed', function () {
     [$user, $company] = favoriteUserWithCompany(['employees.view']);
 

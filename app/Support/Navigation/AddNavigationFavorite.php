@@ -12,11 +12,19 @@ final class AddNavigationFavorite
     {
         abort_unless(NavigationDestinationCatalog::isAccessibleKey($user, $key), 403);
 
+        $storageKeys = NavigationDestinationCatalog::favoriteStorageKeys($key);
+
         $existing = $user->navigationFavorites()
-            ->where('destination_key', $key)
+            ->whereIn('destination_key', $storageKeys)
+            ->orderBy('position')
+            ->orderBy('id')
             ->first();
 
         if ($existing !== null) {
+            if ($existing->destination_key !== $key) {
+                $existing->update(['destination_key' => $key]);
+            }
+
             return $existing;
         }
 

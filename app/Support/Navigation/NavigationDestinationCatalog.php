@@ -96,6 +96,34 @@ final class NavigationDestinationCatalog
     }
 
     /**
+     * Map retired favorite keys to their current catalog key (read-time normalization).
+     */
+    public static function normalizeFavoriteKey(string $key): string
+    {
+        return match ($key) {
+            'documents.activity' => 'documents.bulk',
+            'crew.relief-desk' => 'reports.crew-relief',
+            default => $key,
+        };
+    }
+
+    /**
+     * All persisted keys that should resolve to the same favorited destination.
+     *
+     * @return list<string>
+     */
+    public static function favoriteStorageKeys(string $key): array
+    {
+        $normalized = self::normalizeFavoriteKey($key);
+
+        return match ($normalized) {
+            'documents.bulk' => ['documents.bulk', 'documents.activity'],
+            'reports.crew-relief' => ['reports.crew-relief', 'crew.relief-desk'],
+            default => [$normalized],
+        };
+    }
+
+    /**
      * @param  array{key: string, label: string, href: string, group: string, permissions: list<string>, platform: string|null}  $destination
      */
     public static function isAccessible(User $user, array $destination): bool

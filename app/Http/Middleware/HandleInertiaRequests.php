@@ -13,6 +13,7 @@ use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Documents\MyTasks\MyTasksCounter;
+use App\Support\Navigation\NavigationDestinationCatalog;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Users\UserAvatar;
 use Closure;
@@ -205,7 +206,7 @@ class HandleInertiaRequests extends Middleware
                 ->orderBy('id')
                 ->limit(NavigationFavorite::MAX_PER_USER)
                 ->pluck('destination_key')
-                ->map(static fn (string $key): string => $key === 'documents.activity' ? 'documents.bulk' : $key)
+                ->map(static fn (string $key): string => NavigationDestinationCatalog::normalizeFavoriteKey($key))
                 ->unique()
                 ->values()
                 ->all();

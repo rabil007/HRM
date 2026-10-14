@@ -514,9 +514,27 @@ test('linked same-company planning assignment resolves operational relief phase'
         );
 });
 
+test('plan relief is hidden without planning view permission even when create is granted', function () {
+    $fixtures = makeReliefDeskFixtures([
+        'reports.crew_relief.view',
+        'crew_operations.planning.create',
+        'crew_operations.assignments.view',
+    ]);
+    makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 3, 'No Planning View');
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('rows.0.recommended_action.key', 'plan_relief')
+            ->where('rows.0.recommended_action.href', null)
+        );
+});
+
 test('plan relief is hidden without planning create permission', function () {
     $fixtures = makeReliefDeskFixtures([
         'reports.crew_relief.view',
+        'crew_operations.planning.view',
         'crew_operations.assignments.view',
     ]);
     makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 4, 'No Create');

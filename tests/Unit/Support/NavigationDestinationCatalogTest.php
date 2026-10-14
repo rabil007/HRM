@@ -3,6 +3,13 @@
 use App\Models\User;
 use App\Support\Navigation\NavigationDestinationCatalog;
 
+test('legacy favorite keys normalize to current catalog keys', function () {
+    expect(NavigationDestinationCatalog::normalizeFavoriteKey('crew.relief-desk'))
+        ->toBe('reports.crew-relief')
+        ->and(NavigationDestinationCatalog::favoriteStorageKeys('reports.crew-relief'))
+        ->toBe(['reports.crew-relief', 'crew.relief-desk']);
+});
+
 test('destination keys and hrefs are unique', function () {
     $destinations = NavigationDestinationCatalog::all();
     $keys = array_column($destinations, 'key');
