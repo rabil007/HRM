@@ -33,20 +33,20 @@ export function resolveCreateFooterActions(options: {
 }): {
     showStart: boolean;
     showDraft: boolean;
-    useStartingStageSelector: boolean;
+    useDirectCreateActions: boolean;
 } {
-    const useStartingStageSelector = !options.bulkMode && options.canCreate;
+    const useDirectCreateActions = !options.bulkMode && options.canCreate;
 
     return {
         showStart:
             options.canStart && !options.planningActiveAssignmentConflict,
         showDraft:
-            !useStartingStageSelector &&
+            !useDirectCreateActions &&
             shouldRenderSaveDraftButton({
                 canCreate: options.canCreate,
                 crewRowCount: options.crewRowCount,
             }),
-        useStartingStageSelector,
+        useDirectCreateActions,
     };
 }
 

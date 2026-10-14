@@ -73,7 +73,7 @@ describe('resolveCreateFooterActions', () => {
         assert.deepEqual(actions, {
             showStart: false,
             showDraft: false,
-            useStartingStageSelector: false,
+            useDirectCreateActions: false,
         });
         assert.equal('showPlan' in actions, false);
     });
@@ -89,7 +89,7 @@ describe('resolveCreateFooterActions', () => {
 
         assert.equal(actions.showDraft, false);
         assert.equal(actions.showStart, false);
-        assert.equal(actions.useStartingStageSelector, true);
+        assert.equal(actions.useDirectCreateActions, true);
     });
 
     it('shows Draft and Start on vacant Planning handoff when user can start', () => {
@@ -104,7 +104,7 @@ describe('resolveCreateFooterActions', () => {
         assert.deepEqual(actions, {
             showStart: true,
             showDraft: false,
-            useStartingStageSelector: true,
+            useDirectCreateActions: true,
         });
     });
 
@@ -120,11 +120,11 @@ describe('resolveCreateFooterActions', () => {
         assert.deepEqual(actions, {
             showStart: false,
             showDraft: false,
-            useStartingStageSelector: true,
+            useDirectCreateActions: true,
         });
     });
 
-    it('keeps bulk create on the legacy start button without a starting-stage selector', () => {
+    it('keeps bulk create on the legacy start button without direct footer actions', () => {
         const actions = resolveCreateFooterActions({
             canCreate: true,
             canStart: true,
@@ -136,7 +136,7 @@ describe('resolveCreateFooterActions', () => {
         assert.deepEqual(actions, {
             showStart: true,
             showDraft: false,
-            useStartingStageSelector: false,
+            useDirectCreateActions: false,
         });
     });
 });
