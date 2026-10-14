@@ -1,0 +1,118 @@
+import type { ReactElement } from 'react';
+import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+    CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS
+    
+} from '@/features/organization/crew/lib/crew-assignment-create-actions';
+import type {CrewAssignmentSingleSubmitAction} from '@/features/organization/crew/lib/crew-assignment-create-actions';
+
+function DirectActionButton({
+    label,
+    tooltip,
+    variant,
+    disabled,
+    processing,
+    onClick,
+    onPointerEnter,
+    onFocus,
+}: {
+    label: string;
+    tooltip: string;
+    variant: 'default' | 'outline';
+    disabled: boolean;
+    processing: boolean;
+    onClick: () => void;
+    onPointerEnter?: () => void;
+    onFocus?: () => void;
+}): ReactElement {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <Button
+                    type="button"
+                    variant={variant}
+                    disabled={disabled}
+                    onClick={onClick}
+                    onPointerEnter={onPointerEnter}
+                    onFocus={onFocus}
+                    className="h-11 rounded-xl px-6"
+                >
+                    {processing ? <Spinner className="mr-2" /> : null}
+                    {label}
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">
+                {tooltip}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
+
+export function CrewAssignmentCreateDirectActions({
+    canStart,
+    processing,
+    activeAction,
+    onSubmit,
+    onPrepareAlreadyArrivedUi,
+    startBlocked,
+    draftBlocked,
+}: {
+    canStart: boolean;
+    processing: boolean;
+    activeAction: CrewAssignmentSingleSubmitAction | null;
+    onSubmit: (action: CrewAssignmentSingleSubmitAction) => void;
+    onPrepareAlreadyArrivedUi: () => void;
+    startBlocked: boolean;
+    draftBlocked: boolean;
+}): ReactElement {
+    const startDisabled = processing || startBlocked;
+
+    return (
+        <>
+            {canStart ? (
+                <>
+                    <DirectActionButton
+                        label="Already Arrived"
+                        tooltip={
+                            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.already_arrived
+                        }
+                        variant="default"
+                        disabled={startDisabled}
+                        processing={
+                            processing && activeAction === 'already_arrived'
+                        }
+                        onClick={() => onSubmit('already_arrived')}
+                        onPointerEnter={onPrepareAlreadyArrivedUi}
+                        onFocus={onPrepareAlreadyArrivedUi}
+                    />
+                    <DirectActionButton
+                        label="Start Pre-Mobilisation"
+                        tooltip={
+                            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_mobilisation
+                        }
+                        variant="outline"
+                        disabled={startDisabled}
+                        processing={
+                            processing && activeAction === 'pre_mobilisation'
+                        }
+                        onClick={() => onSubmit('pre_mobilisation')}
+                    />
+                </>
+            ) : null}
+            <DirectActionButton
+                label="Save as Draft"
+                tooltip={CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.draft}
+                variant="outline"
+                disabled={processing || draftBlocked}
+                processing={processing && activeAction === 'draft'}
+                onClick={() => onSubmit('draft')}
+            />
+        </>
+    );
+}
