@@ -116,7 +116,10 @@ describe('P0 expected arrival display rules', () => {
         const phase = p0Phase();
 
         assert.equal(
-            shouldHideP0MobilisationActivationLines(phase, activeCurrentContext),
+            shouldHideP0MobilisationActivationLines(
+                phase,
+                activeCurrentContext,
+            ),
             true,
         );
         assert.equal(
