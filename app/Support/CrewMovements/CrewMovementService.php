@@ -457,10 +457,16 @@ final class CrewMovementService
             $result = match ($action) {
                 CrewMovementAction::ApproveMobilisation => $this->approveMobilisation($assignment, $payload, $actorId),
                 CrewMovementAction::RecordArrival => $this->recordArrival($assignment, $payload, $actorId),
-                CrewMovementAction::StartJoinStandby => $this->startJoinStandby($assignment, $payload, $actorId),
+                CrewMovementAction::StartJoinStandby => throw CrewMovementException::make(
+                    'Start join standby is no longer supported.',
+                    'action_not_supported',
+                ),
                 CrewMovementAction::SendToTraining => $this->sendToTraining($assignment, $payload, $actorId),
                 CrewMovementAction::CompleteTraining => $this->completeTraining($assignment, $payload, $actorId),
-                CrewMovementAction::MarkReady => $this->markReady($assignment, $payload, $actorId),
+                CrewMovementAction::MarkReady => throw CrewMovementException::make(
+                    'Mark ready is no longer supported.',
+                    'action_not_supported',
+                ),
                 CrewMovementAction::JoinVessel => $this->joinVessel($assignment, $payload, $actorId),
                 CrewMovementAction::PlanSignoff => $this->planSignoff($assignment, $payload, $actorId),
                 CrewMovementAction::ConfirmDisembarkation => $this->confirmDisembarkation($assignment, $payload, $actorId),
@@ -549,18 +555,14 @@ final class CrewMovementService
         $this->assertStatus($assignment, CrewAssignmentStatus::Active);
         $current = $this->requireCurrentPhase($assignment);
 
-        if (! in_array($current->phase_code, [CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn], true)) {
+        if ($current->phase_code !== CrewPhaseCode::PreMobilisation) {
             throw CrewMovementException::make(
-                'Record arrival can only be performed from Pre-Mobilisation or Travel In.',
+                'Record arrival can only be performed from Pre-Arrival.',
                 'invalid_phase_for_action',
             );
         }
 
-        if ($current->phase_code === CrewPhaseCode::PreMobilisation) {
-            $nextCode = CrewPhaseCode::JoinStandby;
-        } else {
-            $nextCode = $this->requireNextPhaseCode($payload, [CrewPhaseCode::JoinStandby]);
-        }
+        $nextCode = CrewPhaseCode::JoinStandby;
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $this->accommodation->validatePreJoinCheckInPayload($assignment, $payload, $occurredAt);
@@ -585,31 +587,6 @@ final class CrewMovementService
         $this->accommodation->recordPreJoinCheckIn($assignment, $payload, $startedFromPhase, $actorId);
 
         return $assignment;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    private function startJoinStandby(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
-    {
-        $this->assertStatus($assignment, CrewAssignmentStatus::Active);
-        $current = $this->requireCurrentPhase($assignment);
-        if (! in_array($current->phase_code, [CrewPhaseCode::TravelIn, CrewPhaseCode::Training], true)) {
-            throw CrewMovementException::make(
-                'Join standby can only start from Travel In or Training.',
-                'invalid_phase_for_action',
-            );
-        }
-
-        $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
-
-        return $this->completeAndOpenNext(
-            $assignment,
-            $current,
-            CrewPhaseCode::JoinStandby,
-            $occurredAt,
-            $actorId,
-        );
     }
 
     /**
@@ -746,42 +723,13 @@ final class CrewMovementService
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function markReady(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
-    {
-        $this->assertStatus($assignment, CrewAssignmentStatus::Active);
-        $current = $this->requireCurrentPhase($assignment);
-        if (! in_array($current->phase_code, [
-            CrewPhaseCode::TravelIn,
-            CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::Training,
-        ], true)) {
-            throw CrewMovementException::make(
-                'Mark ready is only allowed from Travel In, Join Standby, or Training.',
-                'invalid_phase_for_action',
-            );
-        }
-
-        $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
-
-        return $this->completeAndOpenNext(
-            $assignment,
-            $current,
-            CrewPhaseCode::ReadyToJoin,
-            $occurredAt,
-            $actorId,
-        );
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
     private function joinVessel(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
     {
         $this->assertStatus($assignment, CrewAssignmentStatus::Active);
         $current = $this->requireCurrentPhase($assignment);
-        if (! in_array($current->phase_code, [CrewPhaseCode::JoinStandby, CrewPhaseCode::ReadyToJoin], true)) {
+        if ($current->phase_code !== CrewPhaseCode::JoinStandby) {
             throw CrewMovementException::make(
-                'Join vessel is only allowed from Join Standby or Ready to Join.',
+                'Join vessel is only allowed from Pre-Joining Standby.',
                 'invalid_phase_for_action',
             );
         }

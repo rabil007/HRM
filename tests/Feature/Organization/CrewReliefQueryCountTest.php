@@ -206,7 +206,7 @@ it('keeps Current Crew queries bounded for mixed relief states as row count grow
         $p3Linked = createAssignmentFromPlanning($p3Plan, $fixtures['user']->id);
         $p3Linked->update(['status' => CrewAssignmentStatus::Active]);
         $p3Linked->currentPhase->update([
-            'phase_code' => CrewPhaseCode::ReadyToJoin,
+            'phase_code' => CrewPhaseCode::JoinStandby,
             'status' => CrewPhaseStatus::Active,
         ]);
 

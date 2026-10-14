@@ -254,7 +254,7 @@ test('legacy travel in backdated arrival remains rejected', function () {
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
         ['started_at' => CarbonImmutable::parse('2026-10-08 10:00:00', 'Asia/Dubai')],
     );
     $assignment->currentPhase?->update([

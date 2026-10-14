@@ -979,12 +979,12 @@ test('friendly excel headers map to modern phases without P1 or P3', function ()
     $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
     expect($row['status'])->toBe('ready')
-        ->and($phaseCodes)->toContain('p2a')
+        ->and($phaseCodes)->toContain('p1a')
+        ->and($phaseCodes)->toContain('p2')
         ->and($phaseCodes)->toContain('p4')
-        ->and($phaseCodes)->toContain('p6')
         ->and($phaseCodes)->not->toContain('p0')
         ->and($phaseCodes)->not->toContain('p1')
-        ->and($phaseCodes)->not->toContain('p2b')
+        ->and($phaseCodes)->not->toContain('p1b')
         ->and($phaseCodes)->not->toContain('p3');
 });
 
@@ -1091,9 +1091,9 @@ test('excel on vessel plus disembarked without home is ready as open P5', functi
 
     expect($row['status'])->toBe('ready')
         ->and($row['is_open'] ?? false)->toBeTrue()
-        ->and($phaseCodes)->toContain('p4')
-        ->and($phaseCodes)->toContain('p5')
-        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p5');
+        ->and($phaseCodes)->toContain('p2')
+        ->and($phaseCodes)->toContain('p3')
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p3');
 });
 
 test('excel two open rows for same employee are blocked', function () {
@@ -1347,8 +1347,8 @@ test('excel open sign-on standby without later onsite is ready as active P2A', f
     $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
     expect($row['status'])->toBeIn(['ready', 'warning'])
-        ->and($phaseCodes)->toBe(['p2a'])
-        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p2a')
+        ->and($phaseCodes)->toBe(['p1a'])
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p1a')
         ->and($row['is_open'] ?? false)->toBeTrue();
 });
 
@@ -1385,8 +1385,8 @@ test('excel sign-on onsite and open sign-off is ready with P2A P4 P5 timeline', 
     $phaseCodes = collect($row['timeline'] ?? [])->pluck('phase_code')->all();
 
     expect($row['status'])->toBeIn(['ready', 'warning'])
-        ->and($phaseCodes)->toBe(['p2a', 'p4', 'p5'])
-        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p5')
+        ->and($phaseCodes)->toBe(['p1a', 'p2', 'p3'])
+        ->and($row['inferred_state']['phase_code'] ?? null)->toBe('p3')
         ->and($row['is_open'] ?? false)->toBeTrue();
 });
 

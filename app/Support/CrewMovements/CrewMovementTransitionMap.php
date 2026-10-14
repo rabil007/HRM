@@ -7,8 +7,8 @@ use App\Enums\CrewPhaseCode;
 final class CrewMovementTransitionMap
 {
     /**
-     * Same-assignment next phases. Plan sign-off stays in P4 (not a phase transition).
-     * P5/P6 → P0 is a linked-assignment start, not a same-assignment transition.
+     * Same-assignment next phases. Plan sign-off stays in P2 On Vessel (not a phase transition).
+     * P3/P4 → P0 is a linked-assignment start, not a same-assignment transition.
      *
      * @return array<string, list<CrewPhaseCode>>
      */
@@ -18,21 +18,12 @@ final class CrewMovementTransitionMap
             CrewPhaseCode::PreMobilisation->value => [
                 CrewPhaseCode::JoinStandby,
             ],
-            CrewPhaseCode::TravelIn->value => [
-                CrewPhaseCode::JoinStandby,
-                CrewPhaseCode::ReadyToJoin,
-            ],
             CrewPhaseCode::JoinStandby->value => [
                 CrewPhaseCode::Training,
-                CrewPhaseCode::ReadyToJoin,
                 CrewPhaseCode::OnVessel,
             ],
             CrewPhaseCode::Training->value => [
                 CrewPhaseCode::JoinStandby,
-                CrewPhaseCode::ReadyToJoin,
-            ],
-            CrewPhaseCode::ReadyToJoin->value => [
-                CrewPhaseCode::OnVessel,
             ],
             CrewPhaseCode::OnVessel->value => [
                 CrewPhaseCode::DemobStandby,

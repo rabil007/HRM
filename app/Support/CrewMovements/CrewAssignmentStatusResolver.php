@@ -236,11 +236,9 @@ final class CrewAssignmentStatusResolver
         bool $includeRestrictedFields = true,
     ): array {
         [$status, $label] = match ($code) {
-            CrewPhaseCode::PreMobilisation => ['pre_mobilisation', 'Pre-mobilisation'],
-            CrewPhaseCode::TravelIn => ['travel_in', 'Travel in'],
-            CrewPhaseCode::JoinStandby => ['join_standby', 'Join standby'],
+            CrewPhaseCode::PreMobilisation => ['pre_mobilisation', 'Pre-arrival'],
+            CrewPhaseCode::JoinStandby => ['join_standby', 'Pre-joining standby'],
             CrewPhaseCode::Training => ['training', 'Training'],
-            CrewPhaseCode::ReadyToJoin => ['ready_to_join', 'Ready to join'],
             CrewPhaseCode::OnVessel => ['on_vessel', 'On vessel'],
             CrewPhaseCode::DemobStandby => ['demob_standby', 'Demob standby'],
             CrewPhaseCode::HomeRedeploy => ['home_redeploy', 'Home / redeploy'],
@@ -257,8 +255,8 @@ final class CrewAssignmentStatusResolver
         }
 
         $plannedNext = match ($code) {
-            CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn, CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::Training, CrewPhaseCode::ReadyToJoin => $assignment->planned_join_at?->toDateString(),
+            CrewPhaseCode::PreMobilisation, CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::Training => $assignment->planned_join_at?->toDateString(),
             CrewPhaseCode::OnVessel => $assignment->planned_signoff_at?->toDateString(),
             CrewPhaseCode::DemobStandby => $assignment->planned_travel_at?->toDateString(),
             default => null,

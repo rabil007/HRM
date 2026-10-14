@@ -198,7 +198,7 @@ test('report filter options exclude legacy current phases and legacy rows are fl
         ->create(['assignment_no' => 'CA-LEGACY-001']);
 
     CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03',
@@ -211,11 +211,11 @@ test('report filter options exclude legacy current phases and legacy rows are fl
             ->has('filter_options.phases', 6)
             ->where('filter_options.phases', fn ($phases) => collect($phases)->pluck('value')->all() === [
                 'p0',
-                'p2a',
-                'p2b',
+                'p1a',
+                'p1b',
+                'p2',
+                'p3',
                 'p4',
-                'p5',
-                'p6',
             ])
             ->where('assignments.0.has_legacy_phases', true)
             ->where('assignments.0.travel_in.periods.0.start', '2026-01-03'));
@@ -399,7 +399,7 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         'assignment_no' => 'CA-ARRIVAL-P1',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($legacy)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03 08:00:00',
@@ -410,7 +410,7 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         'assignment_no' => 'CA-ARRIVAL-BOTH',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($both)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03 08:00:00',
@@ -453,14 +453,14 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         'assignment_no' => 'CA-ARRIVAL-P1-REPEAT',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($repeatedP1)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03 08:00:00',
         'actual_end_at' => '2026-01-04 11:00:00',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($repeatedP1)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 2,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-07 08:00:00',
@@ -665,7 +665,7 @@ test('report sorts by actual_arrival using authoritative resolver with p1 fallba
         'started_at' => '2026-04-01 08:00:00',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($legacyP1Assign)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-04-14 08:00:00',
@@ -678,7 +678,7 @@ test('report sorts by actual_arrival using authoritative resolver with p1 fallba
         'started_at' => '2026-08-01 08:00:00',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($bothAssign)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-07-30 08:00:00',
@@ -824,7 +824,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $foreignP1Assign->id,
         'company_id' => $foreignCompany->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-05-10 08:00:00',
@@ -841,7 +841,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $localBothAssign->id,
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-07-05 08:00:00',
@@ -865,7 +865,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $localP1OnlyAssign->id,
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-08-01 08:00:00',

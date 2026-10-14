@@ -262,7 +262,7 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
     $linked = createAssignmentFromPlanning($plan, $ctx['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
     ]);
 
@@ -271,7 +271,7 @@ it('surfaces mobilising and ready-to-join relief without overriding projected co
         ->and($mobilising['positions'][0]['relief_status'])->toBe('mobilising');
 
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
     ]);
 

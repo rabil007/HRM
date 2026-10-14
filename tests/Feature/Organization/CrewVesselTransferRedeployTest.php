@@ -56,7 +56,7 @@ function makeOnVesselSourceAssignment(): array
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-07-01 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-07-01 16:00:00',
@@ -249,7 +249,7 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $payload = [
@@ -284,8 +284,8 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
         ->exists())->toBeTrue();
 })->with([
     'p0' => ['p0', CrewAssignmentStatus::Draft, CrewPhaseCode::PreMobilisation],
-    'p2a' => ['p2a', CrewAssignmentStatus::Active, CrewPhaseCode::JoinStandby],
-    'p4' => ['p4', CrewAssignmentStatus::Active, CrewPhaseCode::OnVessel],
+    'p1a' => ['p1a', CrewAssignmentStatus::Active, CrewPhaseCode::JoinStandby],
+    'p2' => ['p2', CrewAssignmentStatus::Active, CrewPhaseCode::OnVessel],
 ]);
 
 test('redeploy from p6 is available and completes the source assignment', function () {
@@ -295,7 +295,7 @@ test('redeploy from p6 is available and completes the source assignment', functi
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $user->id);
 
     expect(CrewMovementAvailableActions::for($source->fresh(['currentPhase'])))
@@ -303,7 +303,7 @@ test('redeploy from p6 is available and completes the source assignment', functi
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-20 10:00:00',
-        'starting_phase' => 'p2a',
+        'starting_phase' => 'p1a',
         'vessel_id' => $sourceVessel->id,
         'position_id' => $rank->id,
     ], $user->id);
@@ -348,7 +348,7 @@ test('cross-company destination vessel references are rejected on join', functio
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-07-01 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     expect(fn () => $service->perform(
@@ -376,7 +376,7 @@ test('cross-company destination vessel references are rejected on redeploy', fun
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $beforeCount = CrewAssignment::query()->where('company_id', $company->id)->count();
@@ -387,7 +387,7 @@ test('cross-company destination vessel references are rejected on redeploy', fun
         CrewMovementAction::Redeploy,
         [
             'occurred_at' => '2026-07-15 09:00:00',
-            'starting_phase' => 'p4',
+            'starting_phase' => 'p2',
             'vessel_id' => $foreignVessel->id,
             'position_id' => $rank->id,
         ],
@@ -405,12 +405,12 @@ test('redeploy to p2a inherits the active source vessel when destination vessel 
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
-        'starting_phase' => 'p2a',
+        'starting_phase' => 'p1a',
         'position_id' => $rank->id,
     ], $user->id);
 
@@ -429,7 +429,7 @@ test('redeploy to p2a rejects an inherited inactive source vessel without mutati
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $source->refresh()->load('currentPhase');
@@ -457,7 +457,7 @@ test('redeploy to p2a rejects an inherited inactive source vessel without mutati
         CrewMovementAction::Redeploy,
         [
             'occurred_at' => '2026-07-15 09:00:00',
-            'starting_phase' => 'p2a',
+            'starting_phase' => 'p1a',
             'position_id' => $rank->id,
         ],
         $user->id,
@@ -493,7 +493,7 @@ test('redeploy to p0 clears planned sign-off and does not require destination ve
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
@@ -683,12 +683,12 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $p4Destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
-        'starting_phase' => 'p4',
+        'starting_phase' => 'p2',
         'vessel_id' => $sourceVessel->id,
         'position_id' => $rank->id,
         'planned_signoff_choice' => 'tour_of_duty',
@@ -703,12 +703,12 @@ test('direct p4 redeploy applies fresh tour while pre-p4 redeploy does not', fun
     setMappedCrewTourOfDutyDays($company, $rank2, 90);
     $service->perform($company2->id, $source2->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-07-12 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user2->id);
 
     $preP4 = $service->perform($company2->id, $source2->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-07-15 09:00:00',
-        'starting_phase' => 'p2a',
+        'starting_phase' => 'p1a',
         'vessel_id' => $sourceVessel2->id,
         'position_id' => $rank2->id,
     ], $user2->id);

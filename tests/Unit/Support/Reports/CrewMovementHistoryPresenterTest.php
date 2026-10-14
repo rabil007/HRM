@@ -227,8 +227,8 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
 
     $phaseData = [
         [CrewPhaseCode::PreMobilisation, 1, '2026-01-01', '2026-01-03'],
-        [CrewPhaseCode::TravelIn, 2, '2026-01-03', '2026-01-04'],
-        [CrewPhaseCode::ReadyToJoin, 3, '2026-01-04', '2026-01-10'],
+        [CrewPhaseCode::JoinStandby, 2, '2026-01-03', '2026-01-04'],
+        [CrewPhaseCode::JoinStandby, 3, '2026-01-04', '2026-01-10'],
         [CrewPhaseCode::OnVessel, 4, '2026-01-10', '2026-02-10'],
         [CrewPhaseCode::DemobStandby, 5, '2026-02-10', '2026-02-12'],
         [CrewPhaseCode::HomeRedeploy, 6, '2026-02-12', '2026-02-15'],
@@ -239,7 +239,7 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
             'phase_code' => $code,
             'sequence' => $sequence,
             'status' => CrewPhaseStatus::Completed,
-            'planned_start_at' => $code === CrewPhaseCode::TravelIn ? '2026-01-02' : null,
+            'planned_start_at' => $code === CrewPhaseCode::JoinStandby ? '2026-01-02' : null,
             'actual_start_at' => $start,
             'actual_end_at' => $end,
         ]);
@@ -613,15 +613,15 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ]),
     );
 
-    expect($row['starting_phase_code'])->toBe('p2a')
+    expect($row['starting_phase_code'])->toBe('p1a')
         ->and($row['starting_phase_label'])->toBe('Join Standby')
-        ->and($row['current_phase']['code'])->toBe('p4')
+        ->and($row['current_phase']['code'])->toBe('p2')
         ->and($row['linked_assignments']['previous']['assignment_no'])->toBe('CA-2026-000041')
         ->and($row['linked_assignments']['previous']['source'])->toBe('manual')
         ->and($row['linked_assignments']['previous']['source_label'])->toBe('Manual')
         ->and($row['linked_assignments']['relationship'])->toBe('redeployment')
         ->and($row['linked_assignments']['relationship_label'])->toBe('Redeployment')
-        ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p5')
+        ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p3')
         ->and($row['linked_assignments']['previous']['starting_phase_label'])->toBe('Demobilisation Standby')
         ->and($row['source'])->toBe('redeployment')
         ->and($row['source_label'])->toBe('Redeployment')
@@ -665,9 +665,9 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ]),
     );
 
-    expect($directRow['starting_phase_code'])->toBe('p4')
+    expect($directRow['starting_phase_code'])->toBe('p2')
         ->and($directRow['starting_phase_label'])->toBe('On Vessel')
-        ->and($directRow['current_phase']['code'])->toBe('p4');
+        ->and($directRow['current_phase']['code'])->toBe('p2');
 });
 
 test('it separates legacy p1 p3 timeline entries from modern lifecycle', function () {
@@ -675,7 +675,7 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03 08:00:00',
@@ -690,7 +690,7 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
         'actual_end_at' => '2026-01-05 12:00:00',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 3,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-05 12:00:00',
@@ -703,7 +703,7 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
 
     expect($row['has_legacy_phases'])->toBeTrue()
         ->and($row['phase_timeline'])->toHaveCount(3)
-        ->and(collect($row['modern_phase_timeline'])->pluck('phase_code')->all())->toBe(['p2a'])
+        ->and(collect($row['modern_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1a'])
         ->and(collect($row['legacy_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1', 'p3'])
         ->and($row['legacy_phase_timeline'][0]['remarks'])->toBe('Legacy travel');
 });

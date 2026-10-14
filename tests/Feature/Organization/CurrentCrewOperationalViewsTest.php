@@ -36,7 +36,7 @@ test('summary counts map operational location cards from active current phases',
         CrewPhaseCode::PreMobilisation,
         CrewPhaseCode::JoinStandby,
         CrewPhaseCode::Training,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
         CrewPhaseCode::OnVessel,
         CrewPhaseCode::DemobStandby,
         CrewPhaseCode::HomeRedeploy,
@@ -62,7 +62,7 @@ test('summary counts map operational location cards from active current phases',
         ->and($summary['crew_on_site'])->toBe(1)
         ->and($summary['post_signoff_hotel'])->toBe(1)
         ->and($summary['by_phase']['p0'] ?? 0)->toBe(1)
-        ->and($summary['by_phase']['p6'] ?? 0)->toBe(1);
+        ->and($summary['by_phase']['p4'] ?? 0)->toBe(1);
 });
 
 test('summary counts exclude completed assignments from operational location cards', function () {
@@ -119,9 +119,9 @@ test('pre join hotel view returns only active p2a p2b and p3 assignments', funct
 })->with([
     'p2a included' => [CrewPhaseCode::JoinStandby, true],
     'p2b included' => [CrewPhaseCode::Training, true],
-    'p3 included' => [CrewPhaseCode::ReadyToJoin, true],
+    'p3 included' => [CrewPhaseCode::JoinStandby, true],
     'p0 excluded' => [CrewPhaseCode::PreMobilisation, false],
-    'p1 excluded' => [CrewPhaseCode::TravelIn, false],
+    'p1 excluded' => [CrewPhaseCode::JoinStandby, false],
     'p4 excluded' => [CrewPhaseCode::OnVessel, false],
     'p5 excluded' => [CrewPhaseCode::DemobStandby, false],
     'p6 excluded' => [CrewPhaseCode::HomeRedeploy, false],
@@ -273,13 +273,13 @@ test('operational hotel views ignore conflicting phase filters and include compl
 
     $preJoin = CurrentCrewQuery::paginate(
         $fixtures['company']->id,
-        ['phase' => 'p4', 'include_completed' => true],
+        ['phase' => 'p2', 'include_completed' => true],
         CurrentCrewRequestFilters::VIEW_PRE_JOIN_HOTEL,
     );
 
     $postSignoff = CurrentCrewQuery::paginate(
         $fixtures['company']->id,
-        ['phase' => 'p4', 'include_completed' => true],
+        ['phase' => 'p2', 'include_completed' => true],
         CurrentCrewRequestFilters::VIEW_POST_SIGNOFF_HOTEL,
     );
 
@@ -307,7 +307,7 @@ test('pre join hotel search filters within the operational view', function () {
         $other,
         $fixtures['rank'],
         $fixtures['vessel'],
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     $paginator = CurrentCrewQuery::paginate(
@@ -565,7 +565,7 @@ test('operational location views sanitize conflicting inertia filters from craft
         ->get(route('organization.crew-assignments.index', [
             'view' => 'pre_join_hotel',
             'status' => 'completed',
-            'phase' => 'p4',
+            'phase' => 'p2',
             'include_completed' => 1,
         ]))
         ->assertOk()

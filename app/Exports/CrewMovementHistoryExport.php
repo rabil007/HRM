@@ -2,7 +2,6 @@
 
 namespace App\Exports;
 
-use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignment;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use Carbon\CarbonImmutable;
@@ -31,16 +30,7 @@ final class CrewMovementHistoryExport implements FromQuery, WithHeadings, WithMa
      */
     public static function forQuery(Builder $query, string $format = 'xlsx'): self
     {
-        $includesLegacyColumns = (clone $query)
-            ->whereHas('phases', function (Builder $phaseQuery): void {
-                $phaseQuery->whereIn('phase_code', [
-                    CrewPhaseCode::TravelIn->value,
-                    CrewPhaseCode::ReadyToJoin->value,
-                ]);
-            })
-            ->exists();
-
-        return new self($query, $includesLegacyColumns, $format);
+        return new self($query, includesLegacyColumns: false, format: $format);
     }
 
     /**

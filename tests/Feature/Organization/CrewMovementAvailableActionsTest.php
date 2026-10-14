@@ -32,9 +32,9 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
         'occurred_at' => '2026-01-01 08:00:00',
     ], $user->id);
 
-    if ($targetPhase === CrewPhaseCode::TravelIn) {
+    if ($targetPhase === CrewPhaseCode::JoinStandby) {
         $assignment->currentPhase->update([
-            'phase_code' => CrewPhaseCode::TravelIn,
+            'phase_code' => CrewPhaseCode::JoinStandby,
         ]);
 
         return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
@@ -42,13 +42,13 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-05 10:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
-    if ($targetPhase === CrewPhaseCode::ReadyToJoin) {
+    if ($targetPhase === CrewPhaseCode::JoinStandby) {
         $assignment = $assignment->fresh(['currentPhase']);
         $assignment->currentPhase->update([
-            'phase_code' => CrewPhaseCode::ReadyToJoin,
+            'phase_code' => CrewPhaseCode::JoinStandby,
         ]);
 
         return [$assignment->fresh(['currentPhase']), $service, $fixtures, $vessel];
@@ -80,7 +80,7 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
 
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-04-01 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     if ($targetPhase === CrewPhaseCode::DemobStandby) {
@@ -108,7 +108,7 @@ test('available actions match guided menus for every phase', function (CrewPhase
         ],
     ],
     'p1 travel in' => [
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
         [
             CrewMovementAction::RecordArrival->value,
             CrewMovementAction::CancelAssignment->value,
@@ -130,7 +130,7 @@ test('available actions match guided menus for every phase', function (CrewPhase
         ],
     ],
     'p3 ready to join' => [
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
         [
             CrewMovementAction::JoinVessel->value,
             CrewMovementAction::CancelAssignment->value,
@@ -163,7 +163,7 @@ test('available actions match guided menus for every phase', function (CrewPhase
 ]);
 
 test('p1 no longer exposes start join standby or mark ready', function () {
-    [$assignment] = makePhasedAssignment(CrewPhaseCode::TravelIn);
+    [$assignment] = makePhasedAssignment(CrewPhaseCode::JoinStandby);
 
     expect(CrewMovementAvailableActions::for($assignment))
         ->not->toContain(CrewMovementAction::StartJoinStandby->value)

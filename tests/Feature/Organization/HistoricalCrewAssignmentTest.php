@@ -596,7 +596,7 @@ test('preview response matches the canonical contract exactly', function () {
 
     expect($data['timeline'])->toHaveCount(2);
     expect($data['timeline'][0])->toEqual([
-        'phase_code' => 'p4',
+        'phase_code' => 'p2',
         'phase_label' => 'On Vessel',
         'start' => '15 Jan 2024',
         'end' => '20 Jul 2024',
@@ -605,7 +605,7 @@ test('preview response matches the canonical contract exactly', function () {
         'duration_days' => 188,
     ]);
     expect($data['timeline'][1])->toEqual([
-        'phase_code' => 'p5',
+        'phase_code' => 'p3',
         'phase_label' => 'Demobilisation Standby',
         'start' => '20 Jul 2024',
         'end' => null,
@@ -736,7 +736,7 @@ test('open historical bootstrap is allowed for active employees', function () {
         ->assertOk()
         ->assertJsonPath('valid', true)
         ->assertJsonPath('summary.assignment_status', 'active')
-        ->assertJsonPath('inferred_state.phase_code', 'p4');
+        ->assertJsonPath('inferred_state.phase_code', 'p2');
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), $payload)
@@ -1438,7 +1438,7 @@ test('on vessel plus disembarked without home leaves active P5 open', function (
         ->assertOk()
         ->assertJsonPath('summary.is_open', true)
         ->assertJsonPath('summary.assignment_status', 'active')
-        ->assertJsonPath('inferred_state.phase_code', 'p5');
+        ->assertJsonPath('inferred_state.phase_code', 'p3');
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), [
@@ -1732,8 +1732,8 @@ test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () 
             CrewPhaseCode::DemobStandby,
             CrewPhaseCode::HomeRedeploy,
         ])
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::TravelIn))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::ReadyToJoin))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::JoinStandby))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::JoinStandby))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse();
 });

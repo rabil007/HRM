@@ -260,7 +260,7 @@ test('approving a p1 start correction updates the phase but does not rewrite ass
         $fixtures['employee'],
         $fixtures['rank'],
         $vessel,
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
         [
             'started_at' => '2026-09-15 08:00:00',
         ],

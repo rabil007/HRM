@@ -41,10 +41,6 @@ class CrewMovementAvailableActions
                     CrewMovementAction::RecordArrival->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],
-                CrewPhaseCode::TravelIn => [
-                    CrewMovementAction::RecordArrival->value,
-                    CrewMovementAction::CancelAssignment->value,
-                ],
                 CrewPhaseCode::JoinStandby => [
                     CrewMovementAction::SendToTraining->value,
                     CrewMovementAction::JoinVessel->value,
@@ -52,10 +48,6 @@ class CrewMovementAvailableActions
                 ],
                 CrewPhaseCode::Training => [
                     CrewMovementAction::CompleteTraining->value,
-                    CrewMovementAction::CancelAssignment->value,
-                ],
-                CrewPhaseCode::ReadyToJoin => [
-                    CrewMovementAction::JoinVessel->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],
                 CrewPhaseCode::OnVessel => [

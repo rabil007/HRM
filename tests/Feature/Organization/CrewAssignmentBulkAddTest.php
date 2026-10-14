@@ -455,9 +455,9 @@ test('browser supplied current stage in bulk add is ignored and rows start in p0
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
     expect($assignment?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
 })->with([
-    'p2a' => ['p2a'],
+    'p1a' => ['p1a'],
     'p3' => ['p3'],
-    'p4' => ['p4'],
+    'p2' => ['p2'],
 ]);
 
 test('client supplied stage started at cannot alter the bulk start time', function () {

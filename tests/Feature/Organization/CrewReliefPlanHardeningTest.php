@@ -72,7 +72,7 @@ it('rejects vacant relief when source is not active P4', function () {
         $vessel,
     );
     $source->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
     ]);
 

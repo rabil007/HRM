@@ -131,7 +131,7 @@ it('matches current crew relief filters to daily dashboard risk and action signa
     $linked = createAssignmentFromPlanning($planning, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);

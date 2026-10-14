@@ -85,13 +85,13 @@ function advanceToPhase(
         'occurred_at' => '2026-01-01 08:00:00',
     ], $userId);
 
-    if ($target === CrewPhaseCode::TravelIn) {
+    if ($target === CrewPhaseCode::JoinStandby) {
         return;
     }
 
     $service->perform($companyId, $assignmentId, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $userId);
 
     if ($target === CrewPhaseCode::JoinStandby) {
@@ -112,7 +112,7 @@ function advanceToPhase(
         'occurred_at' => '2026-01-04 08:00:00',
     ], $userId);
 
-    if ($target === CrewPhaseCode::ReadyToJoin) {
+    if ($target === CrewPhaseCode::JoinStandby) {
         return;
     }
 
@@ -128,7 +128,7 @@ function advanceToPhase(
 
     $service->perform($companyId, $assignmentId, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-03-01 08:00:00',
-        'next_phase' => $target === CrewPhaseCode::HomeRedeploy ? 'p6' : 'p5',
+        'next_phase' => $target === CrewPhaseCode::HomeRedeploy ? 'p4' : 'p3',
     ], $userId);
 }
 
@@ -172,7 +172,7 @@ test('safe p1 assignment can be voided', function () {
     $assignment = $service->createDraft($company->id, $employee->id, [
         'position_id' => $rank->id,
     ], $user->id);
-    advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::TravelIn);
+    advanceToPhase($service, $company->id, $assignment->id, $user->id, CrewPhaseCode::JoinStandby);
 
     voidAssignmentViaHttp($user, $assignment->fresh())->assertRedirect();
 
@@ -195,7 +195,7 @@ test('safe p2 and p3 assignments can be voided', function (CrewPhaseCode $phase)
 })->with([
     CrewPhaseCode::JoinStandby,
     CrewPhaseCode::Training,
-    CrewPhaseCode::ReadyToJoin,
+    CrewPhaseCode::JoinStandby,
 ]);
 
 test('active p4 void is blocked without delete_sea_service and allowed with delete_sea_service', function () {
@@ -243,7 +243,7 @@ test('safe p5 and p6 can be voided when sea service sync is disabled', function 
         $company->id,
         $assignment->id,
         $user->id,
-        $nextPhase === 'p6' ? CrewPhaseCode::HomeRedeploy : CrewPhaseCode::DemobStandby,
+        $nextPhase === 'p4' ? CrewPhaseCode::HomeRedeploy : CrewPhaseCode::DemobStandby,
         $vessel->id,
         $rank->id,
     );
@@ -253,7 +253,7 @@ test('safe p5 and p6 can be voided when sea service sync is disabled', function 
     voidAssignmentViaHttp($user, $assignment->fresh())->assertRedirect();
 
     expect(CrewAssignment::withTrashed()->findOrFail($assignment->id)->trashed())->toBeTrue();
-})->with(['p5', 'p6']);
+})->with(['p3', 'p4']);
 
 test('void reason is required', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeVoidAssignmentFixtures();

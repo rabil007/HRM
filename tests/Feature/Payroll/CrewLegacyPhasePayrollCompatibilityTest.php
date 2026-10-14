@@ -1,9 +1,7 @@
 <?php
 
 use App\Enums\CrewPhaseCode;
-use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
-use App\Models\CrewAssignmentPhase;
 use App\Models\CrewTimesheetPreparationLine;
 use App\Support\CrewMovements\Corrections\CrewMovementCorrectionPresenter;
 use App\Support\Payroll\CrewTimeline\CrewTimesheetPreparationReviewQuery;
@@ -89,7 +87,7 @@ test('modern p2a to p4 exact handoff maps sign-on standby and onsite without ove
 
     $payload = legacyPayrollReviewPayload($fixtures, $preparation->id);
 
-    expect(reviewPhaseCodes($payload, (int) $fixtures['employee']->id))->toBe(['p2a', 'p4']);
+    expect(reviewPhaseCodes($payload, (int) $fixtures['employee']->id))->toBe(['p1a', 'p2']);
 });
 
 test('modern p2a p2b p2a p4 keeps sign-on categories without duplicate payable days', function () {
@@ -123,11 +121,12 @@ test('modern p2a p2b p2a p4 keeps sign-on categories without duplicate payable d
     assertEachOperationalDayHasSinglePayableLine($preparation->id, '2026-07-01', '2026-07-12');
 });
 
-test('legacy p1 travel in stays excluded from payable totals', function () {
+test('p0 pre-arrival stays excluded from payable totals', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::TravelIn, 1, '2026-07-05 08:00:00', '2026-07-08 10:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-08 10:00:00', '2026-07-12 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-07-01 08:00:00', '2026-07-05 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-07-05 10:00:00', '2026-07-08 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-07-08 10:00:00', '2026-07-12 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
         $fixtures['period'],
@@ -135,21 +134,20 @@ test('legacy p1 travel in stays excluded from payable totals', function () {
         (int) $fixtures['user']->id,
     );
 
-    $p1Lines = CrewTimesheetPreparationLine::query()
+    $p0Lines = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $preparation->id)
-        ->where('phase_code', CrewPhaseCode::TravelIn->value)
+        ->where('phase_code', CrewPhaseCode::PreMobilisation->value)
         ->get();
 
-    expect($p1Lines)->toHaveCount(1)
-        ->and($p1Lines->first()->pay_category)->toBe(CrewTimesheetPayCategory::Excluded)
-        ->and((float) $p1Lines->first()->days)->toBeGreaterThan(0);
+    expect($p0Lines)->toHaveCount(1)
+        ->and($p0Lines->first()->pay_category)->toBe(CrewTimesheetPayCategory::Excluded);
 });
 
-test('legacy p3 ready to join maps to sign-on standby', function () {
+test('p3 demob standby maps to sign-off standby', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', '2026-07-20 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-10 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 2, '2026-07-10 10:00:00', '2026-07-15 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
         $fixtures['period'],
@@ -159,20 +157,19 @@ test('legacy p3 ready to join maps to sign-on standby', function () {
 
     $p3Lines = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $preparation->id)
-        ->where('phase_code', CrewPhaseCode::ReadyToJoin->value)
+        ->where('phase_code', CrewPhaseCode::DemobStandby->value)
         ->get();
 
     expect($p3Lines)->toHaveCount(1)
-        ->and($p3Lines->first()->pay_category)->toBe(CrewTimesheetPayCategory::SignOnStandby)
+        ->and($p3Lines->first()->pay_category)->toBe(CrewTimesheetPayCategory::SignOffStandby)
         ->and(overlapWarningExists($preparation->id))->toBeFalse();
 });
 
-test('payroll review marks actual legacy p1 and p3 phases with legacy context', function () {
+test('payroll review exposes six-phase codes without legacy markers', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::TravelIn, 1, '2026-07-01 08:00:00', '2026-07-03 10:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 2, '2026-07-03 10:00:00', '2026-07-06 10:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-07-06 10:00:00', '2026-07-10 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-03 10:00:00', '2026-07-06 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
         $fixtures['period'],
@@ -183,42 +180,16 @@ test('payroll review marks actual legacy p1 and p3 phases with legacy context', 
     $payload = legacyPayrollReviewPayload($fixtures, $preparation->id);
     $phases = collect($payload['employees'][0]['assignments'][0]['phases'] ?? []);
 
-    expect($phases->firstWhere('phase_code', 'p1'))
-        ->not->toBeNull()
-        ->and($phases->firstWhere('phase_code', 'p1')['is_legacy'])->toBeTrue()
-        ->and($phases->firstWhere('phase_code', 'p1')['legacy_context_label'])->toBe('Legacy phase · P1 Travel In')
-        ->and($phases->firstWhere('phase_code', 'p3'))
-        ->not->toBeNull()
-        ->and($phases->firstWhere('phase_code', 'p3')['is_legacy'])->toBeTrue()
-        ->and($phases->firstWhere('phase_code', 'p3')['legacy_context_label'])->toBe('Legacy phase · P3 Ready to Join')
-        ->and($phases->firstWhere('phase_code', 'p4')['is_legacy'] ?? false)->toBeFalse();
+    expect(reviewPhaseCodes($payload, (int) $fixtures['employee']->id))->toBe(['p1a', 'p2'])
+        ->and($phases->every(fn (array $phase): bool => ($phase['is_legacy'] ?? false) === false))->toBeTrue()
+        ->and($phases->every(fn (array $phase): bool => ($phase['legacy_context_label'] ?? null) === null))->toBeTrue();
 });
 
-test('correction presenter keeps legacy p1 and p3 correctable with legacy indicator', function () {
+test('correction presenter lists modern phase codes without legacy indicators', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Legacy Correction Vessel', $company);
+    $vessel = makeCrewMovementVessel('Correction Phase Codes', $company);
 
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
-
-    $p1 = CrewAssignmentPhase::query()->create([
-        'company_id' => $company->id,
-        'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
-        'sequence' => 0,
-        'status' => CrewPhaseStatus::Completed,
-        'actual_start_at' => CarbonImmutable::parse('2026-01-01 08:00:00', $company->timezone ?? 'UTC'),
-        'actual_end_at' => CarbonImmutable::parse('2026-01-02 08:00:00', $company->timezone ?? 'UTC'),
-    ]);
-
-    $p3 = CrewAssignmentPhase::query()->create([
-        'company_id' => $company->id,
-        'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
-        'sequence' => 2,
-        'status' => CrewPhaseStatus::Completed,
-        'actual_start_at' => CarbonImmutable::parse('2026-01-02 08:00:00', $company->timezone ?? 'UTC'),
-        'actual_end_at' => CarbonImmutable::parse('2026-01-03 08:00:00', $company->timezone ?? 'UTC'),
-    ]);
 
     $assignment->load([
         'phases.pendingCorrections',
@@ -232,9 +203,6 @@ test('correction presenter keeps legacy p1 and p3 correctable with legacy indica
     $summary = app(CrewMovementCorrectionPresenter::class)->assignmentSummary($assignment);
     $correctable = collect($summary['correctable_phases']);
 
-    expect($correctable->pluck('phase_code')->all())->toContain('p1', 'p3', 'p4')
-        ->and($correctable->firstWhere('phase_code', 'p1')['is_legacy'])->toBeTrue()
-        ->and($correctable->firstWhere('phase_code', 'p1')['legacy_context_label'])->toBe('Legacy phase · P1 Travel In')
-        ->and($correctable->firstWhere('phase_code', 'p3')['is_legacy'])->toBeTrue()
-        ->and($correctable->firstWhere('phase_code', 'p4')['is_legacy'] ?? false)->toBeFalse();
+    expect($correctable->pluck('phase_code')->all())->toContain('p2')
+        ->and($correctable->every(fn (array $phase): bool => ($phase['is_legacy'] ?? false) === false))->toBeTrue();
 });

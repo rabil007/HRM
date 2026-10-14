@@ -133,7 +133,7 @@ test('planned sign-off keeps sea service open and actual disembarkation updates 
     // Confirm Disembarkation: updates same record
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-12-20 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $user->id);
 
     $seaServiceAfterDisembark = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
@@ -196,7 +196,7 @@ test('sync ignores non-p4 phases', function () {
     $travelPhase = CrewAssignmentPhase::query()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 2,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => now()->subDays(5),

@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 test('exact phase handoffs produce no overlap warning and onsite wins transition dates', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', '2026-07-20 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-20 10:00:00', '2026-07-22 08:00:00');
 
@@ -36,7 +36,7 @@ test('exact phase handoffs produce no overlap warning and onsite wins transition
 test('genuine timestamp overlap produces a blocking overlap warning', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 14:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 14:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', '2026-07-20 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -56,7 +56,7 @@ test('travel in phase produces a single line without a duplicate excluded notice
     $fixtures = makeDailyCrewTimelineFixtures();
 
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-07-01 08:00:00', '2026-07-01 18:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::TravelIn, 2, '2026-07-01 18:00:00', '2026-07-05 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-07-01 18:00:00', '2026-07-05 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 3, '2026-07-05 10:00:00', '2026-07-08 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 4, '2026-07-08 10:00:00', '2026-07-20 10:00:00');
 
@@ -68,7 +68,7 @@ test('travel in phase produces a single line without a duplicate excluded notice
 
     $travelInLines = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $preparation->id)
-        ->where('phase_code', CrewPhaseCode::TravelIn->value)
+        ->where('phase_code', CrewPhaseCode::JoinStandby->value)
         ->get();
 
     $noticeExists = CrewTimesheetPreparationLine::query()
@@ -132,7 +132,7 @@ test('repeated join standby around training produces no false overlap and no dup
 test('same day disjoint timestamps produce no overlap warning and pick one winner', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-15 08:00:00', '2026-07-15 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-15 08:00:00', '2026-07-15 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 14:00:00', '2026-07-15 18:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -151,7 +151,7 @@ test('same day disjoint timestamps produce no overlap warning and pick one winne
 test('exact handoff at local midnight produces no overlap and correct dates', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 00:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 00:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 00:00:00', '2026-07-18 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -170,7 +170,7 @@ test('exact handoff at local midnight produces no overlap and correct dates', fu
 test('active phase with null actual end is clipped without false overlap', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', null, CrewPhaseStatus::Active);
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -185,7 +185,7 @@ test('active phase with null actual end is clipped without false overlap', funct
 test('invalid phase range still raises invalid_phase_range without crashing', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-15 10:00:00', '2026-07-10 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-15 10:00:00', '2026-07-10 08:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
         $fixtures['period'],
@@ -205,7 +205,7 @@ test('invalid phase range still raises invalid_phase_range without crashing', fu
 test('multiple genuine overlapping phases stay deterministic and blocking', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 12:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 12:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-12 08:00:00', '2026-07-19 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::DemobStandby, 3, '2026-07-14 08:00:00', '2026-07-18 08:00:00');
 
@@ -226,7 +226,7 @@ test('preparation with only exact handoffs can be submitted', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', '2026-07-20 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -249,7 +249,7 @@ test('preparation with genuine overlap cannot be submitted', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     grantApplyPermissions($fixtures['user'], $fixtures['company']);
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-10 08:00:00', '2026-07-15 14:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-10 08:00:00', '2026-07-15 14:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-15 10:00:00', '2026-07-20 10:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(

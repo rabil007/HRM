@@ -92,7 +92,7 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
 
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);
@@ -100,7 +100,7 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
         ->toBe(CrewReliefStatus::Mobilising);
 
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
     ]);
     $ready = (new CrewReliefReadinessResolver)->forSourceAssignment($source->fresh());

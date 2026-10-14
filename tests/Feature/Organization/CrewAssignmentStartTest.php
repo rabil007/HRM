@@ -336,7 +336,7 @@ test('browser supplied current stage is ignored by store endpoint and defaults t
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
-})->with(['p2a', 'p3', 'p2b', 'p4', 'p5', 'p6']);
+})->with(['p1a', 'p3', 'p1b', 'p2', 'p3', 'p4']);
 
 test('service rejects payable join-standby stages as a direct start', function (string $stage) {
     ['company' => $company, 'employee' => $employee, 'user' => $user] = makeCrewAssignmentFixtures();
@@ -348,7 +348,21 @@ test('service rejects payable join-standby stages as a direct start', function (
         CrewMovementException::class,
         'Assignments cannot start directly in this stage.',
     );
-})->with(['p2a', 'p3']);
+})->with(['p1a', 'p1b', 'p2', 'p3', 'p4']);
+
+test('service already arrived shortcut starts at p1a with actual arrival', function () {
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'rank' => $rank] = makeCrewAssignmentFixtures();
+
+    $assignment = app(CrewMovementService::class)->startAssignment($company->id, $employee->id, [
+        'stage_started_at' => '2026-09-15 08:30:00',
+        'position_id' => $rank->id,
+        'already_arrived' => true,
+        'actual_arrival_at' => '2026-09-15',
+        'accommodation_status' => 'no_accommodation',
+    ], $user->id);
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+});
 
 test('manual quick create preserves planned sign-off and ignores travel input', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
@@ -451,7 +465,7 @@ test('active p0 rejects crafted approve mobilisation and creates no p1', functio
     $assignment->refresh()->load('phases');
     expect($assignment->phases)->toHaveCount(1)
         ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
-        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::TravelIn)->count())->toBe(0);
+        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(0);
 });
 
 test('draft p0 start assignment activates existing p0 without creating p1', function () {
@@ -965,7 +979,7 @@ test('already arrived start creates active p2a without fabricated p0', function 
         ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-04')
         ->and($assignment->started_at?->equalTo($assignment->currentPhase?->actual_start_at))->toBeTrue()
         ->and($assignment->planned_arrival_at)->toBeNull()
-        ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe(['p2a'])
+        ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe(['p1a'])
         ->and(CrewMovementAvailableActions::for($assignment->load(['currentPhase', 'employee', 'company'])))->toBe([
             CrewMovementAction::SendToTraining->value,
             CrewMovementAction::JoinVessel->value,
@@ -990,12 +1004,12 @@ test('already arrived start creates active p2a without fabricated p0', function 
         ->get(route('organization.crew-assignments.show', $assignment))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('assignment.current_phase.code', 'p2a')
+            ->where('assignment.current_phase.code', 'p1a')
             ->where('assignment.actual_arrival_at', '2026-10-04')
             ->where('assignment.planned_arrival_at', null)
             ->where('assignment.available_actions.0', CrewMovementAction::SendToTraining->value)
             ->has('assignment.phase_timeline', 1)
-            ->where('assignment.phase_timeline.0.phase_code', 'p2a'));
+            ->where('assignment.phase_timeline.0.phase_code', 'p1a'));
 });
 
 test('already arrived start requires actual arrival date', function () {
@@ -1209,7 +1223,7 @@ test('already arrived planning handoff preserves planned arrival independently o
         ->assertInertia(fn (Assert $page) => $page
             ->where('assignment.planned_arrival_at', '2026-10-02')
             ->where('assignment.actual_arrival_at', '2026-10-04')
-            ->where('assignment.current_phase.code', 'p2a'));
+            ->where('assignment.current_phase.code', 'p1a'));
 });
 
 test('already arrived planning handoff does not reuse omitted arrival as actual from the planning slot', function () {

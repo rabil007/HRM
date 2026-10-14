@@ -350,7 +350,7 @@ class CrewAssignmentPresenter
     {
         $currentCode = $assignment->currentPhase?->phase_code;
 
-        if (! in_array($currentCode, [CrewPhaseCode::JoinStandby, CrewPhaseCode::Training, CrewPhaseCode::ReadyToJoin], true)) {
+        if (! in_array($currentCode, [CrewPhaseCode::JoinStandby, CrewPhaseCode::Training], true)) {
             return null;
         }
 

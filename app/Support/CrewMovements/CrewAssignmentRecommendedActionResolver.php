@@ -30,14 +30,6 @@ final class CrewAssignmentRecommendedActionResolver
             return $this->forPreMobilisation($permitted, $readiness);
         }
 
-        if ($phase === CrewPhaseCode::TravelIn) {
-            return $this->movementRecommendation(
-                $permitted,
-                CrewMovementAction::RecordArrival,
-                'Crew member is travelling in. Record arrival when they reach the join location.',
-            );
-        }
-
         if ($phase === CrewPhaseCode::JoinStandby) {
             return $this->firstMovement($permitted, [
                 [CrewMovementAction::JoinVessel, 'Crew member is on join standby and can join the vessel.'],
@@ -50,14 +42,6 @@ final class CrewAssignmentRecommendedActionResolver
                 $permitted,
                 CrewMovementAction::CompleteTraining,
                 'Record training completion when the course is finished.',
-            );
-        }
-
-        if ($phase === CrewPhaseCode::ReadyToJoin) {
-            return $this->movementRecommendation(
-                $permitted,
-                CrewMovementAction::JoinVessel,
-                'Crew member is ready to join the vessel.',
             );
         }
 

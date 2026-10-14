@@ -86,7 +86,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             $assignment = $this->route('assignment');
             if ($assignment instanceof CrewAssignment) {
                 $assignment->loadMissing('currentPhase');
-                if (in_array($assignment->currentPhase?->phase_code, [CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn], true)
+                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation
                     && ! $this->filled('next_phase')) {
                     $this->merge(['next_phase' => CrewPhaseCode::JoinStandby->value]);
                 }
@@ -149,21 +149,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'cancel_assignment',
             ], true)), 'nullable', 'date'],
             'next_phase' => array_values(array_filter([
-                Rule::requiredIf(function () use ($action) {
-                    if ($action === 'record_arrival') {
-                        /** @var CrewAssignment|null $assignment */
-                        $assignment = $this->route('assignment');
-                        if ($assignment instanceof CrewAssignment) {
-                            $assignment->loadMissing('currentPhase');
-
-                            return $assignment->currentPhase?->phase_code === CrewPhaseCode::TravelIn;
-                        }
-
-                        return false;
-                    }
-
-                    return in_array($action, ['complete_training', 'confirm_disembarkation'], true);
-                }),
+                Rule::requiredIf(fn () => in_array($action, ['complete_training', 'confirm_disembarkation'], true)),
                 'nullable',
                 'string',
                 in_array($action, [
@@ -477,24 +463,17 @@ class PerformCrewMovementActionRequest extends FormRequest
             if ($action === 'record_arrival') {
                 $currentCode = $assignment->currentPhase?->phase_code;
 
-                if (! in_array($currentCode, [CrewPhaseCode::PreMobilisation, CrewPhaseCode::TravelIn], true)) {
+                if ($currentCode !== CrewPhaseCode::PreMobilisation) {
                     $validator->errors()->add(
                         'action',
-                        'Record Arrival can only be performed from Pre-Mobilisation or Travel In.',
+                        'Record Arrival can only be performed from Pre-Arrival.',
                     );
                 }
 
                 if ($currentCode === CrewPhaseCode::PreMobilisation && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
                     $validator->errors()->add(
                         'next_phase',
-                        'Pre-Mobilisation arrivals must transition to Join Standby.',
-                    );
-                }
-
-                if ($currentCode === CrewPhaseCode::TravelIn && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
-                    $validator->errors()->add(
-                        'next_phase',
-                        'Travel In arrivals must transition to Join Standby.',
+                        'Pre-Arrival arrivals must transition to Pre-Joining Standby.',
                     );
                 }
 

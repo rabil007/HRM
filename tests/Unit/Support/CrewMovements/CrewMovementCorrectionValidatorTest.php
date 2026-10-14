@@ -59,7 +59,7 @@ it('rejects unsupported topology fields', function () {
     expect(fn () => app(ValidateCrewMovementCorrection::class)->validateProposed(
         $assignment,
         $assignment->currentPhase,
-        ['phase_code' => 'p5'],
+        ['phase_code' => 'p3'],
     ))->toThrow(CrewMovementException::class);
 });
 

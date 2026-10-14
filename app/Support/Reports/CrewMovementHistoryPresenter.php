@@ -88,28 +88,18 @@ final class CrewMovementHistoryPresenter
         $actualArrival = CrewDateProvenance::actualArrival($assignment, $timezone);
         $plannedSignoff = CrewDateProvenance::plannedSignoff($assignment, $timezone);
         $plannedTravelHome = CrewDateProvenance::plannedTravel($assignment, $timezone);
-        $plannedTravelInPhase = $phases
-            ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::TravelIn)
-            ->sortBy('sequence')
-            ->first();
-        $plannedTravelIn = CrewDateProvenance::phasePlanned(
-            $plannedTravelInPhase,
-            $assignment,
-            $timezone,
-        );
-        $travelIn = self::flatten($summaries[CrewPhaseCode::TravelIn->value]);
-        $readyToJoin = self::flatten($summaries[CrewPhaseCode::ReadyToJoin->value]);
+        $plannedTravelIn = [
+            'start' => null,
+            'origin' => null,
+            'origin_label' => null,
+        ];
+        $travelIn = self::emptyPhaseFlatten();
+        $readyToJoin = self::emptyPhaseFlatten();
         $homeRedeploy = self::flatten($summaries[CrewPhaseCode::HomeRedeploy->value]);
         $trainingHistory = self::trainingHistory($phases, $timezone, $companyId);
         $phaseTimeline = self::phaseTimeline($phases, $timezone, $today);
-        $modernTimeline = array_values(array_filter(
-            $phaseTimeline,
-            fn (array $entry): bool => ! ($entry['is_legacy'] ?? false),
-        ));
-        $legacyTimeline = array_values(array_filter(
-            $phaseTimeline,
-            fn (array $entry): bool => (bool) ($entry['is_legacy'] ?? false),
-        ));
+        $modernTimeline = $phaseTimeline;
+        $legacyTimeline = [];
         $accommodation = self::accommodationHistory($assignment, $timezone);
         $linked = self::linkedAssignments($assignment, $timezone);
         $startingCheckpoint = self::startingCheckpoint($phases, $timezone);
@@ -206,7 +196,7 @@ final class CrewMovementHistoryPresenter
             'phase_timeline' => $phaseTimeline,
             'modern_phase_timeline' => $modernTimeline,
             'legacy_phase_timeline' => $legacyTimeline,
-            'has_legacy_phases' => $travelIn['periods'] !== [] || $readyToJoin['periods'] !== [],
+            'has_legacy_phases' => false,
             'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreMobilisation->value]),
             'travel_in' => $travelIn,
             'join_standby' => $summaries[CrewPhaseCode::JoinStandby->value],
@@ -347,6 +337,18 @@ final class CrewMovementHistoryPresenter
     }
 
     /**
+     * @return array{periods: list<array<string, mixed>>, total_days: null, total_days_label: string, from: null, to: null}
+     */
+    private static function emptyPhaseFlatten(): array
+    {
+        return self::flatten([
+            'periods' => [],
+            'total_days' => null,
+            'total_days_label' => CrewMovementHistoryDuration::serviceDayLabel(null),
+        ]);
+    }
+
+    /**
      * @param  array{periods: list<array<string, mixed>>, total_days: int|null, total_days_label: string}  $summary
      * @return array<string, mixed>
      */
@@ -472,10 +474,7 @@ final class CrewMovementHistoryPresenter
                         : CrewMovementHistoryDuration::serviceDayLabel($days),
                     'remarks' => $phase->remarks,
                     'details' => is_array($phase->details) ? $phase->details : null,
-                    'is_legacy' => in_array($phase->phase_code, [
-                        CrewPhaseCode::TravelIn,
-                        CrewPhaseCode::ReadyToJoin,
-                    ], true),
+                    'is_legacy' => false,
                 ];
             })
             ->all();

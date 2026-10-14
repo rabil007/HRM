@@ -181,10 +181,10 @@ final class CrewReliefReadinessResolver
 
             return in_array($phase->phase_code, [
                 CrewPhaseCode::PreMobilisation,
-                CrewPhaseCode::TravelIn,
+                CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::Training,
-                CrewPhaseCode::ReadyToJoin,
+                CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::OnVessel,
             ], true);
         }
@@ -211,10 +211,10 @@ final class CrewReliefReadinessResolver
 
         return in_array($phase->phase_code, [
             CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
-            CrewPhaseCode::ReadyToJoin,
+            CrewPhaseCode::JoinStandby,
             CrewPhaseCode::OnVessel,
         ], true);
     }
@@ -327,14 +327,14 @@ final class CrewReliefReadinessResolver
             return CrewReliefStatus::ReliefOnboard;
         }
 
-        if ($phase->phase_code === CrewPhaseCode::ReadyToJoin
+        if ($phase->phase_code === CrewPhaseCode::JoinStandby
             && $phase->status === CrewPhaseStatus::Active) {
             return CrewReliefStatus::ReadyToJoin;
         }
 
         if (in_array($phase->phase_code, [
             CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
         ], true)) {
@@ -370,14 +370,14 @@ final class CrewReliefReadinessResolver
             return CrewReliefStatus::ReliefOnboard;
         }
 
-        if ($phase->phase_code === CrewPhaseCode::ReadyToJoin
+        if ($phase->phase_code === CrewPhaseCode::JoinStandby
             && $phase->status === CrewPhaseStatus::Active) {
             return CrewReliefStatus::ReadyToJoin;
         }
 
         if (in_array($phase->phase_code, [
             CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::JoinStandby,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
         ], true)) {

@@ -36,7 +36,7 @@ class CrewScheduledMovementFactory extends Factory
             'expected_current_phase_code' => null,
             'expected_current_phase_sequence' => null,
             'expected_vessel_id' => null,
-            'expected_result_phase_code' => 'p4',
+            'expected_result_phase_code' => 'p2',
             'created_by' => User::factory(),
             'updated_by' => null,
             'executed_at' => null,

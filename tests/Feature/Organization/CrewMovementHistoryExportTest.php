@@ -166,7 +166,7 @@ test('export adds legacy columns only when the filtered result set contains lega
         ->create(['assignment_no' => 'CA-EXPORT-LEGACY']);
 
     CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'planned_start_at' => '2026-01-02',
@@ -174,7 +174,7 @@ test('export adds legacy columns only when the filtered result set contains lega
         'actual_end_at' => '2026-01-04',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 2,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-04',

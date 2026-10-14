@@ -108,7 +108,7 @@ test('real crew movement happy path produces correct payroll through apply', fun
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-09-03 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-07 08:00:00',
@@ -117,7 +117,7 @@ test('real crew movement happy path produces correct payroll through apply', fun
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-09-15 12:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
     $assignment = $service->perform($company->id, $id, CrewMovementAction::TravelHome, [
         'occurred_at' => '2026-09-18 14:00:00',
@@ -163,7 +163,7 @@ test('real transfer vessel action allocates shared day once through payroll', fu
     ], $user->id);
     $service->perform($company->id, $sourceId, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-09-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $source = $service->perform($company->id, $sourceId, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-10 08:00:00',
@@ -222,7 +222,7 @@ test('real cancel assignment after standby preserves legitimate standby pay thro
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-09-03 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::CancelAssignment, [
@@ -265,7 +265,7 @@ test('real redeploy closes source assignment and pays combined timeline once', f
     ], $user->id);
     $service->perform($company->id, $sourceId, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-09-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $source = $service->perform($company->id, $sourceId, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-09-05 08:00:00',
@@ -275,12 +275,12 @@ test('real redeploy closes source assignment and pays combined timeline once', f
 
     $service->perform($company->id, $source->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-09-12 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $user->id);
 
     $destination = $service->perform($company->id, $source->id, CrewMovementAction::Redeploy, [
         'occurred_at' => '2026-09-14 10:00:00',
-        'starting_phase' => 'p2a',
+        'starting_phase' => 'p1a',
         'vessel_id' => $vessel->id,
         'position_id' => $rank->id,
     ], $user->id);

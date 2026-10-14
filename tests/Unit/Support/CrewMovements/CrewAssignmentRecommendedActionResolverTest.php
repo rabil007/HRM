@@ -118,14 +118,7 @@ it('recommends resolving readiness on P0 when checks fail without removing other
         ->and($available)->toContain(CrewMovementAction::CancelAssignment->value);
 });
 
-it('recommends record arrival for P1', function () {
-    [, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::TravelIn);
-
-    expect($recommended?->action)->toBe(CrewMovementAction::RecordArrival->value)
-        ->and($available)->toContain(CrewMovementAction::CancelAssignment->value);
-});
-
-it('recommends join vessel for P2A from allowed actions', function () {
+it('recommends join vessel for P1A from allowed actions', function () {
     [, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::JoinStandby);
 
     expect($recommended?->action)->toBe(CrewMovementAction::JoinVessel->value)
@@ -133,19 +126,13 @@ it('recommends join vessel for P2A from allowed actions', function () {
         ->and($available)->toContain(CrewMovementAction::JoinVessel->value);
 });
 
-it('recommends complete training for P2B', function () {
+it('recommends complete training for P1B', function () {
     [, , $recommended] = recommendedActionForPhase(CrewPhaseCode::Training);
 
     expect($recommended?->action)->toBe(CrewMovementAction::CompleteTraining->value);
 });
 
-it('recommends join vessel for P3', function () {
-    [, , $recommended] = recommendedActionForPhase(CrewPhaseCode::ReadyToJoin);
-
-    expect($recommended?->action)->toBe(CrewMovementAction::JoinVessel->value);
-});
-
-it('recommends confirm disembarkation for P4', function () {
+it('recommends confirm disembarkation for P2 on vessel', function () {
     $fixtures = makeCrewAssignmentFixtures();
     $assignment = makeActiveOnVesselAssignment(
         $fixtures['company'],
@@ -162,14 +149,14 @@ it('recommends confirm disembarkation for P4', function () {
         ->and($available)->not->toContain(CrewMovementAction::CancelAssignment->value);
 });
 
-it('recommends travel home for P5', function () {
+it('recommends travel home for P3 demob standby', function () {
     [, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::DemobStandby);
 
     expect($recommended?->action)->toBe(CrewMovementAction::TravelHome->value)
         ->and($available)->toContain(CrewMovementAction::Redeploy->value);
 });
 
-it('recommends close assignment for P6', function () {
+it('recommends close assignment for P4 home', function () {
     [, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::HomeRedeploy);
 
     expect($recommended?->action)->toBe(CrewMovementAction::CloseAssignment->value)
@@ -177,7 +164,7 @@ it('recommends close assignment for P6', function () {
 });
 
 it('never recommends an action that is not already allowed', function () {
-    [$assignment, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::TravelIn);
+    [$assignment, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::JoinStandby);
 
     expect($recommended?->action)->not->toBeNull()
         ->and($available)->toContain($recommended->action);

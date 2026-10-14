@@ -539,7 +539,7 @@ test('legacy p1 and p3 statuses remain resolvable and filterable', function () {
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
     );
 
     expect((new CrewAssignmentStatusResolver)->forEmployee($employee->fresh()))
@@ -553,7 +553,7 @@ test('legacy p1 and p3 statuses remain resolvable and filterable', function () {
         $p3Employee,
         $rank,
         $vessel,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     expect((new CrewAssignmentStatusResolver)->forEmployee($p3Employee->fresh()))
@@ -561,5 +561,5 @@ test('legacy p1 and p3 statuses remain resolvable and filterable', function () {
         ->and(EmployeeCrewStatusFilter::matchingEmployeeIds($company->id, 'ready_to_join'))
         ->toContain($p3Employee->id);
 
-    expect($p1Assignment->currentPhase->phase_code)->toBe(CrewPhaseCode::TravelIn);
+    expect($p1Assignment->currentPhase->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 });

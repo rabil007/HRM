@@ -364,7 +364,7 @@ test('document crew leave and payroll pages save and list supported filters', fu
     saveView($user, $company->id, [
         'page_key' => 'crew',
         'name' => 'Horizon onboard',
-        'filters' => ['vessel_id' => (string) $vessel->id, 'phase' => 'p4'],
+        'filters' => ['vessel_id' => (string) $vessel->id, 'phase' => 'p2'],
     ], '/organization/crew')->assertRedirect();
 
     saveView($user, $company->id, [
@@ -394,9 +394,9 @@ test('document crew leave and payroll pages save and list supported filters', fu
 
     visitList($user, $company->id, 'organization.crew-assignments.index', [
         'vessel_id' => $vessel->id,
-        'phase' => 'p4',
+        'phase' => 'p2',
     ])->assertOk()->assertInertia(fn (Assert $page) => $page
-        ->where('filters.phase', 'p4')
+        ->where('filters.phase', 'p2')
         ->where('filters.vessel_id', (string) $vessel->id)
     );
 
@@ -542,14 +542,14 @@ test('creating a saved view is not written to the activity log', function () {
 
 test('catalog apply strips unknown keys without requiring current company ids', function () {
     $filters = SavedViewCatalog::forApply(SavedViewPage::Crew, [
-        'phase' => 'p4',
+        'phase' => 'p2',
         'sort' => 'assignments.created_at',
         'old_filter' => 'x',
         'vessel_id' => '15',
     ]);
 
     expect($filters)->toBe([
-        'phase' => 'p4',
+        'phase' => 'p2',
         'vessel_id' => '15',
     ]);
 });

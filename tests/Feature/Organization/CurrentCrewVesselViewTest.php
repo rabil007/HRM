@@ -40,11 +40,11 @@ test('vessel view excludes non-p4 current phases even when the assignment alread
             ->where('view', 'vessel')
             ->has('vessels', 0));
 })->with([
-    'p2a' => CrewPhaseCode::JoinStandby,
-    'p2b' => CrewPhaseCode::Training,
-    'p3' => CrewPhaseCode::ReadyToJoin,
-    'p5' => CrewPhaseCode::DemobStandby,
-    'p6' => CrewPhaseCode::HomeRedeploy,
+    'p1a' => CrewPhaseCode::JoinStandby,
+    'p1b' => CrewPhaseCode::Training,
+    'p3' => CrewPhaseCode::JoinStandby,
+    'p3' => CrewPhaseCode::DemobStandby,
+    'p4' => CrewPhaseCode::HomeRedeploy,
 ]);
 
 test('vessel view excludes inactive employees with a leftover active p4 assignment', function () {
@@ -289,7 +289,7 @@ test('vessel view export includes filtered current p4 crew beyond the current pa
         $p3Employee,
         $rank,
         makeCrewMovementVessel('P3 Vessel', $company),
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     $page = CurrentCrewVesselQuery::paginate($company->id, [
@@ -349,7 +349,7 @@ test('vessel view export selected ids are revalidated and ignore invalid records
         $p3Employee,
         $rank,
         $vessel,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     $companyB = makeCrewAssignmentFixtures();
@@ -429,7 +429,7 @@ test('p3 crew with a past planned join is not treated as onboard', function () {
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
         ['planned_join_at' => now()->subDays(3)],
     );
 
@@ -548,7 +548,7 @@ test('selected export scope revalidates mixed valid p3 foreign and garbage ids',
         $p3Employee,
         $rank,
         $vessel,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     $companyB = makeCrewAssignmentFixtures();

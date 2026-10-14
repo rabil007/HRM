@@ -62,7 +62,7 @@ test('completing p2b training with sync toggle ON creates employee training reco
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -80,7 +80,7 @@ test('completing p2b training with sync toggle ON creates employee training reco
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-07 14:30:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
         'sync_training_to_employee_training' => true,
     ], $user->id);
 
@@ -125,7 +125,7 @@ test('completing p2b training with sync toggle ON and individual skip unchecked 
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -139,7 +139,7 @@ test('completing p2b training with sync toggle ON and individual skip unchecked 
     // User unchecks individual sync
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
         'sync_training_to_employee_training' => false,
     ], $user->id);
 
@@ -166,7 +166,7 @@ test('completing p2b training with sync toggle OFF does not create employee trai
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -178,7 +178,7 @@ test('completing p2b training with sync toggle OFF does not create employee trai
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
         'sync_training_to_employee_training' => true,
     ], $user->id);
 
@@ -204,7 +204,7 @@ test('completing p2b training with sync ON without course throws validation exce
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -214,7 +214,7 @@ test('completing p2b training with sync ON without course throws validation exce
 
     expect(fn () => $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
         'sync_training_to_employee_training' => true,
     ], $user->id))->toThrow(CrewMovementException::class, 'Select a Course before adding this training to the employee\'s Training record.');
 });
@@ -236,7 +236,7 @@ test('planned vs actual completion date maps to actual completion date in compan
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -251,7 +251,7 @@ test('planned vs actual completion date maps to actual completion date in compan
     // Actual completion occurred on March 8
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-08 16:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -279,7 +279,7 @@ test('idempotent sync does not duplicate employee training', function () {
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -292,7 +292,7 @@ test('idempotent sync does not duplicate employee training', function () {
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     expect(EmployeeTraining::query()->where('source_crew_assignment_phase_id', $trainingPhase->id)->count())->toBe(1);
@@ -322,7 +322,7 @@ test('repeated p2b phases in same assignment create distinct employee trainings'
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     // First training
@@ -335,7 +335,7 @@ test('repeated p2b phases in same assignment create distinct employee trainings'
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     // Second training
@@ -348,7 +348,7 @@ test('repeated p2b phases in same assignment create distinct employee trainings'
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-08 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $trainings = EmployeeTraining::query()
@@ -380,7 +380,7 @@ test('voiding assignment preserves employee training record', function () {
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -392,7 +392,7 @@ test('voiding assignment preserves employee training record', function () {
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $trainingId = EmployeeTraining::query()
@@ -426,7 +426,7 @@ test('approved correction on p2b training updates linked employee training', fun
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -439,7 +439,7 @@ test('approved correction on p2b training updates linked employee training', fun
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $trainingPhase->refresh();
@@ -503,7 +503,7 @@ test('enabling sync toggle later does not retroactively create employee training
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -515,7 +515,7 @@ test('enabling sync toggle later does not retroactively create employee training
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     expect(EmployeeTraining::query()->where('employee_id', $employee->id)->count())->toBe(0);
@@ -545,7 +545,7 @@ test('sync action enforces tenant isolation', function () {
     ], $user->id);
     $service->perform($company1->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $service->perform($company1->id, $assignment->id, CrewMovementAction::SendToTraining, [
         'occurred_at' => '2026-03-03 10:00:00',
@@ -581,7 +581,7 @@ test('re-sync preserves HR-enriched fields on existing EmployeeTraining', functi
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -594,7 +594,7 @@ test('re-sync preserves HR-enriched fields on existing EmployeeTraining', functi
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -658,7 +658,7 @@ test('active or incomplete p2b phase cannot sync to employee training', function
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -724,7 +724,7 @@ test('sync uses actual completion date and never planned dates or synthetic fall
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     // Planned end is March 5th
@@ -740,7 +740,7 @@ test('sync uses actual completion date and never planned dates or synthetic fall
     // Actual completion is March 8th (3 days after planned end)
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-08 16:45:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -778,7 +778,7 @@ test('provider and completion date corrections preserve HR-enriched fields', fun
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -791,7 +791,7 @@ test('provider and completion date corrections preserve HR-enriched fields', fun
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -881,7 +881,7 @@ test('course correction via structured course_id updates p2b details and employe
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -894,7 +894,7 @@ test('course correction via structured course_id updates p2b details and employe
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $synced = EmployeeTraining::query()
@@ -949,7 +949,7 @@ test('free text course correction on p2b phase linked to employee training is re
 
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-03-02 09:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $service->perform($company->id, $id, CrewMovementAction::SendToTraining, [
@@ -961,7 +961,7 @@ test('free text course correction on p2b phase linked to employee training is re
 
     $service->perform($company->id, $id, CrewMovementAction::CompleteTraining, [
         'occurred_at' => '2026-03-05 12:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     expect(EmployeeTraining::query()->where('source_crew_assignment_phase_id', $trainingPhase->id)->exists())->toBeTrue();

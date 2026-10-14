@@ -86,7 +86,7 @@ test('sign-off details are synchronized through disembarkation when enabled', fu
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-03-01 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $user->id);
 
     $seaService = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
