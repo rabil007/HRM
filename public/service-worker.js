@@ -2,6 +2,9 @@
  * Served at /sw.js with Service-Worker-Allowed: / (see ServiceWorkerController).
  */
 
+const OFFLINE_CACHE = 'oms-hrm-offline-shell-v1';
+const OFFLINE_URL = '/offline.html';
+
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
@@ -9,11 +12,61 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('install', (event) => {
-    event.waitUntil(self.skipWaiting());
+    event.waitUntil(
+        Promise.all([
+            caches.open(OFFLINE_CACHE).then((cache) => cache.add(OFFLINE_URL)),
+            self.skipWaiting(),
+        ]),
+    );
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        (async () => {
+            const keys = await caches.keys();
+
+            await Promise.all(
+                keys
+                    .filter(
+                        (key) =>
+                            key.startsWith('oms-hrm-offline-shell-') &&
+                            key !== OFFLINE_CACHE,
+                    )
+                    .map((key) => caches.delete(key)),
+            );
+
+            await self.clients.claim();
+        })(),
+    );
+});
+
+self.addEventListener('fetch', (event) => {
+    if (event.request.method !== 'GET') {
+        return;
+    }
+
+    if (event.request.mode !== 'navigate') {
+        return;
+    }
+
+    event.respondWith(
+        (async () => {
+            try {
+                const response = await fetch(event.request);
+
+                return response;
+            } catch {
+                const cache = await caches.open(OFFLINE_CACHE);
+                const offline = await cache.match(OFFLINE_URL);
+
+                if (offline) {
+                    return offline;
+                }
+
+                return Response.error();
+            }
+        })(),
+    );
 });
 
 self.addEventListener('push', (event) => {

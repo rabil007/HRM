@@ -77,6 +77,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Saved views | [saved-views.md](./saved-views.md) |
 | Mobile operational UX | [mobile-operational-lists.md](./mobile-operational-lists.md) |
 | HTTP / browser security headers | [security-headers.md](./security-headers.md) |
+| Error pages / exception handling / PWA offline recovery | [architecture/error-handling.md](./architecture/error-handling.md) |
 | Job history retention / activity-log cleanup | [permissions.md](./permissions.md#job-history-and-activity-log-retention) |
 | CI / quality gates | [ci.md](./ci.md) |
 | Application refresh / deploy update sync / permission live sync | [app-refresh.md](./app-refresh.md) |
