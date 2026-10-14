@@ -54,17 +54,13 @@ final class CrewOperationsResetExecutor
                     ->delete();
             }
 
-            if ($eligiblePayrollRecordIds !== []) {
+            if ($scope->deletableSalaryInputIds !== []) {
                 SalaryInput::query()
-                    ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-                    ->whereExists(function ($sub) use ($eligiblePayrollRecordIds): void {
-                        $sub->from('payroll_records')
-                            ->whereColumn('payroll_records.employee_id', 'salary_inputs.employee_id')
-                            ->whereColumn('payroll_records.period_id', 'salary_inputs.period_id')
-                            ->whereIn('payroll_records.id', $eligiblePayrollRecordIds);
-                    })
+                    ->whereIn('id', $scope->deletableSalaryInputIds)
                     ->delete();
+            }
 
+            if ($eligiblePayrollRecordIds !== []) {
                 PayrollRecord::query()
                     ->whereIn('id', $eligiblePayrollRecordIds)
                     ->withTrashed()

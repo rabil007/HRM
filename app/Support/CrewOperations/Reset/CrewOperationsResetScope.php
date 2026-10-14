@@ -11,6 +11,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\PayrollRecord;
 use App\Models\PayrollWorkAllocation;
+use App\Models\SalaryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -24,6 +25,9 @@ final class CrewOperationsResetScope
      * @param  list<int>  $deletableAllocationIds
      * @param  list<int>  $eligiblePayrollRecordIds
      * @param  list<int>  $ambiguousCrewPayrollRecordIds
+     * @param  list<int>  $preservedMixedAllocationPayrollRecordIds
+     * @param  list<int>  $deletableSalaryInputIds
+     * @param  list<int>  $preservedAmbiguousSalaryInputIds
      * @param  list<string>  $blockingIssues
      * @param  list<int>  $companyIds
      */
@@ -36,6 +40,9 @@ final class CrewOperationsResetScope
         public readonly array $deletableAllocationIds,
         public readonly array $eligiblePayrollRecordIds,
         public readonly array $ambiguousCrewPayrollRecordIds,
+        public readonly array $preservedMixedAllocationPayrollRecordIds,
+        public readonly array $deletableSalaryInputIds,
+        public readonly array $preservedAmbiguousSalaryInputIds,
         public readonly array $blockingIssues,
         public readonly array $companyIds,
     ) {}
@@ -53,7 +60,7 @@ final class CrewOperationsResetScope
         $segmentIds = self::segmentIds($companyId, $crewTimesheetIds);
 
         $blockingIssues = self::detectBlockingIssues($companyId, $assignmentIds, $phaseIds, $crewTimesheetIds, $segmentIds);
-        $deletableAllocationIds = self::resolveDeletableAllocationIds(
+        $strictDeletableAllocationIds = self::resolveStrictDeletableAllocationIds(
             $companyId,
             $assignmentIds,
             $phaseIds,
@@ -62,11 +69,23 @@ final class CrewOperationsResetScope
             $blockingIssues,
         );
 
-        $eligiblePayrollRecordIds = self::eligiblePayrollRecordIdsFromAllocations($deletableAllocationIds);
+        [
+            'eligible_payroll_record_ids' => $eligiblePayrollRecordIds,
+            'deletable_allocation_ids' => $deletableAllocationIds,
+            'preserved_mixed_allocation_payroll_record_ids' => $preservedMixedAllocationPayrollRecordIds,
+        ] = self::reconcilePayrollRecordsAndAllocations($strictDeletableAllocationIds);
+
         $ambiguousCrewPayrollRecordIds = self::ambiguousCrewPayrollRecordIds(
             $companyId,
             $crewTimesheetIds,
             $eligiblePayrollRecordIds,
+        );
+
+        $deletableSalaryInputIds = self::ownedSalaryInputIdsForPayrollRecords($eligiblePayrollRecordIds);
+        $preservedAmbiguousSalaryInputIds = self::preservedAmbiguousSalaryInputIds(
+            $companyId,
+            $eligiblePayrollRecordIds,
+            $deletableSalaryInputIds,
         );
 
         $companyIds = self::resolveCompanyIds($companyId, $assignmentIds);
@@ -80,6 +99,9 @@ final class CrewOperationsResetScope
             deletableAllocationIds: $deletableAllocationIds,
             eligiblePayrollRecordIds: $eligiblePayrollRecordIds,
             ambiguousCrewPayrollRecordIds: $ambiguousCrewPayrollRecordIds,
+            preservedMixedAllocationPayrollRecordIds: $preservedMixedAllocationPayrollRecordIds,
+            deletableSalaryInputIds: $deletableSalaryInputIds,
+            preservedAmbiguousSalaryInputIds: $preservedAmbiguousSalaryInputIds,
             blockingIssues: $blockingIssues,
             companyIds: $companyIds,
         );
@@ -239,7 +261,7 @@ final class CrewOperationsResetScope
      * @param  list<string>  $blockingIssues
      * @return list<int>
      */
-    private static function resolveDeletableAllocationIds(
+    private static function resolveStrictDeletableAllocationIds(
         ?int $companyId,
         array $assignmentIds,
         array $phaseIds,
@@ -268,31 +290,150 @@ final class CrewOperationsResetScope
     }
 
     /**
-     * @param  list<int>  $deletableAllocationIds
-     * @return list<int>
+     * @param  list<int>  $strictDeletableAllocationIds
+     * @return array{
+     *     eligible_payroll_record_ids: list<int>,
+     *     deletable_allocation_ids: list<int>,
+     *     preserved_mixed_allocation_payroll_record_ids: list<int>
+     * }
      */
-    private static function eligiblePayrollRecordIdsFromAllocations(array $deletableAllocationIds): array
+    private static function reconcilePayrollRecordsAndAllocations(array $strictDeletableAllocationIds): array
     {
-        if ($deletableAllocationIds === []) {
-            return [];
+        if ($strictDeletableAllocationIds === []) {
+            return [
+                'eligible_payroll_record_ids' => [],
+                'deletable_allocation_ids' => [],
+                'preserved_mixed_allocation_payroll_record_ids' => [],
+            ];
         }
 
-        $recordIds = PayrollWorkAllocation::query()
-            ->whereIn('id', $deletableAllocationIds)
+        $candidateRecordIds = PayrollWorkAllocation::query()
+            ->whereIn('id', $strictDeletableAllocationIds)
             ->whereNotNull('payroll_record_id')
             ->pluck('payroll_record_id')
             ->map(fn ($id) => (int) $id)
             ->unique()
+            ->values()
             ->all();
 
-        if ($recordIds === []) {
+        $eligibleRecordIds = [];
+        $preservedMixedRecordIds = [];
+
+        foreach ($candidateRecordIds as $recordId) {
+            $allocationIdsForRecord = PayrollWorkAllocation::query()
+                ->where('payroll_record_id', $recordId)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $hasOutsideScopeAllocation = false;
+            foreach ($allocationIdsForRecord as $allocationId) {
+                if (! in_array($allocationId, $strictDeletableAllocationIds, true)) {
+                    $hasOutsideScopeAllocation = true;
+                    break;
+                }
+            }
+
+            if ($hasOutsideScopeAllocation) {
+                $preservedMixedRecordIds[] = $recordId;
+
+                continue;
+            }
+
+            $eligibleRecordIds[] = $recordId;
+        }
+
+        $eligiblePayrollRecordIds = PayrollRecord::query()
+            ->whereIn('id', $eligibleRecordIds)
+            ->where('payroll_category', PayrollCategory::Crew)
+            ->withTrashed()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $eligibleRecordIdSet = array_flip($eligiblePayrollRecordIds);
+
+        $finalDeletableAllocationIds = array_values(array_filter(
+            $strictDeletableAllocationIds,
+            static function (int $allocationId) use ($eligibleRecordIdSet): bool {
+                $payrollRecordId = PayrollWorkAllocation::query()
+                    ->whereKey($allocationId)
+                    ->value('payroll_record_id');
+
+                if ($payrollRecordId === null) {
+                    return true;
+                }
+
+                return isset($eligibleRecordIdSet[(int) $payrollRecordId]);
+            },
+        ));
+
+        return [
+            'eligible_payroll_record_ids' => $eligiblePayrollRecordIds,
+            'deletable_allocation_ids' => $finalDeletableAllocationIds,
+            'preserved_mixed_allocation_payroll_record_ids' => array_values(array_unique($preservedMixedRecordIds)),
+        ];
+    }
+
+    /**
+     * @param  list<int>  $eligiblePayrollRecordIds
+     * @return list<int>
+     */
+    private static function ownedSalaryInputIdsForPayrollRecords(array $eligiblePayrollRecordIds): array
+    {
+        if ($eligiblePayrollRecordIds === []) {
             return [];
         }
 
-        return PayrollRecord::query()
-            ->whereIn('id', $recordIds)
-            ->where('payroll_category', PayrollCategory::Crew)
-            ->withTrashed()
+        $ownedIds = [];
+
+        PayrollRecord::query()
+            ->whereIn('id', $eligiblePayrollRecordIds)
+            ->get(['id', 'calculation_breakdown'])
+            ->each(function (PayrollRecord $record) use (&$ownedIds): void {
+                $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+                $rows = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
+
+                foreach ($rows as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+
+                    $inputId = $row['id'] ?? null;
+                    if ($inputId !== null && is_numeric($inputId)) {
+                        $ownedIds[] = (int) $inputId;
+                    }
+                }
+            });
+
+        return array_values(array_unique($ownedIds));
+    }
+
+    /**
+     * Salary inputs sharing employee and period with eligible crew payroll but not snapshotted on that payroll.
+     *
+     * @param  list<int>  $eligiblePayrollRecordIds
+     * @param  list<int>  $deletableSalaryInputIds
+     * @return list<int>
+     */
+    private static function preservedAmbiguousSalaryInputIds(
+        ?int $companyId,
+        array $eligiblePayrollRecordIds,
+        array $deletableSalaryInputIds,
+    ): array {
+        if ($eligiblePayrollRecordIds === []) {
+            return [];
+        }
+
+        return SalaryInput::query()
+            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
+            ->whereExists(function ($sub) use ($eligiblePayrollRecordIds): void {
+                $sub->from('payroll_records')
+                    ->whereColumn('payroll_records.employee_id', 'salary_inputs.employee_id')
+                    ->whereColumn('payroll_records.period_id', 'salary_inputs.period_id')
+                    ->whereIn('payroll_records.id', $eligiblePayrollRecordIds);
+            })
+            ->when($deletableSalaryInputIds !== [], fn (Builder $q) => $q->whereNotIn('id', $deletableSalaryInputIds))
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();

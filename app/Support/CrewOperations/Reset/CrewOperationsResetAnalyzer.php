@@ -19,7 +19,6 @@ use App\Models\EmployeeTraining;
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
 use App\Models\PayrollRecord;
-use App\Models\SalaryInput;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -35,6 +34,20 @@ final class CrewOperationsResetAnalyzer
             $warnings[] = sprintf(
                 '%d crew payroll record(s) share a period and employee with in-scope timesheets but have no crew-operations work allocations; they will be preserved.',
                 count($scope->ambiguousCrewPayrollRecordIds),
+            );
+        }
+
+        if ($scope->preservedMixedAllocationPayrollRecordIds !== []) {
+            $warnings[] = sprintf(
+                '%d crew payroll record(s) have work allocations outside the deletable scope; the full record and all of its allocations will be preserved.',
+                count($scope->preservedMixedAllocationPayrollRecordIds),
+            );
+        }
+
+        if ($scope->preservedAmbiguousSalaryInputIds !== []) {
+            $warnings[] = sprintf(
+                '%d salary input(s) share an employee and period with eligible crew payroll but are not snapshotted on that payroll; they will be preserved.',
+                count($scope->preservedAmbiguousSalaryInputIds),
             );
         }
 
@@ -67,7 +80,8 @@ final class CrewOperationsResetAnalyzer
             ->withTrashed()
             ->count();
 
-        $salaryInputDelete = $this->countSalaryInputsForEligiblePayroll($companyId, $scope->eligiblePayrollRecordIds);
+        $salaryInputDelete = count($scope->deletableSalaryInputIds);
+        $salaryInputPreserve = count($scope->preservedAmbiguousSalaryInputIds);
 
         $activityDelete = Activity::query()
             ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
@@ -86,7 +100,7 @@ final class CrewOperationsResetAnalyzer
 
         $rows = [
             $this->row('payroll_work_allocations (crew-operations)', $scope->countDeletableAllocations(), 0, 'Strict in-scope crew linkage only'),
-            $this->row('salary_inputs (eligible crew payroll pairs)', $salaryInputDelete, 0, 'Exact employee + period pairs only'),
+            $this->row('salary_inputs (crew payroll snapshot)', $salaryInputDelete, $salaryInputPreserve, 'Manual inputs for the same period preserved'),
             $this->row('payroll_records (eligible crew)', count($scope->eligiblePayrollRecordIds), $crewPayrollPreserve, 'Manual or ambiguous crew payroll preserved'),
             $this->row('crew_timesheet_segments', $this->countSegments($companyId), 0, 'Includes soft-deleted rows'),
             $this->row('crew_timesheets', count($scope->crewTimesheetIds), 0, 'Includes soft-deleted rows'),
@@ -123,26 +137,6 @@ final class CrewOperationsResetAnalyzer
             eligiblePayrollRecordIds: $scope->eligiblePayrollRecordIds,
             companyIds: $scope->companyIds,
         );
-    }
-
-    /**
-     * @param  list<int>  $eligiblePayrollRecordIds
-     */
-    private function countSalaryInputsForEligiblePayroll(?int $companyId, array $eligiblePayrollRecordIds): int
-    {
-        if ($eligiblePayrollRecordIds === []) {
-            return 0;
-        }
-
-        return SalaryInput::query()
-            ->when($companyId !== null, fn (Builder $q) => $q->where('company_id', $companyId))
-            ->whereExists(function ($sub) use ($eligiblePayrollRecordIds): void {
-                $sub->from('payroll_records')
-                    ->whereColumn('payroll_records.employee_id', 'salary_inputs.employee_id')
-                    ->whereColumn('payroll_records.period_id', 'salary_inputs.period_id')
-                    ->whereIn('payroll_records.id', $eligiblePayrollRecordIds);
-            })
-            ->count();
     }
 
     private function countSegments(?int $companyId): int
