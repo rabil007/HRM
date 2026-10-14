@@ -7,7 +7,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use PHPUnit\Framework\AssertionFailedError;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 test('unknown html route returns inertia 404 with correct status', function () {
@@ -142,4 +145,65 @@ test('missing tenant-scoped record remains 404 not forbidden', function () {
         ->get("/organization/employees/{$foreignEmployee->id}")
         ->assertNotFound()
         ->assertInertia(fn (Assert $page) => $page->component('errors/404'));
+});
+
+test('debug mode keeps the framework 500 page instead of the generic inertia error page', function () {
+    $originalDebug = config('app.debug');
+
+    config(['app.debug' => true]);
+
+    Route::middleware('web')->get('/_test/inertia-error-500-debug', function () {
+        throw new RuntimeException('VISIBLE_DEBUG_DETAIL');
+    });
+
+    try {
+        $response = $this->get('/_test/inertia-error-500-debug');
+
+        $response->assertStatus(500);
+        expect($response->getContent())->toContain('VISIBLE_DEBUG_DETAIL');
+        expect(fn () => $response->assertInertia())->toThrow(AssertionFailedError::class);
+    } finally {
+        config(['app.debug' => $originalDebug]);
+    }
+});
+
+test('validation exceptions stay field errors instead of inertia error pages', function () {
+    Route::middleware('web')->get('/_test/inertia-validation-error', function () {
+        throw ValidationException::withMessages([
+            'planned_arrival_at' => 'Actual Arrival Date is required when Already Arrived is selected.',
+        ]);
+    });
+
+    $this->from('/organization/crew-assignments/create')
+        ->get('/_test/inertia-validation-error')
+        ->assertRedirect('/organization/crew-assignments/create')
+        ->assertSessionHasErrors([
+            'planned_arrival_at' => 'Actual Arrival Date is required when Already Arrived is selected.',
+        ]);
+});
+
+test('non numeric retry after is not passed to the inertia 429 page', function () {
+    Route::middleware('web')->get('/_test/inertia-error-429-http-date', function () {
+        throw new HttpException(429, 'Too Many Requests', null, [
+            'Retry-After' => 'Wed, 21 Oct 2015 07:28:00 GMT',
+        ]);
+    });
+
+    $this->get('/_test/inertia-error-429-http-date')
+        ->assertStatus(429)
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('errors/429')
+            ->missing('retry_after_seconds')
+        );
+});
+
+test('unsupported http statuses are not rendered as inertia error pages', function () {
+    Route::middleware('web')->get('/_test/inertia-error-418', function () {
+        abort(418);
+    });
+
+    $response = $this->get('/_test/inertia-error-418');
+
+    $response->assertStatus(418);
+    expect(fn () => $response->assertInertia())->toThrow(AssertionFailedError::class);
 });
