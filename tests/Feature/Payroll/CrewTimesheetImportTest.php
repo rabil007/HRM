@@ -8,6 +8,7 @@ use App\Models\Department;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\SalaryInput;
+use App\Support\CrewOperations\Reset\CrewOperationsResetSalaryInputOwnership;
 use App\Support\Payroll\Services\CrewTimesheetTemplateExporter;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -399,7 +400,8 @@ test('crew timesheet import stores typed salary input from excel', function () {
         ->first();
 
     expect($salaryInput)->not->toBeNull()
-        ->and($salaryInput->amount)->toBe('500.00');
+        ->and($salaryInput->amount)->toBe('500.00')
+        ->and(CrewOperationsResetSalaryInputOwnership::isOwned($salaryInput))->toBeTrue();
 });
 
 test('crew timesheet import clears typed salary input when column is blank', function () {

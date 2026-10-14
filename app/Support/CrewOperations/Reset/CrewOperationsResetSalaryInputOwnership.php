@@ -11,20 +11,20 @@ final class CrewOperationsResetSalaryInputOwnership
 {
     public const BREAKDOWN_KEY = 'crew_operations_owned';
 
-    public const NOTES_MARKER = 'crew_operations:timesheet_import';
+    public const COLUMN = 'crew_operations_timesheet_import_owned';
 
     public static function isOwned(SalaryInput $input): bool
     {
-        return $input->notes === self::NOTES_MARKER;
+        return (bool) $input->{self::COLUMN};
     }
 
     /**
-     * @return array{notes: string}
+     * @return array{crew_operations_timesheet_import_owned: true}
      */
-    public static function attributesForImportUpsert(): array
+    public static function attributesForImportCreate(): array
     {
         return [
-            'notes' => self::NOTES_MARKER,
+            self::COLUMN => true,
         ];
     }
 }

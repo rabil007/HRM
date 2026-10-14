@@ -295,7 +295,7 @@ test('reset deletes only crew-operations-owned salary inputs on eligible crew pa
         'period_id' => $fixtures['period']->id,
         'salary_input_type_id' => $inputType->id,
         'amount' => 50,
-        ...CrewOperationsResetSalaryInputOwnership::attributesForImportUpsert(),
+        CrewOperationsResetSalaryInputOwnership::COLUMN => true,
     ]);
 
     app(RecalculateCrewPayroll::class)->handle($fixtures['period']->fresh(), $fixtures['employee']->id, $fixtures['user']);

@@ -418,7 +418,7 @@ final class CrewOperationsResetScope
 
         return SalaryInput::query()
             ->whereIn('id', $candidateIds)
-            ->get(['id', 'notes'])
+            ->get(['id', CrewOperationsResetSalaryInputOwnership::COLUMN])
             ->filter(fn (SalaryInput $input) => CrewOperationsResetSalaryInputOwnership::isOwned($input))
             ->pluck('id')
             ->map(fn ($id) => (int) $id)

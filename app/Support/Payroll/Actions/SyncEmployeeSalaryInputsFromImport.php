@@ -56,17 +56,27 @@ final class SyncEmployeeSalaryInputsFromImport
             return;
         }
 
-        SalaryInput::query()->updateOrCreate(
-            [
-                'company_id' => $period->company_id,
-                'employee_id' => $employee->id,
-                'period_id' => $period->id,
-                'salary_input_type_id' => $typeId,
-            ],
-            [
+        $unique = [
+            'company_id' => $period->company_id,
+            'employee_id' => $employee->id,
+            'period_id' => $period->id,
+            'salary_input_type_id' => $typeId,
+        ];
+
+        $existing = SalaryInput::query()->where($unique)->first();
+
+        if ($existing !== null) {
+            $existing->update([
                 'amount' => round($amount, 2),
-                ...CrewOperationsResetSalaryInputOwnership::attributesForImportUpsert(),
-            ],
-        );
+            ]);
+
+            return;
+        }
+
+        SalaryInput::query()->create([
+            ...$unique,
+            'amount' => round($amount, 2),
+            ...CrewOperationsResetSalaryInputOwnership::attributesForImportCreate(),
+        ]);
     }
 }
