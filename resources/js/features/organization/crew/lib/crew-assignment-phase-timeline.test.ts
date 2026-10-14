@@ -145,7 +145,10 @@ describe('CrewAssignmentPhaseTimeline render', () => {
         assert.ok(!html.includes('Planned:'));
         assert.ok(!html.includes('Not recorded'));
         assert.ok(!html.includes('variance unavailable (no planned dates)'));
-        assert.ok(html.includes('In progress'));
+        assert.ok(html.includes('Waiting for crew arrival'));
+        assert.ok(!html.includes('Actual:'));
+        assert.ok(!html.includes('Duration:'));
+        assert.ok(!html.includes('Phase details'));
     });
 
     it('preserves planned-not-recorded fallback when forecast is missing', async () => {

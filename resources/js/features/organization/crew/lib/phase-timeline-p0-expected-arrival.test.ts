@@ -5,6 +5,7 @@ import type { PhaseTimelineItem } from '../types.ts';
 import { buildPhaseDateLineSummary } from './phase-timeline-display.ts';
 import {
     assignmentShowsP0ExpectedArrivalInPlannedOnly,
+    shouldHideP0MobilisationActivationLines,
     shouldShowP0ExpectedArrival,
     shouldUseNeutralP0InProgressHeadline,
 } from './phase-timeline-p0-expected-arrival.ts';
@@ -105,6 +106,29 @@ describe('P0 expected arrival display rules', () => {
             shouldShowP0ExpectedArrival(
                 phase,
                 'plan_vs_actual',
+                activeCurrentContext,
+            ),
+            false,
+        );
+    });
+
+    it('hides mobilisation activation lines only for active current P0', () => {
+        const phase = p0Phase();
+
+        assert.equal(
+            shouldHideP0MobilisationActivationLines(phase, activeCurrentContext),
+            true,
+        );
+        assert.equal(
+            shouldHideP0MobilisationActivationLines(phase, {
+                ...activeCurrentContext,
+                isCurrentPhase: false,
+            }),
+            false,
+        );
+        assert.equal(
+            shouldHideP0MobilisationActivationLines(
+                p0Phase({ status: 'completed', actual_end_at: '2026-10-16' }),
                 activeCurrentContext,
             ),
             false,

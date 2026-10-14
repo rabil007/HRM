@@ -11,6 +11,7 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import { buildAssignmentMilestoneRows } from '@/features/organization/crew/lib/assignment-milestone-display';
 import {
     normalProgressSkippedStagesNote,
     resolveActiveLegacyPhaseContext,
@@ -22,7 +23,10 @@ import {
     calendarDatesDiffer,
     phasesHavePlannedDates,
 } from '@/features/organization/crew/lib/phase-timeline-math';
-import { assignmentShowsP0ExpectedArrivalInPlannedOnly } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import {
+    assignmentShowsP0ExpectedArrivalInPlannedOnly,
+    shouldHideP0MobilisationActivationLines,
+} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { P0ExpectedArrivalContext } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
@@ -35,12 +39,6 @@ import { useCompanyLocalDate } from '@/hooks/use-company-local-date';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
-
-interface AssignmentMilestone {
-    label: string;
-    planned: string | null | undefined;
-    actual: string | null | undefined;
-}
 
 function SegmentedControl({
     value,
@@ -99,7 +97,7 @@ function AssignmentMilestones({
     milestones,
     timeZone,
 }: {
-    milestones: AssignmentMilestone[];
+    milestones: ReturnType<typeof buildAssignmentMilestoneRows>;
     timeZone?: string | null;
 }): ReactElement | null {
     const visible = milestones.filter((row) => row.planned || row.actual);
@@ -164,6 +162,49 @@ function AssignmentMilestones({
     );
 }
 
+function phaseDetailEntries(
+    phase: PhaseTimelineItem,
+): Array<[string, unknown]> {
+    if (!phase.details) {
+        return [];
+    }
+
+    return Object.entries(phase.details).filter(([key]) => {
+        if (phase.phase_code === 'p2b' && key === 'course') {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+function phaseStatusLine(
+    phase: PhaseTimelineItem,
+    index: number,
+    p0ExpectedArrivalContext: P0ExpectedArrivalContext,
+): string {
+    const waiting = shouldHideP0MobilisationActivationLines(
+        phase,
+        p0ExpectedArrivalContext,
+    );
+
+    const base = waiting
+        ? `${phase.status_label} · Waiting for crew arrival`
+        : phase.status_label;
+
+    const parts = [base];
+
+    if (index === 0) {
+        parts.push('Sequence start');
+    }
+
+    if (phase.phase_code === 'p2b' && phase.details?.course) {
+        parts.push(String(phase.details.course));
+    }
+
+    return parts.join(' · ');
+}
+
 function buildP0ExpectedArrivalContext(
     assignment: CrewAssignmentDetail,
     phase: PhaseTimelineItem,
@@ -189,6 +230,10 @@ function PhaseDateLines({
     timeZone?: string | null;
     p0ExpectedArrivalContext: P0ExpectedArrivalContext;
 }): ReactElement {
+    const hideP0Activation = shouldHideP0MobilisationActivationLines(
+        phase,
+        p0ExpectedArrivalContext,
+    );
     const lines = buildPhaseDateLineSummary(phase, mode, today, {
         timeZone,
         formatDate: formatDisplayDate,
@@ -197,6 +242,14 @@ function PhaseDateLines({
     const variance = summarizePhaseVariance(phase, timeZone, {
         p0ExpectedArrivalContext,
     });
+
+    if (hideP0Activation && mode === 'actual_only') {
+        return (
+            <p className="text-xs text-muted-foreground">
+                Waiting for crew arrival
+            </p>
+        );
+    }
 
     return (
         <div className="space-y-1 text-xs text-muted-foreground">
@@ -207,7 +260,9 @@ function PhaseDateLines({
                             <span className="font-medium text-foreground/70">
                                 Expected Arrival:{' '}
                             </span>
-                            {lines.expectedArrivalLabel}
+                            <span className="font-semibold text-foreground">
+                                {lines.expectedArrivalLabel}
+                            </span>
                         </>
                     ) : (
                         <>
@@ -297,21 +352,23 @@ function PhaseTimelineRow({
     const variance = summarizePhaseVariance(phase, timeZone, {
         p0ExpectedArrivalContext,
     });
+    const hideP0Activation = shouldHideP0MobilisationActivationLines(
+        phase,
+        p0ExpectedArrivalContext,
+    );
     const lines = buildPhaseDateLineSummary(phase, mode, today, {
         timeZone,
         formatDate: formatDisplayDate,
         p0ExpectedArrivalContext,
     });
-    const [detailsOpen, setDetailsOpen] = useState(false);
-
-    const hasExpandableDetails = Boolean(
-        phase.remarks ||
-        (phase.details && Object.keys(phase.details).length > 0) ||
-        (lines.showVariance && variance.details.length > 1) ||
-        (lines.showPlanned && variance.plannedDurationDays !== null) ||
-        (lines.showActual &&
-            (variance.actualDurationDays !== null || variance.isInProgress)),
-    );
+    const detailEntries = phaseDetailEntries(phase);
+    const showVarianceHeadline =
+        lines.showVariance &&
+        !(
+            hideP0Activation &&
+            (lines.showExpectedArrival ||
+                variance.headline === 'Waiting for crew arrival')
+        );
 
     return (
         <li className="relative pb-5 last:pb-0">
@@ -406,13 +463,13 @@ function PhaseTimelineRow({
                             ) : null}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                            {phase.status_label}
-                            {index === 0 ? ' · Sequence start' : ''}
-                            {phase.phase_code === 'p2b' && phase.details?.course
-                                ? ` · ${String(phase.details.course)}`
-                                : ''}
+                            {phaseStatusLine(
+                                phase,
+                                index,
+                                p0ExpectedArrivalContext,
+                            )}
                         </p>
-                        {lines.showVariance ? (
+                        {showVarianceHeadline ? (
                             <p
                                 className={cn(
                                     'text-xs font-medium',
@@ -433,74 +490,33 @@ function PhaseTimelineRow({
                     p0ExpectedArrivalContext={p0ExpectedArrivalContext}
                 />
 
-                {hasExpandableDetails ? (
-                    <Collapsible
-                        open={detailsOpen}
-                        onOpenChange={setDetailsOpen}
-                    >
-                        <CollapsibleTrigger className="group inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
-                            Phase details
-                            <ChevronDown className="size-3 transition-transform group-data-[state=open]:rotate-180" />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="mt-2 space-y-2 rounded-md border border-border/40 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
-                            {lines.showVariance &&
-                            variance.details.length > 0 ? (
-                                <ul className="list-disc space-y-0.5 pl-4">
-                                    {variance.details.map((detail) => (
-                                        <li key={detail}>{detail}</li>
-                                    ))}
-                                </ul>
-                            ) : null}
-                            {lines.showPlanned || lines.showActual ? (
-                                <div
-                                    className={cn(
-                                        'grid gap-1',
-                                        lines.showPlanned && lines.showActual
-                                            ? 'sm:grid-cols-2'
-                                            : undefined,
-                                    )}
-                                >
-                                    {lines.showPlanned ? (
-                                        <p>
-                                            Planned duration:{' '}
-                                            {lines.plannedDurationLabel}
-                                        </p>
-                                    ) : null}
-                                    {lines.showActual ? (
-                                        <p>
-                                            Actual duration:{' '}
-                                            {lines.actualDurationLabel}
-                                        </p>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                            {phase.remarks ? (
-                                <p className="whitespace-pre-wrap">
-                                    Remarks: {phase.remarks}
-                                </p>
-                            ) : null}
-                            {phase.details &&
-                            Object.keys(phase.details).length > 0 ? (
-                                <dl className="grid gap-1 sm:grid-cols-2">
-                                    {Object.entries(phase.details).map(
-                                        ([key, value]) => (
-                                            <div key={key}>
-                                                <dt className="font-medium text-foreground/80">
-                                                    {key.replaceAll('_', ' ')}
-                                                </dt>
-                                                <dd>
-                                                    {value === null ||
-                                                    value === undefined
-                                                        ? '—'
-                                                        : String(value)}
-                                                </dd>
-                                            </div>
-                                        ),
-                                    )}
-                                </dl>
-                            ) : null}
-                        </CollapsibleContent>
-                    </Collapsible>
+                {lines.showVariance && variance.details.length > 0 ? (
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                        {variance.details.map((detail) => (
+                            <li key={detail}>{detail}</li>
+                        ))}
+                    </ul>
+                ) : null}
+                {phase.remarks ? (
+                    <p className="text-xs whitespace-pre-wrap text-muted-foreground">
+                        Remarks: {phase.remarks}
+                    </p>
+                ) : null}
+                {detailEntries.length > 0 ? (
+                    <dl className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+                        {detailEntries.map(([key, value]) => (
+                            <div key={key}>
+                                <dt className="font-medium text-foreground/80">
+                                    {key.replaceAll('_', ' ')}
+                                </dt>
+                                <dd>
+                                    {value === null || value === undefined
+                                        ? '—'
+                                        : String(value)}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
                 ) : null}
             </div>
         </li>
@@ -525,39 +541,8 @@ export function CrewAssignmentPhaseTimeline({
     const timeZone = assignment.company_timezone;
     const today = useCompanyLocalDate(timeZone);
 
-    const milestones: AssignmentMilestone[] = useMemo(
-        () => [
-            {
-                label: 'Arrival',
-                planned: assignment.planned_arrival_at,
-                actual: assignment.actual_arrival_at,
-            },
-            {
-                label: 'Vessel Join',
-                planned: assignment.planned_join_at,
-                actual: assignment.actual_join_at,
-            },
-            {
-                label: 'Travel',
-                planned: assignment.planned_travel_at,
-                actual: null,
-            },
-            {
-                label: 'Sign-Off',
-                planned: assignment.planned_signoff_at,
-                actual: assignment.actual_disembarkation_at,
-            },
-            {
-                label: 'Started',
-                planned: null,
-                actual: assignment.started_at,
-            },
-            {
-                label: 'Closed',
-                planned: null,
-                actual: assignment.closed_at,
-            },
-        ],
+    const milestones = useMemo(
+        () => buildAssignmentMilestoneRows(assignment),
         [assignment],
     );
 

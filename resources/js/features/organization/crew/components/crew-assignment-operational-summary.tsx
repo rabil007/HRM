@@ -1,6 +1,12 @@
-import { AlertTriangle, CalendarClock, CheckCircle2 } from 'lucide-react';
+import {
+    AlertTriangle,
+    CalendarClock,
+    CalendarRange,
+    CheckCircle2,
+} from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { buildAssignmentLifecycleLabels } from '@/features/organization/crew/lib/assignment-lifecycle-display';
 import type {
     CorrectionsSummary,
     CrewAssignmentDetail,
@@ -68,6 +74,54 @@ function SummaryCard({
             </div>
             <p className="mt-2 line-clamp-2 text-[11px] leading-4 text-muted-foreground/75">
                 {detail}
+            </p>
+        </article>
+    );
+}
+
+function AssignmentLifecycleCard({
+    assignment,
+}: {
+    assignment: CrewAssignmentDetail;
+}): ReactElement {
+    const lifecycle = buildAssignmentLifecycleLabels(
+        assignment,
+        formatDisplayDate,
+    );
+
+    return (
+        <article className="min-w-0 rounded-xl border border-border/60 bg-card/80 p-4 shadow-xs dark:border-white/5 dark:bg-white/2">
+            <div className="flex items-start justify-between gap-3">
+                <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    Assignment Lifecycle
+                </p>
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
+                    <CalendarRange className="size-4" />
+                </span>
+            </div>
+            <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                    <dt className="shrink-0 text-muted-foreground">Started</dt>
+                    <dd
+                        className="truncate text-right font-semibold text-foreground"
+                        title={lifecycle.started}
+                    >
+                        {lifecycle.started}
+                    </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                    <dt className="shrink-0 text-muted-foreground">Ended</dt>
+                    <dd
+                        className="truncate text-right font-semibold text-foreground"
+                        title={lifecycle.ended}
+                    >
+                        {lifecycle.ended}
+                    </dd>
+                </div>
+            </dl>
+            <p className="mt-2 text-[11px] leading-4 text-muted-foreground/75">
+                Operational assignment start and close — separate from movement
+                phase dates
             </p>
         </article>
     );
@@ -151,7 +205,7 @@ export function CrewAssignmentOperationalSummary({
 
     return (
         <section aria-label="Assignment operational summary">
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <SummaryCard
                     label={milestone.label}
                     value={milestone.value}
@@ -190,6 +244,7 @@ export function CrewAssignmentOperationalSummary({
                               : 'healthy'
                     }
                 />
+                <AssignmentLifecycleCard assignment={assignment} />
             </div>
         </section>
     );

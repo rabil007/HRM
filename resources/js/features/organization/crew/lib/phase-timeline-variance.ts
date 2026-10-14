@@ -5,7 +5,10 @@ import {
     phaseHasPlannedDates,
     signedDayDelta,
 } from './phase-timeline-math.ts';
-import { shouldUseNeutralP0InProgressHeadline } from './phase-timeline-p0-expected-arrival.ts';
+import {
+    shouldHideP0MobilisationActivationLines,
+    shouldUseNeutralP0InProgressHeadline,
+} from './phase-timeline-p0-expected-arrival.ts';
 import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 
 export type PhaseVarianceTone =
@@ -148,7 +151,7 @@ export function summarizePhaseVariance(
         tone = phase.status === 'completed' ? 'success' : 'pending';
         headline = isInProgress
             ? neutralP0InProgress
-                ? 'In progress'
+                ? 'Waiting for crew arrival'
                 : 'In progress · variance unavailable (no planned dates)'
             : phase.status === 'completed'
               ? 'Completed · variance unavailable (no planned dates)'
@@ -157,10 +160,21 @@ export function summarizePhaseVariance(
         tone = 'pending';
         headline = 'Not started';
     } else if (isInProgress) {
-        tone = hasDeviation ? 'warning' : 'pending';
-        headline = hasDeviation
-            ? (details[0] ?? 'In progress with variance')
-            : 'In progress';
+        if (
+            options?.p0ExpectedArrivalContext !== undefined &&
+            shouldHideP0MobilisationActivationLines(
+                phase,
+                options.p0ExpectedArrivalContext,
+            )
+        ) {
+            tone = 'pending';
+            headline = 'Waiting for crew arrival';
+        } else {
+            tone = hasDeviation ? 'warning' : 'pending';
+            headline = hasDeviation
+                ? (details[0] ?? 'In progress with variance')
+                : 'In progress';
+        }
     } else if (phase.status === 'completed' || hasConfirmedActualEnd) {
         if (!hasPlannedDates) {
             tone = 'success';
