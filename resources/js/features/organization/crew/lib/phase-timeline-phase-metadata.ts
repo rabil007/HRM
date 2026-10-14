@@ -122,9 +122,3 @@ export function buildPhaseMetadataRows(
 
     return rows;
 }
-
-/** Count visible "Waiting for crew arrival" phrases (status + date lines). */
-export function countWaitingForCrewArrivalCopy(parts: string[]): number {
-    return parts.filter((part) => /waiting for crew arrival/i.test(part))
-        .length;
-}
