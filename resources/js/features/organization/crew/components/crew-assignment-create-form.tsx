@@ -19,6 +19,7 @@ import { CrewAssignmentCreateDirectActions } from '@/features/organization/crew/
 import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
+import { FutureArrivalPreMobilisationDialog } from '@/features/organization/crew/components/future-arrival-pre-mobilisation-dialog';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
 import { PreJoinAccommodationFields } from '@/features/organization/crew/components/pre-join-accommodation-fields';
@@ -58,6 +59,10 @@ import {
     SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE,
 } from '@/features/organization/crew/lib/crew-assignment-create-arrival-field';
 import {
+    resolveAlreadyArrivedSubmitDecision,
+    resolveDefaultCreateArrivalDate,
+} from '@/features/organization/crew/lib/crew-assignment-create-arrival-submit';
+import {
     clearCreateFormDateErrors,
     dependentCreateDateErrorKeys,
     resolveArrivalDateDisplayError,
@@ -84,6 +89,7 @@ import type {
     CrewPlanningBackQuery,
     CrewPlanningStartContext,
 } from '@/features/organization/crew/types';
+import { safeCompanyTimezone } from '@/lib/company-timezone';
 import { dashboard } from '@/routes';
 import {
     bulkStore,
@@ -112,6 +118,7 @@ function createInitialRows(
         employee_id?: number | null;
         position_id?: number | null;
     } | null,
+    defaultArrivalDate?: string,
 ): {
     rows: CrewMemberRowState[];
     keys: string[];
@@ -145,6 +152,14 @@ function createInitialRows(
             if (prefill.position_id) {
                 row.position_id = prefill.position_id;
             }
+        }
+
+        if (
+            index === 0 &&
+            defaultArrivalDate &&
+            (row.planned_arrival_at == null || row.planned_arrival_at === '')
+        ) {
+            row.planned_arrival_at = defaultArrivalDate;
         }
 
         rows.push(row);
@@ -225,10 +240,7 @@ export function CrewAssignmentCreateForm({
     const { current_company_id: currentCompanyId } = usePage().props as {
         current_company_id?: number | null;
     };
-    const initialRows = useMemo(
-        () => createInitialRows(initial_row_count, planning_context, prefill),
-        [initial_row_count, planning_context, prefill],
-    );
+    const companyTimezone = safeCompanyTimezone(form_options.company_timezone);
     const restoredBulkSession = useMemo(() => {
         if (fromPlanning || currentCompanyId == null) {
             return null;
@@ -236,6 +248,37 @@ export function CrewAssignmentCreateForm({
 
         return loadBulkCreateSession(currentCompanyId);
     }, [currentCompanyId, fromPlanning]);
+    const defaultArrivalDate = useMemo(
+        () =>
+            resolveDefaultCreateArrivalDate({
+                companyTimezone,
+                planningArrival: planning_context?.planned_arrival_at,
+                restoredArrival:
+                    restoredBulkSession?.form.crew?.[0]?.planned_arrival_at ??
+                    null,
+            }),
+        [
+            companyTimezone,
+            planning_context?.planned_arrival_at,
+            restoredBulkSession,
+        ],
+    );
+    const initialRows = useMemo(
+        () =>
+            createInitialRows(
+                initial_row_count,
+                planning_context,
+                prefill,
+                fromPlanning ? undefined : defaultArrivalDate,
+            ),
+        [
+            initial_row_count,
+            planning_context,
+            prefill,
+            fromPlanning,
+            defaultArrivalDate,
+        ],
+    );
     const [rowKeys, setRowKeys] = useState<string[]>(
         () => restoredBulkSession?.rowKeys ?? initialRows.keys,
     );
@@ -254,6 +297,11 @@ export function CrewAssignmentCreateForm({
     const [scrollFocusedRow, setScrollFocusedRow] = useState(false);
     const [activeSingleSubmit, setActiveSingleSubmit] =
         useState<CrewAssignmentSingleSubmitAction | null>(null);
+    const [futureArrivalDialogOpen, setFutureArrivalDialogOpen] =
+        useState(false);
+    const [clientArrivalError, setClientArrivalError] = useState<
+        string | undefined
+    >();
     const form = useForm<UnifiedCreateFormData>({
         client_id:
             prefill?.client_id ??
@@ -463,10 +511,17 @@ export function CrewAssignmentCreateForm({
         form.data.planned_arrival_at ||
         form.data.crew[0]?.planned_arrival_at ||
         null;
+    const singleArrivalErrorKey = fromNamedPlanning
+        ? 'planned_arrival_at'
+        : 'crew.0.planned_arrival_at';
     const formErrors: Record<string, string | undefined> = {
         ...serverErrors,
         planned_arrival_at: resolveArrivalDateDisplayError({
-            serverError: serverErrors.planned_arrival_at,
+            serverError:
+                clientArrivalError &&
+                singleArrivalErrorKey === 'planned_arrival_at'
+                    ? clientArrivalError
+                    : serverErrors.planned_arrival_at,
             arrival: effectiveArrivalAt,
             join: form.data.planned_join_at,
         }),
@@ -474,8 +529,12 @@ export function CrewAssignmentCreateForm({
 
     form.data.crew.forEach((row, index) => {
         const key = `crew.${index}.planned_arrival_at`;
+        const serverArrivalError =
+            clientArrivalError && key === singleArrivalErrorKey
+                ? clientArrivalError
+                : serverErrors[key];
         formErrors[key] = resolveArrivalDateDisplayError({
-            serverError: serverErrors[key],
+            serverError: serverArrivalError,
             arrival: row.planned_arrival_at,
             join: form.data.planned_join_at,
         });
@@ -764,12 +823,71 @@ export function CrewAssignmentCreateForm({
         });
     };
 
+    const resolveSingleCreateArrivalDate = (): string | null => {
+        if (fromNamedPlanning) {
+            return form.data.planned_arrival_at || null;
+        }
+
+        return form.data.crew[0]?.planned_arrival_at ?? null;
+    };
+
     const submitSingleAction = (
         action: CrewAssignmentSingleSubmitAction,
     ): void => {
         const { submissionIntent, alreadyArrived: alreadyArrivedFlag } =
             resolveSingleSubmitRequest(action);
+
+        if (
+            action === 'already_arrived' &&
+            footerActions.useDirectCreateActions &&
+            !bulkMode
+        ) {
+            const decision = resolveAlreadyArrivedSubmitDecision(
+                resolveSingleCreateArrivalDate(),
+                companyTimezone,
+            );
+
+            if (decision.type === 'client_error') {
+                setClientArrivalError(decision.message);
+
+                return;
+            }
+
+            if (decision.type === 'confirm_pre_mobilisation') {
+                setClientArrivalError(undefined);
+                setFutureArrivalDialogOpen(true);
+
+                return;
+            }
+        }
+
+        setClientArrivalError(undefined);
+        setFutureArrivalDialogOpen(false);
         submitSingle(submissionIntent, alreadyArrivedFlag, action);
+    };
+
+    const confirmFutureArrivalAsPreMobilisation = (): void => {
+        if (form.processing) {
+            return;
+        }
+
+        const decision = resolveAlreadyArrivedSubmitDecision(
+            resolveSingleCreateArrivalDate(),
+            companyTimezone,
+        );
+
+        if (decision.type !== 'confirm_pre_mobilisation') {
+            setFutureArrivalDialogOpen(false);
+
+            if (decision.type === 'client_error') {
+                setClientArrivalError(decision.message);
+            }
+
+            return;
+        }
+
+        setFutureArrivalDialogOpen(false);
+        submitSingle('start', false, 'pre_mobilisation');
     };
 
     const submitBulk = (): void => {
@@ -1316,6 +1434,27 @@ export function CrewAssignmentCreateForm({
                         position_id: singleRow?.position_id ?? null,
                         client_id: form.data.client_id,
                     }}
+                />
+            ) : null}
+
+            {footerActions.useDirectCreateActions && !bulkMode ? (
+                <FutureArrivalPreMobilisationDialog
+                    open={futureArrivalDialogOpen}
+                    plannedArrivalDate={normalizeArrivalDate(
+                        resolveSingleCreateArrivalDate(),
+                    )}
+                    processing={
+                        form.processing &&
+                        activeSingleSubmit === 'pre_mobilisation'
+                    }
+                    onOpenChange={(open) => {
+                        if (!form.processing) {
+                            setFutureArrivalDialogOpen(open);
+                        }
+                    }}
+                    onConfirmPreMobilisation={
+                        confirmFutureArrivalAsPreMobilisation
+                    }
                 />
             ) : null}
 

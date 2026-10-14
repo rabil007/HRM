@@ -1,0 +1,87 @@
+import {
+    nowInCompanyDate,
+    safeCompanyTimezone,
+} from '../../../../lib/company-timezone.ts';
+import {
+    ACTUAL_ARRIVAL_REQUIRED_MESSAGE,
+    normalizeArrivalDate,
+} from './already-arrived-start.ts';
+import { normalizeCreateDate } from './crew-assignment-create-date-validation.ts';
+
+export type AlreadyArrivedArrivalDecision =
+    | { type: 'submit' }
+    | { type: 'confirm_pre_mobilisation'; plannedArrivalDate: string }
+    | { type: 'client_error'; message: string };
+
+export function resolveDefaultCreateArrivalDate(options: {
+    companyTimezone: string;
+    planningArrival?: string | null;
+    restoredArrival?: string | null;
+    referenceDate?: Date;
+}): string {
+    const planning = normalizeArrivalDate(options.planningArrival);
+
+    if (planning !== '') {
+        return planning;
+    }
+
+    const restored = normalizeArrivalDate(options.restoredArrival);
+
+    if (restored !== '') {
+        return restored;
+    }
+
+    return nowInCompanyDate(
+        safeCompanyTimezone(options.companyTimezone),
+        options.referenceDate,
+    );
+}
+
+export function isCalendarDateAfterCompanyToday(
+    arrival: string | null | undefined,
+    companyTimezone: string,
+    referenceDate?: Date,
+): boolean {
+    const normalized = normalizeCreateDate(arrival);
+
+    if (normalized === '') {
+        return false;
+    }
+
+    const today = nowInCompanyDate(
+        safeCompanyTimezone(companyTimezone),
+        referenceDate,
+    );
+
+    return normalized > today;
+}
+
+export function resolveAlreadyArrivedSubmitDecision(
+    arrival: string | null | undefined,
+    companyTimezone: string,
+    referenceDate?: Date,
+): AlreadyArrivedArrivalDecision {
+    const normalized = normalizeCreateDate(arrival);
+
+    if (normalized === '') {
+        return {
+            type: 'client_error',
+            message: ACTUAL_ARRIVAL_REQUIRED_MESSAGE,
+        };
+    }
+
+    if (
+        isCalendarDateAfterCompanyToday(
+            normalized,
+            companyTimezone,
+            referenceDate,
+        )
+    ) {
+        return {
+            type: 'confirm_pre_mobilisation',
+            plannedArrivalDate: normalized,
+        };
+    }
+
+    return { type: 'submit' };
+}
