@@ -46,7 +46,7 @@ final class CrewOperationsResetAnalyzer
 
         if ($scope->preservedAmbiguousSalaryInputIds !== []) {
             $warnings[] = sprintf(
-                '%d salary input(s) share an employee and period with eligible crew payroll but are not snapshotted on that payroll; they will be preserved.',
+                '%d salary input(s) share an employee and period with eligible crew payroll but are not owned by the crew operations import workflow; they will be preserved.',
                 count($scope->preservedAmbiguousSalaryInputIds),
             );
         }
@@ -100,7 +100,7 @@ final class CrewOperationsResetAnalyzer
 
         $rows = [
             $this->row('payroll_work_allocations (crew-operations)', $scope->countDeletableAllocations(), 0, 'Strict in-scope crew linkage only'),
-            $this->row('salary_inputs (crew payroll snapshot)', $salaryInputDelete, $salaryInputPreserve, 'Manual inputs for the same period preserved'),
+            $this->row('salary_inputs (crew operations owned)', $salaryInputDelete, $salaryInputPreserve, 'Manual or snapshotted-only inputs preserved'),
             $this->row('payroll_records (eligible crew)', count($scope->eligiblePayrollRecordIds), $crewPayrollPreserve, 'Manual or ambiguous crew payroll preserved'),
             $this->row('crew_timesheet_segments', $this->countSegments($companyId), 0, 'Includes soft-deleted rows'),
             $this->row('crew_timesheets', count($scope->crewTimesheetIds), 0, 'Includes soft-deleted rows'),

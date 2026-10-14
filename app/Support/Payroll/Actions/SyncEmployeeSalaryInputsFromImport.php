@@ -5,6 +5,7 @@ namespace App\Support\Payroll\Actions;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\SalaryInput;
+use App\Support\CrewOperations\Reset\CrewOperationsResetSalaryInputOwnership;
 use Illuminate\Validation\ValidationException;
 
 final class SyncEmployeeSalaryInputsFromImport
@@ -64,7 +65,7 @@ final class SyncEmployeeSalaryInputsFromImport
             ],
             [
                 'amount' => round($amount, 2),
-                'notes' => null,
+                ...CrewOperationsResetSalaryInputOwnership::attributesForImportUpsert(),
             ],
         );
     }

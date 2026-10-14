@@ -26,6 +26,8 @@ use App\Support\CrewMovements\CrewAssignmentNumberGenerator;
 use App\Support\CrewOperations\Reset\CrewOperationsResetAnalyzer;
 use App\Support\CrewOperations\Reset\CrewOperationsResetEnvironmentGuard;
 use App\Support\CrewOperations\Reset\CrewOperationsResetExecutor;
+use App\Support\CrewOperations\Reset\CrewOperationsResetSalaryInputOwnership;
+use App\Support\CrewOperations\Reset\CrewOperationsResetScope;
 use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Facades\DB;
@@ -270,7 +272,7 @@ test('unexpected office payroll allocation linkage blocks reset', function () {
     expect(CrewAssignment::query()->whereKey($fixtures['assignment']->id)->exists())->toBeTrue();
 });
 
-test('reset deletes only salary inputs snapshotted on eligible crew payroll', function () {
+test('reset deletes only crew-operations-owned salary inputs on eligible crew payroll', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-15 18:00:00', CrewPhaseStatus::Completed);
     runDailyCrewPayrollPipeline($fixtures);
@@ -293,6 +295,7 @@ test('reset deletes only salary inputs snapshotted on eligible crew payroll', fu
         'period_id' => $fixtures['period']->id,
         'salary_input_type_id' => $inputType->id,
         'amount' => 50,
+        ...CrewOperationsResetSalaryInputOwnership::attributesForImportUpsert(),
     ]);
 
     app(RecalculateCrewPayroll::class)->handle($fixtures['period']->fresh(), $fixtures['employee']->id, $fixtures['user']);
@@ -316,6 +319,54 @@ test('reset deletes only salary inputs snapshotted on eligible crew payroll', fu
     expect(SalaryInput::query()->whereKey($ownedInput->id)->exists())->toBeFalse()
         ->and(SalaryInput::query()->whereKey($manualSamePeriod->id)->exists())->toBeTrue()
         ->and(SalaryInput::query()->whereKey($unrelatedInput->id)->exists())->toBeTrue();
+});
+
+test('reset preserves manual salary inputs referenced in crew payroll calculation snapshots', function () {
+    $fixtures = makeDailyCrewTimelineFixtures();
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 1, '2026-07-01 08:00:00', '2026-07-15 18:00:00', CrewPhaseStatus::Completed);
+    runDailyCrewPayrollPipeline($fixtures);
+
+    $inputType = SalaryInputType::query()->create([
+        'company_id' => $fixtures['company']->id,
+        'name' => 'Snapshot Manual Bonus',
+        'code' => 'snapshot_manual_'.fake()->unique()->numerify('###'),
+        'is_addition' => true,
+        'status' => 'active',
+        'sort_order' => 1,
+    ]);
+
+    $manualInSnapshot = SalaryInput::factory()->for($fixtures['company'])->create([
+        'employee_id' => $fixtures['employee']->id,
+        'period_id' => $fixtures['period']->id,
+        'salary_input_type_id' => $inputType->id,
+        'amount' => 40,
+        'notes' => 'Entered manually before payroll recalculation',
+    ]);
+
+    app(RecalculateCrewPayroll::class)->handle($fixtures['period']->fresh(), $fixtures['employee']->id, $fixtures['user']);
+
+    $record = PayrollRecord::query()
+        ->where('company_id', $fixtures['company']->id)
+        ->where('period_id', $fixtures['period']->id)
+        ->where('employee_id', $fixtures['employee']->id)
+        ->where('payroll_category', PayrollCategory::Crew)
+        ->firstOrFail();
+
+    $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+    $snapshotIds = collect($breakdown['salary_inputs'] ?? [])
+        ->pluck('id')
+        ->map(fn ($id) => (int) $id);
+
+    expect($snapshotIds)->toContain($manualInSnapshot->id);
+
+    $scope = CrewOperationsResetScope::resolve($fixtures['company']->id);
+
+    expect($scope->deletableSalaryInputIds)->toBe([])
+        ->and($scope->preservedAmbiguousSalaryInputIds)->toContain($manualInSnapshot->id);
+
+    runCrewResetWithConfirmation($this, $fixtures['company']->id)->assertSuccessful();
+
+    expect(SalaryInput::query()->whereKey($manualInSnapshot->id)->exists())->toBeTrue();
 });
 
 test('reset preserves crew payroll records that have mixed deletable and non-deletable allocations', function () {

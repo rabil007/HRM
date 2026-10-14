@@ -385,12 +385,12 @@ final class CrewOperationsResetScope
             return [];
         }
 
-        $ownedIds = [];
+        $candidateIds = [];
 
         PayrollRecord::query()
             ->whereIn('id', $eligiblePayrollRecordIds)
             ->get(['id', 'calculation_breakdown'])
-            ->each(function (PayrollRecord $record) use (&$ownedIds): void {
+            ->each(function (PayrollRecord $record) use (&$candidateIds): void {
                 $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
                 $rows = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
 
@@ -399,18 +399,35 @@ final class CrewOperationsResetScope
                         continue;
                     }
 
+                    if (($row[CrewOperationsResetSalaryInputOwnership::BREAKDOWN_KEY] ?? false) !== true) {
+                        continue;
+                    }
+
                     $inputId = $row['id'] ?? null;
                     if ($inputId !== null && is_numeric($inputId)) {
-                        $ownedIds[] = (int) $inputId;
+                        $candidateIds[] = (int) $inputId;
                     }
                 }
             });
 
-        return array_values(array_unique($ownedIds));
+        $candidateIds = array_values(array_unique($candidateIds));
+
+        if ($candidateIds === []) {
+            return [];
+        }
+
+        return SalaryInput::query()
+            ->whereIn('id', $candidateIds)
+            ->get(['id', 'notes'])
+            ->filter(fn (SalaryInput $input) => CrewOperationsResetSalaryInputOwnership::isOwned($input))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
     }
 
     /**
-     * Salary inputs sharing employee and period with eligible crew payroll but not snapshotted on that payroll.
+     * Salary inputs sharing employee and period with eligible crew payroll that are not crew-operations-owned.
      *
      * @param  list<int>  $eligiblePayrollRecordIds
      * @param  list<int>  $deletableSalaryInputIds
