@@ -17,6 +17,43 @@ export function normalizeCreateDate(value: string | null | undefined): string {
     return value.slice(0, 10);
 }
 
+const CREATE_CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Returns a normalized YYYY-MM-DD when the value is a real calendar date.
+ * Uses component-based parsing to avoid UTC shifts on date-only strings.
+ */
+export function parseValidCreateCalendarDate(
+    value: string | null | undefined,
+): string | null {
+    const normalized = normalizeCreateDate(value);
+
+    if (normalized === '') {
+        return null;
+    }
+
+    const match = CREATE_CALENDAR_DATE_PATTERN.exec(normalized);
+
+    if (!match) {
+        return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const probe = new Date(year, month - 1, day);
+
+    if (
+        probe.getFullYear() !== year ||
+        probe.getMonth() !== month - 1 ||
+        probe.getDate() !== day
+    ) {
+        return null;
+    }
+
+    return normalized;
+}
+
 export function arrivalAfterJoinMessage(
     arrival: string | null | undefined,
     join: string | null | undefined,
