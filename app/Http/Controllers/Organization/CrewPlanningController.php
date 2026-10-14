@@ -58,7 +58,12 @@ class CrewPlanningController extends Controller
                 fn ($value): bool => $value !== null && $value !== '',
             );
 
-            return redirect()->route('organization.crew-relief-desk.index', $redirectParams);
+            if (($redirectParams['horizon'] ?? null) === 'all') {
+                unset($redirectParams['horizon']);
+                $redirectParams['preset'] = 'all';
+            }
+
+            return redirect()->route('organization.reports.crew-relief.index', $redirectParams);
         }
 
         $companyId = (int) $request->attributes->get('current_company_id');

@@ -1,5 +1,7 @@
 # Crew Relief Report
 
+The standalone **Relief Desk** UI has been retired. Relief monitoring, readiness, risk, filters, exports, and deep links live on this report at `/organization/reports/crew-relief`. Legacy `/organization/crew-operations/relief-desk` and `/organization/crew-planning?view=relief` redirect here.
+
 The **Crew Relief Report** is a focused operational report designed to help the Crewing team answer one core question quickly:
 
 > **Who is signing off soon, and is their replacement/relief ready?**
@@ -25,9 +27,10 @@ The report inspects explicit replacements only. **It does not infer relief simpl
 
 - **Linkage Source:** Uses `relieves_crew_assignment_id` on incoming `CrewAssignment` or `CrewPlanningAssignment`.
 - **Relief Source Identity:** Relief plans are identified internally via typed, non-colliding keys (`CrewReliefPlanKey`, e.g. `assignment:id` and `planning:id`). This prevents numeric ID collision between `crew_assignments` and `crew_planning_assignments`.
-- **Precedence:** Managed by `CrewReliefPlanningLoader`:
-  1. Named incoming `CrewAssignment` in `Planned` or `Active` status that targets the outgoing assignment via `relieves_crew_assignment_id`.
-  2. Fallback to `CrewPlanningAssignment` when no active assignment exists.
+- **Precedence:** Managed by `CrewReliefPlanningLoader` and `CrewReliefReadinessResolver`:
+  1. Active operational `CrewAssignment` (`status = active`, pre-P4–P4 phases) linked via `relieves_crew_assignment_id`. Draft assignments are not committed relief.
+  2. `CrewPlanningAssignment` (future schedule / vacant slot) when no operational replacement exists. Linked planning may reference an active operational assignment through `crew_assignment_id`.
+  3. There is **no** `CrewAssignment(status=planned)`; planning-only rows use `CrewPlanningAssignment`.
 - **Tenancy Enforcement:** Relief assignments must belong to the same company. Foreign company relief assignments are rejected and ignored.
 - **Authoritative Conflict Logic:** Overlap evaluation uses the shared `CrewAssignmentOverlapDetector`, ensuring identical date-window overlap rules as the authoritative `CrewAssignmentConflictEvaluator` without drift.
 
@@ -88,10 +91,11 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
 ## 6. Filters, Validation & Pagination Architecture
 
 - **Safe Form Request Validation:** Filter parameters are validated via `CrewReliefReportRequest`, enforcing valid date formats, `planned_signoff_to >= planned_signoff_from`, and enumerated values. Malformed filter queries are handled safely without 500 errors.
-- **Server-Side Filters:** Search (crew name, staff ID, remarks, vessel, rank, client, and relief crew name/ID), Vessel, Client, Rank, Planned Sign-off Date Range (From/To), Readiness, and Attention.
+- **Server-Side Filters:** Search (crew name, staff ID, remarks, vessel, rank, client, and relief crew name/ID), Vessel, Client, Position, Planned Sign-off Date Range (From/To), Relief Status, Relief Risk, Readiness, Attention, and operational focus presets.
+- **Missing Planned Sign-Off:** Active P4 crew without `planned_signoff_at` appear in the default horizon and **All Onboard** scope (never with invented dates). Rows show **Missing Planned Sign-Off** in the sign-off columns.
 - **Lightweight Candidate Query & Pagination:**
   - Pushes company scoping, current P4 active constraint, employee visibility, search, vessel, client, rank, signoff date ranges, date presets, and base ordering to SQL before hydration.
-  - Batch-resolves relief plans and conflicts on lightweight candidate summaries (`['id', 'planned_signoff_at']`).
+  - Batch-resolves relief plans and conflicts on lightweight candidate summaries (`id`, `company_id`, `planned_signoff_at`) so tenant-safe linked planning → assignment resolution stays correct.
   - Normalizes restricted relief rows prior to in-memory filtering and summary calculations so hidden relief status cannot be probed.
   - Summary cards represent the final filtered candidate scope across all pages.
   - Hydrates complete `CrewAssignment` models and related entities (phases, next assignments, employees, vessels, ranks, clients) only for the rows on the active page, while preserving total and last_page on empty out-of-range requests.
@@ -102,6 +106,9 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
   - `No Relief`: Assignments with approaching sign-off and no relief assigned.
   - `Not Ready`: Assignments where relief is still in preparation or at risk.
   - `Overdue`: All onboard assignments whose planned sign-off date has passed.
+  - `Missing Planned Sign-Off`: Onboard crew with no planned sign-off forecast recorded.
+  - `All Onboard`: Every active P4 assignment regardless of sign-off horizon.
+- **Row actions:** Plan Relief (`crew_operations.planning.view` + `crew_operations.planning.create`), Open Relief Plan (`crew_operations.planning.view`), Open Relief Assignment / Open Current Assignment (`crew_operations.assignments.view`).
 
 ---
 

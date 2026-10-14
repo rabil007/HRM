@@ -86,7 +86,7 @@ use App\Http\Controllers\Organization\CrewOperationsSettingsController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\CrewReadinessController;
-use App\Http\Controllers\Organization\CrewReliefDeskController;
+use App\Http\Controllers\Organization\CrewReliefDeskRedirectController;
 use App\Http\Controllers\Organization\CrewReliefReportController;
 use App\Http\Controllers\Organization\CrewScheduledMovementController;
 use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
@@ -730,7 +730,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/users/{user}/security/revoke-sessions', [UserSecurityController::class, 'revokeSessions'])->middleware(['can:users.sessions.revoke', 'privileged.2fa'])->name('organization.users.security.revoke-sessions');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
-    Route::get('organization/crew-operations/relief-desk', [CrewReliefDeskController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-relief-desk.index');
+    Route::get('organization/crew-operations/relief-desk', CrewReliefDeskRedirectController::class)
+        ->middleware('can:reports.crew_relief.view')
+        ->name('organization.crew-relief-desk.index');
     Route::get('organization/crew-operations/readiness', [CrewReadinessController::class, 'index'])->name('organization.crew-readiness.index');
 
     Route::get('organization/reports/crew-movement-history', [CrewMovementHistoryController::class, 'index'])

@@ -30,6 +30,12 @@ export interface CrewReliefNextAssignment {
     href?: string | null;
 }
 
+export interface CrewReliefRecommendedAction {
+    key: string;
+    label: string;
+    href: string | null;
+}
+
 export interface CrewReliefAttention {
     level: 'critical' | 'warning' | 'healthy' | 'neutral';
     badge: string;
@@ -49,10 +55,17 @@ export interface CrewReliefRow {
     planned_signoff_at: string | null;
     days_to_signoff: number | null;
     days_to_signoff_label: string | null;
+    missing_planned_signoff: boolean;
     relief_employee: CrewReliefEmployee | null;
     relief_status: string;
+    relief_status_code: string | null;
+    relief_risk: string | null;
+    relief_risk_label: string | null;
     relief_phase_code: string | null;
+    relief_phase_label: string | null;
     relief_planned_join: string | null;
+    relief_planning_assignment_id: number | null;
+    relief_crew_assignment_id: number | null;
     readiness:
         | 'ready'
         | 'in_progress'
@@ -62,6 +75,7 @@ export interface CrewReliefRow {
         | 'restricted';
     readiness_label: string;
     next_assignment: CrewReliefNextAssignment | null;
+    recommended_action: CrewReliefRecommendedAction | null;
     attention: CrewReliefAttention;
 }
 
@@ -70,6 +84,7 @@ export interface CrewReliefSummary {
     no_relief_assigned: number;
     relief_not_ready: number;
     overdue_signoffs: number;
+    missing_planned_signoff: number;
 }
 
 export interface CrewReliefFilters {
@@ -81,6 +96,9 @@ export interface CrewReliefFilters {
     planned_signoff_to: string;
     readiness: string;
     attention: string;
+    relief_status: string;
+    relief_risk: string;
+    focus: string;
     preset: string;
     per_page: number;
 }
@@ -91,6 +109,8 @@ export interface CrewReliefFilterOptions {
     positions: Array<{ id: number; name: string }>;
     readiness_options: Array<{ value: string; label: string }>;
     attention_options: Array<{ value: string; label: string }>;
+    relief_statuses: Array<{ value: string; label: string }>;
+    relief_risks: Array<{ value: string; label: string }>;
 }
 
 export interface CrewReliefPagePermissions {
@@ -98,6 +118,7 @@ export interface CrewReliefPagePermissions {
     view_assignments: boolean;
     view_employees: boolean;
     view_vessels: boolean;
+    create_planning: boolean;
 }
 
 export interface CrewReliefPagination {

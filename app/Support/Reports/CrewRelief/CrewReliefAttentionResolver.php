@@ -34,6 +34,8 @@ final class CrewReliefAttentionResolver
 
     public const REASON_IN_PROGRESS = 'in_progress';
 
+    public const REASON_MISSING_PLANNED_SIGNOFF = 'missing_planned_signoff';
+
     /**
      * @param  array{
      *     days_until_signoff: int|null,
@@ -60,6 +62,7 @@ final class CrewReliefAttentionResolver
         $daysLate = $context['days_late'];
         $reliefPhaseCode = $context['relief_phase_code'];
         $readiness = $context['readiness'];
+        $missingPlannedSignoff = (bool) ($context['missing_planned_signoff'] ?? false);
 
         // 1. Critical: Sign-off overdue
         if ($daysUntil !== null && $daysUntil < 0) {
@@ -131,7 +134,17 @@ final class CrewReliefAttentionResolver
             }
         }
 
-        // 6. Warning: No relief assigned (sign-off > 7 days)
+        // 6. Warning: Missing planned sign-off forecast
+        if ($missingPlannedSignoff) {
+            return [
+                'level' => self::LEVEL_WARNING,
+                'badge' => 'Missing Planned Sign-Off',
+                'reason' => self::REASON_MISSING_PLANNED_SIGNOFF,
+                'urgency_rank' => 3,
+            ];
+        }
+
+        // 7. Warning: No relief assigned (sign-off > 7 days)
         if (! $hasRelief) {
             return [
                 'level' => self::LEVEL_WARNING,
@@ -141,7 +154,7 @@ final class CrewReliefAttentionResolver
             ];
         }
 
-        // 7. Warning: Sign-off approaching (within 7 days) and relief not yet ready/joined
+        // 8. Warning: Sign-off approaching (within 7 days) and relief not yet ready/joined
         if ($daysUntil !== null && $daysUntil <= 7 && ! in_array($readiness, ['ready', 'joined'], true)) {
             return [
                 'level' => self::LEVEL_WARNING,
@@ -151,7 +164,7 @@ final class CrewReliefAttentionResolver
             ];
         }
 
-        // 8. Healthy: Relief joined
+        // 9. Healthy: Relief joined
         if ($reliefPhaseCode === CrewPhaseCode::OnVessel || $readiness === 'joined') {
             return [
                 'level' => self::LEVEL_HEALTHY,
@@ -161,7 +174,7 @@ final class CrewReliefAttentionResolver
             ];
         }
 
-        // 9. Healthy: Relief ready
+        // 10. Healthy: Relief ready
         if ($readiness === 'ready') {
             return [
                 'level' => self::LEVEL_HEALTHY,
@@ -171,7 +184,7 @@ final class CrewReliefAttentionResolver
             ];
         }
 
-        // 10. Default / Later cases
+        // 11. Default / Later cases
         return [
             'level' => self::LEVEL_NEUTRAL,
             'badge' => 'Relief in progress',

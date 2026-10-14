@@ -4,27 +4,15 @@ namespace App\Support\Reports\CrewRelief;
 
 use App\Models\CrewAssignment;
 use App\Models\User;
+use App\Support\CrewMovements\CrewReliefReadinessResult;
+use App\Support\CrewMovements\CrewReliefRecommendedAction;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Positions\CrewAssignmentPositionPresenter;
 
 final class CrewReliefReportPresenter
 {
     /**
-     * @param  array{
-     *     assignment: CrewAssignment,
-     *     actual_joined_date: string|null,
-     *     days_onboard: int|null,
-     *     planned_signoff_at: string|null,
-     *     days_until_signoff: int|null,
-     *     days_to_signoff_label: string|null,
-     *     relief_employee: array{id: int, name: string, employee_no: string|null}|null,
-     *     relief_status: string,
-     *     relief_phase_code: string|null,
-     *     relief_planned_join: string|null,
-     *     readiness: array{code: string, label: string},
-     *     next_assignment: array{id: int, assignment_no: string, status: string, status_label: string}|null,
-     *     attention: array{level: string, badge: string, reason: string, urgency_rank: int}
-     * }  $row
+     * @param  array<string, mixed>  $row
      * @param  list<int>|null  $authorizedReliefEmployeeIds
      * @return array<string, mixed>
      */
@@ -35,6 +23,8 @@ final class CrewReliefReportPresenter
         ?array $authorizedReliefEmployeeIds = null,
     ): array {
         $assignment = $row['assignment'];
+        assert($assignment instanceof CrewAssignment);
+
         $canViewAssignments = $user->can('crew_operations.assignments.view');
         $canViewEmployees = $user->can('employees.view');
         $canViewVessels = $user->can('crew_operations.vessels.view');
@@ -44,12 +34,11 @@ final class CrewReliefReportPresenter
         $client = $assignment->client;
         $position = CrewAssignmentPositionPresenter::option($assignment, $companyId);
 
-        // Relief employee visibility check
         $rawRelief = $row['relief_employee'];
         $visibleReliefEmployee = null;
-        $isReliefRestricted = false;
+        $isReliefRestricted = (bool) ($row['is_relief_restricted'] ?? false);
 
-        if ($rawRelief !== null) {
+        if (is_array($rawRelief)) {
             $reliefEmpId = (int) $rawRelief['id'];
             $isVisible = $authorizedReliefEmployeeIds !== null
                 ? in_array($reliefEmpId, $authorizedReliefEmployeeIds, true)
@@ -72,7 +61,7 @@ final class CrewReliefReportPresenter
         $nextAssignment = $row['next_assignment'];
         $nextAssignmentPayload = null;
 
-        if ($nextAssignment !== null) {
+        if (is_array($nextAssignment)) {
             $nextAssignmentPayload = [
                 'id' => $nextAssignment['id'],
                 'assignment_no' => $nextAssignment['assignment_no'],
@@ -86,22 +75,49 @@ final class CrewReliefReportPresenter
 
         if ($isReliefRestricted) {
             $reliefStatus = 'Restricted';
+            $reliefStatusCode = null;
+            $reliefRisk = null;
+            $reliefRiskLabel = null;
             $reliefPhaseCode = null;
+            $reliefPhaseLabel = null;
             $reliefPlannedJoin = null;
             $readinessCode = 'restricted';
             $readinessLabel = 'Restricted';
             $attentionLevel = $row['attention']['level'];
             $attentionBadge = $row['attention']['badge'];
             $attentionReason = $row['attention']['reason'];
+            $reliefPlanningAssignmentId = null;
+            $reliefCrewAssignmentId = null;
         } else {
-            $reliefStatus = $row['relief_status'];
-            $reliefPhaseCode = $row['relief_phase_code'];
+            $reliefStatus = (string) $row['relief_status'];
+            $reliefStatusCode = $row['relief_status_code'] ?? null;
+            $reliefRisk = $row['relief_risk'] ?? null;
+            $reliefRiskLabel = $row['relief_risk_label'] ?? null;
+            $reliefPhaseCode = $row['relief_phase_code'] ?? null;
+            $reliefPhaseLabel = $row['relief_phase_label'] ?? null;
             $reliefPlannedJoin = $row['relief_planned_join'];
             $readinessCode = $row['readiness']['code'];
             $readinessLabel = $row['readiness']['label'];
             $attentionLevel = $row['attention']['level'];
             $attentionBadge = $row['attention']['badge'];
             $attentionReason = $row['attention']['reason'];
+            $reliefPlanningAssignmentId = $canViewAssignments
+                ? ($row['relief_planning_assignment_id'] ?? null)
+                : null;
+            $reliefCrewAssignmentId = $canViewAssignments
+                ? ($row['relief_crew_assignment_id'] ?? null)
+                : null;
+        }
+
+        $reliefResult = $row['relief_result'] ?? null;
+        $recommendedAction = null;
+        if ($reliefResult instanceof CrewReliefReadinessResult) {
+            $recommendedAction = CrewReliefRecommendedAction::for(
+                $assignment,
+                $reliefResult,
+                $user,
+                ! $isReliefRestricted,
+            );
         }
 
         return [
@@ -136,13 +152,21 @@ final class CrewReliefReportPresenter
             'planned_signoff_at' => $row['planned_signoff_at'],
             'days_to_signoff' => $row['days_until_signoff'],
             'days_to_signoff_label' => $row['days_to_signoff_label'],
+            'missing_planned_signoff' => (bool) ($row['missing_planned_signoff'] ?? false),
             'relief_employee' => $visibleReliefEmployee,
             'relief_status' => $reliefStatus,
+            'relief_status_code' => $reliefStatusCode,
+            'relief_risk' => $reliefRisk,
+            'relief_risk_label' => $reliefRiskLabel,
             'relief_phase_code' => $reliefPhaseCode,
+            'relief_phase_label' => $reliefPhaseLabel,
             'relief_planned_join' => $reliefPlannedJoin,
+            'relief_planning_assignment_id' => $reliefPlanningAssignmentId,
+            'relief_crew_assignment_id' => $reliefCrewAssignmentId,
             'readiness' => $readinessCode,
             'readiness_label' => $readinessLabel,
             'next_assignment' => $nextAssignmentPayload,
+            'recommended_action' => $recommendedAction,
             'attention' => [
                 'level' => $attentionLevel,
                 'badge' => $attentionBadge,

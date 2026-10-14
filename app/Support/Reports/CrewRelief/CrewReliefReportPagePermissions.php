@@ -11,7 +11,8 @@ final class CrewReliefReportPagePermissions
      *     export: bool,
      *     view_assignments: bool,
      *     view_employees: bool,
-     *     view_vessels: bool
+     *     view_vessels: bool,
+     *     create_planning: bool
      * }
      */
     public static function for(?User $user): array
@@ -21,6 +22,7 @@ final class CrewReliefReportPagePermissions
             'view_assignments' => $user?->can('crew_operations.assignments.view') ?? false,
             'view_employees' => $user?->can('employees.view') ?? false,
             'view_vessels' => $user?->can('crew_operations.vessels.view') ?? false,
+            'create_planning' => $user?->can('crew_operations.planning.create') ?? false,
         ];
     }
 }

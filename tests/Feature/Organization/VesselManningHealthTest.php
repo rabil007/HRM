@@ -350,6 +350,32 @@ it('hides manning health without vessel manning view and forbids the vessel with
         ->assertForbidden();
 });
 
+it('exposes crew relief report link permission separately from planning view', function () {
+    $ctx = makeManningHealthContext(1);
+    grantVesselManningHealthPermissions($ctx['user'], $ctx['company'], ['reports.crew_relief.view']);
+
+    $this->actingAs($ctx['user'])
+        ->get(route('organization.vessels.show', $ctx['vessel']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.view_crew_relief', true)
+            ->where('can.view_planning', false)
+        );
+
+    grantVesselManningHealthPermissions($ctx['user'], $ctx['company'], [
+        'reports.crew_relief.view',
+        'crew_operations.planning.view',
+    ]);
+
+    $this->actingAs($ctx['user'])
+        ->get(route('organization.vessels.show', $ctx['vessel']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.view_crew_relief', true)
+            ->where('can.view_planning', true)
+        );
+});
+
 it('shows aggregate health without crew names when assignments view is missing', function () {
     $ctx = makeManningHealthContext(1);
     grantVesselManningHealthPermissions($ctx['user'], $ctx['company']);

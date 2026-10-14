@@ -22,6 +22,10 @@ const PRESETS = [
     { key: 'no_relief', label: 'No Relief' },
     { key: 'not_ready', label: 'Not Ready' },
     { key: 'overdue', label: 'Overdue' },
+    {
+        key: 'missing_planned_signoff',
+        label: 'Missing Planned Sign-Off',
+    },
     { key: 'all', label: 'All Onboard' },
 ];
 
@@ -66,6 +70,18 @@ function chipValueLabel(
         return match ? match.label : value;
     }
 
+    if (key === 'relief_status') {
+        const match = options.relief_statuses.find((rs) => rs.value === value);
+
+        return match ? match.label : value;
+    }
+
+    if (key === 'relief_risk') {
+        const match = options.relief_risks.find((rr) => rr.value === value);
+
+        return match ? match.label : value;
+    }
+
     return value;
 }
 
@@ -77,6 +93,9 @@ const FILTER_LABELS: Partial<Record<keyof CrewReliefFilters, string>> = {
     attention: 'Attention',
     planned_signoff_from: 'Sign-off from',
     planned_signoff_to: 'Sign-off to',
+    relief_status: 'Relief status',
+    relief_risk: 'Risk',
+    focus: 'Focus',
 };
 
 export function CrewReliefContent(props: CrewReliefProps) {
@@ -146,6 +165,18 @@ export function CrewReliefContent(props: CrewReliefProps) {
         }
 
         if (filters.attention && filters.attention !== 'all') {
+            count++;
+        }
+
+        if (filters.relief_status) {
+            count++;
+        }
+
+        if (filters.relief_risk) {
+            count++;
+        }
+
+        if (filters.focus) {
             count++;
         }
 

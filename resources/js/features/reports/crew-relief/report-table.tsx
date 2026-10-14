@@ -17,7 +17,7 @@ import { EmployeeAvatar } from '@/features/organization/employees/components/emp
 import { formatDisplayDate } from '@/lib/format-date';
 import type { CrewReliefRow } from './types';
 
-const COLUMN_COUNT = 14;
+const COLUMN_COUNT = 16;
 
 export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
     return (
@@ -34,9 +34,11 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                     <DataTableHead>Days to Sign-Off</DataTableHead>
                     <DataTableHead>Relief Crew</DataTableHead>
                     <DataTableHead>Relief Status</DataTableHead>
+                    <DataTableHead>Relief Phase</DataTableHead>
                     <DataTableHead>Relief Planned Join</DataTableHead>
                     <DataTableHead>Readiness</DataTableHead>
                     <DataTableHead>Next Assignment</DataTableHead>
+                    <DataTableHead>Action</DataTableHead>
                     <DataTableHead className="sticky right-0 z-20 bg-background shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.05)]">
                         Attention
                     </DataTableHead>
@@ -160,19 +162,32 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
 
                             {/* Planned Sign-Off */}
                             <TableCell className={dataTableCellClass()}>
-                                <span className="font-medium whitespace-nowrap">
-                                    {row.planned_signoff_at
-                                        ? formatDisplayDate(
-                                              row.planned_signoff_at,
-                                          )
-                                        : '—'}
-                                </span>
+                                {row.missing_planned_signoff ? (
+                                    <Badge
+                                        variant="outline"
+                                        className="whitespace-nowrap text-orange-700 dark:text-orange-400"
+                                    >
+                                        Missing Planned Sign-Off
+                                    </Badge>
+                                ) : (
+                                    <span className="font-medium whitespace-nowrap">
+                                        {row.planned_signoff_at
+                                            ? formatDisplayDate(
+                                                  row.planned_signoff_at,
+                                              )
+                                            : '—'}
+                                    </span>
+                                )}
                             </TableCell>
 
                             {/* Days to Sign-Off */}
                             <TableCell className={dataTableCellClass()}>
-                                {row.days_to_signoff !== null &&
-                                row.days_to_signoff < 0 ? (
+                                {row.missing_planned_signoff ? (
+                                    <span className="whitespace-nowrap text-muted-foreground italic">
+                                        {row.days_to_signoff_label}
+                                    </span>
+                                ) : row.days_to_signoff !== null &&
+                                  row.days_to_signoff < 0 ? (
                                     <span className="font-semibold whitespace-nowrap text-destructive">
                                         {row.days_to_signoff_label}
                                     </span>
@@ -228,18 +243,21 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
 
                             {/* Relief Status */}
                             <TableCell className={dataTableCellClass()}>
-                                {row.relief_status !== '—' ? (
-                                    <Badge
-                                        variant="outline"
-                                        className="font-mono text-[11px] whitespace-nowrap"
-                                    >
-                                        {row.relief_status}
-                                    </Badge>
-                                ) : (
-                                    <span className="text-muted-foreground">
-                                        —
-                                    </span>
-                                )}
+                                <Badge
+                                    variant="outline"
+                                    className="text-[11px] whitespace-nowrap"
+                                >
+                                    {row.relief_status}
+                                </Badge>
+                            </TableCell>
+
+                            {/* Relief Phase */}
+                            <TableCell className={dataTableCellClass()}>
+                                <span className="whitespace-nowrap text-muted-foreground">
+                                    {row.relief_phase_label ??
+                                        row.relief_phase_code ??
+                                        '—'}
+                                </span>
                             </TableCell>
 
                             {/* Relief Planned Join */}
@@ -325,6 +343,26 @@ export function CrewReliefReportTable({ rows }: { rows: CrewReliefRow[] }) {
                                 ) : (
                                     <span className="text-xs text-muted-foreground">
                                         None
+                                    </span>
+                                )}
+                            </TableCell>
+
+                            {/* Action */}
+                            <TableCell className={dataTableCellClass()}>
+                                {row.recommended_action?.href ? (
+                                    <Link
+                                        href={row.recommended_action.href}
+                                        className="text-xs font-medium text-primary hover:underline"
+                                    >
+                                        {row.recommended_action.label}
+                                    </Link>
+                                ) : row.recommended_action ? (
+                                    <span className="text-xs text-muted-foreground">
+                                        {row.recommended_action.label}
+                                    </span>
+                                ) : (
+                                    <span className="text-muted-foreground">
+                                        —
                                     </span>
                                 )}
                             </TableCell>

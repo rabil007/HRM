@@ -1,4 +1,10 @@
-import { AlertCircle, AlertTriangle, Calendar, UserX } from 'lucide-react';
+import {
+    AlertCircle,
+    AlertTriangle,
+    Calendar,
+    CalendarX2,
+    UserX,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { CrewReliefFilters, CrewReliefSummary } from './types';
@@ -50,6 +56,15 @@ const CARDS: SummaryCardItem[] = [
         iconColor: 'text-destructive/70',
         activeBorder: 'border-destructive ring-1 ring-destructive/30',
     },
+    {
+        key: 'missing_planned_signoff',
+        preset: 'missing_planned_signoff',
+        label: 'Missing Planned Sign-Off',
+        icon: CalendarX2,
+        valueColor: 'text-orange-600 dark:text-orange-400',
+        iconColor: 'text-orange-500/70',
+        activeBorder: 'border-orange-500 ring-1 ring-orange-500/30',
+    },
 ];
 
 export function CrewReliefSummaryCards({
@@ -62,7 +77,7 @@ export function CrewReliefSummaryCards({
     onSelectPreset: (preset: string) => void;
 }) {
     return (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {CARDS.map((card) => {
                 const isActive = filters.preset === card.preset;
                 const count = summary[card.key] ?? 0;

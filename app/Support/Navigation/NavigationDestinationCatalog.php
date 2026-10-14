@@ -42,7 +42,7 @@ final class NavigationDestinationCatalog
             ['key' => 'crew.overview', 'label' => 'Overview', 'href' => '/organization/crew-operations', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.overview.view'], 'platform' => null],
             ['key' => 'crew.current', 'label' => 'Crew Assignments', 'href' => '/organization/crew', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.assignments.view'], 'platform' => null],
             ['key' => 'crew.planning', 'label' => 'Planning', 'href' => '/organization/crew-planning', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.planning.view'], 'platform' => null],
-            ['key' => 'crew.relief-desk', 'label' => 'Relief Desk', 'href' => '/organization/crew-operations/relief-desk', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.planning.view'], 'platform' => null],
+            ['key' => 'reports.crew-relief', 'label' => 'Crew Relief Report', 'href' => '/organization/reports/crew-relief', 'group' => 'Crew Operations', 'permissions' => ['reports.crew_relief.view'], 'platform' => null],
             ['key' => 'crew.readiness', 'label' => 'Crew Readiness', 'href' => '/organization/crew-operations/readiness', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.planning.view', 'crew_operations.assignments.view'], 'platform' => null],
             ['key' => 'crew.vessels', 'label' => 'Vessels', 'href' => '/organization/vessels', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.vessels.view'], 'platform' => null],
             ['key' => 'crew.corrections', 'label' => 'Movement Corrections', 'href' => '/organization/crew-movement-corrections', 'group' => 'Crew Operations', 'permissions' => ['crew_operations.corrections.view'], 'platform' => null],
@@ -93,6 +93,34 @@ final class NavigationDestinationCatalog
     public static function contains(string $key): bool
     {
         return self::find($key) !== null;
+    }
+
+    /**
+     * Map retired favorite keys to their current catalog key (read-time normalization).
+     */
+    public static function normalizeFavoriteKey(string $key): string
+    {
+        return match ($key) {
+            'documents.activity' => 'documents.bulk',
+            'crew.relief-desk' => 'reports.crew-relief',
+            default => $key,
+        };
+    }
+
+    /**
+     * All persisted keys that should resolve to the same favorited destination.
+     *
+     * @return list<string>
+     */
+    public static function favoriteStorageKeys(string $key): array
+    {
+        $normalized = self::normalizeFavoriteKey($key);
+
+        return match ($normalized) {
+            'documents.bulk' => ['documents.bulk', 'documents.activity'],
+            'reports.crew-relief' => ['reports.crew-relief', 'crew.relief-desk'],
+            default => [$normalized],
+        };
     }
 
     /**

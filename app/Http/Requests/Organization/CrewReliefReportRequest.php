@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Enums\CrewReliefRisk;
+use App\Enums\CrewReliefStatus;
+use App\Support\CrewMovements\CrewReliefFocusMatcher;
 use App\Support\Reports\CrewRelief\CrewReliefReportFilters;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -39,8 +42,24 @@ class CrewReliefReportRequest extends FormRequest
                     CrewReliefReportFilters::PRESET_NO_RELIEF,
                     CrewReliefReportFilters::PRESET_NOT_READY,
                     CrewReliefReportFilters::PRESET_OVERDUE,
+                    CrewReliefReportFilters::PRESET_MISSING_PLANNED_SIGNOFF,
                     CrewReliefReportFilters::PRESET_ALL,
                 ]),
+            ],
+            'relief_status' => [
+                'nullable',
+                'string',
+                Rule::enum(CrewReliefStatus::class),
+            ],
+            'relief_risk' => [
+                'nullable',
+                'string',
+                Rule::enum(CrewReliefRisk::class),
+            ],
+            'focus' => [
+                'nullable',
+                'string',
+                Rule::in(CrewReliefFocusMatcher::focusValues()),
             ],
             'readiness' => [
                 'nullable',

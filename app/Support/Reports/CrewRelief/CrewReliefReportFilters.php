@@ -2,6 +2,9 @@
 
 namespace App\Support\Reports\CrewRelief;
 
+use App\Enums\CrewReliefRisk;
+use App\Enums\CrewReliefStatus;
+use App\Support\CrewMovements\CrewReliefFocusMatcher;
 use Illuminate\Http\Request;
 
 final class CrewReliefReportFilters
@@ -18,6 +21,8 @@ final class CrewReliefReportFilters
 
     public const PRESET_OVERDUE = 'overdue';
 
+    public const PRESET_MISSING_PLANNED_SIGNOFF = 'missing_planned_signoff';
+
     public const PRESET_ALL = 'all';
 
     public function __construct(
@@ -29,6 +34,9 @@ final class CrewReliefReportFilters
         public readonly string $plannedSignoffTo = '',
         public readonly string $readiness = '',
         public readonly string $attention = '',
+        public readonly string $reliefStatus = '',
+        public readonly string $reliefRisk = '',
+        public readonly string $focus = '',
         public readonly string $preset = self::PRESET_NEXT_30_DAYS,
         public readonly int $perPage = 25,
     ) {}
@@ -43,6 +51,7 @@ final class CrewReliefReportFilters
             self::PRESET_NO_RELIEF,
             self::PRESET_NOT_READY,
             self::PRESET_OVERDUE,
+            self::PRESET_MISSING_PLANNED_SIGNOFF,
             self::PRESET_ALL,
         ], true)) {
             $preset = self::PRESET_NEXT_30_DAYS;
@@ -63,6 +72,21 @@ final class CrewReliefReportFilters
             $attention = '';
         }
 
+        $reliefStatus = trim((string) $request->query('relief_status', ''));
+        if (CrewReliefStatus::tryFrom($reliefStatus) === null) {
+            $reliefStatus = '';
+        }
+
+        $reliefRisk = trim((string) $request->query('relief_risk', ''));
+        if (CrewReliefRisk::tryFrom($reliefRisk) === null) {
+            $reliefRisk = '';
+        }
+
+        $focus = trim((string) $request->query('focus', ''));
+        if (! in_array($focus, CrewReliefFocusMatcher::focusValues(), true)) {
+            $focus = '';
+        }
+
         return new self(
             search: trim((string) $request->query('search', '')),
             vesselId: (string) $request->query('vessel_id', ''),
@@ -72,6 +96,9 @@ final class CrewReliefReportFilters
             plannedSignoffTo: trim((string) $request->query('planned_signoff_to', '')),
             readiness: $readiness,
             attention: $attention,
+            reliefStatus: $reliefStatus,
+            reliefRisk: $reliefRisk,
+            focus: $focus,
             preset: $preset,
             perPage: $perPage,
         );
@@ -91,6 +118,9 @@ final class CrewReliefReportFilters
             'planned_signoff_to' => $this->plannedSignoffTo,
             'readiness' => $this->readiness,
             'attention' => $this->attention,
+            'relief_status' => $this->reliefStatus,
+            'relief_risk' => $this->reliefRisk,
+            'focus' => $this->focus,
             'preset' => $this->preset,
             'per_page' => $this->perPage,
         ];

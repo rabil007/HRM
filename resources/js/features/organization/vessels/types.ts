@@ -61,6 +61,7 @@ export type VesselPageCan = {
     view_manning: boolean;
     view_assignments: boolean;
     view_planning: boolean;
+    view_crew_relief: boolean;
 };
 
 export type VesselManningHealthStatus =

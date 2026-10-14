@@ -161,9 +161,9 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
         group: 'Crew Operations',
     },
     {
-        key: 'crew.relief-desk',
-        label: 'Relief Desk',
-        href: '/organization/crew-operations/relief-desk',
+        key: 'reports.crew-relief',
+        label: 'Crew Relief Report',
+        href: '/organization/reports/crew-relief',
         group: 'Crew Operations',
     },
     {
@@ -291,11 +291,21 @@ export const NAVIGATION_DESTINATIONS: readonly NavigationDestination[] = [
     },
 ];
 
+const LEGACY_NAVIGATION_DESTINATION_KEYS: Readonly<Record<string, string>> = {
+    'crew.relief-desk': 'reports.crew-relief',
+};
+
+export function normalizeNavigationDestinationKey(key: string): string {
+    return LEGACY_NAVIGATION_DESTINATION_KEYS[key] ?? key;
+}
+
 export function findNavigationDestination(
     key: string,
 ): NavigationDestination | undefined {
+    const normalizedKey = normalizeNavigationDestinationKey(key);
+
     return NAVIGATION_DESTINATIONS.find(
-        (destination) => destination.key === key,
+        (destination) => destination.key === normalizedKey,
     );
 }
 
@@ -392,13 +402,15 @@ export function resolveAccessibleFavoriteItems(
     const seen = new Set<string>();
 
     return keys.flatMap((key) => {
-        if (seen.has(key)) {
+        const normalizedKey = normalizeNavigationDestinationKey(key);
+
+        if (seen.has(normalizedKey)) {
             return [];
         }
 
-        seen.add(key);
+        seen.add(normalizedKey);
 
-        const destination = findNavigationDestination(key);
+        const destination = findNavigationDestination(normalizedKey);
 
         if (!destination) {
             return [];

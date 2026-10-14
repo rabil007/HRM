@@ -152,7 +152,7 @@ describe('Attendance and Crew Operations report destinations', () => {
             'Overview',
             'Crew Assignments',
             'Planning',
-            'Relief Desk',
+            'Crew Relief Report',
             'Crew Readiness',
             'Vessels',
             'Movement Corrections',
@@ -211,6 +211,31 @@ describe('accessible favorite rendering', () => {
                 isSidebarUrlVisible(href, ['departments.view']),
             ),
             [],
+        );
+    });
+
+    it('normalizes legacy relief desk favorite keys to crew relief report', () => {
+        const items = resolveAccessibleFavoriteItems(
+            ['crew.relief-desk'],
+            (href) => isSidebarUrlVisible(href, ['reports.crew_relief.view']),
+        );
+
+        assert.deepEqual(
+            items.map((item) => item.key),
+            ['reports.crew-relief'],
+        );
+        assert.equal(items[0]?.url, '/organization/reports/crew-relief');
+    });
+
+    it('deduplicates legacy and current crew relief favorite keys', () => {
+        const items = resolveAccessibleFavoriteItems(
+            ['crew.relief-desk', 'reports.crew-relief'],
+            (href) => isSidebarUrlVisible(href, ['reports.crew_relief.view']),
+        );
+
+        assert.deepEqual(
+            items.map((item) => item.key),
+            ['reports.crew-relief'],
         );
     });
 

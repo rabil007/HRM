@@ -194,17 +194,17 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] Authoritative conflict re-check runs inside the write transaction with locking
 - [ ] Draft date-order invariants still apply; Draft still does not reserve availability
 
-### Relief Desk & Relief Planning
+### Crew Relief Report & Relief Planning
 
-- [ ] **Relief Desk** is a standalone workspace at `/organization/crew-operations/relief-desk` (distinct from Crew Planning Gantt and reporting-only Relief Report)
-- [ ] Legacy `/organization/crew-planning?view=relief` redirects cleanly to `/organization/crew-operations/relief-desk` preserving filter state
+- [ ] **Crew Relief Report** at `/organization/reports/crew-relief` covers relief monitoring (sign-off horizon, missing planned sign-off, status/risk, actions, exports)
+- [ ] Legacy `/organization/crew-operations/relief-desk` and `/organization/crew-planning?view=relief` redirect to the report preserving filter state
 - [ ] Crew Planning view switcher contains only **Planning** (future scheduling/Gantt) and **Onboard by Vessel** (current P4 actual roster)
 - [ ] **Future committed relief** = `CrewPlanningAssignment` (vacant or named)
 - [ ] **Operational relief** = linked Active assignment still in P0–P4
 - [ ] **Draft** linked relief is non-committed and does **not** satisfy “relief planned” or block a committed Planning relief
 - [ ] Cancelled / Completed linked relief does not block replacement planning
 - [ ] Vacant `CrewPlanningAssignment` relief slots still work when no named assignment exists
-- [ ] Relief Desk actions (Plan Relief, Open Relief Plan) link into Crew Planning with proper context
+- [ ] Crew Relief Report actions (Plan Relief, Open Relief Plan) link into Crew Planning with proper context
 
 ### Obsolete (do not expect)
 
@@ -302,7 +302,7 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 
 ## 14. Crew Readiness Workspace QA
 
-- [ ] Standalone navigation: `/organization/crew-operations/readiness` appears under Crew Operations between Relief Desk and Vessels
+- [ ] Standalone navigation: `/organization/crew-operations/readiness` appears under Crew Operations between Crew Relief Report and Vessels
 - [ ] Permission gating: Accessible if user has `crew_operations.planning.view` OR `crew_operations.assignments.view`
 - [ ] Source-aware data visibility:
   - Planning-only viewers see eligible named Planning rows and zero Assignment rows
