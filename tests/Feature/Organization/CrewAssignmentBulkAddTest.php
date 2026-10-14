@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
 use App\Models\Client;
 use App\Models\Company;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
@@ -759,4 +760,76 @@ test('bulk already arrived supports different accommodation per crew row', funct
         ->and($assignments[$employeeB->id]->accommodationStays)->toHaveCount(1)
         ->and($assignments[$employeeB->id]->accommodationStays->first()?->accommodation_status)
         ->toBe(CrewAccommodationStatus::NoAccommodation);
+});
+
+test('bulk already arrived rejects another company hotel without creating any row', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Valid Bulk Crew');
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Bulk Foreign Hotel Vessel', $company);
+    $foreignHotel = Hotel::factory()->create(['company_id' => $otherCompany->id]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employeeA->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                    'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+                    'hotel_id' => $foreignHotel->id,
+                    'check_in_date' => '2026-10-04',
+                ],
+                [
+                    'employee_id' => $employeeB->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-05',
+                    'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+                ],
+            ],
+        ]))
+        ->assertSessionHasErrors(['crew.0.hotel_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(CrewAccommodationStay::query()->where('hotel_id', $foreignHotel->id)->exists())->toBeFalse();
+});
+
+test('bulk already arrived rejects check-in before that row arrival and rolls back the batch', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employeeA, 'rank' => $rank] = actingBulkAddCrewUser();
+    $employeeB = extraCrewEmployee($company, $rank, 'Valid Check-In Crew');
+    $vessel = makeCrewMovementVessel('Bulk Early Check-In Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-assignments.bulk-store'), bulkAddPayload([
+            'vessel_id' => $vessel->id,
+            'planned_join_at' => '2026-10-20',
+            'already_arrived' => true,
+            'crew' => [
+                [
+                    'employee_id' => $employeeA->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-04',
+                    'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+                    'hotel_id' => $hotel->id,
+                    'check_in_date' => '2026-10-03',
+                ],
+                [
+                    'employee_id' => $employeeB->id,
+                    'position_id' => $rank->id,
+                    'planned_arrival_at' => '2026-10-05',
+                    'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+                ],
+            ],
+        ]));
+
+    $response->assertSessionHasErrors(['crew.0.check_in_date']);
+    expect(session('errors')->get('crew.0.check_in_date')[0])
+        ->toContain('Hotel check-in cannot be before the actual arrival date')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
