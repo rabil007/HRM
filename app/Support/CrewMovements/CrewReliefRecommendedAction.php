@@ -18,6 +18,7 @@ final class CrewReliefRecommendedAction
         bool $reliefEmployeeVisible = true,
     ): array {
         $canViewAssignments = $user->can('crew_operations.assignments.view');
+        $canViewPlanning = $user->can('crew_operations.planning.view');
         $canCreatePlanning = $user->can('crew_operations.planning.create');
 
         if (! $reliefEmployeeVisible) {
@@ -62,7 +63,7 @@ final class CrewReliefRecommendedAction
             CrewReliefStatus::ReliefPlanned => [
                 'key' => 'open_relief_plan',
                 'label' => 'Open Relief Plan',
-                'href' => self::openReliefPlanHref($source, $relief),
+                'href' => $canViewPlanning ? self::openReliefPlanHref($source, $relief) : null,
             ],
             CrewReliefStatus::AssignmentCreated,
             CrewReliefStatus::Mobilising,

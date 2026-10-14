@@ -418,19 +418,17 @@ export function VesselManningHealthCard({
                 )}
 
                 <div className="flex flex-wrap gap-2 border-t border-border/60 pt-4 dark:border-white/8">
+                    {can.view_crew_relief ? (
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={reliefReportHref}>
+                                Open Relief Report
+                            </Link>
+                        </Button>
+                    ) : null}
                     {can.view_planning ? (
-                        <>
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={reliefReportHref}>
-                                    Open Relief Report
-                                </Link>
-                            </Button>
-                            <Button variant="outline" size="sm" asChild>
-                                <Link href={planningHref}>
-                                    Open Crew Planning
-                                </Link>
-                            </Button>
-                        </>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={planningHref}>Open Crew Planning</Link>
+                        </Button>
                     ) : null}
                     {can.view_assignments ? (
                         <Button variant="outline" size="sm" asChild>

@@ -473,6 +473,47 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     'attention' => ['attention'],
 ]);
 
+test('open relief plan is hidden without planning view permission', function () {
+    $fixtures = makeReliefDeskFixtures([
+        'reports.crew_relief.view',
+        'crew_operations.planning.create',
+        'crew_operations.assignments.view',
+    ]);
+    $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 8, 'No Planning View');
+    makeReliefPlanFor($source, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Plan Only Relief'), $fixtures['today']->addDays(8));
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('rows.0.recommended_action.key', 'open_relief_plan')
+            ->where('rows.0.recommended_action.href', null)
+        );
+});
+
+test('linked same-company planning assignment resolves operational relief phase', function () {
+    $fixtures = makeReliefDeskFixtures();
+    $source = makeReliefDeskOnboard($fixtures['company'], $fixtures['rank'], $fixtures['vessel'], $fixtures['today'], 10, 'Linked Phase Source');
+    $plan = makeReliefPlanFor($source, makeReliefEmployee($fixtures['company'], $fixtures['rank'], 'Linked Relief'), $fixtures['today']->addDays(10));
+    $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
+    $linked->update(['status' => CrewAssignmentStatus::Active]);
+    $linked->currentPhase->update([
+        'phase_code' => CrewPhaseCode::Training,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => now(),
+    ]);
+
+    $this->actingAs($fixtures['user'])
+        ->get(route('organization.reports.crew-relief.index', ['vessel_id' => $fixtures['vessel']->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', $source->assignment_no)
+            ->where('rows.0.relief_status_code', CrewReliefStatus::Mobilising->value)
+            ->where('rows.0.relief_phase_code', CrewPhaseCode::Training->value)
+        );
+});
+
 test('plan relief is hidden without planning create permission', function () {
     $fixtures = makeReliefDeskFixtures([
         'reports.crew_relief.view',

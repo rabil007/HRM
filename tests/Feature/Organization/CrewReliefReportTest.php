@@ -1179,6 +1179,78 @@ test('restricted relief cannot be inferred using readiness filters', function ()
         );
 });
 
+test('restricted relief cannot be inferred using relief status risk or focus filters', function () {
+    CarbonImmutable::setTestNow('2026-10-10 12:00:00');
+
+    ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
+
+    $deptAllowed = Department::query()->create(['company_id' => $company->id, 'name' => 'Deck Dept', 'code' => 'DCK3', 'status' => 'active']);
+    $deptHidden = Department::query()->create(['company_id' => $company->id, 'name' => 'Secret Dept', 'code' => 'SCR3', 'status' => 'active']);
+
+    $outgoingEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Visible Outgoing 3',
+        'position_id' => $rank->id,
+        'department_id' => $deptAllowed->id,
+        'status' => 'active',
+    ]);
+
+    $hiddenReliefEmp = Employee::factory()->forCompany($company)->create([
+        'name' => 'Secret Relief 3',
+        'position_id' => $rank->id,
+        'department_id' => $deptHidden->id,
+        'status' => 'active',
+    ]);
+
+    $outgoing = makeActiveOnVesselAssignment($company, $outgoingEmp, $rank, $vessel, [
+        'assignment_no' => 'CA-PROBE-STATUS',
+        'planned_signoff_at' => '2026-10-25 00:00:00',
+    ]);
+
+    makeCurrentCrewPhaseAssignment($company, $hiddenReliefEmp, $rank, $vessel, CrewPhaseCode::Training, [
+        'assignment_no' => 'CA-SECRET-RELIEF-3',
+        'relieves_crew_assignment_id' => $outgoing->id,
+        'planned_join_at' => '2026-10-25 00:00:00',
+    ]);
+
+    restrictUserToDepartments($user, $company, [$deptAllowed->id]);
+
+    foreach (CrewReliefStatus::filterable() as $status) {
+        $this->actingAs($user)
+            ->get(route('organization.reports.crew-relief.index', ['relief_status' => $status->value]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+    }
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['relief_risk' => 'critical']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+
+    foreach (['needs_relief', 'critical', 'not_ready', 'ready'] as $focus) {
+        $this->actingAs($user)
+            ->get(route('organization.reports.crew-relief.index', ['focus' => $focus]))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('rows', 0));
+    }
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index', ['preset' => 'not_ready']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 0)
+            ->where('summary.relief_not_ready', 0)
+        );
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-relief.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.assignment_no', 'CA-PROBE-STATUS')
+            ->where('rows.0.relief_status', 'Restricted')
+        );
+});
+
 test('restricted relief cannot be inferred using attention filters', function () {
     CarbonImmutable::setTestNow('2026-10-10 12:00:00');
 

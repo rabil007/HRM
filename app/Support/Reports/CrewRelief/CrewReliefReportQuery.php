@@ -235,7 +235,7 @@ final class CrewReliefReportQuery
         $rawCandidates = $query
             ->orderBy('planned_signoff_at')
             ->orderBy('id')
-            ->get(['id', 'planned_signoff_at']);
+            ->get(['id', 'company_id', 'planned_signoff_at']);
 
         if ($rawCandidates->isEmpty()) {
             $this->cachedPlans = collect();
@@ -568,65 +568,164 @@ final class CrewReliefReportQuery
      */
     private function applyInMemoryFilters(Collection $candidates): Collection
     {
+        return $candidates->filter(function (array $row): bool {
+            if ($row['is_relief_restricted'] ?? false) {
+                return $this->passesFiltersForRestrictedReliefRow($row);
+            }
+
+            return $this->passesFiltersForVisibleReliefRow($row);
+        })->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function passesFiltersForVisibleReliefRow(array $row): bool
+    {
         $reliefStatus = CrewReliefStatus::tryFrom($this->filters->reliefStatus);
         $reliefRisk = CrewReliefRisk::tryFrom($this->filters->reliefRisk);
         $focus = $this->filters->focus;
+        $reliefResult = $row['relief_result'] ?? null;
 
-        return $candidates->filter(function (array $row) use ($reliefStatus, $reliefRisk, $focus): bool {
-            $reliefResult = $row['relief_result'] ?? null;
-
-            if ($reliefStatus !== null) {
-                if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->status !== $reliefStatus) {
-                    return false;
-                }
+        if ($reliefStatus !== null) {
+            if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->status !== $reliefStatus) {
+                return false;
             }
+        }
 
-            if ($reliefRisk !== null) {
-                if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->risk !== $reliefRisk) {
-                    return false;
-                }
+        if ($reliefRisk !== null) {
+            if (! $reliefResult instanceof CrewReliefReadinessResult || $reliefResult->risk !== $reliefRisk) {
+                return false;
             }
+        }
 
-            if ($focus !== '') {
-                if (! $reliefResult instanceof CrewReliefReadinessResult
-                    || ! CrewReliefFocusMatcher::matches($reliefResult, $focus)) {
-                    return false;
-                }
+        if ($focus !== '') {
+            if (! $reliefResult instanceof CrewReliefReadinessResult
+                || ! CrewReliefFocusMatcher::matches($reliefResult, $focus)) {
+                return false;
             }
+        }
 
-            if ($this->filters->readiness !== '' && $this->filters->readiness !== 'all') {
-                if ($row['readiness']['code'] !== $this->filters->readiness) {
-                    return false;
-                }
+        return $this->passesSharedRowFilters($row);
+    }
+
+    /**
+     * Rows with a hidden relief employee must not leak relief status, risk, readiness, or focus via filters.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function passesFiltersForRestrictedReliefRow(array $row): bool
+    {
+        if (CrewReliefStatus::tryFrom($this->filters->reliefStatus) !== null) {
+            return false;
+        }
+
+        if (CrewReliefRisk::tryFrom($this->filters->reliefRisk) !== null) {
+            return false;
+        }
+
+        if ($this->filters->focus !== '') {
+            if (! $this->matchesSourceOnlyFocus($row, $this->filters->focus)) {
+                return false;
             }
+        }
 
-            if ($this->filters->attention !== '' && $this->filters->attention !== 'all') {
-                if ($row['attention']['level'] !== $this->filters->attention
-                    && $row['attention']['reason'] !== $this->filters->attention) {
-                    return false;
-                }
+        if ($this->filters->readiness !== '' && $this->filters->readiness !== 'all') {
+            if ($this->filters->readiness !== 'restricted') {
+                return false;
             }
+        }
 
-            if ($this->filters->preset === CrewReliefReportFilters::PRESET_NO_RELIEF) {
-                if ($row['has_relief']) {
+        if ($this->filters->attention !== '' && $this->filters->attention !== 'all') {
+            $level = $row['attention']['level'] ?? null;
+            $reason = $row['attention']['reason'] ?? null;
+
+            if ($this->filters->attention === CrewReliefAttentionResolver::REASON_MISSING_PLANNED_SIGNOFF) {
+                if ($reason !== CrewReliefAttentionResolver::REASON_MISSING_PLANNED_SIGNOFF) {
                     return false;
                 }
-            } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_NOT_READY) {
-                if (! $row['has_relief'] || ! in_array($row['readiness']['code'], ['in_progress', 'at_risk'], true)) {
+            } elseif ($this->filters->attention === 'critical') {
+                if ($level !== CrewReliefAttentionResolver::LEVEL_CRITICAL) {
                     return false;
                 }
-            } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_OVERDUE) {
-                if ($row['days_until_signoff'] === null || $row['days_until_signoff'] >= 0) {
-                    return false;
-                }
-            } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_MISSING_PLANNED_SIGNOFF) {
-                if (! ($row['missing_planned_signoff'] ?? false)) {
-                    return false;
-                }
+            } else {
+                return false;
             }
+        }
 
-            return true;
-        })->values();
+        if ($this->filters->preset === CrewReliefReportFilters::PRESET_NO_RELIEF
+            || $this->filters->preset === CrewReliefReportFilters::PRESET_NOT_READY) {
+            return false;
+        }
+
+        if ($this->filters->preset === CrewReliefReportFilters::PRESET_OVERDUE) {
+            if ($row['days_until_signoff'] === null || $row['days_until_signoff'] >= 0) {
+                return false;
+            }
+        } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_MISSING_PLANNED_SIGNOFF) {
+            if (! ($row['missing_planned_signoff'] ?? false)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function passesSharedRowFilters(array $row): bool
+    {
+        if ($this->filters->readiness !== '' && $this->filters->readiness !== 'all') {
+            if ($row['readiness']['code'] !== $this->filters->readiness) {
+                return false;
+            }
+        }
+
+        if ($this->filters->attention !== '' && $this->filters->attention !== 'all') {
+            if ($row['attention']['level'] !== $this->filters->attention
+                && $row['attention']['reason'] !== $this->filters->attention) {
+                return false;
+            }
+        }
+
+        if ($this->filters->preset === CrewReliefReportFilters::PRESET_NO_RELIEF) {
+            if ($row['has_relief']) {
+                return false;
+            }
+        } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_NOT_READY) {
+            if (! $row['has_relief'] || ! in_array($row['readiness']['code'], ['in_progress', 'at_risk'], true)) {
+                return false;
+            }
+        } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_OVERDUE) {
+            if ($row['days_until_signoff'] === null || $row['days_until_signoff'] >= 0) {
+                return false;
+            }
+        } elseif ($this->filters->preset === CrewReliefReportFilters::PRESET_MISSING_PLANNED_SIGNOFF) {
+            if (! ($row['missing_planned_signoff'] ?? false)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Focus presets that depend only on the visible outgoing assignment, not hidden relief metadata.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function matchesSourceOnlyFocus(array $row, string $focus): bool
+    {
+        $days = $row['days_until_signoff'];
+
+        return match ($focus) {
+            'overdue' => $days !== null && $days < 0,
+            'missing_planned_signoff' => (bool) ($row['missing_planned_signoff'] ?? false),
+            'signoff_7' => $days !== null && $days >= 0 && $days <= 7,
+            'signoff_14' => $days !== null && $days >= 0 && $days <= 14,
+            default => false,
+        };
     }
 
     /**
@@ -801,7 +900,9 @@ final class CrewReliefReportQuery
             return 1;
         }
 
-        if ($relief instanceof CrewReliefReadinessResult && $relief->risk === CrewReliefRisk::Critical) {
+        if (! ($row['is_relief_restricted'] ?? false)
+            && $relief instanceof CrewReliefReadinessResult
+            && $relief->risk === CrewReliefRisk::Critical) {
             return 2;
         }
 
@@ -809,7 +910,9 @@ final class CrewReliefReportQuery
             return 3;
         }
 
-        if ($relief instanceof CrewReliefReadinessResult && $relief->risk === CrewReliefRisk::Warning) {
+        if (! ($row['is_relief_restricted'] ?? false)
+            && $relief instanceof CrewReliefReadinessResult
+            && $relief->risk === CrewReliefRisk::Warning) {
             return 4;
         }
 
