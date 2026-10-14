@@ -167,7 +167,7 @@ describe('summarizePhaseVariance', () => {
             },
         );
 
-        assert.equal(summary.headline, 'In progress');
+        assert.equal(summary.headline, 'Waiting for crew arrival');
         assert.equal(summary.tone, 'pending');
     });
 
