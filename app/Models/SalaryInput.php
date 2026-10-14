@@ -30,6 +30,7 @@ class SalaryInput extends Model
                 'salary_input_type_id',
                 'amount',
                 'notes',
+                'crew_operations_timesheet_import_owned',
             ])
             ->logOnlyDirty();
     }
@@ -41,6 +42,7 @@ class SalaryInput extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'crew_operations_timesheet_import_owned' => 'boolean',
         ];
     }
 

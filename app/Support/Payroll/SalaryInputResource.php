@@ -3,6 +3,7 @@
 namespace App\Support\Payroll;
 
 use App\Models\SalaryInput;
+use App\Support\CrewOperations\Reset\CrewOperationsResetSalaryInputOwnership;
 use Illuminate\Support\Collection;
 
 final class SalaryInputResource
@@ -25,6 +26,7 @@ final class SalaryInputResource
             'is_addition' => (bool) ($type?->is_addition ?? false),
             'amount' => number_format((float) $input->amount, 2, '.', ''),
             'notes' => $input->notes,
+            CrewOperationsResetSalaryInputOwnership::BREAKDOWN_KEY => CrewOperationsResetSalaryInputOwnership::isOwned($input),
         ];
     }
 
