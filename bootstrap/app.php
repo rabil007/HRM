@@ -11,17 +11,14 @@ use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LogFailedFileUploads;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetCurrentCompany;
+use App\Support\Http\InertiaHttpErrorRenderer;
 use App\Support\Uploads\FailedUploadLogger;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
-use Inertia\Support\Header;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -89,34 +86,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
             FailedUploadLogger::logException($request, $exception);
         });
-        $renderForbiddenInertiaPage = function (Request $request) {
-            if ($request->header(Header::INERTIA)) {
-                return true;
-            }
-
-            $accept = (string) $request->header('Accept', '');
-
-            return $accept === '' || str_contains($accept, 'text/html');
-        };
-
-        $exceptions->render(function (AuthorizationException $e, $request) use ($renderForbiddenInertiaPage) {
-            if (! $renderForbiddenInertiaPage($request)) {
-                return null;
-            }
-
-            return Inertia::render('errors/403')->toResponse($request)->setStatusCode(403);
-        });
-
-        $exceptions->render(function (HttpExceptionInterface $e, $request) use ($renderForbiddenInertiaPage) {
-            if ($e->getStatusCode() !== 403) {
-                return null;
-            }
-
-            if (! $renderForbiddenInertiaPage($request)) {
-                return null;
-            }
-
-            return Inertia::render('errors/403')->toResponse($request)->setStatusCode(403);
+        $exceptions->render(function (Throwable $e, Request $request) {
+            return InertiaHttpErrorRenderer::tryRender($request, $e);
         });
 
         $exceptions->respond(function (Response $response, Throwable $e, Request $request) {

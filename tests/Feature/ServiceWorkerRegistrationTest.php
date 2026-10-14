@@ -15,7 +15,9 @@ test('service worker route exposes root scope allow header', function () {
     expect((string) $response->headers->get('Cache-Control'))->toContain('no-store')
         ->and((string) $response->headers->get('Content-Security-Policy'))->toContain("object-src 'none'");
 
-    expect(file_get_contents($path))->toContain("addEventListener('push'");
+    expect(file_get_contents($path))->toContain("addEventListener('push'")
+        ->and(file_get_contents($path))->toContain("addEventListener('fetch'")
+        ->and(file_get_contents($path))->toContain('/offline.html');
 });
 
 test('service worker route returns not found when push worker is missing', function () {
