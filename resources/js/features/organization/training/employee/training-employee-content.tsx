@@ -63,9 +63,7 @@ export function TrainingEmployeeContent({
                 canUpdate={can.update}
                 canDelete={can.delete}
                 canImport={can.import}
-                canManageCertificateDocuments={
-                    can.manage_certificate_documents
-                }
+                canManageCertificateDocuments={can.manage_certificate_documents}
                 templateFields={template_fields}
                 standalone
                 showBackFrom="employee-browse"

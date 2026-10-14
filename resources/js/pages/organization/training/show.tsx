@@ -17,9 +17,9 @@ import type {
 } from '@/features/organization/training/shared/types';
 import { TrainingShowHeaderActions } from '@/features/organization/training/training-list-row-actions';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
+import type { TrainingPageCan } from '@/features/organization/training/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
-import type { TrainingPageCan } from '@/features/organization/training/types';
 import type {
     CourseOption,
     TemplateFieldConfig,
