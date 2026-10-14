@@ -142,9 +142,12 @@
             window.location.reload();
         }
 
-        // Auto-reload when connection is restored
         window.addEventListener('online', function () {
-            window.location.reload();
+            const status = document.querySelector('.status');
+            if (status) {
+                status.innerHTML =
+                    '<span class="dot" style="background:#22c55e;animation:none"></span>Connection restored — tap Try Again';
+            }
         });
     </script>
 </body>

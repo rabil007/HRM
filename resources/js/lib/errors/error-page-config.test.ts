@@ -38,4 +38,11 @@ describe('error-page-config', () => {
         assert.equal(isErrorPageStatus(404), true);
         assert.equal(isErrorPageStatus(418), false);
     });
+
+    it('uses neutral copy on the 500 page', () => {
+        const copy = getErrorPageConfig(500).description;
+
+        assert.match(copy, /try again later/i);
+        assert.doesNotMatch(copy, /notified/i);
+    });
 });

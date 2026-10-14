@@ -8,7 +8,6 @@ import {
     notifyNetworkFailure,
     notifyOffline,
     notifyOnline,
-    resetNetworkRecoveryState,
 } from '@/lib/errors/network-recovery';
 import { toast } from '@/lib/toast';
 
@@ -39,8 +38,6 @@ function showFlashToast(
 export function HttpExceptionToasts() {
     useEffect(() => {
         const removeSuccess = router.on('success', (event) => {
-            resetNetworkRecoveryState();
-
             const pageProps = event.detail.page.props as {
                 flash?: Partial<Record<'success' | 'error' | 'info', string>>;
             };

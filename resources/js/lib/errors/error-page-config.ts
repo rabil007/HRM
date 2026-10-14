@@ -103,7 +103,7 @@ const configs: Record<ErrorPageStatus, ErrorPageConfig> = {
         title: 'Server error',
         heading: 'Something went wrong',
         description:
-            'We could not complete your request. Our team has been notified. Please try again in a few minutes.',
+            'Something went wrong while processing your request. Please try again later.',
         icon: ServerCrash,
         actions: ['retry', 'dashboard'],
         retryEligible: true,

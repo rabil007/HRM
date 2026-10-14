@@ -1,9 +1,9 @@
-import { router } from '@inertiajs/react';
-import { hasUnsavedWork } from '@/lib/app-refresh/has-unsaved-work';
 import { toast } from '@/lib/toast';
 
 let lastNetworkToastAt = 0;
-let offlineToastShown = false;
+let offlineNotified = false;
+let serverUnreachableNotified = false;
+let wasOffline = false;
 
 const TOAST_DEBOUNCE_MS = 4_000;
 
@@ -19,9 +19,23 @@ function canShowNetworkToast(): boolean {
     return true;
 }
 
-export function resetNetworkRecoveryState(): void {
+export function resetNetworkRecoveryStateForTests(): void {
     lastNetworkToastAt = 0;
-    offlineToastShown = false;
+    offlineNotified = false;
+    serverUnreachableNotified = false;
+    wasOffline = false;
+}
+
+export function getNetworkRecoveryStateForTests(): {
+    wasOffline: boolean;
+    offlineNotified: boolean;
+    serverUnreachableNotified: boolean;
+} {
+    return {
+        wasOffline,
+        offlineNotified,
+        serverUnreachableNotified,
+    };
 }
 
 export function notifyNetworkFailure(): void {
@@ -30,50 +44,52 @@ export function notifyNetworkFailure(): void {
     }
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        if (!offlineToastShown) {
-            offlineToastShown = true;
-            toast.warning(
-                'You appear to be offline. Check your connection and try again.',
-            );
-        }
+        notifyOffline();
 
         return;
     }
 
+    if (serverUnreachableNotified) {
+        return;
+    }
+
+    serverUnreachableNotified = true;
     toast.error(
         'We could not reach the server. Check your connection and try again.',
     );
 }
 
 export function notifyOffline(): void {
-    if (offlineToastShown || !canShowNetworkToast()) {
+    wasOffline = true;
+
+    if (offlineNotified || !canShowNetworkToast()) {
         return;
     }
 
-    offlineToastShown = true;
+    offlineNotified = true;
     toast.warning(
         'You appear to be offline. Changes will not save until you reconnect.',
     );
 }
 
 export function notifyOnline(): void {
-    offlineToastShown = false;
+    if (!wasOffline && !offlineNotified && !serverUnreachableNotified) {
+        return;
+    }
 
-    if (hasUnsavedWork()) {
-        toast.info('You are back online. You can retry when ready.');
+    const hadOffline = wasOffline || offlineNotified;
 
+    offlineNotified = false;
+    serverUnreachableNotified = false;
+    wasOffline = false;
+
+    if (!hadOffline) {
+        return;
+    }
+
+    if (!canShowNetworkToast()) {
         return;
     }
 
     toast.success('You are back online.');
-}
-
-export function retryAfterReconnect(): void {
-    if (!navigator.onLine) {
-        notifyOffline();
-
-        return;
-    }
-
-    router.reload();
 }

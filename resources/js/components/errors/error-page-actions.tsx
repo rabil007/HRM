@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ErrorPageActionId } from '@/lib/errors/error-page-config';
 import {
+    homeHref,
     loginHref,
     navigateBackWithFallback,
-    refreshCurrentPage,
+    recoverExpiredSession,
     retryCurrentDocument,
     safeDashboardHref,
 } from '@/lib/errors/error-page-navigation';
@@ -106,7 +107,7 @@ export function ErrorPageActions({
                             variant="secondary"
                             className="h-11 rounded-xl px-5"
                         >
-                            <Link href={dashboardHref}>Go to home</Link>
+                            <Link href={homeHref()}>Go to home</Link>
                         </Button>
                     );
                 }
@@ -129,7 +130,7 @@ export function ErrorPageActions({
                             key={action}
                             type="button"
                             className="h-11 rounded-xl px-5"
-                            onClick={() => refreshCurrentPage()}
+                            onClick={() => recoverExpiredSession()}
                         >
                             Refresh page
                         </Button>

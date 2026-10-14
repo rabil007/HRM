@@ -21,7 +21,23 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        (async () => {
+            const keys = await caches.keys();
+
+            await Promise.all(
+                keys
+                    .filter(
+                        (key) =>
+                            key.startsWith('oms-hrm-offline-shell-') &&
+                            key !== OFFLINE_CACHE,
+                    )
+                    .map((key) => caches.delete(key)),
+            );
+
+            await self.clients.claim();
+        })(),
+    );
 });
 
 self.addEventListener('fetch', (event) => {
@@ -34,16 +50,22 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith(
-        fetch(event.request).catch(async () => {
-            const cache = await caches.open(OFFLINE_CACHE);
-            const offline = await cache.match(OFFLINE_URL);
+        (async () => {
+            try {
+                const response = await fetch(event.request);
 
-            if (offline) {
-                return offline;
+                return response;
+            } catch {
+                const cache = await caches.open(OFFLINE_CACHE);
+                const offline = await cache.match(OFFLINE_URL);
+
+                if (offline) {
+                    return offline;
+                }
+
+                return Response.error();
             }
-
-            return Response.error();
-        }),
+        })(),
     );
 });
 

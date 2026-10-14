@@ -27,8 +27,20 @@ Validation exceptions and custom exceptions that implement `render()` (for examp
 
 - Shared UI: `resources/js/components/errors/error-page.tsx`
 - Copy/actions: `resources/js/lib/errors/error-page-config.ts`
+- Navigation/recovery: `resources/js/lib/errors/error-page-navigation.ts`
 - Layout: `errors/*` pages use `inertiaPageLayoutKind` → `none` (no authenticated shell)
 - Global recovery: `resources/js/components/http-exception-toasts.tsx` (flash, HTTP exceptions, offline/network)
+
+### Session expiration (419)
+
+- **Refresh** uses `recoverExpiredSession()` → `window.location.reload()` (GET only). Inertia POST/PUT/PATCH/DELETE visits are never replayed.
+- **Sign in** links to the Fortify login route. If refresh cannot restore the session, the user can sign in manually.
+- Avoids refresh loops on the login route (reload redirects to login instead).
+
+### Navigation actions
+
+- **Back** uses browser history only when `canSafelyNavigateBack()` is true (same-origin referrer or in-app history, more than one history entry). Otherwise falls back to dashboard (authenticated) or home (guest).
+- **Home**, **Dashboard**, **Login**, and **Retry** use Wayfinder routes or safe GET retries.
 
 ### Adding a new status
 
@@ -41,9 +53,16 @@ Do not duplicate headings, buttons, or layout markup in the page file.
 
 ## PWA / offline
 
-- Static fallback: `public/offline.html` (no tenant data)
-- Service worker (`public/service-worker.js`) caches only `offline.html` and serves it for **failed navigation** requests. Inertia JSON, authenticated HTML, and API responses are not cached.
-- In-app offline/reconnect messaging uses the shared toast helpers in `resources/js/lib/errors/network-recovery.ts` (debounced, no automatic mutation replay).
+- Static fallback: `public/offline.html` (no tenant data, no auto-reload on `online` — user taps **Try Again**)
+- Service worker (`public/service-worker.js`):
+  - Caches only `offline.html` in `oms-hrm-offline-shell-v1`
+  - Serves it only when a **navigation** `fetch` fails at the network layer (HTTP 4xx/5xx responses are not treated as offline)
+  - Deletes stale `oms-hrm-offline-shell-*` caches on `activate`
+  - Push notification handlers are unchanged
+- In-app offline/reconnect toasts (`network-recovery.ts`):
+  - Debounced warnings/errors
+  - Reconnection toast only after an offline/unreachable notification
+  - Not cleared on every successful Inertia visit (only after a real `online` recovery)
 
 ## Security
 

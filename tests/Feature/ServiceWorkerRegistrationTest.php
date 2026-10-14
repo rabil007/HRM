@@ -17,7 +17,20 @@ test('service worker route exposes root scope allow header', function () {
 
     expect(file_get_contents($path))->toContain("addEventListener('push'")
         ->and(file_get_contents($path))->toContain("addEventListener('fetch'")
-        ->and(file_get_contents($path))->toContain('/offline.html');
+        ->and(file_get_contents($path))->toContain('/offline.html')
+        ->and(file_get_contents($path))->toContain('oms-hrm-offline-shell-');
+});
+
+test('offline fallback page ships as a static public asset', function () {
+    $path = public_path('offline.html');
+
+    expect(is_file($path))->toBeTrue();
+
+    $html = (string) file_get_contents($path);
+
+    expect($html)->toContain("You're Offline")
+        ->and($html)->toContain('Try Again')
+        ->and($html)->toContain('Connection restored');
 });
 
 test('service worker route returns not found when push worker is missing', function () {

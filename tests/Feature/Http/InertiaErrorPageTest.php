@@ -1,7 +1,11 @@
 <?php
 
+use App\Exceptions\PrivilegedTwoFactorRequiredException;
 use App\Models\Employee;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;
 use Inertia\Testing\AssertableInertia as Assert;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
@@ -104,6 +108,24 @@ test('production html 500 does not expose exception messages', function () {
     } finally {
         config(['app.debug' => $originalDebug]);
     }
+});
+
+test('token mismatch exception renders inertia 419 for html requests', function () {
+    Route::middleware('web')->get('/_test/inertia-token-mismatch', function () {
+        throw new TokenMismatchException;
+    });
+
+    $this->get('/_test/inertia-token-mismatch')
+        ->assertStatus(419)
+        ->assertInertia(fn (Assert $page) => $page->component('errors/419'));
+});
+
+test('privileged two factor exception keeps custom redirect render', function () {
+    $response = (new PrivilegedTwoFactorRequiredException)->render(
+        Request::create('/settings/security', 'POST'),
+    );
+
+    expect($response)->toBeInstanceOf(RedirectResponse::class);
 });
 
 test('missing tenant-scoped record remains 404 not forbidden', function () {
