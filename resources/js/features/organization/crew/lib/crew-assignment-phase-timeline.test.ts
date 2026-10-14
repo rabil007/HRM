@@ -8,6 +8,7 @@ import type {
     CrewAssignmentPagePermissions,
     PhaseTimelineItem,
 } from '../types.ts';
+import type { PhaseTimelineDisplayMode } from './phase-timeline-math.ts';
 
 function phase(overrides: Partial<PhaseTimelineItem> = {}): PhaseTimelineItem {
     return {
@@ -71,7 +72,70 @@ const can = {
     | 'view_training'
 >;
 
-async function renderTimeline(detail: CrewAssignmentDetail): Promise<string> {
+function activeCurrentP0Assignment(
+    overrides: Partial<CrewAssignmentDetail> = {},
+): CrewAssignmentDetail {
+    return assignment({
+        status: 'active',
+        status_label: 'Active',
+        planned_arrival_at: '2026-10-17',
+        current_phase: {
+            id: 11,
+            code: 'p0',
+            label: 'Pre-Mobilisation',
+        },
+        phase_timeline: [
+            phase({
+                id: 11,
+                phase_code: 'p0',
+                phase_label: 'Pre-Mobilisation',
+                status: 'active',
+                status_label: 'Active',
+                planned_start_at: null,
+                planned_end_at: null,
+                actual_start_at: '2026-10-14',
+                actual_end_at: null,
+            }),
+        ],
+        ...overrides,
+    });
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+    if (needle === '') {
+        return 0;
+    }
+
+    let count = 0;
+    let index = 0;
+
+    while (index !== -1) {
+        index = haystack.indexOf(needle, index);
+
+        if (index === -1) {
+            break;
+        }
+
+        count += 1;
+        index += needle.length;
+    }
+
+    return count;
+}
+
+async function renderTimeline(
+    detail: CrewAssignmentDetail,
+    options?: {
+        initialDisplayMode?: PhaseTimelineDisplayMode;
+        can?: Pick<
+            CrewAssignmentPagePermissions,
+            | 'view_corrections'
+            | 'request_correction'
+            | 'override_corrections'
+            | 'view_training'
+        >;
+    },
+): Promise<string> {
     const vite = await createServer({
         configFile: false,
         plugins: [(await import('@vitejs/plugin-react')).default()],
@@ -90,10 +154,11 @@ async function renderTimeline(detail: CrewAssignmentDetail): Promise<string> {
         return renderToString(
             React.createElement(CrewAssignmentPhaseTimeline, {
                 assignment: detail,
-                can,
-                correctablePhaseIds: new Set<number>(),
+                can: options?.can ?? can,
+                correctablePhaseIds: new Set<number>([11]),
                 onCorrect: () => undefined,
                 onCancelPending: () => undefined,
+                initialDisplayMode: options?.initialDisplayMode,
             }),
         );
     } finally {
@@ -114,66 +179,47 @@ describe('CrewAssignmentPhaseTimeline render', () => {
     });
 
     it('renders expected arrival for active current P0 with assignment forecast', async () => {
-        const html = await renderTimeline(
-            assignment({
-                status: 'active',
-                status_label: 'Active',
-                planned_arrival_at: '2026-10-17',
-                current_phase: {
-                    id: 11,
-                    code: 'p0',
-                    label: 'Pre-Mobilisation',
-                },
-                phase_timeline: [
-                    phase({
-                        id: 11,
-                        phase_code: 'p0',
-                        phase_label: 'Pre-Mobilisation',
-                        status: 'active',
-                        status_label: 'Active',
-                        planned_start_at: null,
-                        planned_end_at: null,
-                        actual_start_at: '2026-10-14',
-                        actual_end_at: null,
-                    }),
-                ],
-            }),
-        );
+        const html = await renderTimeline(activeCurrentP0Assignment());
 
         assert.ok(html.includes('Expected Arrival:'));
         assert.ok(html.includes('17-10-2026'));
         assert.ok(!html.includes('Planned:'));
         assert.ok(!html.includes('Not recorded'));
         assert.ok(!html.includes('variance unavailable (no planned dates)'));
-        assert.ok(html.includes('Waiting for crew arrival'));
+        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
         assert.ok(!html.includes('Actual:'));
         assert.ok(!html.includes('Duration:'));
         assert.ok(!html.includes('Phase details'));
     });
 
+    it('shows active current P0 once in Planned Only without actual lines', async () => {
+        const html = await renderTimeline(activeCurrentP0Assignment(), {
+            initialDisplayMode: 'planned_only',
+        });
+
+        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
+        assert.ok(html.includes('Expected Arrival:'));
+        assert.ok(!html.includes('Actual:'));
+    });
+
+    it('shows active current P0 once in Actual Only without duplicate waiting copy', async () => {
+        const html = await renderTimeline(activeCurrentP0Assignment(), {
+            initialDisplayMode: 'actual_only',
+        });
+
+        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
+        assert.ok(!html.includes('Expected Arrival:'));
+        assert.ok(!html.includes('Actual:'));
+    });
+
     it('preserves planned-not-recorded fallback when forecast is missing', async () => {
         const html = await renderTimeline(
-            assignment({
-                current_phase: {
-                    id: 11,
-                    code: 'p0',
-                    label: 'Pre-Mobilisation',
-                },
-                phase_timeline: [
-                    phase({
-                        id: 11,
-                        phase_code: 'p0',
-                        phase_label: 'Pre-Mobilisation',
-                        planned_start_at: null,
-                        planned_end_at: null,
-                        actual_start_at: '2026-10-14',
-                    }),
-                ],
-            }),
+            activeCurrentP0Assignment({ planned_arrival_at: null }),
         );
 
         assert.ok(html.includes('Not recorded'));
         assert.ok(html.includes('variance unavailable (no planned dates)'));
+        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
     });
 
     it('does not show expected arrival on completed historical P0 after forecast update', async () => {
@@ -210,6 +256,126 @@ describe('CrewAssignmentPhaseTimeline render', () => {
         );
 
         assert.ok(!html.includes('Expected Arrival:'));
+        assert.ok(html.includes('Completed'));
+    });
+
+    it('renders P2B training metadata without course_id or duplicate course in status', async () => {
+        const html = await renderTimeline(
+            assignment({
+                current_phase: {
+                    id: 30,
+                    code: 'p2b',
+                    label: 'Training',
+                },
+                phase_timeline: [
+                    phase({
+                        id: 30,
+                        phase_code: 'p2b',
+                        phase_label: 'Training',
+                        status: 'completed',
+                        status_label: 'Completed',
+                        actual_start_at: '2026-09-01',
+                        actual_end_at: '2026-09-05',
+                        details: {
+                            course_id: 15,
+                            course: 'BOSIET',
+                            provider: 'ABC Training',
+                        },
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Course'));
+        assert.ok(html.includes('BOSIET'));
+        assert.ok(html.includes('Training Provider'));
+        assert.ok(html.includes('ABC Training'));
+        assert.ok(!html.includes('course_id'));
+        assert.equal(countOccurrences(html, 'BOSIET'), 1);
+    });
+
+    it('omits employee training link when view_training is denied', async () => {
+        const html = await renderTimeline(
+            assignment({
+                current_phase: { id: 30, code: 'p2b', label: 'Training' },
+                phase_timeline: [
+                    phase({
+                        id: 30,
+                        phase_code: 'p2b',
+                        phase_label: 'Training',
+                        status: 'completed',
+                        status_label: 'Completed',
+                        employee_training_id: 99,
+                        details: { course: 'BOSIET' },
+                    }),
+                ],
+            }),
+            { can: { ...can, view_training: false } },
+        );
+
+        assert.ok(html.includes('Added to Employee Training'));
+        assert.ok(!html.includes('/organization/employees/'));
+    });
+
+    it('keeps repeated P2A/P2B phases in timeline order', async () => {
+        const html = await renderTimeline(
+            assignment({
+                current_phase: { id: 33, code: 'p2a', label: 'Join Standby' },
+                phase_timeline: [
+                    phase({
+                        id: 31,
+                        sequence: 1,
+                        phase_code: 'p2a',
+                        phase_label: 'Join Standby',
+                        status: 'completed',
+                        status_label: 'Completed',
+                        actual_end_at: '2026-09-05',
+                    }),
+                    phase({
+                        id: 32,
+                        sequence: 2,
+                        phase_code: 'p2b',
+                        phase_label: 'Training',
+                        status: 'completed',
+                        status_label: 'Completed',
+                        actual_end_at: '2026-09-10',
+                    }),
+                    phase({
+                        id: 33,
+                        sequence: 3,
+                        phase_code: 'p2a',
+                        phase_label: 'Join Standby',
+                        status: 'active',
+                        status_label: 'Active',
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.indexOf('Join Standby') < html.indexOf('Training'));
+        assert.ok(html.lastIndexOf('Join Standby') > html.indexOf('Training'));
+    });
+
+    it('shows correction affordance only when override permission is granted', async () => {
+        const allowed = await renderTimeline(activeCurrentP0Assignment(), {
+            can: {
+                ...can,
+                override_corrections: true,
+                view_corrections: false,
+                request_correction: false,
+            },
+        });
+        const denied = await renderTimeline(activeCurrentP0Assignment(), {
+            can: {
+                ...can,
+                override_corrections: false,
+                view_corrections: false,
+                request_correction: false,
+            },
+        });
+
+        assert.ok(allowed.includes('Correct'));
+        assert.ok(!denied.includes('Correct'));
     });
 
     it('renders historical completed timelines without inventing open elapsed ends', async () => {
@@ -230,5 +396,24 @@ describe('CrewAssignmentPhaseTimeline render', () => {
 
         assert.ok(html.includes('Completed'));
         assert.ok(!html.includes('In progress'));
+    });
+
+    it('does not render raw object metadata on unfamiliar detail shapes', async () => {
+        const html = await renderTimeline(
+            assignment({
+                phase_timeline: [
+                    phase({
+                        details: {
+                            note: 'Safe note',
+                            payload: { hidden: true },
+                        },
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Safe note'));
+        assert.ok(!html.includes('[object Object]'));
+        assert.ok(!html.includes('payload'));
     });
 });
