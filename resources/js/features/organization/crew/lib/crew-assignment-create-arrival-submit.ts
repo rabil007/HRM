@@ -6,12 +6,45 @@ import {
     ACTUAL_ARRIVAL_REQUIRED_MESSAGE,
     normalizeArrivalDate,
 } from './already-arrived-start.ts';
-import { normalizeCreateDate } from './crew-assignment-create-date-validation.ts';
+import {
+    normalizeCreateDate,
+    parseValidCreateCalendarDate,
+} from './crew-assignment-create-date-validation.ts';
 
 export type AlreadyArrivedArrivalDecision =
     | { type: 'submit' }
     | { type: 'confirm_pre_mobilisation'; plannedArrivalDate: string }
     | { type: 'client_error'; message: string };
+
+export function shouldDefaultSingleCreateArrivalDate(options: {
+    fromPlanning: boolean;
+    initialRowCount: number;
+    hasRestoredBulkSession: boolean;
+}): boolean {
+    return (
+        !options.fromPlanning &&
+        options.initialRowCount === 1 &&
+        !options.hasRestoredBulkSession
+    );
+}
+
+export function resolveInitialRowPlannedArrival(
+    rowIndex: number,
+    current: string | null | undefined,
+    defaultArrivalDate: string | undefined,
+    allowDefaultArrival: boolean,
+): string | null {
+    if (
+        allowDefaultArrival &&
+        rowIndex === 0 &&
+        defaultArrivalDate &&
+        (current == null || current === '')
+    ) {
+        return defaultArrivalDate;
+    }
+
+    return current ?? null;
+}
 
 export function resolveDefaultCreateArrivalDate(options: {
     companyTimezone: string;
@@ -42,9 +75,9 @@ export function isCalendarDateAfterCompanyToday(
     companyTimezone: string,
     referenceDate?: Date,
 ): boolean {
-    const normalized = normalizeCreateDate(arrival);
+    const valid = parseValidCreateCalendarDate(arrival);
 
-    if (normalized === '') {
+    if (valid === null) {
         return false;
     }
 
@@ -53,7 +86,7 @@ export function isCalendarDateAfterCompanyToday(
         referenceDate,
     );
 
-    return normalized > today;
+    return valid > today;
 }
 
 export function resolveAlreadyArrivedSubmitDecision(
@@ -70,16 +103,21 @@ export function resolveAlreadyArrivedSubmitDecision(
         };
     }
 
+    const valid = parseValidCreateCalendarDate(normalized);
+
+    if (valid === null) {
+        return {
+            type: 'client_error',
+            message: ACTUAL_ARRIVAL_REQUIRED_MESSAGE,
+        };
+    }
+
     if (
-        isCalendarDateAfterCompanyToday(
-            normalized,
-            companyTimezone,
-            referenceDate,
-        )
+        isCalendarDateAfterCompanyToday(valid, companyTimezone, referenceDate)
     ) {
         return {
             type: 'confirm_pre_mobilisation',
-            plannedArrivalDate: normalized,
+            plannedArrivalDate: valid,
         };
     }
 

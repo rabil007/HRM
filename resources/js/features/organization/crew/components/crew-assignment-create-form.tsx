@@ -61,6 +61,8 @@ import {
 import {
     resolveAlreadyArrivedSubmitDecision,
     resolveDefaultCreateArrivalDate,
+    resolveInitialRowPlannedArrival,
+    shouldDefaultSingleCreateArrivalDate,
 } from '@/features/organization/crew/lib/crew-assignment-create-arrival-submit';
 import {
     clearCreateFormDateErrors,
@@ -119,6 +121,7 @@ function createInitialRows(
         position_id?: number | null;
     } | null,
     defaultArrivalDate?: string,
+    allowDefaultArrival?: boolean,
 ): {
     rows: CrewMemberRowState[];
     keys: string[];
@@ -154,13 +157,12 @@ function createInitialRows(
             }
         }
 
-        if (
-            index === 0 &&
-            defaultArrivalDate &&
-            (row.planned_arrival_at == null || row.planned_arrival_at === '')
-        ) {
-            row.planned_arrival_at = defaultArrivalDate;
-        }
+        row.planned_arrival_at = resolveInitialRowPlannedArrival(
+            index,
+            row.planned_arrival_at,
+            defaultArrivalDate,
+            allowDefaultArrival ?? false,
+        );
 
         rows.push(row);
     }
@@ -263,19 +265,29 @@ export function CrewAssignmentCreateForm({
             restoredBulkSession,
         ],
     );
+    const allowDefaultSingleArrivalDate = useMemo(
+        () =>
+            shouldDefaultSingleCreateArrivalDate({
+                fromPlanning,
+                initialRowCount: initial_row_count,
+                hasRestoredBulkSession: restoredBulkSession !== null,
+            }),
+        [fromPlanning, initial_row_count, restoredBulkSession],
+    );
     const initialRows = useMemo(
         () =>
             createInitialRows(
                 initial_row_count,
                 planning_context,
                 prefill,
-                fromPlanning ? undefined : defaultArrivalDate,
+                allowDefaultSingleArrivalDate ? defaultArrivalDate : undefined,
+                allowDefaultSingleArrivalDate,
             ),
         [
             initial_row_count,
             planning_context,
             prefill,
-            fromPlanning,
+            allowDefaultSingleArrivalDate,
             defaultArrivalDate,
         ],
     );
@@ -1064,6 +1076,9 @@ export function CrewAssignmentCreateForm({
                                                                 'planned_arrival_at',
                                                             ),
                                                         );
+                                                        setClientArrivalError(
+                                                            undefined,
+                                                        );
                                                         form.setData(
                                                             'planned_arrival_at',
                                                             e.target.value,
@@ -1215,6 +1230,12 @@ export function CrewAssignmentCreateForm({
                                                                 },
                                                             ),
                                                         );
+
+                                                        if (index === 0) {
+                                                            setClientArrivalError(
+                                                                undefined,
+                                                            );
+                                                        }
                                                     }
 
                                                     form.setData(

@@ -5,10 +5,20 @@ import {
     SIGNOFF_BEFORE_JOIN_MESSAGE,
     arrivalAfterJoinMessage,
     dependentCreateDateErrorKeys,
+    parseValidCreateCalendarDate,
     resolveArrivalDateDisplayError,
     resolveSignoffDateDisplayError,
     signoffBeforeJoinMessage,
 } from './crew-assignment-create-date-validation.ts';
+
+describe('parseValidCreateCalendarDate', () => {
+    it('accepts real calendar dates and rejects impossible values', () => {
+        assert.equal(parseValidCreateCalendarDate('2026-10-14'), '2026-10-14');
+        assert.equal(parseValidCreateCalendarDate('2026-02-30'), null);
+        assert.equal(parseValidCreateCalendarDate('invalid text'), null);
+        assert.equal(parseValidCreateCalendarDate(''), null);
+    });
+});
 
 describe('arrivalAfterJoinMessage', () => {
     it('shows no error when arrival is set and join is blank', () => {
