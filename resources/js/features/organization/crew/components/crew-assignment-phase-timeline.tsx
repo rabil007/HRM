@@ -22,11 +22,8 @@ import {
     calendarDatesDiffer,
     phasesHavePlannedDates,
 } from '@/features/organization/crew/lib/phase-timeline-math';
-import {
-    assignmentShowsP0ExpectedArrivalInPlannedOnly
-    
-} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
-import type {P0ExpectedArrivalContext} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import { assignmentShowsP0ExpectedArrivalInPlannedOnly } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import type { P0ExpectedArrivalContext } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
 import type {

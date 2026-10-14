@@ -8,11 +8,8 @@ import {
     formatElapsedDayPhrase,
     phaseHasPlannedDates,
 } from './phase-timeline-math.ts';
-import {
-    shouldShowP0ExpectedArrival
-    
-} from './phase-timeline-p0-expected-arrival.ts';
-import type {P0ExpectedArrivalContext} from './phase-timeline-p0-expected-arrival.ts';
+import { shouldShowP0ExpectedArrival } from './phase-timeline-p0-expected-arrival.ts';
+import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 import { summarizePhaseVariance } from './phase-timeline-variance.ts';
 
 export type PhaseDateLineSummary = {

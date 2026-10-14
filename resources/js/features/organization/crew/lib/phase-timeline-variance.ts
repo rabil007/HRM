@@ -5,11 +5,8 @@ import {
     phaseHasPlannedDates,
     signedDayDelta,
 } from './phase-timeline-math.ts';
-import {
-    shouldUseNeutralP0InProgressHeadline
-    
-} from './phase-timeline-p0-expected-arrival.ts';
-import type {P0ExpectedArrivalContext} from './phase-timeline-p0-expected-arrival.ts';
+import { shouldUseNeutralP0InProgressHeadline } from './phase-timeline-p0-expected-arrival.ts';
+import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 
 export type PhaseVarianceTone =
     | 'neutral'
