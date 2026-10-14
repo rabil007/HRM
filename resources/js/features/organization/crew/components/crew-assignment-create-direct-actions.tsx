@@ -6,11 +6,8 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-    CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS
-    
-} from '@/features/organization/crew/lib/crew-assignment-create-actions';
-import type {CrewAssignmentSingleSubmitAction} from '@/features/organization/crew/lib/crew-assignment-create-actions';
+import { CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS } from '@/features/organization/crew/lib/crew-assignment-create-actions';
+import type { CrewAssignmentSingleSubmitAction } from '@/features/organization/crew/lib/crew-assignment-create-actions';
 
 function DirectActionButton({
     label,
