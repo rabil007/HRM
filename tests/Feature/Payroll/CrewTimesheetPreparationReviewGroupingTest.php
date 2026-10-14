@@ -169,7 +169,7 @@ test('review payload groups one employee with one assignment and phase', functio
         ->and($employee['assignments'][0]['source_label'])->toBe('Manual Assignment')
         ->and($employee['assignments'][0]['phases'][0]['id'])->toBe($phase->id)
         ->and($employee['assignments'][0]['phases'][0]['phase_code'])->toBe('p2')
-        ->and($employee['assignments'][0]['phases'][0]['phase_code_display'])->toBe('P4')
+        ->and($employee['assignments'][0]['phases'][0]['phase_code_display'])->toBe('P2')
         ->and($employee['assignments'][0]['phases'][0]['payable_days'])->toBe('7.00')
         ->and($employee['total_payable_days'])->toBe(7.0)
         ->and($employee['lines'])->toHaveCount(1);
