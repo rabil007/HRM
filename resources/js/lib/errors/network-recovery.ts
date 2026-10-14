@@ -39,13 +39,13 @@ export function getNetworkRecoveryStateForTests(): {
 }
 
 export function notifyNetworkFailure(): void {
-    if (!canShowNetworkToast()) {
-        return;
-    }
-
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
         notifyOffline();
 
+        return;
+    }
+
+    if (!canShowNetworkToast()) {
         return;
     }
 
