@@ -145,6 +145,32 @@ describe('summarizePhaseVariance', () => {
         assert.equal(summary.endVarianceDays, null);
     });
 
+    it('uses neutral in-progress headline for current P0 with assignment forecast', () => {
+        const summary = summarizePhaseVariance(
+            phase({
+                phase_code: 'p0',
+                phase_label: 'Pre-Mobilisation',
+                planned_start_at: null,
+                planned_end_at: null,
+                status: 'active',
+                status_label: 'Active',
+                actual_start_at: '2026-10-14',
+                actual_end_at: null,
+            }),
+            'Asia/Dubai',
+            {
+                p0ExpectedArrivalContext: {
+                    assignmentStatus: 'active',
+                    isCurrentPhase: true,
+                    plannedArrivalAt: '2026-10-17',
+                },
+            },
+        );
+
+        assert.equal(summary.headline, 'In progress');
+        assert.equal(summary.tone, 'pending');
+    });
+
     it('normalizes equivalent date representations before variance math', () => {
         const summary = summarizePhaseVariance(
             phase({

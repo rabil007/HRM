@@ -157,6 +157,56 @@ describe('buildPhaseDateLineSummary modes', () => {
         assert.notEqual(summary.actualEndLabel, 'In progress');
     });
 
+    it('shows assignment expected arrival on current P0 without phase planned dates', () => {
+        const summary = buildPhaseDateLineSummary(
+            phase({
+                phase_code: 'p0',
+                phase_label: 'Pre-Mobilisation',
+                planned_start_at: null,
+                planned_end_at: null,
+                actual_start_at: '2026-10-14',
+            }),
+            'plan_vs_actual',
+            '2026-10-14',
+            {
+                timeZone: 'Asia/Dubai',
+                formatDate: (value) =>
+                    value ? `FMT:${String(value).slice(0, 10)}` : '—',
+                p0ExpectedArrivalContext: {
+                    assignmentStatus: 'active',
+                    isCurrentPhase: true,
+                    plannedArrivalAt: '2026-10-17',
+                },
+            },
+        );
+
+        assert.equal(summary.showExpectedArrival, true);
+        assert.equal(summary.expectedArrivalLabel, 'FMT:2026-10-17');
+    });
+
+    it('hides expected arrival in Actual Only mode', () => {
+        const summary = buildPhaseDateLineSummary(
+            phase({
+                phase_code: 'p0',
+                planned_start_at: null,
+                planned_end_at: null,
+                actual_start_at: '2026-10-14',
+            }),
+            'actual_only',
+            '2026-10-14',
+            {
+                p0ExpectedArrivalContext: {
+                    assignmentStatus: 'active',
+                    isCurrentPhase: true,
+                    plannedArrivalAt: '2026-10-17',
+                },
+            },
+        );
+
+        assert.equal(summary.showExpectedArrival, false);
+        assert.equal(summary.showPlanned, false);
+    });
+
     it('updates elapsed wording when the company-local today advances', () => {
         const active = phase({
             actual_start_at: '2026-10-08',

@@ -22,6 +22,11 @@ import {
     calendarDatesDiffer,
     phasesHavePlannedDates,
 } from '@/features/organization/crew/lib/phase-timeline-math';
+import {
+    assignmentShowsP0ExpectedArrivalInPlannedOnly
+    
+} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import type {P0ExpectedArrivalContext} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
 import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
 import type {
@@ -162,41 +167,69 @@ function AssignmentMilestones({
     );
 }
 
+function buildP0ExpectedArrivalContext(
+    assignment: CrewAssignmentDetail,
+    phase: PhaseTimelineItem,
+    isCurrent: boolean,
+): P0ExpectedArrivalContext {
+    return {
+        assignmentStatus: assignment.status,
+        isCurrentPhase: isCurrent,
+        plannedArrivalAt: assignment.planned_arrival_at,
+    };
+}
+
 function PhaseDateLines({
     phase,
     mode,
     today,
     timeZone,
+    p0ExpectedArrivalContext,
 }: {
     phase: PhaseTimelineItem;
     mode: PhaseTimelineDisplayMode;
     today: string;
     timeZone?: string | null;
+    p0ExpectedArrivalContext: P0ExpectedArrivalContext;
 }): ReactElement {
     const lines = buildPhaseDateLineSummary(phase, mode, today, {
         timeZone,
         formatDate: formatDisplayDate,
+        p0ExpectedArrivalContext,
     });
-    const variance = summarizePhaseVariance(phase, timeZone);
+    const variance = summarizePhaseVariance(phase, timeZone, {
+        p0ExpectedArrivalContext,
+    });
 
     return (
         <div className="space-y-1 text-xs text-muted-foreground">
             {lines.showPlanned ? (
                 <p>
-                    <span className="font-medium text-foreground/70">
-                        Planned:{' '}
-                    </span>
-                    {lines.hasPlanned ? (
+                    {lines.showExpectedArrival ? (
                         <>
-                            {lines.plannedStartLabel}
-                            {lines.plannedEndLabel
-                                ? ` → ${lines.plannedEndLabel}`
-                                : ''}
+                            <span className="font-medium text-foreground/70">
+                                Expected Arrival:{' '}
+                            </span>
+                            {lines.expectedArrivalLabel}
                         </>
                     ) : (
-                        <span className="text-muted-foreground/70">
-                            Not recorded
-                        </span>
+                        <>
+                            <span className="font-medium text-foreground/70">
+                                Planned:{' '}
+                            </span>
+                            {lines.hasPlanned ? (
+                                <>
+                                    {lines.plannedStartLabel}
+                                    {lines.plannedEndLabel
+                                        ? ` → ${lines.plannedEndLabel}`
+                                        : ''}
+                                </>
+                            ) : (
+                                <span className="text-muted-foreground/70">
+                                    Not recorded
+                                </span>
+                            )}
+                        </>
                     )}
                 </p>
             ) : null}
@@ -243,6 +276,7 @@ function PhaseTimelineRow({
     correctablePhaseIds,
     onCorrect,
     onCancelPending,
+    p0ExpectedArrivalContext,
 }: {
     phase: PhaseTimelineItem;
     index: number;
@@ -250,6 +284,7 @@ function PhaseTimelineRow({
     mode: PhaseTimelineDisplayMode;
     today: string;
     timeZone?: string | null;
+    p0ExpectedArrivalContext: P0ExpectedArrivalContext;
     can: Pick<
         CrewAssignmentPagePermissions,
         | 'view_corrections'
@@ -262,10 +297,13 @@ function PhaseTimelineRow({
     onCorrect: (phaseId: number) => void;
     onCancelPending: (correctionId: number) => void;
 }): ReactElement {
-    const variance = summarizePhaseVariance(phase, timeZone);
+    const variance = summarizePhaseVariance(phase, timeZone, {
+        p0ExpectedArrivalContext,
+    });
     const lines = buildPhaseDateLineSummary(phase, mode, today, {
         timeZone,
         formatDate: formatDisplayDate,
+        p0ExpectedArrivalContext,
     });
     const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -395,6 +433,7 @@ function PhaseTimelineRow({
                     mode={mode}
                     today={today}
                     timeZone={timeZone}
+                    p0ExpectedArrivalContext={p0ExpectedArrivalContext}
                 />
 
                 {hasExpandableDetails ? (
@@ -531,7 +570,8 @@ export function CrewAssignmentPhaseTimeline({
     const plannedOnlyEmpty =
         mode === 'planned_only' &&
         assignment.phase_timeline.length > 0 &&
-        !hasAnyPlannedDates;
+        !hasAnyPlannedDates &&
+        !assignmentShowsP0ExpectedArrivalInPlannedOnly(assignment);
 
     const legacyContext = resolveActiveLegacyPhaseContext(
         assignment.current_phase?.code ?? null,
@@ -588,24 +628,32 @@ export function CrewAssignmentPhaseTimeline({
                     </p>
                 ) : (
                     <ol className="relative space-y-0 border-l border-border/70 pl-5">
-                        {assignment.phase_timeline.map((phase, index) => (
-                            <PhaseTimelineRow
-                                key={phase.id}
-                                phase={phase}
-                                index={index}
-                                isCurrent={
-                                    assignment.current_phase?.id === phase.id
-                                }
-                                mode={mode}
-                                today={today}
-                                timeZone={timeZone}
-                                can={can}
-                                employeeId={assignment.employee?.id}
-                                correctablePhaseIds={correctablePhaseIds}
-                                onCorrect={onCorrect}
-                                onCancelPending={onCancelPending}
-                            />
-                        ))}
+                        {assignment.phase_timeline.map((phase, index) => {
+                            const isCurrent =
+                                assignment.current_phase?.id === phase.id;
+
+                            return (
+                                <PhaseTimelineRow
+                                    key={phase.id}
+                                    phase={phase}
+                                    index={index}
+                                    isCurrent={isCurrent}
+                                    mode={mode}
+                                    today={today}
+                                    timeZone={timeZone}
+                                    can={can}
+                                    employeeId={assignment.employee?.id}
+                                    correctablePhaseIds={correctablePhaseIds}
+                                    onCorrect={onCorrect}
+                                    onCancelPending={onCancelPending}
+                                    p0ExpectedArrivalContext={buildP0ExpectedArrivalContext(
+                                        assignment,
+                                        phase,
+                                        isCurrent,
+                                    )}
+                                />
+                            );
+                        })}
                     </ol>
                 )}
             </CardContent>
