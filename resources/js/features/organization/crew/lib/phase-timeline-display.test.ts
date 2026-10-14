@@ -157,6 +157,30 @@ describe('buildPhaseDateLineSummary modes', () => {
         assert.notEqual(summary.actualEndLabel, 'In progress');
     });
 
+    it('hides P0 mobilisation activation lines for active current P0', () => {
+        const summary = buildPhaseDateLineSummary(
+            phase({
+                phase_code: 'p0',
+                phase_label: 'Pre-Mobilisation',
+                planned_start_at: null,
+                planned_end_at: null,
+                actual_start_at: '2026-10-14',
+            }),
+            'plan_vs_actual',
+            '2026-10-14',
+            {
+                p0ExpectedArrivalContext: {
+                    assignmentStatus: 'active',
+                    isCurrentPhase: true,
+                    plannedArrivalAt: '2026-10-17',
+                },
+            },
+        );
+
+        assert.equal(summary.showActual, false);
+        assert.equal(summary.durationParts.length, 0);
+    });
+
     it('shows assignment expected arrival on current P0 without phase planned dates', () => {
         const summary = buildPhaseDateLineSummary(
             phase({

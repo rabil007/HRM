@@ -8,7 +8,10 @@ import {
     formatElapsedDayPhrase,
     phaseHasPlannedDates,
 } from './phase-timeline-math.ts';
-import { shouldShowP0ExpectedArrival } from './phase-timeline-p0-expected-arrival.ts';
+import {
+    shouldHideP0MobilisationActivationLines,
+    shouldShowP0ExpectedArrival,
+} from './phase-timeline-p0-expected-arrival.ts';
 import type { P0ExpectedArrivalContext } from './phase-timeline-p0-expected-arrival.ts';
 import { summarizePhaseVariance } from './phase-timeline-variance.ts';
 
@@ -63,12 +66,22 @@ export function buildPhaseDateLineSummary(
         ((value: string | null | undefined): string =>
             value ? String(value) : '—');
 
-    const variance = summarizePhaseVariance(phase, timeZone);
-    const showPlanned = mode !== 'actual_only';
-    const showActual = mode !== 'planned_only';
-    const showVariance = mode === 'plan_vs_actual';
-    const hasPlanned = phaseHasPlannedDates(phase);
     const p0Context = options?.p0ExpectedArrivalContext;
+    const hideP0MobilisationActivation =
+        shouldHideP0MobilisationActivationLines(phase, p0Context);
+
+    const variance = summarizePhaseVariance(phase, timeZone, {
+        p0ExpectedArrivalContext: p0Context,
+    });
+    const showPlanned = mode !== 'actual_only';
+    let showActual = mode !== 'planned_only';
+    const showVariance = mode === 'plan_vs_actual';
+
+    if (hideP0MobilisationActivation) {
+        showActual = false;
+    }
+
+    const hasPlanned = phaseHasPlannedDates(phase);
     const showExpectedArrival =
         p0Context !== undefined &&
         shouldShowP0ExpectedArrival(phase, mode, p0Context) &&
@@ -114,32 +127,36 @@ export function buildPhaseDateLineSummary(
 
     const durationParts: string[] = [];
 
-    if (showPlanned && variance.plannedDurationDays !== null) {
-        durationParts.push(
-            `Planned ${formatDayCount(variance.plannedDurationDays)}`,
-        );
-    }
-
-    if (showActual && variance.hasConfirmedActualEnd) {
-        durationParts.push(
-            `${formatDayCount(variance.actualDurationDays)} completed`,
-        );
-    } else if (showActual && variance.isInProgress) {
-        const elapsed = formatElapsedDayPhrase(elapsedDays);
-
-        if (elapsed) {
-            durationParts.push(elapsed);
+    if (!hideP0MobilisationActivation) {
+        if (showPlanned && variance.plannedDurationDays !== null) {
+            durationParts.push(
+                `Planned ${formatDayCount(variance.plannedDurationDays)}`,
+            );
         }
-    }
 
-    if (untilStart !== null) {
-        durationParts.push(`${formatDayCount(untilStart)} until planned start`);
-    }
+        if (showActual && variance.hasConfirmedActualEnd) {
+            durationParts.push(
+                `${formatDayCount(variance.actualDurationDays)} completed`,
+            );
+        } else if (showActual && variance.isInProgress) {
+            const elapsed = formatElapsedDayPhrase(elapsedDays);
 
-    if (pastPlannedEnd !== null) {
-        durationParts.push(
-            `${formatDayCount(pastPlannedEnd)} past planned end`,
-        );
+            if (elapsed) {
+                durationParts.push(elapsed);
+            }
+        }
+
+        if (untilStart !== null) {
+            durationParts.push(
+                `${formatDayCount(untilStart)} until planned start`,
+            );
+        }
+
+        if (pastPlannedEnd !== null) {
+            durationParts.push(
+                `${formatDayCount(pastPlannedEnd)} past planned end`,
+            );
+        }
     }
 
     const plannedDurationLabel = formatDayCount(variance.plannedDurationDays);

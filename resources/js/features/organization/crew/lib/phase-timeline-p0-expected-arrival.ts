@@ -55,6 +55,22 @@ export function shouldUseNeutralP0InProgressHeadline(
     return Boolean(phase.actual_start_at) && !phase.actual_end_at;
 }
 
+/** Active current P0: phase activation is assignment start, not crew arrival. */
+export function shouldHideP0MobilisationActivationLines(
+    phase: PhaseTimelineItem,
+    context: P0ExpectedArrivalContext | undefined,
+): boolean {
+    if (phase.phase_code !== 'p0' || context === undefined) {
+        return false;
+    }
+
+    if (!context.isCurrentPhase || context.assignmentStatus !== 'active') {
+        return false;
+    }
+
+    return phase.status === 'active' || phase.status === 'planned';
+}
+
 export function assignmentShowsP0ExpectedArrivalInPlannedOnly(assignment: {
     status: string;
     planned_arrival_at?: string | null;
