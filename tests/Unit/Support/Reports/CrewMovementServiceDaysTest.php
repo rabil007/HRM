@@ -65,7 +65,7 @@ test('excluded phases never take a service date from onsite or standby', functio
         ->and($summary['future_actual_only'])->toBeFalse()
         ->and($summary['has_future_actual'])->toBeFalse()
         ->and($summary['vessel_service_days'])->toBe(4)
-        ->and($summary['standby_service_days'])->toBe(3);
+        ->and($summary['standby_service_days'])->toBe(4);
 
     CarbonImmutable::setTestNow();
 });

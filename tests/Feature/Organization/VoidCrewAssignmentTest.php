@@ -108,10 +108,6 @@ function advanceToPhase(
         return;
     }
 
-    $service->perform($companyId, $assignmentId, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-01-04 08:00:00',
-    ], $userId);
-
     if ($target === CrewPhaseCode::JoinStandby) {
         return;
     }

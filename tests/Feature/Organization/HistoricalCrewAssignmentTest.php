@@ -1691,7 +1691,7 @@ test('historical validation surfaces ambiguous state sea service and overlap mes
         ->assertJsonValidationErrors(['sea_service']);
 });
 
-test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () {
+test('simplified lifecycle creates only known P1A P2 P3 P4 phases', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Modern Lifecycle Vessel', $company);
 
@@ -1732,8 +1732,6 @@ test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () 
             CrewPhaseCode::DemobStandby,
             CrewPhaseCode::HomeRedeploy,
         ])
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::JoinStandby))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::JoinStandby))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse();
 });

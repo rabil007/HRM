@@ -95,7 +95,7 @@ test('summary counts exclude completed assignments from operational location car
         ->and($active->fresh()->status)->toBe(CrewAssignmentStatus::Active);
 });
 
-test('pre join hotel view returns only active p2a p2b and p3 assignments', function (CrewPhaseCode $phaseCode, bool $included) {
+test('pre join hotel view returns only active p1a and p1b assignments', function (CrewPhaseCode $phaseCode, bool $included) {
     $fixtures = makeOperationalViewsFixtures();
     $employee = Employee::factory()->forCompany($fixtures['company'])->create([
         'position_id' => $fixtures['rank']->id,
@@ -117,14 +117,12 @@ test('pre join hotel view returns only active p2a p2b and p3 assignments', funct
 
     expect($paginator->total())->toBe($included ? 1 : 0);
 })->with([
-    'p2a included' => [CrewPhaseCode::JoinStandby, true],
-    'p2b included' => [CrewPhaseCode::Training, true],
-    'p3 included' => [CrewPhaseCode::JoinStandby, true],
+    'p1a included' => [CrewPhaseCode::JoinStandby, true],
+    'p1b included' => [CrewPhaseCode::Training, true],
     'p0 excluded' => [CrewPhaseCode::PreMobilisation, false],
-    'p1 excluded' => [CrewPhaseCode::JoinStandby, false],
-    'p4 excluded' => [CrewPhaseCode::OnVessel, false],
-    'p5 excluded' => [CrewPhaseCode::DemobStandby, false],
-    'p6 excluded' => [CrewPhaseCode::HomeRedeploy, false],
+    'p2 excluded' => [CrewPhaseCode::OnVessel, false],
+    'p3 excluded' => [CrewPhaseCode::DemobStandby, false],
+    'p4 excluded' => [CrewPhaseCode::HomeRedeploy, false],
 ]);
 
 test('pre join hotel view excludes completed historical p2a assignments', function () {

@@ -80,12 +80,12 @@ test('same phase code can occur multiple times in one assignment', function () {
     $phases = $assignment->phases()->ordered()->get();
 
     expect($phases)->toHaveCount(4)
-        ->and($phases->where('phase_code', CrewPhaseCode::JoinStandby))->toHaveCount(2)
+        ->and($phases->where('phase_code', CrewPhaseCode::JoinStandby))->toHaveCount(3)
         ->and($phases->pluck('phase_code')->map->value->all())->toBe([
             'p1a',
             'p1b',
             'p1a',
-            'p3',
+            'p1a',
         ]);
 });
 

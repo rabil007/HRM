@@ -217,8 +217,8 @@ test('report filter options exclude legacy current phases and legacy rows are fl
                 'p3',
                 'p4',
             ])
-            ->where('assignments.0.has_legacy_phases', true)
-            ->where('assignments.0.travel_in.periods.0.start', '2026-01-03'));
+            ->where('assignments.0.has_legacy_phases', false)
+            ->where('assignments.0.join_standby.periods.0.start', '2026-01-03'));
 });
 
 test('report supports filters sorting pagination and needs attention', function () {
@@ -381,7 +381,7 @@ test('report filters by accommodation hotel and planned arrival range', function
             ->has('filter_options.tour_statuses'));
 });
 
-test('actual arrival filter uses p2a with completed p1 fallback and modern precedence', function () {
+test('actual arrival filter uses first p1a actual start only', function () {
     ['user' => $user, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
 
     $modern = CrewAssignment::factory()->forEmployee($employee)->create([
@@ -493,13 +493,14 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
 
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
-            'actual_arrival_from' => '2026-01-04',
-            'actual_arrival_to' => '2026-01-04',
+            'actual_arrival_from' => '2026-01-03',
+            'actual_arrival_to' => '2026-01-03',
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('assignments', 2)
+            ->has('assignments', 3)
             ->where('assignments', fn ($assignments) => collect($assignments)->pluck('assignment_no')->sort()->values()->all() === [
+                'CA-ARRIVAL-BOTH',
                 'CA-ARRIVAL-P1',
                 'CA-ARRIVAL-P1-REPEAT',
             ]));
@@ -511,9 +512,7 @@ test('actual arrival filter uses p2a with completed p1 fallback and modern prece
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('assignments', 1)
-            ->where('assignments.0.assignment_no', 'CA-ARRIVAL-BOTH')
-            ->where('assignments.0.actual_arrival', '2026-01-08'));
+            ->has('assignments', 0));
 });
 
 test('report query count stays constant when page size increases', function () {
@@ -644,7 +643,7 @@ test('report supports sorting by actual_join and employee_no', function () {
             ->where('assignments.1.assignment_no', 'CA-SORT-B'));
 });
 
-test('report sorts by actual_arrival using authoritative resolver with p1 fallback and p2a precedence', function () {
+test('report sorts by actual_arrival using first p1a actual start', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
 
     // 1. P2A arrival: June 10
@@ -691,7 +690,7 @@ test('report sorts by actual_arrival using authoritative resolver with p1 fallba
         'actual_start_at' => '2026-08-20 08:00:00',
     ]);
 
-    // Sort actual_arrival asc: April 15 (legacy) -> June 10 (P2A) -> August 20 (Both, P2A priority)
+    // Sort actual_arrival asc: April 14 -> June 10 -> July 30 (first P1A on each assignment)
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
             'sort' => 'actual_arrival',
@@ -703,7 +702,7 @@ test('report sorts by actual_arrival using authoritative resolver with p1 fallba
             ->where('assignments.1.assignment_no', 'CA-ARR-P2A')
             ->where('assignments.2.assignment_no', 'CA-ARR-BOTH'));
 
-    // Sort actual_arrival desc: August 20 -> June 10 -> April 15
+    // Sort actual_arrival desc: July 30 -> June 10 -> April 14
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
             'sort' => 'actual_arrival',
@@ -893,7 +892,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
             ->where('assignments.0.actual_arrival', null)
             ->where('assignments.0.actual_arrival_at', null));
 
-    // Verify display: legitimate assignments have correct arrival dates (P2A precedence & P1 fallback)
+    // Verify display: arrival uses the first same-company P1A actual start
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
             'search' => 'CA-ARR-LOCAL-BOTH',
@@ -901,7 +900,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('assignments', 1)
-            ->where('assignments.0.actual_arrival', '2026-07-20'));
+            ->where('assignments.0.actual_arrival', '2026-07-05'));
 
     $this->actingAs($user)
         ->get(route('organization.reports.crew-movement-history.index', [
@@ -910,7 +909,7 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('assignments', 1)
-            ->where('assignments.0.actual_arrival', '2026-08-05'));
+            ->where('assignments.0.actual_arrival', '2026-08-01'));
 
     // Verify date filtering: filtering by foreign P2A date (2026-06-10) finds 0 assignments
     $this->actingAs($user)

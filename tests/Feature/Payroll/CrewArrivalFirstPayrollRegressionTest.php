@@ -20,7 +20,6 @@ test('p0 is excluded and p2a generates sign-on standby in pay category resolver'
     $resolver = new CrewPhasePayCategoryResolver;
 
     expect($resolver->resolve(CrewPhaseCode::PreMobilisation))->toBe(CrewTimesheetPayCategory::Excluded)
-        ->and($resolver->resolve(CrewPhaseCode::JoinStandby))->toBe(CrewTimesheetPayCategory::Excluded)
         ->and($resolver->resolve(CrewPhaseCode::JoinStandby))->toBe(CrewTimesheetPayCategory::SignOnStandby);
 });
 

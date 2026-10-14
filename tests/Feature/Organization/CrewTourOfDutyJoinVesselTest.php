@@ -30,9 +30,6 @@ function advanceToReadyForTourJoin(CrewMovementService $service, int $companyId,
         'occurred_at' => '2026-01-05 10:00:00',
         'next_phase' => 'p1a',
     ], $userId);
-    $service->perform($companyId, $assignmentId, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-01-08 09:00:00',
-    ], $userId);
 }
 
 it('stores tour snapshot and suggested planned sign-off on join vessel', function () {

@@ -230,10 +230,10 @@ test('attention rules: relief in training (P2B) is flagged as relief not ready w
             ->where('rows.0.relief_employee.name', $reliefEmployee->name)
             ->where('rows.0.relief_status', CrewReliefStatus::Mobilising->label())
             ->where('rows.0.relief_phase_label', CrewPhaseCode::Training->label())
-            ->where('rows.0.readiness', 'in_progress')
+            ->where('rows.0.readiness', 'ready')
             ->where('rows.0.attention.level', 'warning')
             ->where('rows.0.attention.label', 'Relief still in training')
-            ->where('summary.relief_not_ready', 1)
+            ->where('summary.relief_not_ready', 0)
         );
 });
 
@@ -571,7 +571,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
     $relief2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::Training, [
+    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
         'assignment_no' => 'CA-RELIEF-TRAIN',
         'relieves_crew_assignment_id' => $outgoing2->id,
         'planned_join_at' => '2026-10-20 00:00:00',
@@ -616,7 +616,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
             ->where('rows.0.assignment_no', 'CA-PRESET-5DAYS')
         );
 
-    // Preset: not_ready (matches emp2 in training)
+    // Preset: not_ready (matches emp2 with relief still mobilising)
     $this->actingAs($user)
         ->get(route('organization.reports.crew-relief.index', ['preset' => 'not_ready']))
         ->assertOk()

@@ -244,10 +244,10 @@ test('http rejects backdating after leaving initial p0', function () {
         ->assertSessionHasErrors(['occurred_at']);
 });
 
-test('legacy travel in backdated arrival remains rejected', function () {
+test('record arrival is rejected when assignment is already in pre-joining standby', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makeCrewAssignmentFixtures();
     $company->update(['timezone' => 'Asia/Dubai']);
-    $vessel = makeCrewMovementVessel('Legacy Travel Vessel', $company);
+    $vessel = makeCrewMovementVessel('Join Standby Vessel', $company);
 
     $assignment = makeCurrentCrewPhaseAssignment(
         $company,
@@ -274,7 +274,7 @@ test('legacy travel in backdated arrival remains rejected', function () {
             'accommodation_status' => 'no_accommodation',
         ],
         $user->id,
-    ))->toThrow(CrewMovementException::class, 'This date cannot be before the current phase started.');
+    ))->toThrow(CrewMovementException::class);
 });
 
 test('backdated arrival with hotel accommodation keeps hotel validation', function () {

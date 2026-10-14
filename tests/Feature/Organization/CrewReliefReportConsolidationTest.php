@@ -275,10 +275,8 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
         );
 })->with([
     'p0' => [CrewPhaseCode::PreMobilisation, CrewReliefStatus::Mobilising],
-    'p1' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::Mobilising],
-    'p1a' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::Mobilising],
+    'p1a' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::ReadyToJoin],
     'p1b' => [CrewPhaseCode::Training, CrewReliefStatus::Mobilising],
-    'p3' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::ReadyToJoin],
 ]);
 
 test('relief desk filter options exclude ready to join but still resolve historical p3 rows', function () {

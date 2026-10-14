@@ -261,7 +261,7 @@ test('crew assignment recent activity resolves phase vessel and assignment ids t
             ->where('recent_activity.0.new_values.destination_assignment_id', 'CA-TEST-DEST')
             ->where('recent_activity.0.new_values.source_vessel_id', $sourceVessel->name)
             ->where('recent_activity.0.new_values.destination_vessel_id', $destinationVessel->name)
-            ->where('recent_activity.1.new_values.current_phase_id', 'P4 On Vessel')
+            ->where('recent_activity.1.new_values.current_phase_id', 'P2 On Vessel')
             ->where('recent_activity.2.new_values.previous_assignment_id', 'CA-TEST-PREV')
             ->where('recent_activity.2.new_values.vessel_id', $destinationVessel->name)
         );
@@ -349,7 +349,7 @@ test('correction_requested activity shows phase label and field changes in human
         ->first();
 
     expect($presented)->not->toBeNull()
-        ->and(data_get($presented, 'new_values.Phase'))->toBe('P4 · On Vessel')
+        ->and(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('→')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('07-06-2026')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('21-06-2026')
@@ -449,7 +449,7 @@ test('correction_approved activity shows applied field changes and decision note
         ->map(fn (Activity $a): array => ActivityChangePresenter::toRecentActivityArray($a))
         ->first();
 
-    expect(data_get($presented, 'new_values.Phase'))->toBe('P4 · On Vessel')
+    expect(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('07-06-2026')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('21-06-2026')
         ->and(data_get($presented, 'new_values.Decision Note'))->toBe('DAFCSDF')
@@ -493,7 +493,7 @@ test('correction_rejected activity shows phase label status and decision note', 
         ->map(fn (Activity $a): array => ActivityChangePresenter::toRecentActivityArray($a))
         ->first();
 
-    expect(data_get($presented, 'new_values.Phase'))->toBe('P4 · On Vessel')
+    expect(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
         ->and(data_get($presented, 'new_values.Status'))->toBe('Rejected')
         ->and(data_get($presented, 'new_values.Decision Note'))->toBe('Not valid')
         ->and(data_get($presented, 'old_values'))->toBeNull();
@@ -533,7 +533,7 @@ test('correction_cancelled activity shows phase label and cancelled status', fun
         ->map(fn (Activity $a): array => ActivityChangePresenter::toRecentActivityArray($a))
         ->first();
 
-    expect(data_get($presented, 'new_values.Phase'))->toBe('P4 · On Vessel')
+    expect(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
         ->and(data_get($presented, 'new_values.Status'))->toBe('Cancelled')
         ->and(data_get($presented, 'old_values'))->toBeNull();
 });
