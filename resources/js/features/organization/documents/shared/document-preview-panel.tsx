@@ -1,4 +1,8 @@
 import type { ReactElement } from 'react';
+import {
+    documentPreviewIsAvailable,
+    resolveDocumentPreviewMimeType,
+} from '@/features/organization/documents/lib/document-preview-mime';
 import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
 
 export type DocumentPreviewSource = {
@@ -6,41 +10,9 @@ export type DocumentPreviewSource = {
     document_type_label?: string | null;
     file_url: string;
     mime_type?: string | null;
+    original_filename?: string | null;
     can_preview?: boolean;
 };
-
-function resolveMimeType(
-    mimeType: string | null | undefined,
-    fileUrl: string,
-): string | null {
-    if (mimeType) {
-        return mimeType;
-    }
-
-    const path = fileUrl.split('?')[0]?.toLowerCase() ?? '';
-
-    if (path.endsWith('.pdf')) {
-        return 'application/pdf';
-    }
-
-    if (path.endsWith('.png')) {
-        return 'image/png';
-    }
-
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
-        return 'image/jpeg';
-    }
-
-    if (path.endsWith('.gif')) {
-        return 'image/gif';
-    }
-
-    if (path.endsWith('.webp')) {
-        return 'image/webp';
-    }
-
-    return null;
-}
 
 export function DocumentPreviewPanel({
     document,
@@ -49,10 +21,13 @@ export function DocumentPreviewPanel({
     document: DocumentPreviewSource;
     className?: string;
 }): ReactElement {
-    const mimeType = resolveMimeType(document.mime_type, document.file_url);
+    const mimeType = resolveDocumentPreviewMimeType(
+        document.mime_type,
+        document.file_url,
+        document.original_filename,
+    );
     const isImage = mimeType?.startsWith('image/') ?? false;
-    const isPdf = mimeType === 'application/pdf';
-    const canPreview = document.can_preview !== false && (isImage || isPdf);
+    const canPreview = documentPreviewIsAvailable(document);
 
     return (
         <div

@@ -166,7 +166,7 @@ class EmployeeDocument extends Model
             'version' => (int) $this->current_version,
             'file_url' => $this->file_url,
             'original_filename' => $this->original_filename,
-            'mime_type' => $this->mime_type,
+            'mime_type' => $this->resolvedMimeType(),
             'size_bytes' => $this->size_bytes !== null ? (int) $this->size_bytes : null,
             'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
             'uploaded_at' => $this->currentUploadedAt()?->toIso8601String(),
@@ -183,7 +183,7 @@ class EmployeeDocument extends Model
                 'version' => (int) $version->version,
                 'file_url' => $version->file_url,
                 'original_filename' => $version->original_filename,
-                'mime_type' => $version->mime_type,
+                'mime_type' => $version->resolvedMimeType(),
                 'size_bytes' => $version->size_bytes !== null ? (int) $version->size_bytes : null,
                 'uploaded_by' => $version->relationLoaded('uploader') ? $version->uploader?->name : null,
                 'uploaded_at' => $version->uploaded_at?->toIso8601String(),
@@ -261,8 +261,49 @@ class EmployeeDocument extends Model
 
     public function getCanPreviewAttribute(): bool
     {
-        return str_starts_with((string) $this->mime_type, 'image/')
-            || $this->mime_type === 'application/pdf';
+        $mimeType = $this->resolvedMimeType();
+
+        if ($mimeType === null) {
+            return false;
+        }
+
+        return str_starts_with($mimeType, 'image/')
+            || $mimeType === 'application/pdf';
+    }
+
+    public function resolvedMimeType(): ?string
+    {
+        $mimeType = $this->mime_type;
+
+        if (is_string($mimeType) && $mimeType !== '') {
+            return $mimeType;
+        }
+
+        foreach ([
+            $this->original_filename,
+            $this->file_path,
+        ] as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+
+            $resolved = match ($extension) {
+                'pdf' => 'application/pdf',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                default => null,
+            };
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -300,7 +341,7 @@ class EmployeeDocument extends Model
             'file_url' => $this->file_url,
             'uploaded_at' => $this->currentUploadedAt()?->toIso8601String(),
             'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
-            'mime_type' => $this->mime_type,
+            'mime_type' => $this->resolvedMimeType(),
             'can_preview' => $this->can_preview,
             'status' => $this->status,
             'expiry_date' => $this->expiry_date?->toDateString(),

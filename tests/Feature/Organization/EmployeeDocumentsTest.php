@@ -14,6 +14,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
+test('employee document resolves preview mime type from filename when mime column is empty', function () {
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'title' => 'Legacy Passport Scan',
+        'file_path' => "employee-documents/{$company->id}/{$employee->id}/legacy-scan.pdf",
+        'original_filename' => 'legacy-scan.pdf',
+        'mime_type' => null,
+        'size_bytes' => 120,
+        'checksum' => 'abc',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    expect($document->resolvedMimeType())->toBe('application/pdf')
+        ->and($document->can_preview)->toBeTrue()
+        ->and($document->toBrowseArray()['mime_type'])->toBe('application/pdf')
+        ->and($document->toBrowseArray()['can_preview'])->toBeTrue();
+});
+
 test('document AI extraction is forbidden without the use permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

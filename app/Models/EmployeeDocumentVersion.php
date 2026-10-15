@@ -55,4 +55,39 @@ class EmployeeDocumentVersion extends Model
             'version' => $this,
         ]);
     }
+
+    public function resolvedMimeType(): ?string
+    {
+        $mimeType = $this->mime_type;
+
+        if (is_string($mimeType) && $mimeType !== '') {
+            return $mimeType;
+        }
+
+        foreach ([
+            $this->original_filename,
+            $this->file_path,
+        ] as $candidate) {
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
+            }
+
+            $extension = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+
+            $resolved = match ($extension) {
+                'pdf' => 'application/pdf',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                default => null,
+            };
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
 }

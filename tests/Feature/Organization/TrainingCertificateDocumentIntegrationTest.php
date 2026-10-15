@@ -16,6 +16,7 @@ use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 
 test('training certificate upload creates linked employee document with training certificate type', function () {
     fakeEmployeeFileDisks();
@@ -869,6 +870,60 @@ test('backfill rejects invalid cross tenant certificate paths', function () {
 
     expect(Artisan::output())->toContain('invalid_file_path')
         ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('backfilled training certificate documents expose preview metadata on the documents show page', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $path = "employees/{$company->id}/training-certificates/hse-certificate.pdf";
+    Storage::disk('local')->put($path, '%PDF-1.4 backfilled');
+
+    EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'hse-certificate.pdf',
+        'certificate_mime_type' => null,
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'legacy-checksum',
+        'current_version' => 1,
+    ]);
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    $document = EmployeeDocument::query()->where('employee_id', $employee->id)->sole();
+
+    expect($document->mime_type)->toBeNull()
+        ->and($document->resolvedMimeType())->toBe('application/pdf')
+        ->and($document->can_preview)->toBeTrue();
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'training.view',
+        'training.create',
+        'training.update',
+        'training.delete',
+        'documents.upload',
+        'documents.view',
+        'documents.download',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.documents.employee.files.show', [$employee, $document]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('organization/documents/show')
+            ->where('document.id', $document->id)
+            ->where('document.can_preview', true)
+            ->where('document.mime_type', 'application/pdf')
+            ->where('document.original_filename', 'hse-certificate.pdf')
+            ->where('document.file_url', route('organization.documents.files.preview', $document))
+        );
+
+    $this->get(route('organization.documents.files.preview', $document))
+        ->assertOk();
 });
 
 test('legacy backfill command links training certificates idempotently', function () {
