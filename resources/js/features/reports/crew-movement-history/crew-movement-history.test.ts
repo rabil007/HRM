@@ -1,5 +1,40 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const reportTablePath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'report-table.tsx',
+);
+
+function summaryTableHeaderSource(): string {
+    const source = readFileSync(reportTablePath, 'utf8');
+    const start = source.indexOf('<TableHeader>');
+    const end = source.indexOf('</TableHeader>');
+
+    assert.ok(
+        start >= 0 && end > start,
+        'report table must define a TableHeader',
+    );
+
+    return source.slice(start, end);
+}
+
+function assertLabelsInOrder(source: string, labels: string[]): void {
+    let cursor = -1;
+
+    for (const label of labels) {
+        const index = source.indexOf(label, cursor + 1);
+
+        assert.ok(
+            index > cursor,
+            `Expected "${label}" after the previous summary header label`,
+        );
+        cursor = index;
+    }
+}
 
 describe('crew movement history presentation logic', () => {
     it('formats numeric days accurately', () => {
@@ -32,7 +67,7 @@ describe('crew movement history presentation logic', () => {
             };
         };
 
-        // Active P4 ongoing
+        // Active P2 On Vessel ongoing
         const activeRow = resolveSignOff(true, null);
         assert.equal(activeRow.isOngoing, true);
         assert.equal(activeRow.display, 'Ongoing');
@@ -111,7 +146,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(redeployed.label, 'Redeployed');
         assert.equal(redeployed.date, '2026-07-01');
 
-        // Returned home normally (P5 -> P6)
+        // Returned home normally (P3 -> P4)
         const normalHome = resolveReturnHomeOrRedeployed({
             outcome: 'returned_home',
             outcome_label: 'Returned Home',
@@ -123,7 +158,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(normalHome.label, 'Returned Home');
         assert.equal(normalHome.date, '2026-09-02');
 
-        // Direct P4 -> P6 (neutral Home / Redeploy)
+        // Direct P2 -> P4 (neutral Home / Redeploy)
         const directP4P6 = resolveReturnHomeOrRedeployed({
             outcome: 'home_redeploy',
             outcome_label: 'Home / Redeploy',
@@ -141,13 +176,10 @@ describe('crew movement history presentation logic', () => {
         assert.equal(neither.label, '—');
     });
 
-    it('preserves the operational Excel-style table column order with standby breakdown', () => {
-        const columns = [
-            'Emp No',
-            'Crew Name',
-            'Rank',
-            'Vessel',
-            'Client',
+    it('renders standby breakdown columns in chronological order in the report table header', () => {
+        const header = summaryTableHeaderSource();
+
+        assertLabelsInOrder(header, [
             'Arrival',
             'Pre-Joining Standby (Days)',
             'Joined Vessel',
@@ -155,35 +187,18 @@ describe('crew movement history presentation logic', () => {
             'Demobilisation Standby (Days)',
             'Returned Home',
             'Total Standby',
-            'Vessel Service Days',
-            'Status',
-            'Actions',
-        ];
+        ]);
 
-        assert.equal(columns.length, 15);
-        assert.equal(
-            columns.indexOf('Arrival') + 1,
-            columns.indexOf('Pre-Joining Standby (Days)'),
+        assert.match(
+            header,
+            /Pre-Joining Standby and Training/,
+            'Pre-Joining tooltip must state that Training is included',
         );
         assert.equal(
-            columns.indexOf('Pre-Joining Standby (Days)') + 1,
-            columns.indexOf('Joined Vessel'),
+            header.includes('Standby Service Days'),
+            false,
+            'retired Standby Service Days heading must not remain in the summary header',
         );
-        assert.equal(
-            columns.indexOf('Sign-Off / Disembarked') + 1,
-            columns.indexOf('Demobilisation Standby (Days)'),
-        );
-        assert.equal(
-            columns.indexOf('Demobilisation Standby (Days)') + 1,
-            columns.indexOf('Returned Home'),
-        );
-        assert.equal(
-            columns.indexOf('Returned Home') + 1,
-            columns.indexOf('Total Standby'),
-        );
-        assert.ok(columns.includes('Vessel Service Days'));
-        assert.ok(columns.includes('Status'));
-        assert.ok(columns.includes('Actions'));
     });
 
     it('treats missing standby phases as zero when totaling standby', () => {

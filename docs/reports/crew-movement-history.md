@@ -14,18 +14,20 @@ The report excludes soft-deleted phases through the standard `phases` relationsh
 
 ## Modern and legacy phases
 
-The normal report timeline (**Complete phase timeline**) shows only modern product-facing phases:
+The normal report timeline (**Complete phase timeline**) shows the current six-phase lifecycle:
 
-- P0 Pre-Mobilisation
-- P2A Join Standby
-- P2B Training
-- P4 On Vessel
-- P5 Demobilisation Standby
-- P6 Home / Redeployment
+- P0 Pre-Arrival
+- P1A Pre-Joining Standby
+- P1B Training
+- P2 On Vessel
+- P3 Demobilisation Standby
+- P4 Home / Redeployment
 
-Legacy phases P1 Travel In and P3 Ready to Join are never mixed into the modern lifecycle visually. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section containing only the recorded P1/P3 periods (sequence, planned/actual timestamps, status, days, and remarks preserved). The presenter still exposes the full chronological `phase_timeline` plus derived `modern_phase_timeline` / `legacy_phase_timeline` without duplicating queries.
+Retired Travel In and Ready to Join phases were remapped into this lifecycle. Historical assignment rows therefore appear as P0–P4, not as a parallel P1/P3 timeline. Exclusive leftover Travel In, if still present, is excluded from payable service-day categories and does not invent Pre-Joining Standby.
 
-Current Phase filters offer the same modern phase list. Bookmarked legacy `current_phase=p1` or `current_phase=p3` query values remain supported by the backend filter when present.
+The expanded UI still has a **Legacy recorded phases** section for any remaining Travel In / Ready to Join periods (sequence, planned/actual timestamps, status, days, and remarks). After the six-phase remap the presenter currently returns `has_legacy_phases: false` and an empty `legacy_phase_timeline`; `travel_in` / `ready_to_join` summaries stay empty. Compatibility fields remain so older UI contracts do not break.
+
+Current Phase filters use the six-phase list (`p0`, `p1a`, `p1b`, `p2`, `p3`, `p4`). A bookmarked `current_phase=p3` now means Demobilisation Standby, not Ready to Join. Retired `current_phase=p1` is not a current phase code.
 
 ## Assignment master
 
@@ -39,22 +41,21 @@ Expanded detail includes assignment number and record ID, employee identity, ran
 | Planned Join | Assignment `planned_join_at` |
 | Planned Sign-Off | Assignment `planned_signoff_at` (+ `planned_signoff_source` / override reason) |
 | Planned Travel Home | Assignment `planned_travel_at` |
-| Actual Arrival | First P2A `actual_start_at`, with legacy fallback to completed P1 `actual_end_at` |
-| Actual Join | First P4 `actual_start_at` |
-| Actual Disembarkation | Completed P4 `actual_end_at` |
-| Actual Return Home | First P6 `actual_start_at` |
+| Actual Arrival | First P1A Pre-Joining Standby `actual_start_at` (`CrewArrivalResolver`) |
+| Actual Join | First P2 On Vessel `actual_start_at` |
+| Actual Disembarkation | Completed P2 `actual_end_at` |
+| Actual Return Home | First P4 Home / Redeployment `actual_start_at` when a completed P3 precedes it |
 | Assignment Started / Closed | Assignment `started_at` / `closed_at` |
 
 ### Actual Arrival precedence
 
 `CrewArrivalResolver` is authoritative for UI display, export, and Actual Arrival From/To filters:
 
-1. Prefer the **first** P2A / Join Standby occurrence by `sequence` with `actual_start_at`.
-2. Only when no P2A arrival exists, fall back to the **first** completed P1 / Travel In occurrence by `sequence` with `actual_end_at`.
+1. Use the **first** P1A / Pre-Joining Standby occurrence by `sequence` with `actual_start_at`.
+2. Later repeated P1A occurrences never override that value.
+3. There is **no** Travel In fallback. A gap between arrival and joining, or an assignment that starts on vessel, does not invent an arrival date.
 
-Later repeated P2A or P1 occurrences never override the authoritative value. Filters apply `from`/`to` against that same resolved occurrence (not against any matching phase via loose `whereHas`).
-
-If both P1 and P2A exist, P2A wins. Filtering on the legacy P1 end date must not match an assignment that already has a P2A arrival.
+Filters apply `from`/`to` against that same resolved P1A occurrence (not against any matching phase via loose `whereHas`).
 
 Planned values remain date-oriented. **Actual operational events preserve company-local date and time** (`Y-m-d H:i:s` wall clock in the company timezone). Expanded UI and exports use those timestamps; compact table cells may stay concise.
 
@@ -67,8 +68,8 @@ Crew Movement History keeps several counts. They are not interchangeable.
 | Count | Meaning |
 |---|---|
 | Vessel Service Days | Allocated payable On Vessel (P2) calendar dates. Each employee/date is owned by one category. 4 October through 7 October is 4 vessel service days, including the disembarkation date. |
-| Pre-Joining Standby (Days) | Allocated sign-on standby dates (P1A Pre-Joining Standby + P1B Training) after payable-date ownership. |
-| Demobilisation Standby (Days) | Allocated sign-off standby dates (P3 Demobilisation Standby) after payable-date ownership. |
+| Pre-Joining Standby (Days) | Allocated sign-on standby dates after payable-date ownership. **Includes P1A Pre-Joining Standby and P1B Training.** Training is the same payroll Sign-On Standby category, not a separate report bucket. |
+| Demobilisation Standby (Days) | Allocated sign-off standby dates (P3 Demobilisation Standby only) after payable-date ownership. Vessel and Home / Redeployment dates are never included. |
 | Total Standby | Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero; both phases are not required. |
 | Phase service days | Allocated dates for payable phases (P1A, P1B, P2, P3). P0 and P4 show the actual calendar span instead and add no payable service days. |
 | Movement span | Inclusive company-local dates touched by the recorded phase window. A handoff date can sit in this span and still belong to another category. |
@@ -91,6 +92,8 @@ Summary Total Standby, Pre-Joining / Demobilisation breakdowns, expanded phase s
 
 Phase occurrences are ordered by `sequence`. Repeated P1A/P1B periods remain separate in the timeline and in exports. Each P1B training occurrence exposes provider, course, planned/actual windows, remarks, and whether an `EmployeeTraining` record is linked via `CrewAssignmentPhase::employeeTraining()`.
 
+Allocated P1B Training days are included in **Pre-Joining Standby (Days)** and therefore in **Total Standby**. That matches payroll Sign-On Standby (`CrewPhasePayCategoryResolver`) and is not changed by this report.
+
 ## Accommodation history
 
 Dedicated Accommodation History uses `CrewAccommodationService::assignmentAccommodationSummary()` / `crew_accommodation_stays`. Show stay type, accommodation status, hotel, room type, check-in/out dates, open/completed, stay days, and starting phase when present.
@@ -111,8 +114,8 @@ Vessel transfer and redeployment create linked assignments (`previous_assignment
 
 Starting checkpoint and current phase are separate concepts on each linked summary:
 
-- **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example Redeployment destination that began at P2A).
-- **Current phase** — the assignment’s `currentPhase` (which may later be P4 even though the destination originally started at P2A).
+- **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example a Redeployment destination that began at P1A).
+- **Current phase** — the assignment’s `currentPhase` (which may later be P2 even though the destination originally started at P1A).
 
 The journey **Relationship** (Vessel Transfer / Redeployment) is shown at the Linked Assignment Journey section level. Each linked card’s **Assignment source** is that assignment’s own creation `source` (for example Manual on a previous assignment) and must not be labeled as the movement relationship.
 
@@ -124,7 +127,7 @@ Approved corrections appear as metadata (`has_corrections`, `correction_count`, 
 
 ## Needs Attention
 
-Filter, summary card count, row badge, and expanded warning list all use authoritative `CrewMovementAttentionQuery` (including Tour of Duty rules). Active P4 is **not** flagged merely for being active longer than 14 days.
+Filter, summary card count, row badge, and expanded warning list all use authoritative `CrewMovementAttentionQuery` (including Tour of Duty rules). Active P2 On Vessel is **not** flagged merely for being active longer than 14 days.
 
 ## Payroll calendar-day preview
 
@@ -166,19 +169,19 @@ Crew Movement History separates fast operational history scanning from deep OMS 
 
 Actual dates are derived strictly from authoritative movement phases:
 - Forecast/planned dates are **never silently promoted** to actual history.
-- `planned_signoff_at` must never appear as actual sign-off. If P4 is still active, sign-off is displayed as `Ongoing`.
+- `planned_signoff_at` must never appear as actual sign-off. If P2 is still active, sign-off is displayed as `Ongoing`.
 - If a crew member is redeployed or transferred directly to another vessel without returning home, the outcome is clearly labeled `Redeployed` (with date), preserving true operational semantics.
 
 ## Vessel Service Period filter
 
-In addition to granular date range filters, a primary quick filter for **Vessel Service Period** allows filtering assignments by actual P4 vessel period overlap:
+In addition to granular date range filters, a primary quick filter for **Vessel Service Period** allows filtering assignments by actual P2 On Vessel period overlap:
 - `All History`
 - `This Month`
 - `Last Month`
 - `Last 3 Months`
 - `This Year`
 
-A CrewAssignment qualifies if its actual P4 vessel service period overlaps the selected calendar interval.
+A CrewAssignment qualifies if its actual P2 vessel service period overlaps the selected calendar interval.
 
 ## Permissions and tenancy
 

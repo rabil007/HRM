@@ -213,8 +213,8 @@ export type CrewMovementHistoryRow = {
         redeployed_at?: string | null;
     };
     /**
-     * Distinct inclusive pre-joining (sign-on) standby calendar dates after
-     * handoff priority. Includes Pre-Joining Standby and Training phase dates.
+     * Allocated sign-on standby calendar dates after payable-date ownership.
+     * Includes P1A Pre-Joining Standby and P1B Training (same payroll category).
      */
     pre_joining_standby_days: number | null;
     pre_joining_standby_days_label: string;
