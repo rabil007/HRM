@@ -1528,3 +1528,134 @@ test('already arrived rejects invalid room type for selected hotel', function ()
 
     expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
 });
+
+test('already arrived rejects a hotel from another company', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Foreign Hotel Vessel', $company);
+    $foreignHotel = Hotel::factory()->create(['company_id' => $otherCompany->id, 'name' => 'Other Company Hotel']);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $foreignHotel->id,
+            'check_in_date' => '2026-10-04',
+        ])
+        ->assertSessionHasErrors(['hotel_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(CrewAccommodationStay::query()->where('hotel_id', $foreignHotel->id)->exists())->toBeFalse();
+});
+
+test('already arrived no accommodation does not attach a hotel from another company', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Crafted Foreign Hotel Vessel', $company);
+    $foreignHotel = Hotel::factory()->create(['company_id' => $otherCompany->id]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'accommodation_status' => CrewAccommodationStatus::NoAccommodation->value,
+            'hotel_id' => $foreignHotel->id,
+            'check_in_date' => '2026-10-04',
+        ])
+        ->assertSessionHasErrors(['hotel_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(CrewAccommodationStay::query()->where('hotel_id', $foreignHotel->id)->exists())->toBeFalse();
+});
+
+test('already arrived rejects an inactive hotel', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    $vessel = makeCrewMovementVessel('Inactive Hotel Vessel', $company);
+    $hotel = Hotel::factory()->create([
+        'company_id' => $company->id,
+        'is_active' => false,
+    ]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2026-10-04',
+        ])
+        ->assertSessionHasErrors(['hotel_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('already arrived rejects hotel check-in before the actual arrival date', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    $vessel = makeCrewMovementVessel('Early Check-In Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $response = $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2026-10-03',
+        ]);
+
+    $response->assertSessionHasErrors(['check_in_date']);
+    expect(session('errors')->get('check_in_date')[0])
+        ->toContain('Hotel check-in cannot be before the actual arrival date')
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+});
+
+test('already arrived rejects a room type owned by another company', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = actingCrewStarter();
+    ['company' => $otherCompany] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Foreign Room Type Vessel', $company);
+    $hotel = Hotel::factory()->create(['company_id' => $company->id]);
+    $foreignRoomType = RoomType::factory()->create([
+        'company_id' => $otherCompany->id,
+        'hotel_id' => $hotel->id,
+    ]);
+    Carbon::setTestNow(Carbon::parse('2026-10-13 12:00:00', $company->timezone));
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.store'), [
+            'submission_intent' => 'start',
+            'employee_id' => $employee->id,
+            'position_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'planned_arrival_at' => '2026-10-04',
+            'already_arrived' => true,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'room_type_id' => $foreignRoomType->id,
+            'check_in_date' => '2026-10-04',
+        ])
+        ->assertSessionHasErrors(['room_type_id']);
+
+    expect(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(0)
+        ->and(CrewAccommodationStay::query()->where('room_type_id', $foreignRoomType->id)->exists())->toBeFalse();
+});
