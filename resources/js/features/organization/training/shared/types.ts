@@ -2,6 +2,8 @@ import type { DocumentVersionItem } from '@/features/organization/documents/shar
 import type { TrainingItem } from '@/pages/organization/employee-page.types';
 
 export type TrainingShowItem = TrainingItem & {
+    uses_integrated_certificate_document?: boolean;
+    certificate_document_url?: string | null;
     certificate_original_filename: string | null;
     certificate_mime_type: string | null;
     certificate_size_bytes: number | null;

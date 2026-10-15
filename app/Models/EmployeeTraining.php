@@ -34,6 +34,7 @@ class EmployeeTraining extends Model
                 'expiry_date',
                 'institute_center',
                 'country_id',
+                'employee_document_id',
                 'certificate_path',
                 'certificate_original_filename',
                 'certificate_mime_type',
@@ -81,6 +82,16 @@ class EmployeeTraining extends Model
         return $this->belongsTo(Country::class);
     }
 
+    public function employeeDocument(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeDocument::class);
+    }
+
+    public function usesIntegratedCertificateDocument(): bool
+    {
+        return $this->employee_document_id !== null;
+    }
+
     public function sourceCrewAssignmentPhase(): BelongsTo
     {
         return $this->belongsTo(CrewAssignmentPhase::class, 'source_crew_assignment_phase_id')->withTrashed();
@@ -96,8 +107,26 @@ class EmployeeTraining extends Model
      */
     public function toShowArray(?bool $canViewCrew = null): array
     {
+        $linkedDocument = $this->relationLoaded('employeeDocument')
+            ? $this->employeeDocument
+            : null;
+
+        $certificateVersions = $this->usesIntegratedCertificateDocument() && $linkedDocument instanceof EmployeeDocument
+            ? $linkedDocument->toVersionHistoryArray()
+            : $this->versions->map(fn (EmployeeTrainingVersion $version) => [
+                'id' => $version->id,
+                'version' => $version->version,
+                'file_url' => $version->file_url,
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'size_bytes' => $version->size_bytes,
+                'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
+                'created_at' => $version->created_at?->toDateTimeString(),
+            ])->values()->all();
+
         return [
             'id' => $this->id,
+            'employee_document_id' => $this->employee_document_id,
             'course_id' => $this->course_id,
             'course_name' => $this->relationLoaded('course') ? $this->course?->name : null,
             'issue_date' => $this->issue_date?->toDateString(),
@@ -118,16 +147,12 @@ class EmployeeTraining extends Model
             'source_crew_assignment_phase_id' => $this->source_crew_assignment_phase_id,
             'source_crew_assignment' => $this->resolveSourceCrewAssignmentSummary($canViewCrew),
             'is_from_crew_operations' => $this->isFromCrewOperations(),
-            'versions' => $this->versions->map(fn (EmployeeTrainingVersion $version) => [
-                'id' => $version->id,
-                'version' => $version->version,
-                'file_url' => $version->file_url,
-                'original_filename' => $version->original_filename,
-                'mime_type' => $version->mime_type,
-                'size_bytes' => $version->size_bytes,
-                'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
-                'created_at' => $version->created_at?->toDateTimeString(),
-            ])->values()->all(),
+            'certificate_document_url' => $linkedDocument instanceof EmployeeDocument
+                ? route('organization.documents.files.preview', $linkedDocument)
+                : null,
+            'linked_course_name' => $this->course_id !== null ? ($this->relationLoaded('course') ? $this->course?->name : null) : null,
+            'uses_integrated_certificate_document' => $this->usesIntegratedCertificateDocument(),
+            'versions' => $certificateVersions,
         ];
     }
 

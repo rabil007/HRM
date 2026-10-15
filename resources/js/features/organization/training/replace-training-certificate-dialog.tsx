@@ -161,10 +161,11 @@ export function ReplaceTrainingCertificateDialog({
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <p className="text-sm text-muted-foreground">
-                            The current certificate will be kept in version
-                            history. Images are compressed in your browser. PDFs
-                            larger than 5 MB are optimized on the server after
-                            upload.
+                            {training?.uses_integrated_certificate_document
+                                ? 'The previous file is kept in the employee document version history. '
+                                : 'The current certificate will be kept in version history. '}
+                            Images are compressed in your browser. PDFs larger
+                            than 5 MB are optimized on the server after upload.
                         </p>
 
                         <div className="space-y-1.5">

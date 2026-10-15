@@ -66,6 +66,8 @@ export type TrainingPageCan = {
     update: boolean;
     delete: boolean;
     import: boolean;
+    manage_certificate_documents: boolean;
+    view_documents: boolean;
 };
 
 export type TrainingsIndexProps = {

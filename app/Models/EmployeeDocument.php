@@ -87,6 +87,11 @@ class EmployeeDocument extends Model
         return $this->hasMany(EmployeeDocumentExpiryAlert::class);
     }
 
+    public function employeeTrainings(): HasMany
+    {
+        return $this->hasMany(EmployeeTraining::class);
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);
@@ -282,6 +287,10 @@ class EmployeeDocument extends Model
      */
     public function toBrowseArray(): array
     {
+        $linkedTraining = $this->relationLoaded('employeeTrainings')
+            ? $this->employeeTrainings->first()
+            : null;
+
         return [
             'id' => $this->id,
             'document_name' => $this->original_filename
@@ -301,6 +310,9 @@ class EmployeeDocument extends Model
             'expiry_status' => DocumentExpiry::resolve($this->expiry_date)?->value,
             'remaining_days' => DocumentExpiry::remainingDays($this->expiry_date),
             'expiry_label' => DocumentExpiry::humanLabel($this->expiry_date),
+            'linked_training_course_name' => $linkedTraining?->relationLoaded('course')
+                ? $linkedTraining->course?->name
+                : ($linkedTraining?->course()->value('name')),
         ];
     }
 }

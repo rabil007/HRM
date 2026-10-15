@@ -4,6 +4,7 @@ import * as EmployeeTrainingController from '@/actions/App/Http/Controllers/Orga
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { EditTrainingDialog } from '@/features/organization/training/edit-training-dialog';
+import { LinkTrainingCertificateDialog } from '@/features/organization/training/link-training-certificate-dialog';
 import { ReplaceTrainingCertificateDialog } from '@/features/organization/training/replace-training-certificate-dialog';
 import type {
     CourseOption,
@@ -19,6 +20,9 @@ type TrainingManagementDialogsProps = {
     onEditTrainingChange: (training: TrainingItem | null) => void;
     replaceTraining: TrainingItem | null;
     onReplaceTrainingChange: (training: TrainingItem | null) => void;
+    linkTraining: TrainingItem | null;
+    onLinkTrainingChange: (training: TrainingItem | null) => void;
+    canManageCertificateDocuments?: boolean;
     deleteTrainingId: number | null;
     onDeleteTrainingIdChange: (id: number | null) => void;
     templateFields?: Record<string, TemplateFieldConfig> | null;
@@ -34,6 +38,9 @@ export function TrainingManagementDialogs({
     onEditTrainingChange,
     replaceTraining,
     onReplaceTrainingChange,
+    linkTraining,
+    onLinkTrainingChange,
+    canManageCertificateDocuments = false,
     deleteTrainingId,
     onDeleteTrainingIdChange,
     templateFields = null,
@@ -61,6 +68,15 @@ export function TrainingManagementDialogs({
                 templateFields={templateFields}
                 partialReloadKeys={partialReloadKeys}
             />
+
+            {canManageCertificateDocuments ? (
+                <LinkTrainingCertificateDialog
+                    training={linkTraining}
+                    employeeId={employeeId}
+                    onOpenChange={(open) => !open && onLinkTrainingChange(null)}
+                    partialReloadKeys={partialReloadKeys}
+                />
+            ) : null}
 
             <ConfirmDeleteDialog
                 open={!!deleteTrainingId}

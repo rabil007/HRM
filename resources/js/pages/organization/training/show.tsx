@@ -17,6 +17,7 @@ import type {
 } from '@/features/organization/training/shared/types';
 import { TrainingShowHeaderActions } from '@/features/organization/training/training-list-row-actions';
 import { TrainingManagementDialogs } from '@/features/organization/training/training-management-dialogs';
+import type { TrainingPageCan } from '@/features/organization/training/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 import type {
@@ -32,13 +33,7 @@ type Props = {
     courses: CourseOption[];
     countries: CountryOption[];
     template_fields: Record<string, TemplateFieldConfig> | null;
-    can: {
-        view: boolean;
-        create: boolean;
-        update: boolean;
-        delete: boolean;
-        import: boolean;
-    };
+    can: TrainingPageCan;
     back: {
         href: string;
         label: string;
@@ -82,6 +77,9 @@ export default function TrainingShow({
     );
     const [replaceTraining, setReplaceTraining] =
         useState<TrainingShowItem | null>(null);
+    const [linkTraining, setLinkTraining] = useState<TrainingShowItem | null>(
+        null,
+    );
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(
         null,
     );
@@ -361,6 +359,11 @@ export default function TrainingShow({
                 onReplaceTrainingChange={(training) =>
                     setReplaceTraining(training as TrainingShowItem | null)
                 }
+                linkTraining={linkTraining}
+                onLinkTrainingChange={(training) =>
+                    setLinkTraining(training as TrainingShowItem | null)
+                }
+                canManageCertificateDocuments={can.manage_certificate_documents}
                 deleteTrainingId={deleteTrainingId}
                 onDeleteTrainingIdChange={setDeleteTrainingId}
                 templateFields={template_fields}

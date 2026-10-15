@@ -2,6 +2,8 @@
 
 namespace App\Support\EmployeeTrainings;
 
+use App\Models\EmployeeDocument;
+use App\Models\EmployeeDocumentVersion;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
@@ -146,10 +148,74 @@ class StoresEmployeeTrainingCertificate
 
     public function deleteForTraining(EmployeeTraining $training): void
     {
-        $this->deletePaths(
+        if ($training->employee_document_id !== null) {
+            return;
+        }
+
+        $this->deleteLegacyCertificateFilesForTraining($training);
+    }
+
+    public function deleteLegacyCertificateFilesForTraining(EmployeeTraining $training): void
+    {
+        $companyId = (int) $training->company_id;
+
+        $paths = $this->filterDeletableCertificatePaths(
             $this->resolveCertificatePaths($training),
-            (int) $training->company_id,
+            $companyId,
+            (int) $training->id,
         );
+
+        $this->deletePaths($paths, $companyId);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     * @return list<string>
+     */
+    public function filterDeletableCertificatePaths(array $paths, int $companyId, int $excludeTrainingId): array
+    {
+        $deletable = [];
+
+        foreach (array_unique($paths) as $path) {
+            if ($path === '' || $this->certificatePathReferencedElsewhere($path, $companyId, $excludeTrainingId)) {
+                continue;
+            }
+
+            $deletable[] = $path;
+        }
+
+        return $deletable;
+    }
+
+    public function certificatePathReferencedElsewhere(string $path, int $companyId, int $excludeTrainingId): bool
+    {
+        if (EmployeeDocument::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->exists()) {
+            return true;
+        }
+
+        if (EmployeeDocumentVersion::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->exists()) {
+            return true;
+        }
+
+        if (EmployeeTraining::query()
+            ->where('company_id', $companyId)
+            ->where('id', '!=', $excludeTrainingId)
+            ->where('certificate_path', $path)
+            ->exists()) {
+            return true;
+        }
+
+        return EmployeeTrainingVersion::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->where('employee_training_id', '!=', $excludeTrainingId)
+            ->exists();
     }
 
     public function deletePath(?string $path, ?int $companyId = null): void

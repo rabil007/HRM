@@ -16,6 +16,7 @@ class DocumentTypesSeeder extends Seeder
             'Labour Card',
             'Contract',
             'Certificate',
+            'Training Certificate',
             'Trade License',
             'Tax Registration Certificate',
             'Certificate of Incorporation',

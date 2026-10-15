@@ -28,6 +28,7 @@ use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentPermissions;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\SeaServices\SeaServiceListResource;
 use App\Support\Vessels\ResolvesCompanyVessels;
@@ -158,6 +159,8 @@ final class EmployeeProfilePageData
                 'training_update' => $authUser?->can('training.update'),
                 'training_delete' => $authUser?->can('training.delete'),
                 'training_import' => $authUser?->can('training.import'),
+                'training_manage_certificate_documents' => TrainingCertificateDocumentPermissions::canManageCertificates($authUser),
+                'training_view_documents' => $authUser?->can('documents.view') ?? false,
                 'deployments_view' => $authUser?->can('crew_operations.assignments.view') ?? false,
             ],
             'branches' => $formOptions['branches'],
@@ -395,6 +398,8 @@ final class EmployeeProfilePageData
             'training_update' => $authUser?->can('training.update') ?? false,
             'training_delete' => $authUser?->can('training.delete') ?? false,
             'training_import' => $authUser?->can('training.import') ?? false,
+            'training_manage_certificate_documents' => TrainingCertificateDocumentPermissions::canManageCertificates($authUser),
+            'training_view_documents' => $authUser?->can('documents.view') ?? false,
             'deployments_view' => $authUser?->can('crew_operations.assignments.view') ?? false,
         ];
     }
@@ -565,6 +570,11 @@ final class EmployeeProfilePageData
                 'country_id' => $row->country_id,
                 'country_name' => $row->country?->name,
                 'certificate_url' => $row->certificate_url,
+                'employee_document_id' => $row->employee_document_id,
+                'certificate_document_url' => $row->employee_document_id !== null
+                    ? route('organization.documents.files.preview', $row->employee_document_id)
+                    : null,
+                'uses_integrated_certificate_document' => $row->employee_document_id !== null,
                 'created_at' => $row->created_at?->toDateTimeString(),
             ])
             ->all();
