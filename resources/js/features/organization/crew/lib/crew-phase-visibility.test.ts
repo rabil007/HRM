@@ -97,9 +97,12 @@ describe('crew phase visibility', () => {
 
     it('does not include legacy placeholders in the normal progress path', () => {
         const stepKeys = NORMAL_PHASE_PROGRESS_STEPS.map((step) => step.key);
+        const stepCodes = NORMAL_PHASE_PROGRESS_STEPS.map((step) => step.code);
 
-        assert.deepEqual(stepKeys, ['p0', 'p1', 'p2', 'p3', 'p4']);
-        assert.equal(stepKeys.includes('p1'), true);
+        assert.deepEqual(stepKeys, ['p0', 'prejoin', 'p2', 'p3', 'p4']);
+        assert.deepEqual(stepCodes, ['P0', 'P1A/B', 'P2', 'P3', 'P4']);
+        assert.equal(stepKeys.includes('p1'), false);
+        assert.equal(stepCodes.includes('P1'), false);
         assert.equal(stepKeys.includes('p2a'), false);
     });
 
@@ -222,7 +225,7 @@ describe('crew phase visibility', () => {
         ]);
         assert.equal(
             normalProgressSkippedStagesNote('p4', timeline),
-            'Passed without recorded phase: P1 Pre-join / training, P3 Demobilisation',
+            'Passed without recorded phase: P1A/B Pre-joining / training, P3 Demobilisation',
         );
         assert.equal(normalProgressSkippedStagesNote('p0', []), null);
     });

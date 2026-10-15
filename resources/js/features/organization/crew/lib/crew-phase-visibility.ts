@@ -32,9 +32,10 @@ export const NORMAL_PHASE_PROGRESS_STEPS: NormalPhaseProgressStep[] = [
         codes: ['p0'],
     },
     {
-        key: 'p1',
-        code: 'P1',
-        label: 'Pre-join / training',
+        // Progress grouping only — not a selectable lifecycle phase (retired Travel In was also "P1").
+        key: 'prejoin',
+        code: 'P1A/B',
+        label: 'Pre-joining / training',
         codes: ['p1a', 'p1b'],
     },
     {
