@@ -339,7 +339,7 @@ final class HistoricalPhaseBuilder
         [$eventKey, $eventLabel] = match (true) {
             $last['phase_code'] === CrewPhaseCode::PreArrival => [
                 self::EVENT_PRE_MOBILISATION,
-                'Pre-Mobilisation',
+                'Pre-Arrival',
             ],
             $fromTrainingEnd => [
                 self::EVENT_TRAINING_END,

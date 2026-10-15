@@ -39,6 +39,11 @@ final class CrewPayableDateOwnership
         return in_array($status, self::eligibleStatuses(), true);
     }
 
+    public static function isExcludedPhase(CrewPhaseCode $phaseCode): bool
+    {
+        return (new CrewPhasePayCategoryResolver)->resolve($phaseCode) === CrewTimesheetPayCategory::Excluded;
+    }
+
     /**
      * @return list<string>
      */
@@ -409,6 +414,7 @@ final class CrewPayableDateOwnership
 
         foreach ($rows as $index => $row) {
             $allocated = match (true) {
+                self::isExcludedPhase($row['phase_code']) => null,
                 $row['future_only'] => 0,
                 $row['countable'] => $counts[$row['phase_id']] ?? 0,
                 default => null,

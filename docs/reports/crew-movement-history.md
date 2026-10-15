@@ -67,7 +67,7 @@ Crew Movement History keeps several counts. They are not interchangeable.
 | Count | Meaning |
 |---|---|
 | Vessel Service Days / Standby Service Days | Allocated payable calendar dates. Each employee/date is owned by one category. |
-| Phase service days | The same allocated dates, attributed to the winning phase. Repeated occurrences stay separate, and a shared date is not counted twice. |
+| Phase service days | Allocated dates for payable phases (P1A, P1B, P2, P3). P0 and P4 show the actual calendar span instead and add no payable service days. |
 | Movement span | Inclusive company-local dates touched by the recorded phase window. A handoff date can sit in this span and still belong to another category. |
 | Elapsed assignment days / elapsed days onboard | Whole calendar days from the start date to the end date, without adding the end date. Same-day elapsed time is 0. Tour of Duty uses this elapsed count and is unchanged. |
 | Payroll calendar-day preview | The same payable-date ownership, without the operational “stop at today” clamp. Contract eligibility is still applied only in payroll. |
@@ -80,7 +80,7 @@ Payable-date priority, shared with automatic Crew Timesheet preparation:
 3. Pre-Joining / Sign-On Standby, including Training (P1A, P1B)
 4. Excluded phases (P0, P4)
 
-A pre-joining window of 1–5 October whose vessel join is 5 October is **4 standby service days** (1–4 October). The movement span is still 1–5 October, and 5 October is vessel service. A demobilisation window of 10–14 October whose disembarkation is 10 October is **4 sign-off standby days** (11–14 October). 10 October stays on the vessel. 14 October stays sign-off standby because Home / Redeployment does not outrank it. The recorded timestamps are not changed to make the count match.
+A pre-joining window of 1–5 October whose vessel join is 5 October is **4 standby service days** (1–4 October). The movement span is still 1–5 October, and 5 October is vessel service. A demobilisation window of 10–14 October whose disembarkation is 10 October is **4 sign-off standby days** (11–14 October). 10 October stays on the vessel. 14 October stays sign-off standby because Home / Redeployment does not outrank it. If that home phase also covers 14–17 October, its phase duration stays 4 calendar days while payroll still counts 14 October as sign-off standby. The recorded timestamps are not changed to make the count match.
 
 Summary standby days, expanded phase service days, and the XLSX/CSV service-day columns use this allocation for the same assignment and cutoff. A same-day vessel transfer or redeployment is one payable onsite day for the employee: the linked assignment that loses the tie does not also count it. Planned dates never become payable service. A future actual start is labeled `Future actual` and adds no operational service days. An active phase includes company-local today and no later date.
 

@@ -302,9 +302,9 @@ final class CrewMovementHistoryPresenter
     }
 
     /**
-     * Allocated payable-category days for one phase code. `calendar_span_days`
-     * keeps the inclusive movement window, which can be longer when a handoff
-     * date belongs to a higher-priority phase.
+     * Payable phases (P1A, P1B, P2, P3) use allocated category ownership.
+     * Excluded phases (P0, P4) keep their actual calendar span. A handoff date
+     * can belong to a payable category without shortening the excluded phase.
      *
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      * @param  array<int, int>  $allocatedDaysByPhase
@@ -320,6 +320,7 @@ final class CrewMovementHistoryPresenter
         array $futureOnlyPhaseIds = [],
     ): array {
         $today ??= now($timezone);
+        $calendarDuration = CrewPayableDateOwnership::isExcludedPhase($code);
         $coveredDates = [];
         $hasDuration = false;
         $hasAllocatedWindow = false;
@@ -329,7 +330,7 @@ final class CrewMovementHistoryPresenter
         $periods = $phases
             ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === $code)
             ->sortBy('sequence')
-            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, $allocatedDaysByPhase, $futureOnlyPhaseIds, &$coveredDates, &$hasDuration, &$hasAllocatedWindow, &$futureOnly, &$allocatedTotal): array {
+            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, $calendarDuration, $allocatedDaysByPhase, $futureOnlyPhaseIds, &$coveredDates, &$hasDuration, &$hasAllocatedWindow, &$futureOnly, &$allocatedTotal): array {
                 $durationEnd = match ($phase->status) {
                     CrewPhaseStatus::Completed => $phase->actual_end_at,
                     CrewPhaseStatus::Active => $today,
@@ -345,7 +346,9 @@ final class CrewMovementHistoryPresenter
                 $phaseIsFutureOnly = isset($futureOnlyPhaseIds[(int) $phase->id]);
                 $allocatedDays = $phaseIsFutureOnly
                     ? 0
-                    : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0));
+                    : ($calendarDuration
+                        ? $calendarSpanDays
+                        : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0)));
 
                 if ($dates !== null) {
                     $hasDuration = true;
@@ -359,7 +362,7 @@ final class CrewMovementHistoryPresenter
                     $futureOnly = true;
                 }
 
-                if (is_int($allocatedDays) && ! $phaseIsFutureOnly) {
+                if (is_int($allocatedDays) && ! $phaseIsFutureOnly && ! $calendarDuration) {
                     $hasAllocatedWindow = true;
                     $allocatedTotal += $allocatedDays;
                 }
@@ -390,10 +393,15 @@ final class CrewMovementHistoryPresenter
             ->all();
 
         $calendarSpanTotal = count($coveredDates);
-        $totalDays = $hasAllocatedWindow ? $allocatedTotal : ($hasDuration ? 0 : null);
+        $totalDays = match (true) {
+            $calendarDuration => $hasDuration ? $calendarSpanTotal : null,
+            $hasAllocatedWindow => $allocatedTotal,
+            $hasDuration => 0,
+            default => null,
+        };
         $totalLabel = match (true) {
             $totalDays === null => CrewMovementHistoryDuration::serviceDayLabel(null),
-            $futureOnly && ! $hasAllocatedWindow => CrewMovementHistoryDuration::futureActualLabel(),
+            $futureOnly && ($calendarDuration ? $calendarSpanTotal === 0 : ! $hasAllocatedWindow) => CrewMovementHistoryDuration::futureActualLabel(),
             default => CrewMovementHistoryDuration::serviceDayLabel($totalDays),
         };
 
@@ -530,9 +538,12 @@ final class CrewMovementHistoryPresenter
                     $today,
                 );
                 $phaseIsFutureOnly = isset($futureOnlyPhaseIds[(int) $phase->id]);
+                $calendarDuration = CrewPayableDateOwnership::isExcludedPhase($phase->phase_code);
                 $days = $phaseIsFutureOnly
                     ? 0
-                    : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0));
+                    : ($calendarDuration
+                        ? $calendarSpanDays
+                        : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0)));
 
                 return [
                     'id' => $phase->id,

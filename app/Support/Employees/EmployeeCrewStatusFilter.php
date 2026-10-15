@@ -27,7 +27,7 @@ final class EmployeeCrewStatusFilter
         return [
             'in_home' => 'In home',
             self::AVAILABLE => 'Available',
-            'pre_mobilisation' => 'Pre-mobilisation',
+            'pre_mobilisation' => 'Pre-arrival',
             'travel_in' => 'Travel in',
             'join_standby' => 'Pre-joining standby',
             'training' => 'Training',

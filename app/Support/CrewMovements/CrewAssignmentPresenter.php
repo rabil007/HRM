@@ -534,7 +534,7 @@ class CrewAssignmentPresenter
         foreach ($assignment->phases as $phase) {
             $phaseId = (int) $phase->id;
 
-            if ($phase->actual_start_at === null) {
+            if ($phase->actual_start_at === null || CrewPayableDateOwnership::isExcludedPhase($phase->phase_code)) {
                 $days[$phaseId] = null;
 
                 continue;
