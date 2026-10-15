@@ -216,6 +216,20 @@ function DetailField({
     );
 }
 
+function phaseServiceHeading(code: string): string {
+    switch (code) {
+        case 'P1A':
+        case 'P1B':
+            return 'Standby service';
+        case 'P2':
+            return 'Vessel service';
+        case 'P3':
+            return 'Sign-off standby';
+        default:
+            return 'Phase days';
+    }
+}
+
 function formatCompanyDateTime(
     value: string | null | undefined,
     timezone: string,
@@ -259,8 +273,17 @@ function PeriodLine({
                     {humanize(period.status)}
                 </Badge>
             </div>
-            <span className="text-xs font-semibold text-muted-foreground tabular-nums">
-                {period.days_label}
+            <span className="text-right text-xs font-semibold text-muted-foreground tabular-nums">
+                <span className="block">{period.days_label}</span>
+                {period.calendar_span_days != null &&
+                period.calendar_span_days !== period.days ? (
+                    <span className="mt-0.5 block text-[10px] font-medium">
+                        Movement span:{' '}
+                        {period.calendar_span_days === 1
+                            ? '1 day'
+                            : `${period.calendar_span_days} days`}
+                    </span>
+                ) : null}
             </span>
         </div>
     );
@@ -284,7 +307,7 @@ function PhaseDetail({
                     <h4 className="text-sm font-semibold">{phase.label}</h4>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                    Phase service days
+                    {phaseServiceHeading(phase.code)}
                 </p>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums">
                     {phase.summary.total_days_label}
@@ -568,20 +591,28 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
     const normalPhases: PhaseRecord[] = [
         {
             code: 'P0',
-            label: 'Pre-Mobilisation',
+            label: 'Pre-Arrival',
             summary: row.pre_mobilisation,
         },
-        { code: 'P2A', label: 'Join Standby', summary: row.join_standby },
         {
-            code: 'P2B',
+            code: 'P1A',
+            label: 'Pre-Joining Standby',
+            summary: row.join_standby,
+        },
+        {
+            code: 'P1B',
             label: 'Training',
             summary: row.training,
             details: row.training.details,
         },
-        { code: 'P4', label: 'On Vessel', summary: row.on_vessel },
-        { code: 'P5', label: 'Demob Standby', summary: row.demob_standby },
+        { code: 'P2', label: 'On Vessel', summary: row.on_vessel },
         {
-            code: 'P6',
+            code: 'P3',
+            label: 'Demobilisation Standby',
+            summary: row.demob_standby,
+        },
+        {
+            code: 'P4',
             label: 'Home / Redeployment',
             summary: row.home_redeploy,
         },
@@ -594,8 +625,8 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
             summary: row.travel_in,
         },
         {
-            code: 'P3',
-            label: 'Ready to Join',
+            code: 'Ready to Join',
+            label: 'Ready to Join (legacy)',
             summary: row.ready_to_join,
         },
     ].filter((phase) => phase.summary.periods.length > 0);
@@ -789,7 +820,7 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                     <DetailField
                         label="Vessel service days"
                         value={row.vessel_service_days_label}
-                        hint="Inclusive calendar dates. A same-day handoff counts once, on the vessel."
+                        hint="Allocated on-vessel days. A same-day handoff counts once, on the vessel."
                     />
                     <DetailField
                         label="Total assignment elapsed days"
@@ -1059,9 +1090,10 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
                     Payroll calendar-day preview
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                    Inclusive movement calendar days for Sign-On Standby, On
-                    Vessel, and Sign-Off Standby. Not the final payroll
-                    entitlement.
+                    Allocated payable calendar days for Sign-On Standby, On
+                    Vessel, and Sign-Off Standby. A vessel handoff date stays
+                    with the vessel and is not also counted as standby. Not the
+                    final payroll entitlement.
                 </p>
                 <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
                     <DetailField
@@ -1277,7 +1309,7 @@ export function CrewMovementHistoryReportTable({
                             columns.preJoiningStandby,
                         )}
                     >
-                        <span title="Inclusive pre-joining standby calendar dates from recorded Pre-Joining Standby and Training phases. A day shared with the vessel counts as vessel service, not standby. Missing phase shows —.">
+                        <span title="Allocated pre-joining standby days from recorded Pre-Joining Standby and Training phases. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
                             Pre-Joining Standby (Days)
                         </span>
                     </DataTableHead>
@@ -1301,7 +1333,7 @@ export function CrewMovementHistoryReportTable({
                             columns.demobStandby,
                         )}
                     >
-                        <span title="Inclusive demobilisation standby calendar dates from the recorded Demobilisation Standby phase. A day shared with the vessel counts as vessel service, not standby. Missing phase shows —.">
+                        <span title="Allocated demobilisation standby days from the recorded Demobilisation Standby phase. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
                             Demobilisation Standby (Days)
                         </span>
                     </DataTableHead>
@@ -1316,14 +1348,14 @@ export function CrewMovementHistoryReportTable({
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.standbyDays)}
                     >
-                        <span title="Total Standby = Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero. A day shared with the vessel counts as vessel service, not standby.">
+                        <span title="Total Standby = Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero. A date owned by the vessel is not also counted as standby.">
                             Total Standby
                         </span>
                     </DataTableHead>
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.vesselDays)}
                     >
-                        <span title="Inclusive calendar dates on the vessel. 4 Oct through 7 Oct is 4 days.">
+                        <span title="Allocated on-vessel days. 4 Oct through 7 Oct is 4 days, including the day the crew member leaves the vessel.">
                             Vessel Service Days
                         </span>
                     </DataTableHead>
@@ -1452,7 +1484,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.preJoiningStandby}>
                                     <span
                                         className="text-xs font-medium text-foreground tabular-nums"
-                                        title="Inclusive pre-joining standby calendar dates. A day shared with the vessel counts as vessel service."
+                                        title="Allocated pre-joining standby days. A date owned by the vessel is not also standby."
                                     >
                                         {row.pre_joining_standby_days_label}
                                     </span>
@@ -1488,7 +1520,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.demobStandby}>
                                     <span
                                         className="text-xs font-medium text-foreground tabular-nums"
-                                        title="Inclusive demobilisation standby calendar dates. A day shared with the vessel counts as vessel service."
+                                        title="Allocated demobilisation standby days. A date owned by the vessel is not also standby."
                                     >
                                         {row.demobilisation_standby_days_label}
                                     </span>
@@ -1548,7 +1580,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.standbyDays}>
                                     <span
                                         className="text-xs font-bold text-foreground tabular-nums"
-                                        title="Total Standby = Pre-Joining Standby + Demobilisation Standby."
+                                        title="Total Standby = Pre-Joining Standby + Demobilisation Standby. A date owned by the vessel is not also counted as standby."
                                     >
                                         {row.standby_service_days_label}
                                     </span>

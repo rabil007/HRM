@@ -8,7 +8,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Validation\Validator;
 
 /**
- * Optional Start Assignment shortcut: create Active P2A Join Standby directly
+ * Optional Start Assignment shortcut: create Active P1A Pre-Joining Standby directly
  * when the crew member has already arrived, without inventing a completed P0.
  */
 final class CrewAlreadyArrivedStart
@@ -17,7 +17,7 @@ final class CrewAlreadyArrivedStart
 
     public const FUTURE_MESSAGE = 'Actual Arrival Date cannot be in the future.';
 
-    public const EXPLANATION = 'The crew member has already arrived. The assignment will start directly in Join Standby (P2A), skipping Pre-Mobilisation.';
+    public const EXPLANATION = 'The crew member has already arrived. The assignment will start directly in Pre-Joining Standby (P1A), skipping Pre-Arrival.';
 
     public static function isEnabled(mixed $value): bool
     {

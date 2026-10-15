@@ -134,7 +134,7 @@ describe('crew quick detail operational summary', () => {
             {
                 ...assignment,
                 current_phase: {
-                    code: 'p2b',
+                    code: 'p1b',
                     label: 'Training',
                     status: 'active',
                 },
@@ -261,13 +261,47 @@ describe('crew quick detail operational summary', () => {
         assert.match(model.focus, /travel home/i);
     });
 
+    it('suggests close assignment for modern p4 home and travel home for p3 demob', () => {
+        const home = crewQuickDetailModel(
+            listItem({
+                current_phase: {
+                    code: 'p4',
+                    label: 'Home / Redeployment',
+                    status: 'active',
+                },
+                available_actions: ['close_assignment', 'redeploy'],
+            }),
+            can,
+            now,
+        );
+        assert.equal(home.movement, 'close_assignment');
+        assert.match(home.focus, /closing|redeploy/i);
+
+        const demob = crewQuickDetailModel(
+            listItem({
+                current_phase: {
+                    code: 'p3',
+                    label: 'Demobilisation Standby',
+                    status: 'active',
+                },
+                available_actions: ['travel_home', 'redeploy'],
+            }),
+            can,
+            now,
+        );
+        assert.equal(demob.movement, 'travel_home');
+    });
+
     it('does not show historic joining as the next event during demobilisation or after closure', () => {
         for (const phase of ['p3', 'p4']) {
             const model = crewQuickDetailModel(
                 listItem({
                     current_phase: {
                         code: phase,
-                        label: 'Demobilisation',
+                        label:
+                            phase === 'p3'
+                                ? 'Demobilisation Standby'
+                                : 'Home / Redeployment',
                         status: 'active',
                     },
                 }),

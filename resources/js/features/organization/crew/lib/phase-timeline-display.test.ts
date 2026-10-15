@@ -109,6 +109,37 @@ describe('buildPhaseDateLineSummary modes', () => {
         );
     });
 
+    it('labels allocated standby service separately from the movement span', () => {
+        const summary = buildPhaseDateLineSummary(
+            phase({
+                phase_code: 'p1a',
+                phase_label: 'Pre-Joining Standby',
+                status: 'completed',
+                status_label: 'Completed',
+                actual_start_at: '2026-10-01',
+                actual_end_at: '2026-10-05',
+                allocated_service_days: 4,
+            }),
+            'actual_only',
+            '2026-10-15',
+        );
+
+        assert.ok(
+            summary.durationParts.some((part) =>
+                part.includes('Standby service: 4 days'),
+            ),
+        );
+        assert.ok(
+            summary.durationParts.some((part) =>
+                part.includes('Movement span: 5 days'),
+            ),
+        );
+        assert.equal(
+            summary.durationParts.some((part) => /standby days/i.test(part)),
+            false,
+        );
+    });
+
     it('reports inclusive completed duration for finished phases', () => {
         const summary = buildPhaseDateLineSummary(
             phase({

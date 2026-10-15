@@ -33,6 +33,7 @@ import {
     formatCompanyTimezoneLabel,
     useCompanyTimezone,
 } from '@/lib/company-timezone';
+import { historicalPeriodDaySuffix } from '../lib/historical-period-days';
 import { mapHistoricalValidationErrors } from '../lib/historical-validation-errors';
 import type {
     HistoricalCrewAssignmentFormData,
@@ -768,6 +769,12 @@ export function AddPastDataDialog({
                                                               '—')),
                                                     days: item.duration_days,
                                                     is_open: item.is_open,
+                                                    allocated_service_days:
+                                                        item.allocated_service_days,
+                                                    service_days_label:
+                                                        item.service_days_label,
+                                                    calendar_span_days:
+                                                        item.calendar_span_days,
                                                 }),
                                             )
                                         ).map((period) => (
@@ -781,9 +788,9 @@ export function AddPastDataDialog({
                                                 <span className="text-xs text-muted-foreground">
                                                     {period.from} →{' '}
                                                     {period.to_display}
-                                                    {period.days != null
-                                                        ? ` (${period.days}d)`
-                                                        : ''}
+                                                    {historicalPeriodDaySuffix(
+                                                        period,
+                                                    )}
                                                 </span>
                                             </div>
                                         ))}

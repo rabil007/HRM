@@ -117,6 +117,9 @@ final class CrewSixPhaseLifecyclePhaseCodeRemap
      * confirm disembarkation, complete training, and redeploy schedules would
      * otherwise fail or drop accommodation when executed under the six-phase codes.
      * Mapping is action-specific so modern p4 (home) is never treated as legacy onboard.
+     *
+     * Only unresolved schedules are rewritten. Executed, cancelled, and other
+     * historical audit payloads are left unchanged.
      */
     public function remapScheduledMovementPayloadPhaseCodes(): void
     {
@@ -124,30 +127,35 @@ final class CrewSixPhaseLifecyclePhaseCodeRemap
             return;
         }
 
-        DB::table('crew_scheduled_movements')
-            ->select(['id', 'movement_action', 'action_payload'])
-            ->orderBy('id')
-            ->chunkById(200, function ($rows): void {
-                foreach ($rows as $row) {
-                    $payload = $this->decodeActionPayload($row->action_payload);
+        $unresolvedStatuses = ['scheduled', 'processing', 'needs_attention'];
 
-                    if ($payload === null) {
-                        continue;
+        DB::transaction(function () use ($unresolvedStatuses): void {
+            DB::table('crew_scheduled_movements')
+                ->select(['id', 'movement_action', 'action_payload'])
+                ->whereIn('status', $unresolvedStatuses)
+                ->orderBy('id')
+                ->chunkById(200, function ($rows): void {
+                    foreach ($rows as $row) {
+                        $payload = $this->decodeActionPayload($row->action_payload);
+
+                        if ($payload === null) {
+                            continue;
+                        }
+
+                        $updated = $this->remapPayloadPhaseCodes((string) $row->movement_action, $payload);
+
+                        if ($updated === null) {
+                            continue;
+                        }
+
+                        DB::table('crew_scheduled_movements')
+                            ->where('id', $row->id)
+                            ->update([
+                                'action_payload' => json_encode($updated, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                            ]);
                     }
-
-                    $updated = $this->remapPayloadPhaseCodes((string) $row->movement_action, $payload);
-
-                    if ($updated === null) {
-                        continue;
-                    }
-
-                    DB::table('crew_scheduled_movements')
-                        ->where('id', $row->id)
-                        ->update([
-                            'action_payload' => json_encode($updated, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-                        ]);
-                }
-            });
+                });
+        });
     }
 
     public function remapAllConfiguredTables(): void

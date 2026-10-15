@@ -21,6 +21,8 @@ export type PhasePeriod = {
     status: string;
     days: number | null;
     days_label: string;
+    calendar_span_days?: number | null;
+    calendar_span_days_label?: string | null;
     remarks?: string | null;
 };
 
@@ -28,6 +30,7 @@ export type PhaseSummary = {
     periods: PhasePeriod[];
     total_days: number | null;
     total_days_label: string;
+    calendar_span_days?: number | null;
 };
 
 export type FlattenedPhaseSummary = PhaseSummary & {

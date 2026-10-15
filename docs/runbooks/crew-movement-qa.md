@@ -235,7 +235,10 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 ## 10. Transfer, redeploy, and corrections
 
 - [ ] Active P4 exposes Transfer Vessel; destination vessel starts empty, differs from source, and is required; source stays on original vessel
-- [ ] Transfer creates linked Active P4 assignment with no invented standby/home phases
+- [ ] Transfer creates linked Active P2 assignment with no invented standby/home phases
+- [ ] A same-day transfer counts one payable onsite day for the employee, not one on each linked assignment
+- [ ] Pre-joining 1–5 October with a 5 October join shows 4 standby service days and leaves hotel days at the inclusive stay length
+- [ ] Demobilisation 10–14 October with a 10 October disembarkation shows 4 sign-off standby days, and 14 October stays standby
 - [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
 - [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
 - [ ] Redeploy from P5/P6 starts only at the chosen phase (P0/P2A/P4); P1 and P3 are not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields

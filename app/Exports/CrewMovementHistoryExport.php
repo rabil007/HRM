@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\CrewAssignment;
 use App\Support\Reports\CrewMovementHistoryPresenter;
+use App\Support\Reports\CrewMovementHistoryQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -90,6 +91,15 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
     public function query(): Builder
     {
         return $this->query;
+    }
+
+    /**
+     * @param  iterable<int, CrewAssignment>  $rows
+     * @return Collection<int, CrewAssignment>
+     */
+    public function prepareRows($rows): Collection
+    {
+        return CrewMovementHistoryExportRows::withAllocationContext($rows);
     }
 
     /**
@@ -198,6 +208,15 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
     public function query(): Builder
     {
         return $this->query;
+    }
+
+    /**
+     * @param  iterable<int, CrewAssignment>  $rows
+     * @return Collection<int, CrewAssignment>
+     */
+    public function prepareRows($rows): Collection
+    {
+        return CrewMovementHistoryExportRows::withAllocationContext($rows);
     }
 
     /**
@@ -692,5 +711,25 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
         }
 
         return $parsed->format('d M Y h:i A');
+    }
+}
+
+final class CrewMovementHistoryExportRows
+{
+    /**
+     * @param  iterable<int, CrewAssignment>  $rows
+     * @return Collection<int, CrewAssignment>
+     */
+    public static function withAllocationContext(iterable $rows): Collection
+    {
+        /** @var Collection<int, CrewAssignment> $rows */
+        $rows = collect($rows);
+        $companyId = (int) ($rows->first()?->company_id ?? 0);
+
+        if ($companyId > 0) {
+            CrewMovementHistoryQuery::attachAllocationCompetingPhases($rows, $companyId);
+        }
+
+        return $rows;
     }
 }

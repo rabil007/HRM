@@ -33,7 +33,7 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P3 (demobilisation standby after disembarkation) |
 | **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P4 Home / Redeployment and completed assignments with no newer Draft/Active assignment) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel scheduling and movements (Gantt) |
-| **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
+| **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P2 On Vessel roster, shown beside planning workflows |
 | **Crew Relief Report** | `/organization/reports/crew-relief` | Operational relief monitoring for active P2 On Vessel crew (sign-off windows, missing forecasts, relief status/risk, readiness, and exports). Legacy `/organization/crew-operations/relief-desk` redirects here. |
 | **Crew Readiness** | `/organization/crew-operations/readiness` | Standalone operational workspace tracking upcoming crew preparing to mobilise (future named Planning rows + pre-join Assignments) and their document compliance readiness before joining |
 
@@ -46,7 +46,7 @@ OMS-HRM maintains an explicit separation of concerns across the four operational
 - **Crew Readiness** (`/organization/crew-operations/readiness`): Who is preparing to mobilise, when they are expected to join, and what currently requires attention before mobilisation. Unified derived view of eligible future named planning rows and pre-join operational assignments with authoritative document compliance checks.
 - **Crew Assignments** (`/organization/crew`): Actual operational mobilisation and lifecycle execution (Draft → P0 → P1A/P1B → P2 → P3 → P4). Travel In and Ready to Join phases are retired. Crew Assignment controls execution.
 
-Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Crew Relief Report** (`/organization/reports/crew-relief`) is the operational replacement-monitoring surface over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`); legacy Relief Desk URLs redirect here. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
+Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P2 On Vessel operational state. It never derives onboard status from Gantt/planning records. **Crew Relief Report** (`/organization/reports/crew-relief`) is the operational replacement-monitoring surface over active P2 assignments and existing Planning relief links (`relieves_crew_assignment_id`); legacy Relief Desk URLs redirect here. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
 
 Crew Readiness operational semantics:
 - **Ready vs No Checks Configured**: In Crew Readiness presentation, summary metrics, and filtering, `Ready` strictly means status is Ready AND has configured checks (`hasConfiguredChecks()`). Crew with zero configured checks are presented and filtered as `No Checks Configured` (`focus=no_checks`), ensuring the summary card, quick view focus, and dropdown filter return the exact same population.
@@ -80,20 +80,20 @@ The Crew Assignments index uses summary cards as the primary operational navigat
 |------|---------|
 | **Current Assignments** | Default operational queue (Draft/Active unless status/history filters widen the board) |
 | **Needs Attention** | Existing movement-attention filter (`movement_attention=1`) |
-| **Pre-Join Hotel** | Active assignments with current phase **P2A + P2B + legacy P3** |
-| **Crew On-Site** | Vessel View (`view=vessel`) — active **P4** crew grouped by vessel |
-| **Post-Sign-Off Hotel** | Active assignments with current phase **P5** |
-| **On Home** | Active employees currently home between mobilisation cycles, including active **P6** and employees whose latest assignment is **Completed** with no newer Draft/Active assignment |
+| **Pre-Join Hotel** | Active assignments with current phase **P1A or P1B** |
+| **Crew On-Site** | Vessel View (`view=vessel`) — active **P2 On Vessel** crew grouped by vessel |
+| **Post-Sign-Off Hotel** | Active assignments with current phase **P3 Demobilisation Standby** |
+| **On Home** | Active employees currently home between mobilisation cycles, including active **P4** and employees whose latest assignment is **Completed** with no newer Draft/Active assignment |
 
-**On Home** reuses the existing Crew Operations Availability Rule (`max_home_days` from Crew Operations Settings; default 30 when unset). Home duration is derived from `CrewAssignmentStatusResolver` semantics: active P6 uses the authoritative P6 `actual_start_at`; completed assignments use `closed_at`. Summary cards expose `on_home`, `on_home_over_limit`, and `max_home_days`. The focused view sorts by operational urgency (over limit, then nearest to limit, then longest home duration).
+**On Home** reuses the existing Crew Operations Availability Rule (`max_home_days` from Crew Operations Settings; default 30 when unset). Home duration is derived from `CrewAssignmentStatusResolver` semantics: active P4 uses the authoritative P4 `actual_start_at`; completed assignments use `closed_at`. Summary cards expose `on_home`, `on_home_over_limit`, and `max_home_days`. The focused view sorts by operational urgency (over limit, then nearest to limit, then longest home duration).
 
-**P0 Pre-Mobilisation** is no longer a dashboard summary card. It remains available through **Filters → Current Phase** and other detailed filters.
+**P0 Pre-Arrival** is no longer a dashboard summary card. It remains available through **Filters → Current Phase** and other detailed filters.
 
 **Hotel** in this UI is an operational grouping only. It is **not**:
 
 - a new Crew phase
 - accommodation booking data
-- a Payroll category (Payroll still maps P2A/P2B/P3 to Sign-On Standby and P5 to Sign-Off Standby)
+- a Payroll category (Payroll still maps P1A/P1B to Sign-On Standby and P3 to Sign-Off Standby; P0/P4 remain Excluded)
 
 Operational hotel/on-site views enforce `CrewAssignment.status = Active`, **active** current phase status, and match **current** phase only — completed historical phases never appear in these cards or views, even when `include_completed=1` is present in the URL. Summary-card navigation clears conflicting `phase`, `status`, and `include_completed` values; crafted URL params for those fields are sanitized for display and ignored by the authoritative query.
 
@@ -177,28 +177,31 @@ Missing accommodation is **not** persisted as a status. It will later be derived
 
 PR 1 did **not** change Current Crew hotel views or occupancy dashboards. PR 2/PR 3 add movement-dialog and assignment-show accommodation context only.
 
-## P0–P6
+## Six-phase lifecycle (modern)
 
 | Code | Label | User-facing meaning |
 |------|-------|---------------------|
-| P0 | Pre-Mobilisation | Assignment prepared and waiting for the crew member to arrive. |
-| P1 | Travel In | Travelling to the joining location. |
-| P2A | Join Standby | Waiting or staying in hotel/accommodation before joining the vessel. |
-| P2B | Training | Completing required training before joining. |
-| P3 | Ready to Join | Cleared and ready to board the vessel. |
-| P4 | On Vessel | Currently onboard the vessel. |
-| P5 | Demobilisation Standby | Disembarked and waiting or staying in hotel/accommodation for onward or home travel. |
-| P6 | Home / Redeployment | Returned home or moving toward the next assignment. |
+| P0 | Pre-Arrival | Assignment prepared and waiting for the crew member to arrive. |
+| P1A | Pre-Joining Standby | Waiting or staying in hotel/accommodation before joining the vessel. |
+| P1B | Training | Completing required training before joining. |
+| P2 | On Vessel | Currently onboard the vessel. |
+| P3 | Demobilisation Standby | Disembarked and waiting or staying in hotel/accommodation for onward or home travel. |
+| P4 | Home / Redeployment | Returned home or moving toward the next assignment. |
 
-Normal operational workflow uses **P0, P2A, P2B, P4, P5, and P6**. **P1 Travel In** and **P3 Ready to Join** are legacy compatibility phases: existing records remain supported for history, reporting, corrections, payroll mapping, and valid onward movement, but normal web workflows do not create new P1/P3 occurrences.
+Normal operational workflow uses **only these six codes**. Retired exclusive codes (`p1` Travel In, `p2a`, `p2b`, `p5`, `p6`) may still appear in historical/migration/audit contexts until remapped. **Never treat modern `p3` or `p4` as obsolete by code string alone** — their meanings changed during the six-phase refactor (old Ready to Join / On Vessel meanings no longer apply to those codes).
 
 These sentences are UI copy only (`crew-phase-descriptions.ts`). They do not change codes, transitions, or timestamps.
 
 **Standby** in Crew Operations means the employee is waiting between movements, typically staying in a hotel or other accommodation. It is not only a system status.
 
-- **P0** is pre-mobilisation waiting for arrival, not boarding.
-- **P2A Join Standby** is waiting/staying in hotel/accommodation before joining.
-- **P5 Demobilisation Standby** is after disembarkation, waiting/staying in hotel/accommodation for onward or home travel.
+- **P0** is pre-arrival waiting for arrival, not boarding.
+- **P1A Pre-Joining Standby** is waiting/staying in hotel/accommodation before joining.
+- **P3 Demobilisation Standby** is after disembarkation, waiting/staying in hotel/accommodation for onward or home travel.
+
+**Standby day allocation (inclusive calendar, handoff date belongs to the higher-priority service category):**
+
+- Example A: Standby 1–5 Oct, joined vessel 5 Oct → allocated Pre-Joining Standby **4 days**, hotel **5 days**, 5 Oct allocated to On Vessel.
+- Example B: Disembarked 10 Oct, returned home 14 Oct → allocated Demobilisation Standby **4 days**, hotel **5 days**, 10 Oct allocated to On Vessel.
 
 ## Crew Planning vs Crew Assignment
 
@@ -1324,7 +1327,7 @@ The Crew Assignment show page presents a single **Phase Timeline** as the operat
 
 Display conventions:
 
-- Each recorded phase shows planned start/end, actual start/end, planned duration, and either confirmed completed duration or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Active phases never treat “today” as a confirmed actual end.
+- Each recorded phase shows planned start/end, actual start/end, planned duration, and either the movement span or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Payable P1A, P1B, P2, and P3 phases also show allocated service days. A completed pre-joining window of 1–5 October can show **Standby service: 4 days** and **Movement span: 5 days** when 5 October belongs to On Vessel. Active phases never treat “today” as a confirmed actual end. Elapsed days in the current phase stay separate from allocated service totals.
 - Missing dates use “Not recorded”, “Not started”, or “In progress” as appropriate. Variance is omitted when planned/actual data is insufficient.
 - Graphical planned/actual date-range bars are not used; presentation is date-and-duration text along a subtle vertical timeline.
 

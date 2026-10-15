@@ -111,7 +111,7 @@ export function queueSectionCopy(
         return {
             title: 'On Home crew',
             description:
-                'Crew currently home between mobilisation cycles, including active P6 and completed assignments.',
+                'Crew currently home between mobilisation cycles, including active P4 and completed assignments.',
         };
     }
 

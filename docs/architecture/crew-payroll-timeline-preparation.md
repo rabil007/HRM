@@ -77,7 +77,7 @@ Day priority when categories overlap:
 3. Sign-On Standby
 4. Excluded
 
-The priority winner is assigned the day, so each calendar day always resolves to exactly one pay category.
+The priority winner is assigned the day, so each calendar day always resolves to exactly one pay category. Crew Assignment service days, Crew Movement History, and its XLSX/CSV export use the same ownership through `CrewPayableDateOwnership`. A handoff date is given to the winning category; it is not subtracted from every standby period. Hotel accommodation days stay on the inclusive hotel formula and are not a payroll source. Automatic timesheet preparation still applies contract, period, and cutoff rules on top of this ownership. Manual and protected payroll records are not rewritten from report totals.
 
 ### Handoffs vs genuine overlaps
 

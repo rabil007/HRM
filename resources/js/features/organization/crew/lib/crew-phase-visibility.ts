@@ -32,9 +32,10 @@ export const NORMAL_PHASE_PROGRESS_STEPS: NormalPhaseProgressStep[] = [
         codes: ['p0'],
     },
     {
-        key: 'p1',
-        code: 'P1',
-        label: 'Pre-join / training',
+        // Progress grouping only — not a selectable lifecycle phase (retired Travel In was also "P1").
+        key: 'prejoin',
+        code: 'P1A/B',
+        label: 'Pre-joining / training',
         codes: ['p1a', 'p1b'],
     },
     {
@@ -152,7 +153,9 @@ export function visiblePhaseTimelineItems(
     return items.filter((item) => {
         const code = item.phase_code?.toLowerCase() ?? '';
 
-        if (code === 'p1' || code === 'p3') {
+        // Travel In (p1) is retired. Modern p3 is Demobilisation Standby and must remain visible.
+        // Never hide modern p3/p4 by code string alone — those meanings changed in the six-phase lifecycle.
+        if (code === 'p1') {
             return false;
         }
 

@@ -2,22 +2,20 @@
 
 namespace App\Support\Reports;
 
-use App\Enums\CrewPhaseStatus;
-use App\Enums\CrewTimesheetPayCategory;
 use App\Models\CrewAssignmentPhase;
-use App\Support\Payroll\CrewTimeline\CrewPhasePayCategoryResolver;
-use Carbon\CarbonImmutable;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Distinct inclusive calendar dates for operational service totals.
+ * Allocated payable calendar dates for operational service totals.
  *
  * A phase handoff often closes one phase and opens the next on the same
- * company-local date. Each phase span still includes that date, but an
- * aggregate total counts the date once. Priority matches the payroll preview
- * (onsite, then sign-off standby, then sign-on standby). Excluded phases
- * (P0, P4 Home / Redeployment) never take a date from a service category.
+ * company-local date. Each recorded phase still includes that date, but the
+ * date is owned by one category: onsite, then sign-off standby, then sign-on
+ * standby. Excluded phases (P0 Pre-Arrival, P4 Home / Redeployment; exclusive
+ * legacy Travel In if present) never take a date from a payable category. The
+ * owned date is not subtracted again from every other period.
  *
  * Standby is split for Crew Movement History reporting:
  * - Pre-Joining Standby = sign-on standby dates (P1A Pre-Joining Standby + P1B Training)
@@ -50,111 +48,29 @@ final class CrewMovementServiceDays
         Collection $phases,
         string $timezone,
         ?CarbonInterface $today = null,
+        ?int $employeeId = null,
+        ?int $companyId = null,
+        ?int $assignmentId = null,
     ): array {
-        $today ??= now($timezone);
-        $todayDate = self::localDate($today, $timezone);
-        $categoryResolver = new CrewPhasePayCategoryResolver;
-        $recorded = false;
-        $countedADate = false;
-        $hasFutureActual = false;
-
-        /** @var array<string, array{category: CrewTimesheetPayCategory, priority: int, phase_id: int}> $allocatedByDate */
-        $allocatedByDate = [];
-
-        foreach ($phases as $phase) {
-            if ($phase->actual_start_at === null) {
-                continue;
-            }
-
-            $end = match (true) {
-                $phase->actual_end_at !== null => $phase->actual_end_at,
-                $phase->status === CrewPhaseStatus::Active => $today,
-                default => null,
-            };
-
-            if ($end === null || $end->lt($phase->actual_start_at)) {
-                continue;
-            }
-
-            $recorded = true;
-            $from = self::localDate($phase->actual_start_at, $timezone);
-            $to = self::localDate($end, $timezone);
-
-            if ($from->gt($todayDate)) {
-                $hasFutureActual = true;
-
-                continue;
-            }
-
-            if ($to->gt($todayDate)) {
-                $hasFutureActual = true;
-                $to = $todayDate;
-            }
-
-            $countedADate = true;
-            $category = $categoryResolver->resolve($phase->phase_code);
-            $claim = [
-                'category' => $category,
-                'priority' => $categoryResolver->priority($category),
-                'phase_id' => (int) $phase->id,
-            ];
-
-            for ($date = $from; $date->lte($to); $date = $date->addDay()) {
-                $dateKey = $date->toDateString();
-                $existing = $allocatedByDate[$dateKey] ?? null;
-
-                if (
-                    $existing === null
-                    || $claim['priority'] > $existing['priority']
-                    || (
-                        $claim['priority'] === $existing['priority']
-                        && $claim['phase_id'] < $existing['phase_id']
-                    )
-                ) {
-                    $allocatedByDate[$dateKey] = $claim;
-                }
-            }
-        }
-
-        if (! $recorded) {
-            return [
-                'recorded' => false,
-                'future_actual_only' => false,
-                'has_future_actual' => false,
-                'vessel_service_days' => null,
-                'pre_joining_standby_days' => null,
-                'demobilisation_standby_days' => null,
-                'standby_service_days' => null,
-            ];
-        }
-
-        $vessel = 0;
-        $preJoining = 0;
-        $demobilisation = 0;
-
-        foreach ($allocatedByDate as $allocation) {
-            $vessel += $allocation['category'] === CrewTimesheetPayCategory::Onsite ? 1 : 0;
-            $preJoining += $allocation['category'] === CrewTimesheetPayCategory::SignOnStandby ? 1 : 0;
-            $demobilisation += $allocation['category'] === CrewTimesheetPayCategory::SignOffStandby ? 1 : 0;
-        }
+        $analysis = CrewPayableDateOwnership::analyze(
+            $phases,
+            $timezone,
+            $today,
+            clampToToday: true,
+            employeeId: $employeeId,
+            companyId: $companyId,
+            assignmentId: $assignmentId,
+        );
 
         return [
-            'recorded' => true,
-            'future_actual_only' => ! $countedADate,
-            'has_future_actual' => $hasFutureActual,
-            'vessel_service_days' => $vessel,
-            'pre_joining_standby_days' => $preJoining,
-            'demobilisation_standby_days' => $demobilisation,
+            'recorded' => $analysis['recorded'],
+            'future_actual_only' => $analysis['future_actual_only'],
+            'has_future_actual' => $analysis['has_future_actual'],
+            'vessel_service_days' => $analysis['vessel_service_days'],
+            'pre_joining_standby_days' => $analysis['sign_on_standby_days'],
+            'demobilisation_standby_days' => $analysis['sign_off_standby_days'],
             // Total Standby is whichever standby buckets are present (missing = 0).
-            'standby_service_days' => $preJoining + $demobilisation,
+            'standby_service_days' => $analysis['standby_service_days'],
         ];
-    }
-
-    private static function localDate(CarbonInterface $value, string $timezone): CarbonImmutable
-    {
-        return CarbonImmutable::parse(
-            $value->copy()->timezone($timezone)->toDateString(),
-            $timezone,
-        )->startOfDay();
     }
 }

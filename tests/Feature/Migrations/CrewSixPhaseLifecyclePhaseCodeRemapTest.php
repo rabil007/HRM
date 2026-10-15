@@ -200,13 +200,14 @@ test('fresh migrated database records six phase remap completion marker', functi
         ->and(Schema::hasTable(CrewSixPhaseLifecyclePhaseCodeRemap::STATE_TABLE))->toBeTrue();
 });
 
-test('scheduled movement payloads remap unambiguous legacy phase codes and leave modern home p4', function () {
+test('scheduled movement payloads remap unambiguous legacy phase codes on unresolved rows only', function () {
     ['user' => $user, 'employee' => $employee] = makeCrewAssignmentFixtures();
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
     $now = now();
     $rows = [
         'demob' => [
             'movement_action' => 'confirm_disembarkation',
+            'status' => 'scheduled',
             'action_payload' => [
                 'next_phase' => 'p5',
                 'accommodation_status' => 'hotel',
@@ -216,6 +217,7 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ],
         'legacy_home' => [
             'movement_action' => 'confirm_disembarkation',
+            'status' => 'needs_attention',
             'action_payload' => [
                 'next_phase' => 'p6',
                 'remarks' => 'direct home',
@@ -223,6 +225,7 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ],
         'modern_home' => [
             'movement_action' => 'confirm_disembarkation',
+            'status' => 'scheduled',
             'action_payload' => [
                 'next_phase' => 'p4',
                 'remarks' => 'already modern home',
@@ -230,6 +233,7 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ],
         'training' => [
             'movement_action' => 'complete_training',
+            'status' => 'processing',
             'action_payload' => [
                 'next_phase' => 'p2a',
                 'course_id' => 4,
@@ -237,6 +241,7 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ],
         'redeploy' => [
             'movement_action' => 'redeploy',
+            'status' => 'scheduled',
             'action_payload' => [
                 'starting_phase' => 'p4',
                 'next_phase' => 'p2a',
@@ -245,9 +250,26 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ],
         'join' => [
             'movement_action' => 'join_vessel',
+            'status' => 'scheduled',
             'action_payload' => [
                 'next_phase' => 'p4',
                 'vessel_id' => 3,
+            ],
+        ],
+        'executed_audit' => [
+            'movement_action' => 'confirm_disembarkation',
+            'status' => 'executed',
+            'action_payload' => [
+                'next_phase' => 'p5',
+                'remarks' => 'historical audit',
+            ],
+        ],
+        'cancelled_audit' => [
+            'movement_action' => 'join_vessel',
+            'status' => 'cancelled',
+            'action_payload' => [
+                'next_phase' => 'p4',
+                'remarks' => 'cancelled legacy join',
             ],
         ],
     ];
@@ -255,15 +277,20 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
     $ids = [];
 
     foreach ($rows as $row) {
+        // One unresolved schedule per assignment (partial unique index on unresolved_assignment_id).
+        $target = in_array($row['status'], ['scheduled', 'processing', 'needs_attention'], true)
+            ? CrewAssignment::factory()->forEmployee($employee)->create()
+            : $assignment;
+
         $ids[] = DB::table('crew_scheduled_movements')->insertGetId([
-            'company_id' => $assignment->company_id,
-            'crew_assignment_id' => $assignment->id,
-            'employee_id' => $assignment->employee_id,
+            'company_id' => $target->company_id,
+            'crew_assignment_id' => $target->id,
+            'employee_id' => $target->employee_id,
             'movement_action' => $row['movement_action'],
             'action_payload' => json_encode($row['action_payload'], JSON_THROW_ON_ERROR),
             'scheduled_at' => $now,
             'scheduled_timezone' => 'UTC',
-            'status' => 'executed',
+            'status' => $row['status'],
             'created_by' => $user->id,
             'execution_attempts' => 0,
             'created_at' => $now,
@@ -302,5 +329,9 @@ test('scheduled movement payloads remap unambiguous legacy phase codes and leave
         ->and($payload($ids[5]))->toMatchArray([
             'next_phase' => 'p2',
             'vessel_id' => 3,
-        ]);
+        ])
+        ->and($payload($ids[6])['next_phase'])->toBe('p5')
+        ->and($payload($ids[6])['remarks'])->toBe('historical audit')
+        ->and($payload($ids[7])['next_phase'])->toBe('p4')
+        ->and($payload($ids[7])['remarks'])->toBe('cancelled legacy join');
 });

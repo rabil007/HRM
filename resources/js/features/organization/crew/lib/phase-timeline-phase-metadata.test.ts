@@ -7,7 +7,7 @@ function phase(overrides: Partial<PhaseTimelineItem> = {}): PhaseTimelineItem {
     return {
         id: 1,
         sequence: 1,
-        phase_code: 'p4',
+        phase_code: 'p2',
         phase_label: 'On Vessel',
         status: 'completed',
         status_label: 'Completed',
@@ -24,10 +24,10 @@ function phase(overrides: Partial<PhaseTimelineItem> = {}): PhaseTimelineItem {
 }
 
 describe('buildPhaseMetadataRows', () => {
-    it('formats P2B course and provider with readable labels', () => {
+    it('formats P1B course and provider with readable labels', () => {
         const rows = buildPhaseMetadataRows(
             phase({
-                phase_code: 'p2b',
+                phase_code: 'p1b',
                 phase_label: 'Training',
                 details: {
                     course_id: 15,
@@ -46,7 +46,7 @@ describe('buildPhaseMetadataRows', () => {
         );
     });
 
-    it('does not expose course_id or raw object values', () => {
+    it('still formats legacy p2b training metadata the same way', () => {
         const rows = buildPhaseMetadataRows(
             phase({
                 phase_code: 'p2b',

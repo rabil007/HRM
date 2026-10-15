@@ -2,12 +2,14 @@ export const CREW_PHASE_CODES = ['p0', 'p1a', 'p1b', 'p2', 'p3', 'p4'] as const;
 
 export type CrewPhaseCode = (typeof CREW_PHASE_CODES)[number];
 
-/** @deprecated Legacy stored codes — display only for historical audit rows if ever surfaced */
+/**
+ * Exclusive retired stored codes — display only for historical audit rows.
+ * Modern p3 (Demobilisation Standby) and p4 (Home / Redeployment) are never legacy.
+ */
 export const LEGACY_CREW_PHASE_CODES = [
     'p1',
     'p2a',
     'p2b',
-    'p3',
     'p5',
     'p6',
 ] as const;
@@ -81,7 +83,7 @@ const CREW_PHASE_COPY = {
         compact: 'Legacy P6',
     },
 } as const satisfies Record<
-    CrewPhaseCode | LegacyCrewPhaseCode | 'p3',
+    CrewPhaseCode | LegacyCrewPhaseCode,
     Omit<CrewPhaseCopy, 'code'>
 >;
 

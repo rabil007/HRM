@@ -15,15 +15,15 @@ describe('crew operational state helpers', () => {
     it('labels the current phase consistently', () => {
         assert.equal(
             currentStateLabel({
-                current_phase: { code: 'p2a', label: 'Join Standby' },
+                current_phase: { code: 'p1a', label: 'Pre-Joining Standby' },
                 status: 'active',
                 status_label: 'Active',
             }),
-            'P2A · Join Standby',
+            'P1A · Pre-Joining Standby',
         );
     });
 
-    it('lists other valid P2A actions without duplicating the recommended action', () => {
+    it('lists other valid P1A actions without duplicating the recommended action', () => {
         assert.deepEqual(
             otherValidMovementActions(
                 ['join_vessel', 'send_to_training'],
@@ -42,7 +42,7 @@ describe('crew operational state helpers', () => {
         );
     });
 
-    it('lists other valid P4 actions when confirm disembarkation is recommended', () => {
+    it('lists other valid P2 actions when confirm disembarkation is recommended', () => {
         const other = otherValidMovementActions(
             ['confirm_disembarkation', 'plan_signoff', 'transfer_vessel'],
             {
@@ -60,7 +60,7 @@ describe('crew operational state helpers', () => {
         assert.deepEqual(other, ['plan_signoff', 'transfer_vessel']);
     });
 
-    it('lists return home and redeploy for P5 recommendations', () => {
+    it('lists return home and redeploy for P3 demob recommendations', () => {
         assert.deepEqual(
             otherValidMovementActions(
                 ['travel_home', 'redeploy'],

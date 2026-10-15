@@ -156,7 +156,7 @@ test('3. Active P1, P2A, P2B, P3 assignments are editable', function (CrewPhaseC
     expect($assignment->fresh()->planned_join_at->toDateString())->toBe('2026-10-10');
 })->with([
     'P1 TravelIn' => CrewPhaseCode::JoinStandby,
-    'P2A JoinStandby' => CrewPhaseCode::JoinStandby,
+    'P1A JoinStandby' => CrewPhaseCode::JoinStandby,
     'P2B Training' => CrewPhaseCode::Training,
     'P3 ReadyToJoin' => CrewPhaseCode::JoinStandby,
 ]);

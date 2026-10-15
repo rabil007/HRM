@@ -78,7 +78,11 @@ export function buildPhaseMetadataRows(
     const rows: PhaseMetadataRow[] = [];
     const usedKeys = new Set<string>();
 
-    if (phase.phase_code === 'p2b') {
+    const trainingPhaseCode =
+        phase.phase_code?.toLowerCase() === 'p1b' ||
+        phase.phase_code?.toLowerCase() === 'p2b';
+
+    if (trainingPhaseCode) {
         const course = readDetailString(details, 'course');
 
         if (course) {

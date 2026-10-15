@@ -27,13 +27,13 @@ final class EmployeeCrewStatusFilter
         return [
             'in_home' => 'In home',
             self::AVAILABLE => 'Available',
-            'pre_mobilisation' => 'Pre-mobilisation',
+            'pre_mobilisation' => 'Pre-arrival',
             'travel_in' => 'Travel in',
-            'join_standby' => 'Join standby',
+            'join_standby' => 'Pre-joining standby',
             'training' => 'Training',
-            'ready_to_join' => 'Ready to join',
+            'ready_to_join' => 'Ready to join (legacy)',
             'on_vessel' => 'On vessel',
-            'demob_standby' => 'Demob standby',
+            'demob_standby' => 'Demobilisation standby',
             'home_redeploy' => 'Home / redeploy',
             'movement_update_required' => 'Needs update',
         ];

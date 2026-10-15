@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewAssignmentOverlapDetector;
 use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use Carbon\Carbon;
 
 final class HistoricalCrewAssignmentValidator
@@ -423,7 +424,9 @@ final class HistoricalCrewAssignmentValidator
 
         $timeline = [];
         if ($reconstruction !== null) {
-            foreach ($reconstruction['phases'] as $phase) {
+            $presentation = CrewPayableDateOwnership::presentPlainPhases($reconstruction['phases'], $timezone);
+
+            foreach ($reconstruction['phases'] as $index => $phase) {
                 $phaseStart = $phase['actual_start_at']->copy()->timezone($timezone);
                 $phaseEnd = $phase['actual_end_at']?->copy()->timezone($timezone);
                 $duration = null;
@@ -434,6 +437,12 @@ final class HistoricalCrewAssignmentValidator
                     $duration = HistoricalCrewAssignmentData::inclusiveDays($phase['actual_start_at'], $phase['actual_end_at']);
                 }
 
+                $presented = $presentation[$index] ?? [
+                    'allocated_service_days' => null,
+                    'service_days_label' => null,
+                    'calendar_span_days' => null,
+                ];
+
                 $timeline[] = [
                     'phase_code' => $phase['phase_code']->value,
                     'phase_label' => $phase['phase_code']->label(),
@@ -442,6 +451,9 @@ final class HistoricalCrewAssignmentValidator
                     'end_display' => $phaseEnd !== null ? $phaseEnd->format('d M Y') : 'Current',
                     'is_open' => $phase['actual_end_at'] === null,
                     'duration_days' => $duration,
+                    'allocated_service_days' => $presented['allocated_service_days'],
+                    'service_days_label' => $presented['service_days_label'],
+                    'calendar_span_days' => $presented['calendar_span_days'],
                 ];
             }
         }
