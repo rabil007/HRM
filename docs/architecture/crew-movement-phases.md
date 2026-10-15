@@ -1505,9 +1505,15 @@ Rank CSV import supports `name,is_active,max_tour_of_duty_days` (blank Tour cell
 
 ## Phase code migration and disposable test data
 
-Migration `2026_10_14_120000_remap_crew_assignment_phase_codes_to_six_phase_lifecycle.php` remaps stored phase codes on `crew_assignment_phases`, related payroll timeline lines, and scheduled movement expectations. **Obsolete Travel In (`p1`) and legacy Ready to Join (`p3`) are not silently converted to Pre-Joining Standby (`p1a`).** If either remains after staging, `migrate` fails with an actionable error. Follow-up migration `2026_10_15_100000_validate_crew_six_phase_codes_after_lifecycle_remap.php` rejects any non-final codes (including staging markers) on those columns.
+Migration `2026_10_14_120100_remap_crew_assignment_phase_codes_to_six_phase_lifecycle.php` remaps stored phase codes on `crew_assignment_phases`, related payroll timeline lines, and scheduled movement expectations via `CrewSixPhaseLifecyclePhaseCodeRemap`.
 
-Environments that already applied an earlier version of the remap that folded obsolete rows into `p1a` cannot distinguish those rows from legitimate `p1a` history automatically; use guarded reset on disposable databases or manual correction when accuracy matters.
+**Retry safety:** Overlapping codes (legacy On Vessel `p4` vs modern Home `p4`; legacy Ready to Join `p3` vs modern Demobilisation `p3`) mean a blind remapper must not run twice. The remapper classifies each dataset as empty, legacy, modern, staging-recoverable, or ambiguous/mixed before mutating. Successful remaps record a durable row in `crew_six_phase_lifecycle_state`. When that marker exists, remapping is a no-op. Ambiguous or partially mixed datasets **fail** instead of guessing. Interrupted staging that only leaves finalizable temps (`TEMP_HOME` / `TEMP_DEMOB`) can finalize without reapplying `p4 → p2`.
+
+**Obsolete phases:** Travel In (`p1`) and Ready to Join (legacy `p3`, when identifiable as legacy) are **not** silently converted to Pre-Joining Standby (`p1a`). Migration aborts with guidance to use guarded `crew:reset` on disposable data.
+
+Follow-up migration `2026_10_15_100000_validate_crew_six_phase_codes_after_lifecycle_remap.php` rejects non-final codes and marks completion for empty/modern databases that already applied an earlier remap revision (Laravel will not re-run edited migrations).
+
+Environments that already applied an earlier version of the remap that folded obsolete rows into `p1a` cannot distinguish those rows from legitimate `p1a` history automatically; that mapping is **lossy** and cannot be reconstructed. Use guarded reset on disposable databases or manual correction when accuracy matters.
 
 **Do not** run `migrate:fresh`, `db:wipe`, or other destructive database resets against a shared or unverified database. Master data (employees, vessels, clients, payroll approvals) must be preserved.
 

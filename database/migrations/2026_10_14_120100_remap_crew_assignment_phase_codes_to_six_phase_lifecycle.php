@@ -7,10 +7,11 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Remap stored crew phase codes to the six-phase lifecycle.
+     * Remap stored crew phase codes to the six-phase lifecycle (idempotent).
      *
-     * Obsolete Travel In (p1) and Ready to Join (legacy p3) are staged then migration
-     * aborts until operators clear them (for example via guarded crew:reset on disposable data).
+     * Classifies legacy vs modern datasets before mutating overlapping codes (p3/p4).
+     * Obsolete Travel In / Ready to Join abort safely. Successful remaps record a
+     * durable completion marker so retries never double-convert.
      */
     public function up(): void
     {
