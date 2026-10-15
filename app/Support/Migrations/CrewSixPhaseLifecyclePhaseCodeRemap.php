@@ -110,6 +110,46 @@ final class CrewSixPhaseLifecyclePhaseCodeRemap
         ]);
     }
 
+    /**
+     * Rewrite unambiguous legacy phase codes stored inside scheduled movement JSON.
+     *
+     * Column remap updates expected_*_phase_code but not action_payload. Pending
+     * confirm disembarkation, complete training, and redeploy schedules would
+     * otherwise fail or drop accommodation when executed under the six-phase codes.
+     * Mapping is action-specific so modern p4 (home) is never treated as legacy onboard.
+     */
+    public function remapScheduledMovementPayloadPhaseCodes(): void
+    {
+        if (! Schema::hasTable('crew_scheduled_movements') || ! Schema::hasColumn('crew_scheduled_movements', 'action_payload')) {
+            return;
+        }
+
+        DB::table('crew_scheduled_movements')
+            ->select(['id', 'movement_action', 'action_payload'])
+            ->orderBy('id')
+            ->chunkById(200, function ($rows): void {
+                foreach ($rows as $row) {
+                    $payload = $this->decodeActionPayload($row->action_payload);
+
+                    if ($payload === null) {
+                        continue;
+                    }
+
+                    $updated = $this->remapPayloadPhaseCodes((string) $row->movement_action, $payload);
+
+                    if ($updated === null) {
+                        continue;
+                    }
+
+                    DB::table('crew_scheduled_movements')
+                        ->where('id', $row->id)
+                        ->update([
+                            'action_payload' => json_encode($updated, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+                        ]);
+                }
+            });
+    }
+
     public function remapAllConfiguredTables(): void
     {
         $this->ensureStateTable();
@@ -411,6 +451,94 @@ final class CrewSixPhaseLifecyclePhaseCodeRemap
     {
         DB::table($table)->where($column, self::TEMP_DEMOB)->update([$column => 'p3']);
         DB::table($table)->where($column, self::TEMP_HOME)->update([$column => 'p4']);
+    }
+
+    /**
+     * Legacy payload codes that cannot be valid for that action after the six-phase lifecycle.
+     *
+     * @var array<string, array<string, array<string, string>>>
+     */
+    private const SCHEDULED_PAYLOAD_PHASE_REMAP = [
+        'confirm_disembarkation' => [
+            'next_phase' => ['p5' => 'p3', 'p6' => 'p4'],
+        ],
+        'start_demob_standby' => [
+            'next_phase' => ['p5' => 'p3'],
+        ],
+        'complete_training' => [
+            'next_phase' => ['p2a' => 'p1a'],
+        ],
+        'record_arrival' => [
+            'next_phase' => ['p2a' => 'p1a'],
+        ],
+        'start_join_standby' => [
+            'next_phase' => ['p2a' => 'p1a'],
+        ],
+        'send_to_training' => [
+            'next_phase' => ['p2b' => 'p1b'],
+        ],
+        'join_vessel' => [
+            'next_phase' => ['p4' => 'p2'],
+        ],
+        'plan_signoff' => [
+            'next_phase' => ['p4' => 'p2'],
+        ],
+        'transfer_vessel' => [
+            'next_phase' => ['p4' => 'p2'],
+        ],
+        'travel_home' => [
+            'next_phase' => ['p6' => 'p4'],
+        ],
+        'redeploy' => [
+            'starting_phase' => ['p2a' => 'p1a', 'p4' => 'p2'],
+            'next_phase' => ['p2a' => 'p1a', 'p4' => 'p2'],
+        ],
+    ];
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function decodeActionPayload(mixed $payload): ?array
+    {
+        if (is_array($payload)) {
+            return $payload;
+        }
+
+        if (! is_string($payload) || $payload === '') {
+            return null;
+        }
+
+        $decoded = json_decode($payload, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>|null
+     */
+    private function remapPayloadPhaseCodes(string $action, array $payload): ?array
+    {
+        $fields = self::SCHEDULED_PAYLOAD_PHASE_REMAP[$action] ?? null;
+
+        if ($fields === null) {
+            return null;
+        }
+
+        $changed = false;
+
+        foreach ($fields as $field => $codes) {
+            $current = $payload[$field] ?? null;
+
+            if (! is_string($current) || ! array_key_exists($current, $codes)) {
+                continue;
+            }
+
+            $payload[$field] = $codes[$current];
+            $changed = true;
+        }
+
+        return $changed ? $payload : null;
     }
 
     private function ambiguousStateException(string $shape, ?string $scope = null): RuntimeException
