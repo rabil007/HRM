@@ -197,3 +197,126 @@ test('invalid or unfinished non-active phases are not counted as service', funct
 
     CarbonImmutable::setTestNow();
 });
+
+test('pre-joining standby gives the vessel join date to onsite and keeps four standby days', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-15 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-05 08:00:00',
+        'actual_end_at' => '2026-10-06 18:00:00',
+    ]);
+
+    $summary = CrewMovementServiceDays::summarize(
+        $assignment->phases()->orderBy('sequence')->get(),
+        'Asia/Dubai',
+        CarbonImmutable::parse('2026-10-15', 'Asia/Dubai'),
+    );
+
+    expect($summary['standby_service_days'])->toBe(4)
+        ->and($summary['vessel_service_days'])->toBe(2);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('demobilisation standby keeps the return-home date and gives disembarkation to the vessel', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-08 08:00:00',
+        'actual_end_at' => '2026-10-10 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-14 12:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-14 12:00:00',
+        'actual_end_at' => '2026-10-14 18:00:00',
+    ]);
+
+    $summary = CrewMovementServiceDays::summarize(
+        $assignment->phases()->orderBy('sequence')->get(),
+        'Asia/Dubai',
+        CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+    );
+
+    expect($summary['vessel_service_days'])->toBe(3)
+        ->and($summary['standby_service_days'])->toBe(4);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('a same-day vessel transfer is one onsite day across linked assignments', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $source = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $sourcePhase = CrewAssignmentPhase::factory()->forAssignment($source)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-10 08:00:00',
+    ]);
+    $destination = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+        'source' => 'vessel_transfer',
+        'previous_assignment_id' => $source->id,
+    ]);
+    $destinationPhase = CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    $phases = CrewAssignmentPhase::query()
+        ->whereIn('id', [$sourcePhase->id, $destinationPhase->id])
+        ->get();
+    $today = CarbonImmutable::parse('2026-10-20', 'Asia/Dubai');
+
+    $sourceSummary = CrewMovementServiceDays::summarize(
+        $phases,
+        'Asia/Dubai',
+        $today,
+        employeeId: (int) $employee->id,
+        companyId: (int) $source->company_id,
+        assignmentId: (int) $source->id,
+    );
+    $destinationSummary = CrewMovementServiceDays::summarize(
+        $phases,
+        'Asia/Dubai',
+        $today,
+        employeeId: (int) $employee->id,
+        companyId: (int) $destination->company_id,
+        assignmentId: (int) $destination->id,
+    );
+
+    expect($sourceSummary['vessel_service_days'] + $destinationSummary['vessel_service_days'])->toBe(20)
+        ->and($sourceSummary['vessel_service_days'])->toBe(10)
+        ->and($destinationSummary['vessel_service_days'])->toBe(10);
+
+    CarbonImmutable::setTestNow();
+});

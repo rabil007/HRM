@@ -187,7 +187,7 @@ final class CrewMovementHistoryQuery
                     ->select('id', 'company_id', 'phase_code')
                     ->where('company_id', $this->companyId),
                 'previousAssignment.phases' => fn ($query) => $query
-                    ->select('id', 'company_id', 'crew_assignment_id', 'phase_code', 'sequence', 'status', 'actual_start_at')
+                    ->select('id', 'company_id', 'crew_assignment_id', 'phase_code', 'sequence', 'status', 'actual_start_at', 'actual_end_at')
                     ->where('company_id', $this->companyId),
                 'nextAssignments' => fn ($query) => $query
                     ->select('id', 'company_id', 'employee_id', 'previous_assignment_id', 'assignment_no', 'source', 'status', 'vessel_id', 'position_id', 'client_id', 'started_at', 'closed_at', 'current_phase_id')
@@ -203,7 +203,7 @@ final class CrewMovementHistoryQuery
                     ->select('id', 'company_id', 'phase_code')
                     ->where('company_id', $this->companyId),
                 'nextAssignments.phases' => fn ($query) => $query
-                    ->select('id', 'company_id', 'crew_assignment_id', 'phase_code', 'sequence', 'status', 'actual_start_at')
+                    ->select('id', 'company_id', 'crew_assignment_id', 'phase_code', 'sequence', 'status', 'actual_start_at', 'actual_end_at')
                     ->where('company_id', $this->companyId),
             ]);
         }

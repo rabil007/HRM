@@ -5,6 +5,7 @@ namespace App\Support\CrewMovements\Historical;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use Carbon\CarbonInterface;
 
 /**
@@ -70,7 +71,10 @@ final class HistoricalPhaseBuilder
      *         to: ?string,
      *         to_display: string,
      *         days: ?int,
-     *         is_open: bool
+     *         is_open: bool,
+     *         allocated_service_days: int|null,
+     *         service_days_label: string|null,
+     *         calendar_span_days: int|null
      *     }>
      * }
      */
@@ -122,11 +126,17 @@ final class HistoricalPhaseBuilder
         [$eventKey, $eventLabel, $eventAt] = self::describeCurrentState($data, $lastPhase);
 
         $knownPeriods = [];
+        $presentation = CrewPayableDateOwnership::presentPlainPhases($phases, $timezone);
 
-        foreach ($periods as $period) {
+        foreach ($periods as $index => $period) {
             $fromLocal = $period['from']->copy()->timezone($timezone);
             $toLocal = $period['to']?->copy()->timezone($timezone);
             $isPeriodOpen = $period['to'] === null;
+            $presented = $presentation[$index] ?? [
+                'allocated_service_days' => null,
+                'service_days_label' => null,
+                'calendar_span_days' => null,
+            ];
 
             $knownPeriods[] = [
                 'key' => $period['key'],
@@ -136,6 +146,9 @@ final class HistoricalPhaseBuilder
                 'to_display' => $isPeriodOpen ? 'Current' : ($toLocal?->format('d M Y') ?? 'Current'),
                 'days' => HistoricalCrewAssignmentData::inclusiveDays($period['from'], $period['to']),
                 'is_open' => $isPeriodOpen,
+                'allocated_service_days' => $presented['allocated_service_days'],
+                'service_days_label' => $presented['service_days_label'],
+                'calendar_span_days' => $presented['calendar_span_days'],
             ];
         }
 
@@ -149,6 +162,9 @@ final class HistoricalPhaseBuilder
                 'to_display' => $homeLocal->format('d M Y'),
                 'days' => null,
                 'is_open' => false,
+                'allocated_service_days' => null,
+                'service_days_label' => null,
+                'calendar_span_days' => 1,
             ];
         }
 

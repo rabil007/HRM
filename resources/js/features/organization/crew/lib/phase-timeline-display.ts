@@ -135,9 +135,24 @@ export function buildPhaseDateLineSummary(
         }
 
         if (showActual && variance.hasConfirmedActualEnd) {
-            durationParts.push(
-                `${formatDayCount(variance.actualDurationDays)} completed`,
-            );
+            const servicePhrase = payableServicePhrase(phase);
+
+            if (servicePhrase) {
+                durationParts.push(servicePhrase);
+
+                if (
+                    variance.actualDurationDays !== null &&
+                    phase.allocated_service_days !== variance.actualDurationDays
+                ) {
+                    durationParts.push(
+                        `Movement span: ${formatDayCount(variance.actualDurationDays)}`,
+                    );
+                }
+            } else {
+                durationParts.push(
+                    `${formatDayCount(variance.actualDurationDays)} completed`,
+                );
+            }
         } else if (showActual && variance.isInProgress) {
             const elapsed = formatElapsedDayPhrase(elapsedDays);
 
@@ -181,6 +196,29 @@ export function buildPhaseDateLineSummary(
         plannedDurationLabel,
         actualDurationLabel,
     };
+}
+
+function payableServicePhrase(phase: PhaseTimelineItem): string | null {
+    if (
+        phase.allocated_service_days === null ||
+        phase.allocated_service_days === undefined
+    ) {
+        return null;
+    }
+
+    const count = formatDayCount(phase.allocated_service_days);
+
+    switch (phase.phase_code) {
+        case 'p1a':
+        case 'p1b':
+            return `Standby service: ${count}`;
+        case 'p3':
+            return `Sign-off standby: ${count}`;
+        case 'p2':
+            return `Vessel service: ${count}`;
+        default:
+            return null;
+    }
 }
 
 /** True when any duration/date phrase still mentions planned overdue/windows. */

@@ -2,10 +2,8 @@
 
 namespace App\Support\Reports;
 
-use App\Enums\CrewPhaseStatus;
 use App\Enums\CrewTimesheetPayCategory;
-use App\Models\CrewAssignmentPhase;
-use App\Support\Payroll\CrewTimeline\CrewPhasePayCategoryResolver;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -13,8 +11,8 @@ use Illuminate\Support\Collection;
 final class CrewMovementHistoryPayrollDays
 {
     /**
-     * Build an assignment-wide preview using the same inclusive calendar-day
-     * categories and collision priority as crew payroll allocation.
+     * Build an assignment-wide preview using the same payable-date ownership
+     * and collision priority as crew payroll allocation.
      *
      * Contract and payroll-period eligibility are intentionally outside this
      * report summary and remain part of payroll processing.
@@ -31,70 +29,22 @@ final class CrewMovementHistoryPayrollDays
         Collection $phases,
         string $timezone,
         ?CarbonInterface $today = null,
+        ?int $employeeId = null,
+        ?int $companyId = null,
+        ?int $assignmentId = null,
     ): array {
-        $today ??= now($timezone);
-        $categoryResolver = new CrewPhasePayCategoryResolver;
-
-        /** @var array<string, array{category: CrewTimesheetPayCategory, priority: int, phase_id: int}> $allocatedByDate */
-        $allocatedByDate = [];
-
-        foreach ($phases as $phase) {
-            if ($phase->actual_start_at === null) {
-                continue;
-            }
-
-            $end = match (true) {
-                $phase->actual_end_at !== null => $phase->actual_end_at,
-                $phase->status === CrewPhaseStatus::Active => $today,
-                default => null,
-            };
-
-            if ($end === null || $end->lt($phase->actual_start_at)) {
-                continue;
-            }
-
-            $from = self::localDate($phase->actual_start_at, $timezone);
-            $to = self::localDate($end, $timezone);
-            $category = $categoryResolver->resolve($phase->phase_code);
-            $claim = [
-                'category' => $category,
-                'priority' => $categoryResolver->priority($category),
-                'phase_id' => (int) $phase->id,
-            ];
-
-            for ($date = $from; $date->lte($to); $date = $date->addDay()) {
-                $dateKey = $date->toDateString();
-                $existing = $allocatedByDate[$dateKey] ?? null;
-
-                if (
-                    $existing === null
-                    || $claim['priority'] > $existing['priority']
-                    || (
-                        $claim['priority'] === $existing['priority']
-                        && $claim['phase_id'] < $existing['phase_id']
-                    )
-                ) {
-                    $allocatedByDate[$dateKey] = $claim;
-                }
-            }
-        }
+        $analysis = CrewPayableDateOwnership::analyze(
+            $phases,
+            $timezone,
+            $today,
+            clampToToday: false,
+            employeeId: $employeeId,
+            companyId: $companyId,
+            assignmentId: $assignmentId,
+        );
 
         /** @var array<string, list<string>> $datesByCategory */
-        $datesByCategory = [
-            CrewTimesheetPayCategory::SignOnStandby->value => [],
-            CrewTimesheetPayCategory::Onsite->value => [],
-            CrewTimesheetPayCategory::SignOffStandby->value => [],
-        ];
-
-        ksort($allocatedByDate);
-
-        foreach ($allocatedByDate as $date => $allocation) {
-            $category = $allocation['category']->value;
-
-            if (array_key_exists($category, $datesByCategory)) {
-                $datesByCategory[$category][] = $date;
-            }
-        }
+        $datesByCategory = $analysis['dates_by_category'];
 
         $signOnStandby = self::categorySummary(
             $datesByCategory[CrewTimesheetPayCategory::SignOnStandby->value],
@@ -117,14 +67,6 @@ final class CrewMovementHistoryPayrollDays
                 + $onsite['total_days']
                 + $signOffStandby['total_days'],
         ];
-    }
-
-    private static function localDate(CarbonInterface $value, string $timezone): CarbonImmutable
-    {
-        return CarbonImmutable::parse(
-            $value->copy()->timezone($timezone)->toDateString(),
-            $timezone,
-        )->startOfDay();
     }
 
     /**

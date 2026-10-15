@@ -362,7 +362,7 @@ export function CrewEmployeeOperationalStatus({
         );
     }
 
-    // Other active phases: P0 Pre-Arrival, P1B Training, P4 Home/Redeploy (plus legacy travel_in / ready_to_join status codes)
+    // Other active phases: P0 Pre-Arrival, P1B Training, P4 Home / Redeployment (plus legacy travel_in / ready_to_join status codes)
     const phaseIcons: Record<string, typeof Plane> = {
         travel_in: Plane,
         training: GraduationCap,

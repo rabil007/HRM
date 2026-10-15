@@ -1327,7 +1327,7 @@ The Crew Assignment show page presents a single **Phase Timeline** as the operat
 
 Display conventions:
 
-- Each recorded phase shows planned start/end, actual start/end, planned duration, and either confirmed completed duration or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Active phases never treat “today” as a confirmed actual end.
+- Each recorded phase shows planned start/end, actual start/end, planned duration, and either the movement span or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Payable P1A, P1B, P2, and P3 phases also show allocated service days. A completed pre-joining window of 1–5 October can show **Standby service: 4 days** and **Movement span: 5 days** when 5 October belongs to On Vessel. Active phases never treat “today” as a confirmed actual end. Elapsed days in the current phase stay separate from allocated service totals.
 - Missing dates use “Not recorded”, “Not started”, or “In progress” as appropriate. Variance is omitted when planned/actual data is insufficient.
 - Graphical planned/actual date-range bars are not used; presentation is date-and-duration text along a subtle vertical timeline.
 

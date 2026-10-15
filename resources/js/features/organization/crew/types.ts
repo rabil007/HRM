@@ -285,6 +285,8 @@ export interface PhaseTimelineItem {
     planned_end_at: string | null;
     actual_start_at: string | null;
     actual_end_at: string | null;
+    /** Payable dates this phase owns. Null when no confirmed actual window exists. */
+    allocated_service_days?: number | null;
     details: Record<string, unknown> | null;
     remarks: string | null;
     has_pending_correction: boolean;
@@ -868,6 +870,9 @@ export interface HistoricalPreviewTimelineItem {
     end_display?: string | null;
     is_open?: boolean;
     duration_days: number | null;
+    allocated_service_days?: number | null;
+    service_days_label?: string | null;
+    calendar_span_days?: number | null;
 }
 
 export interface HistoricalInferredState {
@@ -942,6 +947,9 @@ export interface HistoricalCrewAssignmentPreviewData {
             to_display: string;
             days: number | null;
             is_open: boolean;
+            allocated_service_days?: number | null;
+            service_days_label?: string | null;
+            calendar_span_days?: number | null;
         }>;
         accommodation?: Array<{
             label: string;
@@ -1061,6 +1069,9 @@ export interface HistoricalImportPreviewRow {
             to_display: string;
             days: number | null;
             is_open: boolean;
+            allocated_service_days?: number | null;
+            service_days_label?: string | null;
+            calendar_span_days?: number | null;
         }>;
         accommodation?: Array<{
             label: string;

@@ -126,13 +126,12 @@ final class CrewTimelineDayAllocator
 
         foreach ($claimsByDay as $claims) {
             usort($claims, function (array $left, array $right): int {
-                $priority = $right['priority'] <=> $left['priority'];
-
-                if ($priority !== 0) {
-                    return $priority;
-                }
-
-                return $left['crew_assignment_phase_id'] <=> $right['crew_assignment_phase_id'];
+                return CrewPayableDateOwnership::compare(
+                    $left['priority'],
+                    $left['crew_assignment_phase_id'],
+                    $right['priority'],
+                    $right['crew_assignment_phase_id'],
+                );
             });
 
             $winner = $claims[0];

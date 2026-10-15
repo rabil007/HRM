@@ -11,9 +11,11 @@ use App\Models\User;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use App\Support\Positions\CrewPositionCatalog;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 class CrewAssignmentPresenter
 {
@@ -136,8 +138,10 @@ class CrewAssignmentPresenter
         $canOverrideCorrections = $user?->can('crew_operations.corrections.override') ?? false;
         $canSeePending = $canViewCorrections || $canRequestCorrections || $canOverrideCorrections;
 
+        $allocatedServiceDays = self::allocatedServiceDays($assignment, $timezone);
+
         $phaseTimeline = $assignment->phases
-            ->map(function ($phase) use ($canViewCorrections, $canSeePending, $user) {
+            ->map(function ($phase) use ($canViewCorrections, $canSeePending, $user, $allocatedServiceDays) {
                 $hasPending = $canSeePending
                     && $phase->relationLoaded('pendingCorrections')
                     ? $phase->pendingCorrections->isNotEmpty()
@@ -167,6 +171,7 @@ class CrewAssignmentPresenter
                     'planned_end_at' => $phase->planned_end_at?->toDateString(),
                     'actual_start_at' => $phase->actual_start_at?->toDateString(),
                     'actual_end_at' => $phase->actual_end_at?->toDateString(),
+                    'allocated_service_days' => $allocatedServiceDays[(int) $phase->id] ?? null,
                     'details' => $phase->details,
                     'remarks' => $phase->remarks,
                     'has_pending_correction' => $hasPending,
@@ -502,6 +507,92 @@ class CrewAssignmentPresenter
             ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === $code)
             ->sortByDesc(fn (CrewAssignmentPhase $phase): int => (int) $phase->sequence)
             ->first();
+    }
+
+    /**
+     * Allocated payable days for this assignment, using linked assignment phases
+     * so a shared transfer or redeployment date is owned once.
+     *
+     * @return array<int, int|null>
+     */
+    private static function allocatedServiceDays(CrewAssignment $assignment, string $timezone): array
+    {
+        $companyId = (int) $assignment->company_id;
+        $employeeId = (int) $assignment->employee_id;
+        $analysis = CrewPayableDateOwnership::analyze(
+            $assignment->phases->concat(self::siblingPhases($assignment)),
+            $timezone,
+            now($timezone),
+            clampToToday: true,
+            employeeId: $employeeId,
+            companyId: $companyId,
+            assignmentId: (int) $assignment->id,
+        );
+
+        $days = [];
+
+        foreach ($assignment->phases as $phase) {
+            $phaseId = (int) $phase->id;
+
+            if ($phase->actual_start_at === null) {
+                $days[$phaseId] = null;
+
+                continue;
+            }
+
+            if (isset($analysis['future_only_phase_ids'][$phaseId])) {
+                $days[$phaseId] = 0;
+
+                continue;
+            }
+
+            if (isset($analysis['countable_phase_ids'][$phaseId]) || isset($analysis['allocated_days_by_phase'][$phaseId])) {
+                $days[$phaseId] = $analysis['allocated_days_by_phase'][$phaseId] ?? 0;
+
+                continue;
+            }
+
+            $days[$phaseId] = null;
+        }
+
+        return $days;
+    }
+
+    /**
+     * @return Collection<int, CrewAssignmentPhase>
+     */
+    private static function siblingPhases(CrewAssignment $assignment): Collection
+    {
+        $companyId = (int) $assignment->company_id;
+        $employeeId = (int) $assignment->employee_id;
+
+        if ($employeeId < 1 || $assignment->id === null) {
+            return collect();
+        }
+
+        return CrewAssignmentPhase::query()
+            ->select([
+                'id',
+                'company_id',
+                'crew_assignment_id',
+                'phase_code',
+                'status',
+                'actual_start_at',
+                'actual_end_at',
+            ])
+            ->where('company_id', $companyId)
+            ->where('crew_assignment_id', '!=', $assignment->id)
+            ->whereIn('crew_assignment_id', function ($query) use ($assignment, $companyId, $employeeId): void {
+                $query->select('id')
+                    ->from('crew_assignments')
+                    ->where('company_id', $companyId)
+                    ->where('employee_id', $employeeId)
+                    ->where(function ($linked) use ($assignment): void {
+                        $linked->where('id', $assignment->previous_assignment_id)
+                            ->orWhere('previous_assignment_id', $assignment->id);
+                    });
+            })
+            ->get();
     }
 
     private static function wholeDaysSince(?CarbonInterface $start, string $timezone): ?int

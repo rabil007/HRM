@@ -13,6 +13,7 @@ use App\Support\CrewMovements\CrewArrivalResolver;
 use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourProgress;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use App\Support\Positions\CrewAssignmentPositionPresenter;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -32,12 +33,29 @@ final class CrewMovementHistoryPresenter
             ->filter(fn (CrewAssignmentPhase $phase): bool => ! isset($phase->company_id) || (int) $phase->company_id === $companyId)
             ->sortBy('sequence')
             ->values();
+        $allocationPhases = self::allocationPhases($assignment, $phases, $companyId, $employeeId);
+        $operational = CrewPayableDateOwnership::analyze(
+            $allocationPhases,
+            $timezone,
+            $today,
+            clampToToday: true,
+            employeeId: $employeeId,
+            companyId: $companyId,
+            assignmentId: (int) $assignment->id,
+        );
         $tour = (new CrewTourProgress)->forAssignment($assignment, null, $timezone);
         $warnings = CrewMovementAttentionQuery::forAssignment($assignment, $tour);
         $summaries = [];
 
         foreach (CrewPhaseCode::cases() as $phaseCode) {
-            $summaries[$phaseCode->value] = self::phaseSummary($phases, $phaseCode, $timezone, $today);
+            $summaries[$phaseCode->value] = self::phaseSummary(
+                $phases,
+                $phaseCode,
+                $timezone,
+                $today,
+                $operational['allocated_days_by_phase'],
+                $operational['future_only_phase_ids'],
+            );
         }
 
         $assignmentEnd = $assignment->closed_at;
@@ -53,7 +71,13 @@ final class CrewMovementHistoryPresenter
 
         $onVessel = $summaries[CrewPhaseCode::OnVessel->value];
         $training = $summaries[CrewPhaseCode::Training->value];
-        $serviceDays = CrewMovementServiceDays::summarize($phases, $timezone, $today);
+        $serviceDays = [
+            'recorded' => $operational['recorded'],
+            'future_actual_only' => $operational['future_actual_only'],
+            'has_future_actual' => $operational['has_future_actual'],
+            'vessel_service_days' => $operational['vessel_service_days'],
+            'standby_service_days' => $operational['standby_service_days'],
+        ];
 
         if ($serviceDays['has_future_actual'] || $serviceDays['future_actual_only']) {
             $warnings[] = [
@@ -68,9 +92,12 @@ final class CrewMovementHistoryPresenter
         }
 
         $payrollDays = CrewMovementHistoryPayrollDays::summarize(
-            $phases,
+            $allocationPhases,
             $timezone,
             $today,
+            $employeeId,
+            $companyId,
+            (int) $assignment->id,
         );
         $approvedCorrections = $assignment->relationLoaded('corrections')
             ? $assignment->corrections
@@ -97,7 +124,13 @@ final class CrewMovementHistoryPresenter
         $readyToJoin = self::emptyPhaseFlatten();
         $homeRedeploy = self::flatten($summaries[CrewPhaseCode::HomeRedeploy->value]);
         $trainingHistory = self::trainingHistory($phases, $timezone, $companyId);
-        $phaseTimeline = self::phaseTimeline($phases, $timezone, $today);
+        $phaseTimeline = self::phaseTimeline(
+            $phases,
+            $timezone,
+            $today,
+            $operational['allocated_days_by_phase'],
+            $operational['future_only_phase_ids'],
+        );
         $modernTimeline = $phaseTimeline;
         $legacyTimeline = [];
         $accommodation = self::accommodationHistory($assignment, $timezone);
@@ -268,23 +301,34 @@ final class CrewMovementHistoryPresenter
     }
 
     /**
+     * Allocated payable-category days for one phase code. `calendar_span_days`
+     * keeps the inclusive movement window, which can be longer when a handoff
+     * date belongs to a higher-priority phase.
+     *
      * @param  Collection<int, CrewAssignmentPhase>  $phases
-     * @return array{periods: list<array<string, mixed>>, total_days: int|null, total_days_label: string}
+     * @param  array<int, int>  $allocatedDaysByPhase
+     * @param  array<int, true>  $futureOnlyPhaseIds
+     * @return array{periods: list<array<string, mixed>>, total_days: int|null, total_days_label: string, calendar_span_days: int|null}
      */
     public static function phaseSummary(
         Collection $phases,
         CrewPhaseCode $code,
         string $timezone,
         ?CarbonInterface $today = null,
+        array $allocatedDaysByPhase = [],
+        array $futureOnlyPhaseIds = [],
     ): array {
         $today ??= now($timezone);
         $coveredDates = [];
         $hasDuration = false;
+        $hasAllocatedWindow = false;
+        $futureOnly = false;
+        $allocatedTotal = 0;
 
         $periods = $phases
             ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === $code)
             ->sortBy('sequence')
-            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, &$coveredDates, &$hasDuration): array {
+            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, $allocatedDaysByPhase, $futureOnlyPhaseIds, &$coveredDates, &$hasDuration, &$hasAllocatedWindow, &$futureOnly, &$allocatedTotal): array {
                 $durationEnd = match ($phase->status) {
                     CrewPhaseStatus::Completed => $phase->actual_end_at,
                     CrewPhaseStatus::Active => $today,
@@ -296,7 +340,11 @@ final class CrewMovementHistoryPresenter
                     $timezone,
                     $today,
                 );
-                $days = $dates === null ? null : count($dates);
+                $calendarSpanDays = $dates === null ? null : count($dates);
+                $phaseIsFutureOnly = isset($futureOnlyPhaseIds[(int) $phase->id]);
+                $allocatedDays = $phaseIsFutureOnly
+                    ? 0
+                    : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0));
 
                 if ($dates !== null) {
                     $hasDuration = true;
@@ -304,6 +352,15 @@ final class CrewMovementHistoryPresenter
                     foreach ($dates as $date) {
                         $coveredDates[$date] = true;
                     }
+                }
+
+                if ($phaseIsFutureOnly) {
+                    $futureOnly = true;
+                }
+
+                if (is_int($allocatedDays) && ! $phaseIsFutureOnly) {
+                    $hasAllocatedWindow = true;
+                    $allocatedTotal += $allocatedDays;
                 }
 
                 return [
@@ -315,24 +372,35 @@ final class CrewMovementHistoryPresenter
                     'planned_start_at' => self::dateTime($phase->planned_start_at, $timezone),
                     'planned_end_at' => self::dateTime($phase->planned_end_at, $timezone),
                     'status' => $phase->status->value,
-                    'days' => $days,
-                    'days_label' => $days === 0
+                    'days' => $phaseIsFutureOnly ? 0 : $allocatedDays,
+                    'days_label' => $phaseIsFutureOnly || $allocatedDays === 0 && $calendarSpanDays === 0
                         ? CrewMovementHistoryDuration::futureActualLabel()
-                        : CrewMovementHistoryDuration::serviceDayLabel($days),
+                        : CrewMovementHistoryDuration::serviceDayLabel($phaseIsFutureOnly ? 0 : $allocatedDays),
+                    'calendar_span_days' => $calendarSpanDays,
+                    'calendar_span_days_label' => $calendarSpanDays === 0
+                        ? CrewMovementHistoryDuration::futureActualLabel()
+                        : ($calendarSpanDays === null
+                            ? null
+                            : 'Movement span: '.CrewMovementHistoryDuration::serviceDayLabel($calendarSpanDays)),
                     'remarks' => $phase->remarks,
                 ];
             })
             ->values()
             ->all();
 
-        $totalDays = count($coveredDates);
+        $calendarSpanTotal = count($coveredDates);
+        $totalDays = $hasAllocatedWindow ? $allocatedTotal : ($hasDuration ? 0 : null);
+        $totalLabel = match (true) {
+            $totalDays === null => CrewMovementHistoryDuration::serviceDayLabel(null),
+            $futureOnly && ! $hasAllocatedWindow => CrewMovementHistoryDuration::futureActualLabel(),
+            default => CrewMovementHistoryDuration::serviceDayLabel($totalDays),
+        };
 
         return [
             'periods' => $periods,
             'total_days' => $hasDuration ? $totalDays : null,
-            'total_days_label' => $hasDuration && $totalDays === 0
-                ? CrewMovementHistoryDuration::futureActualLabel()
-                : CrewMovementHistoryDuration::serviceDayLabel($hasDuration ? $totalDays : null),
+            'total_days_label' => $hasDuration ? $totalLabel : CrewMovementHistoryDuration::serviceDayLabel(null),
+            'calendar_span_days' => $hasDuration ? $calendarSpanTotal : null,
         ];
     }
 
@@ -428,19 +496,23 @@ final class CrewMovementHistoryPresenter
 
     /**
      * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @param  array<int, int>  $allocatedDaysByPhase
+     * @param  array<int, true>  $futureOnlyPhaseIds
      * @return list<array<string, mixed>>
      */
     private static function phaseTimeline(
         Collection $phases,
         string $timezone,
         CarbonInterface $today,
+        array $allocatedDaysByPhase = [],
+        array $futureOnlyPhaseIds = [],
     ): array {
         $occurrenceByCode = [];
 
         return $phases
             ->sortBy('sequence')
             ->values()
-            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, &$occurrenceByCode): array {
+            ->map(function (CrewAssignmentPhase $phase) use ($timezone, $today, $allocatedDaysByPhase, $futureOnlyPhaseIds, &$occurrenceByCode): array {
                 $code = $phase->phase_code->value;
                 $occurrenceByCode[$code] = ($occurrenceByCode[$code] ?? 0) + 1;
                 $occurrence = $occurrenceByCode[$code];
@@ -450,12 +522,16 @@ final class CrewMovementHistoryPresenter
                     CrewPhaseStatus::Active => $today,
                     default => null,
                 };
-                $days = CrewMovementHistoryDuration::inclusiveCalendarDays(
+                $calendarSpanDays = CrewMovementHistoryDuration::inclusiveCalendarDays(
                     $phase->actual_start_at,
                     $durationEnd,
                     $timezone,
                     $today,
                 );
+                $phaseIsFutureOnly = isset($futureOnlyPhaseIds[(int) $phase->id]);
+                $days = $phaseIsFutureOnly
+                    ? 0
+                    : ($allocatedDaysByPhase[(int) $phase->id] ?? ($calendarSpanDays === null ? null : 0));
 
                 return [
                     'id' => $phase->id,
@@ -469,15 +545,59 @@ final class CrewMovementHistoryPresenter
                     'actual_start_at' => self::dateTime($phase->actual_start_at, $timezone),
                     'actual_end_at' => self::dateTime($phase->actual_end_at, $timezone),
                     'days' => $days,
-                    'days_label' => $days === 0
+                    'days_label' => $phaseIsFutureOnly || ($days === 0 && $calendarSpanDays === 0)
                         ? CrewMovementHistoryDuration::futureActualLabel()
                         : CrewMovementHistoryDuration::serviceDayLabel($days),
+                    'calendar_span_days' => $calendarSpanDays,
                     'remarks' => $phase->remarks,
                     'details' => is_array($phase->details) ? $phase->details : null,
                     'is_legacy' => false,
                 ];
             })
             ->all();
+    }
+
+    /**
+     * Phases that can claim the same employee/date: this assignment plus linked
+     * previous/next assignments when those phase dates are already loaded.
+     *
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @return Collection<int, CrewAssignmentPhase>
+     */
+    private static function allocationPhases(
+        CrewAssignment $assignment,
+        Collection $phases,
+        int $companyId,
+        int $employeeId,
+    ): Collection {
+        $linked = collect();
+
+        $append = function (?CrewAssignment $candidate) use (&$linked, $companyId, $employeeId): void {
+            if (
+                $candidate === null
+                || (int) $candidate->company_id !== $companyId
+                || (int) $candidate->employee_id !== $employeeId
+                || ! $candidate->relationLoaded('phases')
+            ) {
+                return;
+            }
+
+            $linked = $linked->merge($candidate->phases->filter(
+                fn (CrewAssignmentPhase $phase): bool => ! isset($phase->company_id) || (int) $phase->company_id === $companyId,
+            ));
+        };
+
+        if ($assignment->relationLoaded('previousAssignment')) {
+            $append($assignment->previousAssignment);
+        }
+
+        if ($assignment->relationLoaded('nextAssignments')) {
+            foreach ($assignment->nextAssignments as $next) {
+                $append($next);
+            }
+        }
+
+        return $phases->merge($linked)->unique('id')->values();
     }
 
     /**

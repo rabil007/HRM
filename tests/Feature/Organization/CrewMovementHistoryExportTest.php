@@ -573,7 +573,7 @@ test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to
         ->and($csvRow3['Return Home Date'])->toBe('22 Aug 2026');
 });
 
-test('web summary and excel csv exports share inclusive vessel and standby service days', function () {
+test('web summary and excel csv exports share allocated vessel and standby service days', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
     ['user' => $user, 'company' => $company, 'employee' => $employee] = makeCrewMovementHistoryExportFixture();
 
@@ -615,7 +615,15 @@ test('web summary and excel csv exports share inclusive vessel and standby servi
         ->and($csvRow['Vessel Service Days'])->toBe('4 days')
         ->and($csvRow['Standby Service Days'])->toBe('8 days')
         ->and($detailRow['Vessel Service Days'])->toBe('4 days')
-        ->and($detailRow['On Vessel Days'])->toBe(4);
+        ->and($detailRow['On Vessel Days'])->toBe(4)
+        ->and($detailRow['Join Standby Days'])->toBe(2)
+        ->and($detailRow['Demob Standby Days'])->toBe(6)
+        ->and($detailRow['Sign-On Standby Days'])->toBe(2)
+        ->and($detailRow['Sign-Off Standby Days'])->toBe(6)
+        ->and($presenter['join_standby']['total_days'])->toBe(2)
+        ->and($presenter['join_standby']['calendar_span_days'])->toBe(3)
+        ->and($presenter['demob_standby']['total_days'])->toBe(6)
+        ->and($presenter['demob_standby']['calendar_span_days'])->toBe(7);
 
     CarbonImmutable::setTestNow();
 });
