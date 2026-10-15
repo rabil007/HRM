@@ -22,6 +22,11 @@ import {
     formatScheduledMovementExplanation,
     isSchedulableMovementAction,
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
+import {
+    confirmDisembarkationOmitsAccommodation,
+    redeployCapturesDestinationAccommodation,
+    resolveInitialMovementNextPhase,
+} from '@/features/organization/crew/lib/movement-action-phase';
 import { mapMovementErrorMessage } from '@/features/organization/crew/lib/movement-error-message';
 import { buildMovementImpactPreview } from '@/features/organization/crew/lib/movement-impact-preview';
 import {
@@ -96,7 +101,7 @@ function resolveInitialSignoffChoice(
         );
     }
 
-    // Redeploy opens on P0 — Tour fields are excluded until starting_phase = p4.
+    // Redeploy opens on P0 — Tour fields are excluded until starting_phase = p2.
     return 'manual_override';
 }
 
@@ -123,17 +128,10 @@ function buildInitialForm(
     formOptions?: CrewAssignmentFormOptions,
     prefill?: VesselTransferPrefill | null,
 ): CrewMovementActionFormData {
-    const config = getMovementActionConfig(action, context.current_phase_code);
-    const nextPhase =
-        action === 'record_arrival' && context.current_phase_code === 'p0'
-            ? 'p2a'
-            : action === 'record_arrival' && context.current_phase_code === 'p1'
-              ? 'p2a'
-              : action === 'complete_training'
-                ? 'p2a'
-                : (config.nextPhaseOptions?.[0]?.value ??
-                  config.fixedNextPhase ??
-                  '');
+    const nextPhase = resolveInitialMovementNextPhase(
+        action,
+        context.current_phase_code,
+    );
 
     const companyTz = context.company_timezone;
     const initialOccurredAt = nowInCompanyTime(companyTz);
@@ -454,7 +452,9 @@ export function MovementActionDialog({
             }
 
             if (action === 'confirm_disembarkation') {
-                if (payload.next_phase === 'p6') {
+                if (
+                    confirmDisembarkationOmitsAccommodation(payload.next_phase)
+                ) {
                     delete (payload as { accommodation_status?: string })
                         .accommodation_status;
                     delete (payload as { hotel_id?: number | null }).hotel_id;
@@ -524,7 +524,11 @@ export function MovementActionDialog({
                         .source_check_out_date;
                 }
 
-                if (payload.starting_phase === 'p2a') {
+                if (
+                    redeployCapturesDestinationAccommodation(
+                        payload.starting_phase,
+                    )
+                ) {
                     if (payload.no_hotel_accommodation) {
                         payload.accommodation_status = 'no_accommodation';
                         payload.hotel_id = null;

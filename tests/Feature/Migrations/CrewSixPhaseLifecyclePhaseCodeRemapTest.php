@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CrewAssignment;
 use App\Support\Migrations\CrewSixPhaseLifecyclePhaseCodeRemap;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -197,4 +198,109 @@ test('fresh migrated database records six phase remap completion marker', functi
 
     expect($remapper->isComplete())->toBeTrue()
         ->and(Schema::hasTable(CrewSixPhaseLifecyclePhaseCodeRemap::STATE_TABLE))->toBeTrue();
+});
+
+test('scheduled movement payloads remap unambiguous legacy phase codes and leave modern home p4', function () {
+    ['user' => $user, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
+    $now = now();
+    $rows = [
+        'demob' => [
+            'movement_action' => 'confirm_disembarkation',
+            'action_payload' => [
+                'next_phase' => 'p5',
+                'accommodation_status' => 'hotel',
+                'hotel_id' => 9,
+                'remarks' => 'keep demob hotel',
+            ],
+        ],
+        'legacy_home' => [
+            'movement_action' => 'confirm_disembarkation',
+            'action_payload' => [
+                'next_phase' => 'p6',
+                'remarks' => 'direct home',
+            ],
+        ],
+        'modern_home' => [
+            'movement_action' => 'confirm_disembarkation',
+            'action_payload' => [
+                'next_phase' => 'p4',
+                'remarks' => 'already modern home',
+            ],
+        ],
+        'training' => [
+            'movement_action' => 'complete_training',
+            'action_payload' => [
+                'next_phase' => 'p2a',
+                'course_id' => 4,
+            ],
+        ],
+        'redeploy' => [
+            'movement_action' => 'redeploy',
+            'action_payload' => [
+                'starting_phase' => 'p4',
+                'next_phase' => 'p2a',
+                'vessel_id' => 12,
+            ],
+        ],
+        'join' => [
+            'movement_action' => 'join_vessel',
+            'action_payload' => [
+                'next_phase' => 'p4',
+                'vessel_id' => 3,
+            ],
+        ],
+    ];
+
+    $ids = [];
+
+    foreach ($rows as $row) {
+        $ids[] = DB::table('crew_scheduled_movements')->insertGetId([
+            'company_id' => $assignment->company_id,
+            'crew_assignment_id' => $assignment->id,
+            'employee_id' => $assignment->employee_id,
+            'movement_action' => $row['movement_action'],
+            'action_payload' => json_encode($row['action_payload'], JSON_THROW_ON_ERROR),
+            'scheduled_at' => $now,
+            'scheduled_timezone' => 'UTC',
+            'status' => 'executed',
+            'created_by' => $user->id,
+            'execution_attempts' => 0,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
+    $remapper = new CrewSixPhaseLifecyclePhaseCodeRemap;
+    $remapper->remapScheduledMovementPayloadPhaseCodes();
+    $remapper->remapScheduledMovementPayloadPhaseCodes();
+
+    $payload = function (int $id): array {
+        $raw = DB::table('crew_scheduled_movements')->where('id', $id)->value('action_payload');
+
+        return is_string($raw) ? json_decode($raw, true) : (array) $raw;
+    };
+
+    expect($payload($ids[0]))->toMatchArray([
+        'next_phase' => 'p3',
+        'accommodation_status' => 'hotel',
+        'hotel_id' => 9,
+        'remarks' => 'keep demob hotel',
+    ])
+        ->and($payload($ids[1])['next_phase'])->toBe('p4')
+        ->and($payload($ids[2])['next_phase'])->toBe('p4')
+        ->and($payload($ids[2])['remarks'])->toBe('already modern home')
+        ->and($payload($ids[3]))->toMatchArray([
+            'next_phase' => 'p1a',
+            'course_id' => 4,
+        ])
+        ->and($payload($ids[4]))->toMatchArray([
+            'starting_phase' => 'p2',
+            'next_phase' => 'p1a',
+            'vessel_id' => 12,
+        ])
+        ->and($payload($ids[5]))->toMatchArray([
+            'next_phase' => 'p2',
+            'vessel_id' => 3,
+        ]);
 });
