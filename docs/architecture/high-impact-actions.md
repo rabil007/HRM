@@ -40,7 +40,7 @@ Crew movement actions configure impact copy in `movement-action-config.ts` and r
 | --- | --- |
 | Full / high | Transfer Vessel, Redeploy, Confirm Disembarkation, Travel Home, Close Assignment |
 | Full / destructive | Cancel Assignment |
-| Light / normal | Start Assignment, Record Arrival, Send to Training, Complete Training, Mark Ready, Join Vessel, Start Join Standby, Start Demobilisation Standby |
+| Light / normal | Start Assignment, Record Arrival, Send to Training, Complete Training, Mark Ready, Join Vessel, Start Pre-Joining Standby, Start Demobilisation Standby |
 | None | Plan Sign-Off (forecast only) |
 
 Corrections and void use the same shared component in their existing dialogs.

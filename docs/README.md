@@ -48,7 +48,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Leave requests / approvals / policies | [architecture/context-map.md](./architecture/context-map.md), then current Leave implementation and permission names |
 | Payroll | [payroll.md](./payroll.md) |
 | Crew Payroll / Crew Timesheet preparation | [payroll.md](./payroll.md) and [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) |
-| Crew Operations / Crew Assignments / P0-P6 / planning / vessel manning / movements | [architecture/crew-movement-phases.md](./architecture/crew-movement-phases.md) |
+| Crew Operations / Crew Assignments / P0–P4 six-phase lifecycle / planning / vessel manning / movements | [architecture/crew-movement-phases.md](./architecture/crew-movement-phases.md) |
 | Crew movement corrections | [architecture/crew-movement-corrections.md](./architecture/crew-movement-corrections.md) |
 | Crew scheduled movements (automatic execution) | [architecture/crew-scheduled-movements.md](./architecture/crew-scheduled-movements.md) · [runbooks/crew-scheduled-movements.md](./runbooks/crew-scheduled-movements.md) |
 | Crew operational alerts | [crew-operational-alerts-email.md](./crew-operational-alerts-email.md) or [crew-operational-alerts-web-push.md](./crew-operational-alerts-web-push.md) |

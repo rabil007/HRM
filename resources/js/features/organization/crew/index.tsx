@@ -413,7 +413,7 @@ export function CurrentCrewContent({
                     emptyDescription={
                         hasActiveQuery
                             ? 'Try clearing search or filters to widen the board.'
-                            : 'Crew On-Site shows vessels with current active P4 onboard crew.'
+                            : 'Crew On-Site shows vessels with current active P2 onboard crew.'
                     }
                     emptyAction={
                         hasActiveQuery ? (

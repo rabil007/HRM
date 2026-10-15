@@ -25,7 +25,7 @@ final class HistoricalPhaseBuilder
 
     public const EVENT_HOME = 'home_available';
 
-    /** @deprecated Legacy event key retained for reading older reconstructed history. */
+    /** @deprecated Legacy event key retained for reading older reconstructed history; not a modern UI label. */
     public const EVENT_PRE_MOBILISATION = 'pre_mobilisation';
 
     /** @deprecated Legacy event key retained for reading older reconstructed history. */
@@ -262,8 +262,8 @@ final class HistoricalPhaseBuilder
     /**
      * Derive Last Movement vs Inferred State from persisted phases.
      *
-     * Training End that opens P2A must report Last Movement = Training End,
-     * while Inferred State remains Join Standby.
+     * Training End that opens P1A must report Last Movement = Training End,
+     * while Inferred State remains Pre-Joining Standby.
      *
      * @param  iterable<object|array{
      *     phase_code: CrewPhaseCode|string|null,

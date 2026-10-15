@@ -564,11 +564,11 @@ export default function CrewOperationsSettings({
                                             htmlFor="sync_training_to_employee_training"
                                             className="text-sm font-semibold text-foreground"
                                         >
-                                            Sync P2B Training to Employee
+                                            Sync P1B Training to Employee
                                             Training
                                         </Label>
                                         <p className="text-xs leading-relaxed text-muted-foreground">
-                                            When enabled, completing a P2B
+                                            When enabled, completing a P1B
                                             Training phase allows synchronizing
                                             the record into Employee Training.
                                         </p>

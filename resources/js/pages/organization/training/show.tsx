@@ -128,7 +128,7 @@ export default function TrainingShow({
                                         variant="outline"
                                         className="border-primary/30 bg-primary/5 text-[10px] text-primary uppercase"
                                     >
-                                        Crew Operations · P2B
+                                        Crew Operations · P1B
                                     </Badge>
                                 </>
                             ) : null}
@@ -174,7 +174,7 @@ export default function TrainingShow({
                                 <div className="flex items-center gap-2 font-semibold text-primary">
                                     <Ship className="size-4" />
                                     <span>
-                                        Source: Crew Operations · P2B Training
+                                        Source: Crew Operations · P1B Training
                                     </span>
                                 </div>
                                 <p className="mt-1 text-xs text-muted-foreground">
@@ -265,13 +265,13 @@ export default function TrainingShow({
                                             training.source_crew_assignment
                                                 .assignment_no
                                         }{' '}
-                                        (P2B)
+                                        (P1B)
                                     </Link>
                                 </div>
                             ) : training.source_crew_assignment_phase_id ? (
                                 <MetadataField
                                     label="Source"
-                                    value="Crew Operations (P2B)"
+                                    value="Crew Operations (P1B)"
                                 />
                             ) : null}
                             <MetadataField

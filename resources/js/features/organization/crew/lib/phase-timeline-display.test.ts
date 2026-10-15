@@ -192,7 +192,7 @@ describe('buildPhaseDateLineSummary modes', () => {
         const summary = buildPhaseDateLineSummary(
             phase({
                 phase_code: 'p0',
-                phase_label: 'Pre-Mobilisation',
+                phase_label: 'Pre-Arrival',
                 planned_start_at: null,
                 planned_end_at: null,
                 actual_start_at: '2026-10-14',
@@ -216,7 +216,7 @@ describe('buildPhaseDateLineSummary modes', () => {
         const summary = buildPhaseDateLineSummary(
             phase({
                 phase_code: 'p0',
-                phase_label: 'Pre-Mobilisation',
+                phase_label: 'Pre-Arrival',
                 planned_start_at: null,
                 planned_end_at: null,
                 actual_start_at: '2026-10-14',

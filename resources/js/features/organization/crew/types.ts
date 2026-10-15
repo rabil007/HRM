@@ -793,7 +793,7 @@ export type CrewMovementAction =
 export const CREW_MOVEMENT_ACTION_LABELS: Record<CrewMovementAction, string> = {
     approve_mobilisation: 'Start Assignment',
     record_arrival: 'Record Arrival',
-    start_join_standby: 'Start Join Standby',
+    start_join_standby: 'Start Pre-Joining Standby',
     send_to_training: 'Send to Training',
     complete_training: 'Complete Training',
     mark_ready: 'Mark Ready',

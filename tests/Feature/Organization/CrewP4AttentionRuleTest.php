@@ -13,7 +13,7 @@ use App\Support\CrewMovements\CurrentCrewQuery;
 use Carbon\CarbonImmutable;
 
 /**
- * Build an active P4 On Vessel assignment with a configurable planned_signoff_at.
+ * Build an active P2 On Vessel assignment with a configurable planned_signoff_at.
  * The P4 phase is started at ($today - $daysOnboard) so that exactly $daysOnboard
  * calendar days have elapsed (matching the "Phase Active Long" trigger if it were P4).
  */

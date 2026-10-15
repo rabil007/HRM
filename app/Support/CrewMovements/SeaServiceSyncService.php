@@ -13,7 +13,7 @@ use App\Support\Employees\SeaServiceDuration;
 use App\Support\Positions\CrewPositionCatalog;
 
 /**
- * Synchronizes EmployeeSeaService rows from completed On Vessel (P4) phases.
+ * Synchronizes EmployeeSeaService rows from completed On Vessel (P2) phases.
  *
  * Gated by company setting {@see CrewOperationsSettings::CONFIG_SYNC_SEA_SERVICE}
  * (`crew_operations.sync_sea_service`). When disabled, existing linked records

@@ -29,7 +29,11 @@ test('six-phase enum values and obsolete codes', function () {
         ->and(CrewPhaseCode::tryFrom('p2b'))->toBeNull()
         ->and(CrewPhaseCode::tryFrom('p5'))->toBeNull()
         ->and(CrewPhaseCode::tryFrom('p6'))->toBeNull()
+        ->and(CrewPhaseCode::PreArrival->label())->toBe('Pre-Arrival')
+        ->and(CrewPhaseCode::JoinStandby->label())->toBe('Pre-Joining Standby')
+        ->and(CrewPhaseCode::Training->label())->toBe('Training')
         ->and(CrewPhaseCode::OnVessel->value)->toBe('p2')
+        ->and(CrewPhaseCode::OnVessel->label())->toBe('On Vessel')
         ->and(CrewPhaseCode::DemobStandby->value)->toBe('p3')
         ->and(CrewPhaseCode::DemobStandby->label())->toBe('Demobilisation Standby')
         ->and(CrewPhaseCode::HomeRedeploy->value)->toBe('p4')
@@ -193,4 +197,26 @@ test('current movement api rejects obsolete next_phase codes', function () {
         ->assertSessionHasErrors('next_phase');
 
     expect($assignment->fresh('currentPhase')->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+});
+
+test('start assignment request uses modern pre-arrival wording', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makePhaseLifecycleFixtures();
+    $vessel = makeCrewMovementVessel('Start Message Vessel', $company);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::ApproveMobilisation->value,
+            'occurred_at' => '2026-03-01T18:00',
+        ])
+        ->assertSessionHasErrors([
+            'action' => 'Start Assignment is only valid for draft assignments in Pre-Arrival.',
+        ]);
+});
+
+test('movement action labels use modern six-phase names', function () {
+    expect(CrewMovementAction::StartJoinStandby->label())->toBe('Start Pre-Joining Standby')
+        ->and(CrewMovementAction::StartDemobStandby->label())->toBe('Start Demobilisation Standby')
+        ->and(CrewMovementAction::ApproveMobilisation->value)->toBe('approve_mobilisation');
 });

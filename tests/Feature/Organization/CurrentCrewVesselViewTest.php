@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 use Inertia\Testing\AssertableInertia as Assert;
 use Maatwebsite\Excel\Facades\Excel;
 
-test('vessel view lists current active p4 crew under the vessel', function () {
+test('vessel view lists current active p2 crew under the vessel', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
 
     makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
@@ -28,7 +28,7 @@ test('vessel view lists current active p4 crew under the vessel', function () {
             ->has('assignments', 0));
 });
 
-test('vessel view excludes non-p4 current phases even when the assignment already has a vessel', function (CrewPhaseCode $phaseCode) {
+test('vessel view excludes non-p2 current phases even when the assignment already has a vessel', function (CrewPhaseCode $phaseCode) {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
 
     makeCurrentCrewPhaseAssignment($company, $employee, $rank, $vessel, $phaseCode);
@@ -47,7 +47,7 @@ test('vessel view excludes non-p4 current phases even when the assignment alread
     'p4' => CrewPhaseCode::HomeRedeploy,
 ]);
 
-test('vessel view excludes inactive employees with a leftover active p4 assignment', function () {
+test('vessel view excludes inactive employees with a leftover active p2 assignment', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank, 'vessel' => $vessel] = makeCurrentCrewVesselViewFixtures();
 
     $inactive = Employee::factory()->forCompany($company)->inactive()->create([

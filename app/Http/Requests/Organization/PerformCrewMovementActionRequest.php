@@ -455,7 +455,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 if (! $isDraft || ! $isPreMob) {
                     $validator->errors()->add(
                         'action',
-                        'Start Assignment is only valid for draft assignments in Pre-Mobilisation.',
+                        'Start Assignment is only valid for draft assignments in Pre-Arrival.',
                     );
                 }
             }

@@ -292,7 +292,7 @@ See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payr
 
 See [architecture/crew-payroll-timeline-preparation.md](./architecture/crew-payroll-timeline-preparation.md) for phase mapping used by Populate from Crew Assignments.
 
-Legacy Crew phase compatibility: modern assignments stop at P0/P2A/P2B/P4/P5/P6, but payroll preparation and movement corrections still understand historical P1 (Excluded) and P3 (Sign-On Standby) when those phases exist on an assignment. Pay mapping, overlap rules, and source hashing are unchanged.
+Legacy Crew phase compatibility: modern assignments use only P0, P1A, P1B, P2, P3, and P4. Payroll preparation and movement corrections still understand historical Travel In (`p1`, Excluded) and historical Ready to Join (legacy `p3`, Sign-On Standby) when those phases exist on an assignment. That legacy `p3` is not modern P3 Demobilisation Standby. Pay mapping, overlap rules, and source hashing are unchanged.
 
 ### Unified Crew timesheet sources (hybrid)
 

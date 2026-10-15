@@ -171,7 +171,7 @@ test('6. active P5 demob standby employee is recognised as having an active assi
 });
 
 // ============================================================
-// 7. P4 On Vessel → Transfer Vessel recommendation data preserved
+// 7. P2 On Vessel → Transfer Vessel recommendation data preserved
 // ============================================================
 
 test('7. active P4 on vessel employee keeps transfer vessel recommendation data', function () {
@@ -427,7 +427,7 @@ test('employee operational status resolves on_vessel, join_standby, demob_standb
 
     $vessel = makeCrewMovementVessel('Status Test Vessel', $company);
 
-    // Employee 1: On Vessel (P4)
+    // Employee 1: On Vessel (P2)
     $empOnVessel = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignOnVessel = makeActiveOnVesselAssignment($company, $empOnVessel, $rank, $vessel);
 

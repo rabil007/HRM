@@ -34,9 +34,9 @@ Current workforce pickers, create/update mutations, compliance widgets, and live
 | Leave dashboard on-leave-today / upcoming this week | Active employees |
 | Payroll generation / period employee board | Existing `PayrollEmployeeQuery` active + contract rules (unchanged) |
 | Current Crew (Draft/Active) | Assignment employee must be active |
-| Current Crew Vessel View, Crew Planning Onboard by Vessel, and onboard Excel export | Active employees with current active P4 only |
+| Current Crew Vessel View, Crew Planning Onboard by Vessel, and onboard Excel export | Active employees with current active P2 only |
 | Crew Operations dashboard pulse (onboard now, joins/sign-offs, attention) | Active employees |
-| Vessel manning actual onboard (active assignment + active P4 + active employee) | Active employees |
+| Vessel manning actual onboard (active assignment + active P2 + active employee) | Active employees |
 | Crew planning pool and current/future Gantt bars | Active employees (vacant slots remain; past bars of inactive people remain) |
 | Projected manning Draft/Active and planning-only segments | Active employees |
 | Hikvision **new** person-employee link | Active employees |
@@ -113,4 +113,4 @@ which requires `company_id` + `status = active` (and excludes soft-deleted rows)
 - Prefer `Employee::active()` or `ActiveEmployeeConstraint` over repeating `where('status', 'active')`.
 - Do not add a global Employee scope.
 - Do not use frontend hiding as the security boundary.
-- CrewAssignment remains the source of truth for P0–P6. This policy does not change phase semantics or reintroduce EmployeeDeployment.
+- CrewAssignment remains the source of truth for the P0–P4 six-phase lifecycle. This policy does not change phase semantics or reintroduce EmployeeDeployment.

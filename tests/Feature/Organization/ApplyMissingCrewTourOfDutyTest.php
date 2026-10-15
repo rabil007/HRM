@@ -543,7 +543,7 @@ it('is idempotent when Artisan command is executed multiple times', function () 
 
     // Second run is idempotent and finds no eligible records
     $this->artisan('crew:apply-missing-tour-of-duty', ['--company' => $this->company->id])
-        ->expectsOutputToContain('No eligible active P4 assignments with missing Tour of Duty found.')
+        ->expectsOutputToContain('No eligible active P2 assignments with missing Tour of Duty found.')
         ->assertSuccessful();
 
     expect($assignment->refresh()->tour_of_duty_days)->toBe(90);
@@ -574,7 +574,7 @@ it('prevents --assignment option from accessing another companys assignment', fu
         '--company' => $this->company->id,
         '--assignment' => $otherAssignment->id,
     ])
-        ->expectsOutputToContain('No eligible active P4 assignments with missing Tour of Duty found.')
+        ->expectsOutputToContain('No eligible active P2 assignments with missing Tour of Duty found.')
         ->assertSuccessful();
 
     expect($otherAssignment->refresh()->tour_of_duty_days)->toBeNull();

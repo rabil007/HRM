@@ -15,7 +15,7 @@ Current code, routes, migrations, tests, and `database/seeders/PermissionsSeeder
 | [Document compliance Web Push](./document-compliance-web-push.md) | Admins, developers | Browser push for daily document expiry summary |
 | [Payroll](./payroll.md) | Payroll users, developers | Periods, salary inputs, timesheets, payslips, WPS, state transitions |
 | [Crew Payroll / Crew Timesheet preparation](./architecture/crew-payroll-timeline-preparation.md) | Payroll, operations, developers | Prepare, review, approve and apply Crew Timesheets from Crew Assignment actuals |
-| [Crew Movement Phases](./architecture/crew-movement-phases.md) | Operations, developers | `CrewAssignment` source of truth, P0-P6, planning sync, sea service, manning, alerts |
+| [Crew Movement Phases](./architecture/crew-movement-phases.md) | Operations, developers | `CrewAssignment` source of truth, P0–P4 six-phase lifecycle, planning sync, sea service, manning, alerts |
 | [Crew Movement Corrections](./architecture/crew-movement-corrections.md) | Operations, developers | Request/approve workflow for in-place movement corrections |
 | [Crew Movement History](./reports/crew-movement-history.md) | Operations, management, developers | One-row assignment history, phase mapping, durations, exports |
 | [Leave Report](./reports/leave-report.md) | HR, management, developers | Historical leave requests, approval progress, leave-type cards, exports |
@@ -67,7 +67,7 @@ OMS-HRM covers the complete organization and HR lifecycle, including:
 - documents, document compliance, PDF templates, generation, sharing and e-signing;
 - attendance, leave requests, My Leave balances, Approvals queue, policies (including Sync Pending Requests), Leave Report and Leave Balance Report;
 - payroll, Crew Timesheets, salary inputs, records, payslips and WPS;
-- Crew Operations, including Crew Assignments, repeatable P0-P6 phases, planning, vessel manning, movement corrections/history, readiness and sea-service synchronization;
+- Crew Operations, including Crew Assignments, repeatable P0–P4 phase codes (P0, P1A, P1B, P2, P3, P4), planning, vessel manning, movement corrections/history, readiness and sea-service synchronization;
 - reports and exports;
 - users, roles, permissions, tenant authorization, privileged 2FA and activity audit;
 - announcements, notifications and Web Push;

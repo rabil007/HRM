@@ -143,19 +143,19 @@ final class CrewMovementHistoryPresenter
         $actualJoinAt = self::firstPeriodDateTime($onVessel, 'start_at');
         $actualDisembarkationAt = self::lastCompletedEndAt($onVessel);
 
-        $firstP6 = $phases->first(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::HomeRedeploy);
+        $firstHomePhase = $phases->first(fn (CrewAssignmentPhase $phase): bool => $phase->phase_code === CrewPhaseCode::HomeRedeploy);
         $nextList = $linked['next'] ?? [];
         $firstNext = $nextList[0] ?? null;
         $hasLinkedNextRedeployment = $firstNext !== null && in_array($firstNext['source'] ?? null, ['vessel_transfer', 'redeployment'], true);
 
-        $hasCompletedP5BeforeP6 = false;
-        if ($firstP6 !== null) {
+        $hasCompletedDemobBeforeHome = false;
+        if ($firstHomePhase !== null) {
             $priorPhase = $phases
-                ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->sequence < $firstP6->sequence)
+                ->filter(fn (CrewAssignmentPhase $phase): bool => $phase->sequence < $firstHomePhase->sequence)
                 ->sortByDesc('sequence')
                 ->first();
 
-            $hasCompletedP5BeforeP6 = $priorPhase !== null
+            $hasCompletedDemobBeforeHome = $priorPhase !== null
                 && $priorPhase->phase_code === CrewPhaseCode::DemobStandby
                 && ($priorPhase->status === CrewPhaseStatus::Completed || $priorPhase->actual_end_at !== null);
         }
@@ -166,16 +166,16 @@ final class CrewMovementHistoryPresenter
         $redeployedAt = null;
         $isRedeployedDirectly = false;
 
-        if ($firstP6 !== null && $hasCompletedP5BeforeP6) {
+        if ($firstHomePhase !== null && $hasCompletedDemobBeforeHome) {
             $outcome = 'returned_home';
             $outcomeLabel = 'Returned Home';
-            $actualReturnHomeAt = self::dateTime($firstP6->actual_start_at, $timezone);
+            $actualReturnHomeAt = self::dateTime($firstHomePhase->actual_start_at, $timezone);
         } elseif ($hasLinkedNextRedeployment) {
             $outcome = 'redeployed';
             $outcomeLabel = 'Redeployed';
             $redeployedAt = $firstNext['started_at'] ?? self::dateTime($assignment->closed_at, $timezone);
-            $isRedeployedDirectly = $firstP6 === null;
-        } elseif ($firstP6 !== null) {
+            $isRedeployedDirectly = $firstHomePhase === null;
+        } elseif ($firstHomePhase !== null) {
             $outcome = 'home_redeploy';
             $outcomeLabel = 'Home / Redeploy';
         }
@@ -233,6 +233,7 @@ final class CrewMovementHistoryPresenter
             'modern_phase_timeline' => $modernTimeline,
             'legacy_phase_timeline' => $legacyTimeline,
             'has_legacy_phases' => false,
+            // API key retained for existing report/export consumers; P0 label is Pre-Arrival.
             'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreArrival->value]),
             'travel_in' => $travelIn,
             'join_standby' => $summaries[CrewPhaseCode::JoinStandby->value],

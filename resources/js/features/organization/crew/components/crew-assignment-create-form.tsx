@@ -19,7 +19,7 @@ import { CrewAssignmentCreateDirectActions } from '@/features/organization/crew/
 import { CrewAssignmentReadinessPanel } from '@/features/organization/crew/components/crew-assignment-readiness-panel';
 import type { CrewMemberRowState } from '@/features/organization/crew/components/crew-members-section';
 import { CrewMembersSection } from '@/features/organization/crew/components/crew-members-section';
-import { FutureArrivalPreMobilisationDialog } from '@/features/organization/crew/components/future-arrival-pre-mobilisation-dialog';
+import { FutureArrivalPreArrivalDialog } from '@/features/organization/crew/components/future-arrival-pre-arrival-dialog';
 import { PlanningStartActiveAssignmentConflict } from '@/features/organization/crew/components/planning-start-active-assignment-conflict';
 import { PlanningStartAuthoritativeFields } from '@/features/organization/crew/components/planning-start-authoritative-fields';
 import { PreJoinAccommodationFields } from '@/features/organization/crew/components/pre-join-accommodation-fields';
@@ -865,7 +865,7 @@ export function CrewAssignmentCreateForm({
                 return;
             }
 
-            if (decision.type === 'confirm_pre_mobilisation') {
+            if (decision.type === 'confirm_pre_arrival') {
                 setClientArrivalError(undefined);
                 setFutureArrivalDialogOpen(true);
 
@@ -878,7 +878,7 @@ export function CrewAssignmentCreateForm({
         submitSingle(submissionIntent, alreadyArrivedFlag, action);
     };
 
-    const confirmFutureArrivalAsPreMobilisation = (): void => {
+    const confirmFutureArrivalAsPreArrival = (): void => {
         if (form.processing) {
             return;
         }
@@ -888,7 +888,7 @@ export function CrewAssignmentCreateForm({
             companyTimezone,
         );
 
-        if (decision.type !== 'confirm_pre_mobilisation') {
+        if (decision.type !== 'confirm_pre_arrival') {
             setFutureArrivalDialogOpen(false);
 
             if (decision.type === 'client_error') {
@@ -899,7 +899,7 @@ export function CrewAssignmentCreateForm({
         }
 
         setFutureArrivalDialogOpen(false);
-        submitSingle('start', false, 'pre_mobilisation');
+        submitSingle('start', false, 'pre_arrival');
     };
 
     const submitBulk = (): void => {
@@ -1459,23 +1459,20 @@ export function CrewAssignmentCreateForm({
             ) : null}
 
             {footerActions.useDirectCreateActions && !bulkMode ? (
-                <FutureArrivalPreMobilisationDialog
+                <FutureArrivalPreArrivalDialog
                     open={futureArrivalDialogOpen}
                     plannedArrivalDate={normalizeArrivalDate(
                         resolveSingleCreateArrivalDate(),
                     )}
                     processing={
-                        form.processing &&
-                        activeSingleSubmit === 'pre_mobilisation'
+                        form.processing && activeSingleSubmit === 'pre_arrival'
                     }
                     onOpenChange={(open) => {
                         if (!form.processing) {
                             setFutureArrivalDialogOpen(open);
                         }
                     }}
-                    onConfirmPreMobilisation={
-                        confirmFutureArrivalAsPreMobilisation
-                    }
+                    onConfirmPreArrival={confirmFutureArrivalAsPreArrival}
                 />
             ) : null}
 

@@ -63,8 +63,8 @@ const formOptions = {
         },
         '11': {
             status: 'join_standby',
-            label: 'Join Standby',
-            current_phase: 'p2a',
+            label: 'Pre-joining standby',
+            current_phase: 'p1a',
             current_vessel: 'Sea Eagle',
             assignment_id: 43,
             assignment_no: 'CA-2026-000043',
@@ -226,7 +226,7 @@ describe('bulk readiness preview helpers', () => {
         );
     });
 
-    it('does not expose transfer vessel for P2A preview', () => {
+    it('does not expose transfer vessel for P1A preview', () => {
         const previewRow = buildBulkPreviewRows(
             rows,
             formOptions,

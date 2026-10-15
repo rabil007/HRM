@@ -140,7 +140,7 @@ describe('resolveAlreadyArrivedSubmitDecision', () => {
         );
     });
 
-    it('suggests pre-mobilisation confirmation for future dates', () => {
+    it('suggests pre-arrival confirmation for future dates', () => {
         assert.deepEqual(
             resolveAlreadyArrivedSubmitDecision(
                 '2026-10-17',
@@ -148,7 +148,7 @@ describe('resolveAlreadyArrivedSubmitDecision', () => {
                 REFERENCE,
             ),
             {
-                type: 'confirm_pre_mobilisation',
+                type: 'confirm_pre_arrival',
                 plannedArrivalDate: '2026-10-17',
             },
         );
@@ -200,9 +200,9 @@ describe('isCalendarDateAfterCompanyToday', () => {
     });
 });
 
-describe('pre-mobilisation confirmation payload', () => {
+describe('pre-arrival confirmation payload', () => {
     it('maps confirmation to the existing start path without actual arrival', () => {
-        assert.deepEqual(resolveSingleSubmitRequest('pre_mobilisation'), {
+        assert.deepEqual(resolveSingleSubmitRequest('pre_arrival'), {
             submissionIntent: 'start',
             alreadyArrived: false,
         });

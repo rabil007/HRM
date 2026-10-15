@@ -23,7 +23,7 @@ The normal report timeline (**Complete phase timeline**) shows the current six-p
 - P3 Demobilisation Standby
 - P4 Home / Redeployment
 
-Retired Travel In and Ready to Join phases were remapped into this lifecycle. Historical assignment rows therefore appear as P0–P4, not as a parallel P1/P3 timeline. Exclusive leftover Travel In, if still present, is excluded from payable service-day categories and does not invent Pre-Joining Standby.
+Retired Travel In and Ready to Join phases were remapped into this lifecycle. Historical assignment rows therefore appear as P0–P4, not as a parallel P1/P3 timeline. Exclusive leftover Travel In, if still present, is excluded from payable service-day categories and does not invent Pre-Joining Standby. When an assignment still has leftover historical Travel In / Ready to Join rows, the UI shows a separate **Legacy recorded phases** section containing only those recorded periods. The presenter still exposes the full chronological `phase_timeline` plus derived `modern_phase_timeline` / `legacy_phase_timeline` without duplicating queries. Do not display retired P1/P3 explanations as if they are part of the current workflow.
 
 The expanded UI still has a **Legacy recorded phases** section for any remaining Travel In / Ready to Join periods (sequence, planned/actual timestamps, status, days, and remarks). After the six-phase remap the presenter currently returns `has_legacy_phases: false` and an empty `legacy_phase_timeline`; `travel_in` / `ready_to_join` summaries stay empty. Compatibility fields remain so older UI contracts do not break.
 
@@ -52,8 +52,9 @@ Expanded detail includes assignment number and record ID, employee identity, ran
 `CrewArrivalResolver` is authoritative for UI display, export, and Actual Arrival From/To filters:
 
 1. Use the **first** P1A / Pre-Joining Standby occurrence by `sequence` with `actual_start_at`.
-2. Later repeated P1A occurrences never override that value.
-3. There is **no** Travel In fallback. A gap between arrival and joining, or an assignment that starts on vessel, does not invent an arrival date.
+2. Remapped historical P2A arrivals are already stored as P1A after the six-phase lifecycle remap.
+3. Later repeated P1A occurrences never override that value.
+4. There is **no** Travel In fallback. A gap between arrival and joining, or an assignment that starts on vessel, does not invent an arrival date.
 
 Filters apply `from`/`to` against that same resolved P1A occurrence (not against any matching phase via loose `whereHas`).
 
@@ -196,7 +197,7 @@ Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
   - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Pre-Joining Standby (Days), Join Vessel Date, Sign-Off / Disembarkation Date, Demobilisation Standby (Days), Return Home Date, Total Standby, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
-  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, phase timeline occurrences, training history, accommodation stays, pre-joining / demobilisation / total standby service days, payroll preview days, and corrections.
+  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P4 phase timeline occurrences (plus a legacy section only when historical Travel In / Ready to Join rows exist), training history, accommodation stays, pre-joining / demobilisation / total standby service days, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.
 

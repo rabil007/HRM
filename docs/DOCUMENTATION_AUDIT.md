@@ -143,7 +143,7 @@ The May/July docs still described `EmployeeDeployment`, `crew-deployments` pages
 
 ### Current verified state (2026-08-25, `main` @ `230c3d86`)
 
-- `CrewAssignment` is the source of truth for one mobilisation cycle; `CrewAssignmentPhase` stores ordered/repeatable P0–P6 occurrences.
+- `CrewAssignment` is the source of truth for one mobilisation cycle; `CrewAssignmentPhase` stores ordered/repeatable P0–P4 occurrences (legacy `p1`/`p2a`/`p2b`/`p5`/`p6` rows may still exist historically).
 - Completed actual P4 may sync to `EmployeeSeaService` via `SeaServiceSyncService`. Planned sign-off is not actual disembarkation.
 - `EmployeeDeployment` and legacy deployment routes/classes/permissions are removed. Remaining mentions in migrations, legacy-removal tests, and “has been removed” notes are historical.
 - `app/Policies/CrewAssignmentPolicy.php` exists. Crew assignment controllers use `Gate::authorize`. Route `can:` middleware remains the common capability check.

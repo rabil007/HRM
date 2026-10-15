@@ -68,7 +68,7 @@ export function VesselTransferRecommendationDialog({
     const employeeName = current?.employee_name ?? 'This employee';
     const destination = destinationVesselName?.trim() || 'another vessel';
     const startedAt = current?.actual_start_display
-        ? ` P4 On Vessel started ${current.actual_start_display}.`
+        ? ` P2 On Vessel started ${current.actual_start_display}.`
         : '';
 
     return (
@@ -89,7 +89,7 @@ export function VesselTransferRecommendationDialog({
                 <div className="space-y-2 text-sm text-muted-foreground">
                     <p>
                         Current assignment {current?.assignment_no ?? '—'} is
-                        active P4 On Vessel on {vesselName}.{startedAt}
+                        active P2 On Vessel on {vesselName}.{startedAt}
                     </p>
                     <p>
                         Creating or joining another vessel assignment may

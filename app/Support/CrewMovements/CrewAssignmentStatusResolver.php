@@ -236,6 +236,7 @@ final class CrewAssignmentStatusResolver
         bool $includeRestrictedFields = true,
     ): array {
         [$status, $label] = match ($code) {
+            // Status identifier retained for employee-status consumers; label is Pre-arrival.
             CrewPhaseCode::PreArrival => ['pre_mobilisation', 'Pre-arrival'],
             CrewPhaseCode::JoinStandby => ['join_standby', 'Pre-joining standby'],
             CrewPhaseCode::Training => ['training', 'Training'],
@@ -271,7 +272,7 @@ final class CrewAssignmentStatusResolver
         }
 
         // Draft P0 is incomplete preparation and is not an active-assignment conflict.
-        // Active P0 is a real operational Pre-Mobilisation period and blocks another assignment.
+        // Active P0 is a real operational Pre-Arrival period and blocks another assignment.
         $hasActiveAssignment = $assignment->status === CrewAssignmentStatus::Active;
 
         return $this->payload(

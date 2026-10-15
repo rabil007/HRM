@@ -13,7 +13,7 @@ use Illuminate\Support\Collection;
 final class CurrentCrewVesselQuery
 {
     /**
-     * Paginate vessels that currently have matching onboard (active P4) crew.
+     * Paginate vessels that currently have matching onboard (active P2) crew.
      *
      * Parent rows are vessels. Each page loads the complete filtered roster
      * for those vessels — assignments are never paginated first.

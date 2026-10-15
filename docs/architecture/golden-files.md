@@ -180,7 +180,7 @@ Represents **center Dialog** modals for heavy, multi-step workflows (not CRUD sh
 - Use center modals only for complex flows (upload, merge, send confirm)—not for simple create/edit.
 - Lazy-load heavy modals when they significantly increase bundle size (`employee.tsx` PDF merge pattern).
 
-**Also see:** `resources/js/features/organization/crew/actions/movement-action-dialog.tsx` — heavy P0–P6 movement Dialog with Wayfinder `performAction` and per-action forms.
+**Also see:** `resources/js/features/organization/crew/actions/movement-action-dialog.tsx` — heavy six-phase (P0–P4) movement Dialog with Wayfinder `performAction` and per-action forms.
 
 ---
 

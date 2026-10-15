@@ -1,6 +1,6 @@
 export type CrewAssignmentSingleSubmitAction =
     | 'already_arrived'
-    | 'pre_mobilisation'
+    | 'pre_arrival'
     | 'draft';
 
 export const CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS: Record<
@@ -9,8 +9,8 @@ export const CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS: Record<
 > = {
     already_arrived:
         'Create an active assignment directly in Pre-Joining Standby (P1A). Actual arrival date required.',
-    pre_mobilisation:
-        'Activate the assignment in P0 before the employee arrives.',
+    pre_arrival:
+        'Activate the assignment in P0 Pre-Arrival before the employee arrives.',
     draft: 'Save the assignment without starting crew movement.',
 };
 
@@ -23,7 +23,7 @@ export function resolveSingleSubmitRequest(
     switch (action) {
         case 'draft':
             return { submissionIntent: 'draft', alreadyArrived: false };
-        case 'pre_mobilisation':
+        case 'pre_arrival':
             return { submissionIntent: 'start', alreadyArrived: false };
         case 'already_arrived':
             return { submissionIntent: 'start', alreadyArrived: true };

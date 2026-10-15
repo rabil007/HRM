@@ -553,7 +553,7 @@ See [docs/document-management.md](../document-management.md), [docs/document-sea
 
 ### Purpose
 
-`CrewAssignment` is the source of truth for one mobilisation cycle (P0–P6), including named-employee planning (`status = planned`). Phases are stored as ordered, repeatable `CrewAssignmentPhase` rows. Completed actual P4 time may sync to `EmployeeSeaService`. Planned sign-off is never actual disembarkation.
+`CrewAssignment` is the source of truth for one mobilisation cycle (P0–P4 six-phase lifecycle). Planning lives on `CrewPlanningAssignment`; `CrewAssignment` does not use `status = planned`. Phases are stored as ordered, repeatable `CrewAssignmentPhase` rows. Completed actual P2 On Vessel time may sync to `EmployeeSeaService`. Planned sign-off is never actual disembarkation.
 
 **EmployeeDeployment has been removed.** Do not describe deployments, `crew-deployments` routes, or `crew_operations.deployments.*` as current architecture.
 
@@ -562,7 +562,7 @@ Detailed lifecycle, Tour of Duty, vacant Planning linkage, transfer/redeploy, al
 ### Main models
 
 - `CrewAssignment` — authoritative named-employee planning and mobilisation cycle; `company_id`, vessel/client/rank, status, planned dates, Tour snapshot
-- `CrewAssignmentPhase` — ordered occurrence of P0–P6 (phases may repeat, e.g. P2A → P2B → P2A → P3)
+- `CrewAssignmentPhase` — ordered occurrence of P0–P4 (phases may repeat, e.g. P1A → P1B → P1A)
 - `CrewPlanningAssignment` — optional vacant/unfilled scheduling slot; may be explicitly linked to a CrewAssignment via `planning_assignment_id` / `crew_assignment_id`
 - `EmployeeSeaService` — historical sea time linked by `crew_assignment_phase_id`
 - `CrewMovementCorrection` — in-place field corrections (separate approval workflow)
@@ -578,7 +578,7 @@ flowchart LR
     CrewAssignment --> Client
     CrewAssignment --> Rank
     CrewAssignment --> CrewAssignmentPhase
-    CrewAssignmentPhase -->|completed P4| EmployeeSeaService
+    CrewAssignmentPhase -->|completed P2| EmployeeSeaService
     EmployeeSeaService --> Employee
 ```
 
@@ -608,7 +608,7 @@ Policy: `app/Policies/CrewAssignmentPolicy.php`.
 | `pages/organization/crew/index.tsx` | Thin wrapper for Current Crew |
 | `features/organization/crew/index.tsx` | Crew / Vessel assignment board |
 | `pages/organization/crew/show.tsx` | Assignment detail, Phase Timeline, Operations Center, records/history, movements, corrections |
-| `features/organization/crew/actions/movement-action-dialog.tsx` | P0–P6 movement Dialog + Wayfinder |
+| `features/organization/crew/actions/movement-action-dialog.tsx` | six-phase (P0–P4) movement Dialog + Wayfinder |
 | `pages/organization/crew-planning/index.tsx` | Planning Gantt / Onboard by Vessel |
 | `pages/organization/crew-operations/index.tsx` | Daily operations cockpit |
 
@@ -631,10 +631,10 @@ Frontend `can` from `CrewAssignmentPagePermissions::for()`.
 
 ### Important workflows
 
-1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P4 crew.
+1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P2 crew.
 2. **Planning** — optional vacant-slot Gantt workspace; named crew are `CrewAssignment` records (`draft` / `planned` / `active`). Vacant slots may be linked explicitly via `planning_assignment_id`; there is no automatic planning sync.
 3. **Movements** — `CrewMovementService::perform()` in a company-scoped transaction with `lockForUpdate()`.
-4. **Sea service** — completed P4 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
+4. **Sea service** — completed P2 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
 5. **Corrections** — request/approve workflow; see [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ---
@@ -743,7 +743,7 @@ Manning UI is embedded in `features/organization/vessels/show.tsx` using `Vessel
 
 Plan employee assignments against vessels and expose an operational overview alongside Crew Assignments and manning data.
 
-Current Crew (`/organization/crew`) is operational state, not planning. **Crew View** lists current assignments; **Vessel View** (`?view=vessel`) groups currently onboard active P4 crew by vessel. Crew Planning (`/organization/crew-planning`) defaults to the Gantt; **Onboard by Vessel** (`?view=onboard-vessels`) reuses the same actual P4 vessel roster and does not treat planning records as onboard. See [Crew Movement Phases](./crew-movement-phases.md).
+Current Crew (`/organization/crew`) is operational state, not planning. **Crew View** lists current assignments; **Vessel View** (`?view=vessel`) groups currently onboard active P2 crew by vessel. Crew Planning (`/organization/crew-planning`) defaults to the Gantt; **Onboard by Vessel** (`?view=onboard-vessels`) reuses the same actual P2 vessel roster and does not treat planning records as onboard. See [Crew Movement Phases](./crew-movement-phases.md).
 
 ### Main artifacts
 
@@ -1000,7 +1000,7 @@ Master-data catalogs and company vessels block deletion when a record is still r
 - **Tenant-owned vessels** scope usage to trusted `current_company_id` and may expose counts/labels when useful. Frontend metadata always uses company-scoped counts, never cross-tenant totals.
 - **Document Requirement rank/project pivots** resolve tenancy through `document_requirements.company_id` (the pivot tables themselves have no `company_id`).
 - **Soft-delete policy is explicit per usage source** in `MasterDataUsage::sourcesFor()`. Profile-style employee references ignore soft-deleted employees; historical/operational records such as sea service, crew assignments/phases, payroll records, and employee trainings continue to protect referenced master data even when soft-deleted, so restored history does not point at deleted masters.
-- **Courses** also count Crew Operations P2B / Training phases via `crew_assignment_phases.details.course_id` (JSON), including completed/historical phases.
+- **Courses** also count Crew Operations P1B / Training phases via `crew_assignment_phases.details.course_id` (JSON), including completed/historical phases.
 - **Countries** also count recruitment candidates via `candidates.nationality_id`.
 - Document Types use the same protection on Documents → Configuration; vessels use Crew Operations vessel permissions.
 

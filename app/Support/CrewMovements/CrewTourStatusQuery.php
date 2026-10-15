@@ -24,7 +24,7 @@ final class CrewTourStatusQuery
     ) {}
 
     /**
-     * Apply a tour_status filter to an Active P4 assignment query.
+     * Apply a tour_status filter to an Active P2 On Vessel assignment query.
      *
      * @param  Builder<CrewAssignment>  $query
      * @return Builder<CrewAssignment>
@@ -83,7 +83,7 @@ final class CrewTourStatusQuery
     }
 
     /**
-     * Dashboard / attention bucket counts for active P4 assignments.
+     * Dashboard / attention bucket counts for active P2 On Vessel assignments.
      *
      * @return array{
      *     due_within_30_days: int,

@@ -18,7 +18,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
 /**
- * Vessel-level manning health derived from VesselManning, current P4 onboard,
+ * Vessel-level manning health derived from VesselManning, current P2 onboard,
  * and CrewProjectedManningQuery. No independent coverage engine.
  */
 final class VesselManningHealthQuery

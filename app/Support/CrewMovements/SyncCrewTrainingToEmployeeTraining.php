@@ -14,7 +14,7 @@ use Carbon\Carbon;
 use InvalidArgumentException;
 
 /**
- * Synchronizes EmployeeTraining rows from completed Training (P2B) phases.
+ * Synchronizes EmployeeTraining rows from completed Training (P1B) phases.
  *
  * Gated by company setting {@see CrewOperationsSettings::CONFIG_SYNC_TRAINING_TO_EMPLOYEE_TRAINING}
  * (`crew_operations.sync_training_to_employee_training`).

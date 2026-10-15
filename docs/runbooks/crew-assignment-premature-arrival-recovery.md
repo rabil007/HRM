@@ -4,6 +4,8 @@
 
 An operator entered a **future** arrival timestamp, but an older build immediately transitioned the assignment from **P0 Pre-Mobilisation** into **P2A Join Standby**. The employee should have remained in P0 with a **scheduled** arrival until execution.
 
+This is a **historical incident** from the retired numbering. On the current six-phase lifecycle those codes map to **P0 Pre-Arrival** and **P1A Pre-Joining Standby**. Do not treat the stored P2A evidence as a modern P2 On Vessel event.
+
 This runbook documents a **manual, authorized recovery**. Do **not** auto-repair during migration or deployment.
 
 ## Example
@@ -62,7 +64,7 @@ Use existing application services and audited correction workflows. Prefer:
 
 ## After repair verification
 
-1. Current phase is P0 (or documented Class C exception).
+1. Current phase is P0 Pre-Arrival (or documented Class C exception).
 2. Upcoming scheduled movement shows Record Arrival at the intended timestamp.
 3. Phase Timeline shows only actual persisted phases (no future schedule as a completed phase).
 4. No negative “days in phase”.

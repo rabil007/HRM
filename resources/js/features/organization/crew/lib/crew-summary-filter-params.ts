@@ -89,14 +89,14 @@ export function queueSectionCopy(
     if (view === 'crew_on_site') {
         return {
             title: 'Crew On-Site',
-            description: 'Active crew currently onboard (P4).',
+            description: 'Active crew currently onboard (P2).',
         };
     }
 
     if (view === 'vessel') {
         return {
             title: 'Crew On-Site by vessel',
-            description: 'Vessel-grouped roster of active P4 onboard crew.',
+            description: 'Vessel-grouped roster of active P2 onboard crew.',
         };
     }
 

@@ -33,9 +33,11 @@ describe('crew phase descriptions', () => {
             copy?.description,
             'Assignment prepared and waiting for the crew member to arrive.',
         );
+        assert.equal(copy?.label, 'Pre-Arrival');
         assert.equal(copy?.compact, 'Waiting for arrival');
         assert.match(copy?.description ?? '', /waiting/i);
         assert.match(copy?.description ?? '', /arrive/i);
+        assert.doesNotMatch(copy?.label ?? '', /Mobilisation/i);
     });
 
     it('explains pre-joining standby as waiting or hotel/accommodation before joining', () => {

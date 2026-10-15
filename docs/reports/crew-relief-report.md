@@ -12,11 +12,11 @@ It displays active onboard crew approaching sign-off, checks whether their repla
 
 ## 1. Source of Truth & Row Eligibility
 
-- **Current Assignment Scope:** Primarily shows crew who are currently in **P4 — On Vessel** (`status = active`, with active P4 `CrewAssignmentPhase`).
+- **Current Assignment Scope:** Primarily shows crew who are currently in **P2 — On Vessel** (`status = active`, with active P2 `CrewAssignmentPhase`).
 - **Active Employee Constraint:** Applies `ActiveEmployeeConstraint` and `CurrentOnboardCrewQuery::applyConstraint()`. Inactive and terminated employees are excluded from operational lists.
 - **Tenancy:** Strictly scoped by the current active company (`current_company_id`). Cross-company assignments are never exposed or linked.
-- **Actual Joined Date:** Evaluated strictly from the actual P4 start timestamp (`actual_start_at`). Planned join dates are never treated as actual joining.
-- **Elapsed Days Onboard:** Whole calendar days elapsed from the actual P4 start through today in the company timezone via `CrewTourOfDutyCalculator`. This is not the inclusive vessel service-day total used by Crew Movement History.
+- **Actual Joined Date:** Evaluated strictly from the actual P2 start timestamp (`actual_start_at`). Planned join dates are never treated as actual joining.
+- **Elapsed Days Onboard:** Whole calendar days elapsed from the actual P2 start through today in the company timezone via `CrewTourOfDutyCalculator`. This is not the inclusive vessel service-day total used by Crew Movement History.
 - **Planned Sign-Off:** Authoritative planned sign-off date from the current `CrewAssignment` (`planned_signoff_at`).
 
 ---
@@ -28,7 +28,7 @@ The report inspects explicit replacements only. **It does not infer relief simpl
 - **Linkage Source:** Uses `relieves_crew_assignment_id` on incoming `CrewAssignment` or `CrewPlanningAssignment`.
 - **Relief Source Identity:** Relief plans are identified internally via typed, non-colliding keys (`CrewReliefPlanKey`, e.g. `assignment:id` and `planning:id`). This prevents numeric ID collision between `crew_assignments` and `crew_planning_assignments`.
 - **Precedence:** Managed by `CrewReliefPlanningLoader` and `CrewReliefReadinessResolver`:
-  1. Active operational `CrewAssignment` (`status = active`, pre-P4–P4 phases) linked via `relieves_crew_assignment_id`. Draft assignments are not committed relief.
+  1. Active operational `CrewAssignment` (`status = active`, pre-P2–P2 phases) linked via `relieves_crew_assignment_id`. Draft assignments are not committed relief.
   2. `CrewPlanningAssignment` (future schedule / vacant slot) when no operational replacement exists. Linked planning may reference an active operational assignment through `crew_assignment_id`.
   3. There is **no** `CrewAssignment(status=planned)`; planning-only rows use `CrewPlanningAssignment`.
 - **Tenancy Enforcement:** Relief assignments must belong to the same company. Foreign company relief assignments are rejected and ignored.
@@ -42,11 +42,11 @@ The report resolves an operational readiness status for each row:
 
 | Readiness | Domain Condition |
 |---|---|
-| **Ready** | Explicit relief is assigned and currently in **P3 Ready to Join** with no conflict and acceptable joining date. |
-| **In Progress** | Explicit relief is assigned and currently progressing through preparation phases: **P0 Pre-Mobilisation**, **P1 Travel In**, **P2A Join Standby**, or **P2B Training**. |
+| **Ready** | Explicit relief is assigned, currently in **P1A Pre-Joining Standby**, and the relief-readiness status is **Ready to Join**, with no conflict and an acceptable joining date. Ready to Join here is a relief-readiness status, not the retired lifecycle phase. |
+| **In Progress** | Explicit relief is assigned and currently progressing through preparation phases: **P0 Pre-Arrival** or **P1B Training** (legacy Travel In remains visible if a historical row is still current). |
 | **Not Assigned** | No explicit relief assignment is linked to the outgoing assignment. |
 | **At Risk** | Relief has an assignment conflict/overlap, or relief planned join date is after the outgoing crew member's planned sign-off date. |
-| **Joined** | Relief crew has arrived and entered **P4 On Vessel**. |
+| **Joined** | Relief crew has arrived and entered **P2 On Vessel**. |
 | **Restricted** | Explicit relief exists but the relief employee is outside the authenticated user's `EmployeeVisibilityScope`. |
 
 ---
@@ -67,8 +67,8 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
 4. **Sign-off approaching:** Sign-off is within 7 days, even if relief is ready or joined.
 
 ### Healthy (Green)
-1. **Relief ready:** Relief is linked, in P3 Ready to Join, with no conflicts and acceptable timing.
-2. **Relief joined:** Relief is already in P4 On Vessel.
+1. **Relief ready:** Relief is linked, in P1A Pre-Joining Standby (relief status Ready to Join), with no conflicts and acceptable timing.
+2. **Relief joined:** Relief is already in P2 On Vessel.
 
 ---
 
@@ -92,9 +92,9 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
 
 - **Safe Form Request Validation:** Filter parameters are validated via `CrewReliefReportRequest`, enforcing valid date formats, `planned_signoff_to >= planned_signoff_from`, and enumerated values. Malformed filter queries are handled safely without 500 errors.
 - **Server-Side Filters:** Search (crew name, staff ID, remarks, vessel, rank, client, and relief crew name/ID), Vessel, Client, Position, Planned Sign-off Date Range (From/To), Relief Status, Relief Risk, Readiness, Attention, and operational focus presets.
-- **Missing Planned Sign-Off:** Active P4 crew without `planned_signoff_at` appear in the default horizon and **All Onboard** scope (never with invented dates). Rows show **Missing Planned Sign-Off** in the sign-off columns.
+- **Missing Planned Sign-Off:** Active P2 crew without `planned_signoff_at` appear in the default horizon and **All Onboard** scope (never with invented dates). Rows show **Missing Planned Sign-Off** in the sign-off columns.
 - **Lightweight Candidate Query & Pagination:**
-  - Pushes company scoping, current P4 active constraint, employee visibility, search, vessel, client, rank, signoff date ranges, date presets, and base ordering to SQL before hydration.
+  - Pushes company scoping, current P2 active constraint, employee visibility, search, vessel, client, rank, signoff date ranges, date presets, and base ordering to SQL before hydration.
   - Batch-resolves relief plans and conflicts on lightweight candidate summaries (`id`, `company_id`, `planned_signoff_at`) so tenant-safe linked planning → assignment resolution stays correct.
   - Normalizes restricted relief rows prior to in-memory filtering and summary calculations so hidden relief status cannot be probed.
   - Summary cards represent the final filtered candidate scope across all pages.
@@ -107,7 +107,7 @@ Attention rules are centralized in `CrewReliefAttentionResolver` and determine b
   - `Not Ready`: Assignments where relief is still in preparation or at risk.
   - `Overdue`: All onboard assignments whose planned sign-off date has passed.
   - `Missing Planned Sign-Off`: Onboard crew with no planned sign-off forecast recorded.
-  - `All Onboard`: Every active P4 assignment regardless of sign-off horizon.
+  - `All Onboard`: Every active P2 assignment regardless of sign-off horizon.
 - **Row actions:** Plan Relief (`crew_operations.planning.view` + `crew_operations.planning.create`), Open Relief Plan (`crew_operations.planning.view`), Open Relief Assignment / Open Current Assignment (`crew_operations.assignments.view`).
 
 ---

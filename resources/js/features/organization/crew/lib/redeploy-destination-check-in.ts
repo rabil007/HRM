@@ -1,4 +1,4 @@
-export function resolveDestinationCheckInDateOnP2AEntry({
+export function resolveDestinationCheckInDateOnP1AEntry({
     redeployDate,
     currentCheckInDate,
     lastAutoCheckInDate,

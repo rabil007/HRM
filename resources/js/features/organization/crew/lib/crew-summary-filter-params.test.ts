@@ -175,7 +175,8 @@ describe('queueSectionCopy', () => {
         const copy = queueSectionCopy('crew_on_site', emptyFilters);
 
         assert.equal(copy.title, 'Crew On-Site');
-        assert.match(copy.description, /onboard/i);
+        assert.match(copy.description, /onboard \(P2\)/i);
+        assert.doesNotMatch(copy.description, /P4/);
         assert.doesNotMatch(copy.description, /vessel-grouped/i);
     });
 

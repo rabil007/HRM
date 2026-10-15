@@ -173,7 +173,7 @@ describe('crewAssignmentMobileCardModel', () => {
             assignment({
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'planned',
                 },
                 warnings: [
@@ -207,7 +207,7 @@ describe('crewAssignmentMobileCardModel', () => {
             assignment({
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'planned',
                 },
                 warnings: [
@@ -250,7 +250,7 @@ describe('crewAssignmentMobileCardModel', () => {
             assignment({
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'planned',
                 },
                 warnings: [],

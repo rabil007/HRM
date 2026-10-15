@@ -313,8 +313,8 @@ final class CrewMovementService
                 : null;
 
             if ($alreadyArrived) {
-                // Optional shortcut: Active P2A with actual arrival — no fabricated P0 history.
-                // Actual arrival is stored only on P2A.actual_start_at (CrewArrivalResolver).
+                // Optional shortcut: Active P1A with actual arrival — no fabricated P0 history.
+                // Actual arrival is stored only on P1A.actual_start_at (CrewArrivalResolver).
                 $startingPhase = CrewPhaseCode::JoinStandby;
                 $actualArrivalRaw = $attributes['actual_arrival_at'] ?? null;
 
@@ -497,7 +497,7 @@ final class CrewMovementService
      * User-facing action: Start Assignment. Internal value remains `approve_mobilisation`.
      *
      * Draft P0 only: activates the assignment to Active and sets the existing planned
-     * Pre-Mobilisation phase actual_start_at to occurred_at. Active P0 is rejected;
+     * Pre-Arrival phase actual_start_at to occurred_at. Active P0 is rejected;
      * operational progression from Active P0 uses Record Arrival.
      *
      * @param  array<string, mixed>  $payload
@@ -510,7 +510,7 @@ final class CrewMovementService
         if ($assignment->status !== CrewAssignmentStatus::Draft
             || $current->status !== CrewPhaseStatus::Planned) {
             throw CrewMovementException::make(
-                'Start Assignment can only be performed on a draft assignment in planned pre-mobilisation.',
+                'Start Assignment can only be performed on a draft assignment in planned Pre-Arrival.',
                 'invalid_phase_for_action',
             );
         }
@@ -579,7 +579,7 @@ final class CrewMovementService
 
         if ($startedFromPhase === null) {
             throw CrewMovementException::make(
-                'Record arrival could not determine the new Join Standby phase.',
+                'Record arrival could not determine the new Pre-Joining Standby phase.',
                 'missing_join_standby_phase',
             );
         }
@@ -1253,7 +1253,7 @@ final class CrewMovementService
 
             if ($startedFromPhase === null) {
                 throw CrewMovementException::make(
-                    'Redeploy could not determine the destination Join Standby phase.',
+                    'Redeploy could not determine the destination Pre-Joining Standby phase.',
                     'missing_destination_join_standby_phase',
                 );
             }
@@ -1601,7 +1601,7 @@ final class CrewMovementService
 
         if ($code === null || ! $code->allowsDirectStart()) {
             throw CrewMovementException::make(
-                'Assignments cannot start directly in this stage. Start at Pre-Mobilisation so payable join-standby history is recorded.',
+                'Assignments cannot start directly in this stage. Start at Pre-Arrival so payable pre-joining standby history is recorded.',
                 'invalid_start_stage',
             );
         }

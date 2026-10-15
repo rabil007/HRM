@@ -79,16 +79,16 @@ export function CrewAssignmentCreateDirectActions({
                         onClick={() => onSubmit('already_arrived')}
                     />
                     <DirectActionButton
-                        label="Start Pre-Mobilisation"
+                        label="Start Pre-Arrival"
                         tooltip={
-                            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_mobilisation
+                            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_arrival
                         }
                         variant="outline"
                         disabled={startDisabled}
                         processing={
-                            processing && activeAction === 'pre_mobilisation'
+                            processing && activeAction === 'pre_arrival'
                         }
-                        onClick={() => onSubmit('pre_mobilisation')}
+                        onClick={() => onSubmit('pre_arrival')}
                     />
                 </>
             ) : null}

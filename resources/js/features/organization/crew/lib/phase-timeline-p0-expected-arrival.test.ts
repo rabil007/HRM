@@ -17,7 +17,7 @@ function p0Phase(
         id: 1,
         sequence: 1,
         phase_code: 'p0',
-        phase_label: 'Pre-Mobilisation',
+        phase_label: 'Pre-Arrival',
         status: 'active',
         status_label: 'Active',
         planned_start_at: null,
@@ -98,8 +98,8 @@ describe('P0 expected arrival display rules', () => {
 
     it('does not show forecast on non-P0 phases', () => {
         const phase = p0Phase({
-            phase_code: 'p2a',
-            phase_label: 'Join Standby',
+            phase_code: 'p1a',
+            phase_label: 'Pre-Joining Standby',
         });
 
         assert.equal(
@@ -187,7 +187,7 @@ describe('P0 expected arrival display rules', () => {
             assignmentShowsP0ExpectedArrivalInPlannedOnly({
                 status: 'active',
                 planned_arrival_at: '2026-10-17',
-                current_phase: { id: 2, code: 'p2a' },
+                current_phase: { id: 2, code: 'p1a' },
                 phase_timeline: [
                     p0Phase({
                         id: 1,
@@ -196,8 +196,8 @@ describe('P0 expected arrival display rules', () => {
                     }),
                     p0Phase({
                         id: 2,
-                        phase_code: 'p2a',
-                        phase_label: 'Join Standby',
+                        phase_code: 'p1a',
+                        phase_label: 'Pre-Joining Standby',
                     }),
                 ],
             }),
