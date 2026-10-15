@@ -431,7 +431,7 @@ test('employee operational status resolves on_vessel, join_standby, demob_standb
     $empOnVessel = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignOnVessel = makeActiveOnVesselAssignment($company, $empOnVessel, $rank, $vessel);
 
-    // Employee 2: Join Standby (P2A)
+    // Employee 2: Pre-Joining Standby (P1A)
     $empJoinStandby = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     $assignJoinStandby = makeCurrentCrewPhaseAssignment($company, $empJoinStandby, $rank, $vessel, CrewPhaseCode::JoinStandby);
 

@@ -63,7 +63,7 @@ Uses the Overseas Marine Services inclusive hotel-day formula:
 - `no_accommodation` records are not hotel occupancy and have no hotel days.
 - Assignment cards, Crew Movement History accommodation, this report, and XLSX/CSV all use `CrewAccommodationService::summarizeStayDays()`.
 
-Hotel days are not vessel service days, standby service days, or payroll-entitled days.
+Hotel days are not vessel service days, standby service days, or payroll-entitled days. Joining or leaving the vessel does not reduce a hotel stay. A 1–5 October hotel stay is 5 hotel days even when standby service for that mobilisation is 4 days.
 
 ## Filters & Summary Cards
 

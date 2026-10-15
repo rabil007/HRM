@@ -62,20 +62,31 @@ Provenance labels continue to use `CrewDateProvenance`. Planned Sign-Off is neve
 
 ## Day counting
 
-Crew Movement History uses two different counts. They are not interchangeable.
+Crew Movement History keeps several counts. They are not interchangeable.
 
 | Count | Meaning |
 |---|---|
-| Vessel Service Days / Standby Service Days | Inclusive company-local calendar dates. 4 October through 7 October is 4 vessel service days. Same-day service is 1 day. |
-| Phase service days | Inclusive dates touched by that phase code. Repeated occurrences of the same phase do not count a shared date twice. |
+| Vessel Service Days / Standby Service Days | Allocated payable calendar dates. Each employee/date is owned by one category. |
+| Phase service days | Allocated dates for payable phases (P1A, P1B, P2, P3). P0 and P4 show the actual calendar span instead and add no payable service days. |
+| Movement span | Inclusive company-local dates touched by the recorded phase window. A handoff date can sit in this span and still belong to another category. |
 | Elapsed assignment days / elapsed days onboard | Whole calendar days from the start date to the end date, without adding the end date. Same-day elapsed time is 0. Tour of Duty uses this elapsed count and is unchanged. |
-| Payroll calendar-day preview | Inclusive dates with the same handoff priority, without the operational “stop at today” clamp. Contract eligibility is still applied only in payroll. |
+| Payroll calendar-day preview | The same payable-date ownership, without the operational “stop at today” clamp. Contract eligibility is still applied only in payroll. |
+| Hotel days | Inclusive stay dates (`check-out − check-in + 1`). Never reduced because the crew member joined or left the vessel. |
 
-A same-day handoff (P2A ending and P4 starting on 4 October, or P4 ending and P5 starting on 7 October) keeps that date on the higher-priority category: vessel, then sign-off standby, then sign-on standby. Summary totals therefore do not add each phase span together. Exact timestamps are kept. A future actual start is labeled `Future actual` and adds no worked days. An active phase includes the company-local today and no later date.
+Payable-date priority, shared with automatic Crew Timesheet preparation:
+
+1. On Vessel / Onsite (P2)
+2. Demobilisation / Sign-Off Standby (P3)
+3. Pre-Joining / Sign-On Standby, including Training (P1A, P1B)
+4. Excluded phases (P0, P4)
+
+A pre-joining window of 1–5 October whose vessel join is 5 October is **4 standby service days** (1–4 October). The movement span is still 1–5 October, and 5 October is vessel service. A demobilisation window of 10–14 October whose disembarkation is 10 October is **4 sign-off standby days** (11–14 October). 10 October stays on the vessel. 14 October stays sign-off standby because Home / Redeployment does not outrank it. If that home phase also covers 14–17 October, its phase duration stays 4 calendar days while payroll still counts 14 October as sign-off standby. The recorded timestamps are not changed to make the count match.
+
+Summary standby days, expanded phase service days, and the XLSX/CSV service-day columns use this allocation for the same assignment and cutoff. A same-day vessel transfer or redeployment is one payable onsite day for the employee: the linked assignment that loses the tie does not also count it. Planned dates never become payable service. A future actual start is labeled `Future actual` and adds no operational service days. That warning describes the assignment being viewed; a future movement on a linked assignment does not mark a completed assignment as future actual. An active phase includes company-local today and no later date. Soft-deleted assignments and phases do not compete for payable dates. A cancelled assignment that still has a completed payable phase remains eligible. Export rows load linked phases once per chunk rather than once per row.
 
 ## Repeated phases and training
 
-Phase occurrences are ordered by `sequence`. Repeated P2A/P2B periods remain separate in the timeline and in exports. Each P2B training occurrence exposes provider, course, planned/actual windows, remarks, and whether an `EmployeeTraining` record is linked via `CrewAssignmentPhase::employeeTraining()`.
+Phase occurrences are ordered by `sequence`. Repeated P1A/P1B periods remain separate in the timeline and in exports. Each P1B training occurrence exposes provider, course, planned/actual windows, remarks, and whether an `EmployeeTraining` record is linked via `CrewAssignmentPhase::employeeTraining()`.
 
 ## Accommodation history
 
@@ -129,12 +140,12 @@ Crew Movement History separates fast operational history scanning from deep OMS 
 - **Crew Movement History summary (Default Table)** — an operator-friendly assignment and service history structured like an operational Excel `CREW HISTORY` sheet. It answers the primary operational questions at a glance:
   - *Who worked where?* (Employee No, Crew Name, Rank, Vessel, Client)
   - *When did they arrive?* (Arrival — authoritative actual arrival)
-  - *When did they join the vessel?* (Joined Vessel — actual P4 join)
-  - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P4 end, or `Ongoing` if active)
-  - *When did they return home?* (Returned Home — actual P6 start, or `Redeployed` if transferred directly without returning home)
-  - *How many standby service days?* (Standby Service Days — distinct inclusive calendar dates in sign-on standby and sign-off standby. P2A, training, and legacy P3 are sign-on; P5 is sign-off. A date shared with the vessel counts once, as vessel service.)
-  - *How many vessel service days?* (Vessel Service Days — distinct inclusive P4 calendar dates. 4 October through 7 October is 4 days. This is not elapsed time and not the tour-of-duty “elapsed days onboard” count.)
-  - *What is the current status?* (Assignment status badge, with `On Vessel` for active P4)
+  - *When did they join the vessel?* (Joined Vessel — actual P2 join)
+  - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P2 end, or `Ongoing` if active)
+  - *When did they return home?* (Returned Home — actual P4 start, or `Redeployed` if transferred directly without returning home)
+  - *How many standby service days?* (Standby Service Days — allocated sign-on and sign-off dates. P1A and P1B are sign-on; P3 is sign-off. A date owned by the vessel is not also standby.)
+  - *How many vessel service days?* (Vessel Service Days — allocated P2 dates. 4 October through 7 October is 4 days, including the disembarkation date. This is not elapsed time and not the tour-of-duty “elapsed days onboard” count.)
+  - *What is the current status?* (Assignment status badge, with `On Vessel` for active P2)
 - **Expanded history** — complete OMS movement/audit record, organized in 9 structured sections:
   1. Assignment Summary
   2. Actual Movement

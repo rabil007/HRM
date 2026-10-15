@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PhaseTimelineItem } from '../types.ts';
 import {
+    isHomeRedeployPhaseCode,
     isOnVesselPhaseCode,
     LEGACY_CREW_PHASES,
     legacyPhaseContextLabel,
@@ -11,6 +12,7 @@ import {
     normalProgressStepState,
     normalVisiblePhaseFilterOptions,
     resolveActiveLegacyPhaseContext,
+    visiblePhaseTimelineItems,
 } from './crew-phase-visibility.ts';
 
 function timelineItem(
@@ -40,6 +42,45 @@ describe('crew phase visibility', () => {
         assert.equal(isOnVesselPhaseCode('p2'), true);
         assert.equal(isOnVesselPhaseCode('p4'), false);
         assert.equal(isOnVesselPhaseCode('p2a'), false);
+        assert.equal(isHomeRedeployPhaseCode('p4'), true);
+        assert.equal(isHomeRedeployPhaseCode('p3'), false);
+        assert.equal(isHomeRedeployPhaseCode('p6'), true);
+    });
+
+    it('keeps modern p3 demobilisation standby visible in phase timeline items', () => {
+        const items = visiblePhaseTimelineItems([
+            timelineItem('p2', 'completed'),
+            timelineItem('p3', 'active'),
+            timelineItem('p1', 'completed'),
+            timelineItem('p4', 'completed'),
+        ]);
+
+        assert.deepEqual(
+            items.map((item) => item.phase_code),
+            ['p2', 'p3', 'p4'],
+        );
+        assert.equal(
+            items.some((item) => item.phase_code === 'p1'),
+            false,
+        );
+    });
+
+    it('marks modern p3 as the current demobilisation progress step', () => {
+        const states = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p3', [
+                timelineItem('p0', 'completed'),
+                timelineItem('p1a', 'completed'),
+                timelineItem('p2', 'completed'),
+            ]),
+        );
+
+        assert.deepEqual(states, [
+            'completed',
+            'completed',
+            'completed',
+            'current',
+            'upcoming',
+        ]);
     });
 
     it('keeps a central normal visible phase list without legacy phases', () => {
@@ -56,9 +97,12 @@ describe('crew phase visibility', () => {
 
     it('does not include legacy placeholders in the normal progress path', () => {
         const stepKeys = NORMAL_PHASE_PROGRESS_STEPS.map((step) => step.key);
+        const stepCodes = NORMAL_PHASE_PROGRESS_STEPS.map((step) => step.code);
 
-        assert.deepEqual(stepKeys, ['p0', 'p1', 'p2', 'p3', 'p4']);
-        assert.equal(stepKeys.includes('p1'), true);
+        assert.deepEqual(stepKeys, ['p0', 'prejoin', 'p2', 'p3', 'p4']);
+        assert.deepEqual(stepCodes, ['P0', 'P1A/B', 'P2', 'P3', 'P4']);
+        assert.equal(stepKeys.includes('p1'), false);
+        assert.equal(stepCodes.includes('P1'), false);
         assert.equal(stepKeys.includes('p2a'), false);
     });
 
@@ -181,7 +225,7 @@ describe('crew phase visibility', () => {
         ]);
         assert.equal(
             normalProgressSkippedStagesNote('p4', timeline),
-            'Passed without recorded phase: P1 Pre-join / training, P3 Demobilisation',
+            'Passed without recorded phase: P1A/B Pre-joining / training, P3 Demobilisation',
         );
         assert.equal(normalProgressSkippedStagesNote('p0', []), null);
     });

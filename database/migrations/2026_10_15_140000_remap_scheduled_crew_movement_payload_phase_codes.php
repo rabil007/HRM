@@ -11,6 +11,9 @@ return new class extends Migration
      * Column remap already rewrote expected_*_phase_code. Payload next_phase and
      * starting_phase were not updated, so pending disembarkation, training
      * completion, and redeploy schedules execute against retired codes.
+     *
+     * Only unresolved (scheduled / processing / needs_attention) rows are updated.
+     * Executed and cancelled audit payloads are preserved.
      */
     public function up(): void
     {

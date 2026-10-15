@@ -248,7 +248,7 @@ it('includes Draft, P0, P2A, and P2B assignments, and excludes On-Vessel, Comple
     ]);
     $caP0->update(['current_phase_id' => $phaseP0->id]);
 
-    // 3. Active P2A Join Standby
+    // 3. Active P1A Pre-Joining Standby
     $eP2A = Employee::factory()->forCompany($company)->create(['name' => 'P2A Crew', 'position_id' => $rank->id]);
     CrewAssignment::factory()->forEmployee($eP2A)->joinStandby()->create([
         'vessel_id' => $vessel->id,

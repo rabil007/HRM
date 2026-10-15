@@ -212,7 +212,7 @@ export function OnboardByVesselView({
                                                         Employee No
                                                     </DataTableHead>
                                                     <DataTableHead className="w-[120px]">
-                                                        P4 Joined
+                                                        P2 Joined
                                                     </DataTableHead>
                                                     <DataTableHead className="w-[160px]">
                                                         Elapsed Days Onboard

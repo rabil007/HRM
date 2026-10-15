@@ -417,7 +417,8 @@ function PhaseTimelineRow({
                                     Cancel Request
                                 </Button>
                             ) : null}
-                            {phase.phase_code === 'p2b' &&
+                            {(phase.phase_code === 'p1b' ||
+                                phase.phase_code === 'p2b') &&
                             phase.employee_training_id ? (
                                 can.view_training && employeeId ? (
                                     <Link

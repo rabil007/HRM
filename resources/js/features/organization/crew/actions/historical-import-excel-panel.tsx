@@ -29,6 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { historicalPeriodDaySuffix } from '@/features/organization/crew/lib/historical-period-days';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type {
@@ -181,9 +182,7 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                             <li key={period.key}>
                                 {period.label}: {period.from} →{' '}
                                 {period.to_display}
-                                {period.days != null
-                                    ? ` (${period.days}d)`
-                                    : ''}
+                                {historicalPeriodDaySuffix(period)}
                             </li>
                         ))}
                     </ul>
@@ -208,6 +207,15 @@ function RowDetail({ row }: { row: HistoricalImportPreviewRow }): ReactElement {
                                     {item.phase_label}:{' '}
                                     {formatDisplayDate(item.start)}
                                     {endLabel ? ` → ${endLabel}` : ''}
+                                    {historicalPeriodDaySuffix({
+                                        days: item.duration_days,
+                                        allocated_service_days:
+                                            item.allocated_service_days,
+                                        service_days_label:
+                                            item.service_days_label,
+                                        calendar_span_days:
+                                            item.calendar_span_days,
+                                    })}
                                 </li>
                             );
                         })}

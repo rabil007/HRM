@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     CREW_PHASE_CODES,
+    LEGACY_CREW_PHASE_CODES,
     crewPhaseCopy,
     crewPhaseDescription,
     crewPhaseGuideItems,
@@ -95,5 +96,19 @@ describe('crew phase descriptions', () => {
         assert.match(legacy?.label ?? '', /legacy/i);
         assert.equal(onboard?.code, 'p2');
         assert.equal(onboard?.label, 'On Vessel');
+    });
+
+    it('never classifies modern p3 or p4 as exclusive legacy codes', () => {
+        assert.deepEqual(LEGACY_CREW_PHASE_CODES, [
+            'p1',
+            'p2a',
+            'p2b',
+            'p5',
+            'p6',
+        ]);
+        assert.equal(LEGACY_CREW_PHASE_CODES.includes('p3' as never), false);
+        assert.equal(LEGACY_CREW_PHASE_CODES.includes('p4' as never), false);
+        assert.equal(crewPhaseCopy('p3')?.label, 'Demobilisation Standby');
+        assert.equal(crewPhaseCopy('p4')?.label, 'Home / Redeployment');
     });
 });

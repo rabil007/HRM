@@ -34,7 +34,7 @@ export function recommendsVesselTransfer(
 }
 
 /**
- * Transfer is permitted for an employee already active P4 On Vessel.
+ * Transfer is permitted for an employee already active P2 On Vessel.
  * Destination selection only affects labelling/prefill — not availability.
  */
 export function canTransferFromP4(

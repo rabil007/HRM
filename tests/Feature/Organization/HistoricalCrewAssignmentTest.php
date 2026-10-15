@@ -542,102 +542,114 @@ test('historical creation does not trigger unintended operational side effects',
 });
 
 test('preview response matches the canonical contract exactly', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
-    $vessel = makeCrewMovementVessel('Historical Vessel', $company);
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2024-07-21 12:00:00', 'Asia/Dubai'));
 
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.assignments.view',
-        'crew_operations.assignments.create_historical',
-    ]);
-    $user->update(['current_company_id' => $company->id]);
+    try {
+        ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+        $vessel = makeCrewMovementVessel('Historical Vessel', $company);
 
-    $response = $this->actingAs($user)
-        ->postJson(route('organization.crew-assignments.historical.preview'), [
-            'employee_id' => $employee->id,
-            'vessel_id' => $vessel->id,
-            'position_id' => $rank->id,
-            'onsite_from' => '2024-01-15',
-            'onsite_to' => '2024-07-20',
-            'sign_off_standby_from' => '2024-07-20',
-            'remarks' => 'Inspection crew',
+        grantCompanyPermissions($user, $company, [
+            'crew_operations.assignments.view',
+            'crew_operations.assignments.create_historical',
+        ]);
+        $user->update(['current_company_id' => $company->id]);
+
+        $response = $this->actingAs($user)
+            ->postJson(route('organization.crew-assignments.historical.preview'), [
+                'employee_id' => $employee->id,
+                'vessel_id' => $vessel->id,
+                'position_id' => $rank->id,
+                'onsite_from' => '2024-01-15',
+                'onsite_to' => '2024-07-20',
+                'sign_off_standby_from' => '2024-07-20',
+                'remarks' => 'Inspection crew',
+            ]);
+
+        $response->assertOk();
+        $data = $response->json();
+
+        expect($data)->toHaveKeys([
+            'valid',
+            'employee',
+            'vessel',
+            'position',
+            'client',
+            'summary',
+            'timeline',
+            'checks',
+            'warnings',
+            'sea_service',
         ]);
 
-    $response->assertOk();
-    $data = $response->json();
+        expect($data['employee'])->toHaveKeys(['id', 'name', 'employee_no']);
+        expect($data['vessel'])->toHaveKeys(['id', 'name']);
+        expect($data['position'])->toHaveKeys(['id', 'name']);
+        expect($data['summary'])->toMatchArray([
+            'onsite_from' => '15 Jan 2024',
+            'onsite_to' => '20 Jul 2024',
+            'joined_vessel_at' => '15 Jan 2024',
+            'disembarked_at' => '20 Jul 2024',
+            'sea_service_days' => 188,
+            'remarks' => 'Inspection crew',
+            'assignment_status' => 'active',
+            'is_open' => true,
+        ]);
+        expect($data['summary']['known_periods'])->toBeArray()->not->toBeEmpty();
+        expect($data['inferred_state']['label'] ?? null)->toBe('Demobilisation Standby');
 
-    expect($data)->toHaveKeys([
-        'valid',
-        'employee',
-        'vessel',
-        'position',
-        'client',
-        'summary',
-        'timeline',
-        'checks',
-        'warnings',
-        'sea_service',
-    ]);
+        expect($data['timeline'])->toHaveCount(2);
+        expect($data['timeline'][0])->toEqual([
+            'phase_code' => 'p2',
+            'phase_label' => 'On Vessel',
+            'start' => '15 Jan 2024',
+            'end' => '20 Jul 2024',
+            'end_display' => '20 Jul 2024',
+            'is_open' => false,
+            'duration_days' => 188,
+            'allocated_service_days' => 188,
+            'service_days_label' => 'Vessel service: 188 days',
+            'calendar_span_days' => 188,
+        ]);
+        expect($data['timeline'][1])->toEqual([
+            'phase_code' => 'p3',
+            'phase_label' => 'Demobilisation Standby',
+            'start' => '20 Jul 2024',
+            'end' => null,
+            'end_display' => 'Current',
+            'is_open' => true,
+            'duration_days' => null,
+            'allocated_service_days' => 1,
+            'service_days_label' => 'Sign-off standby to date: 1 day',
+            'calendar_span_days' => null,
+        ]);
 
-    expect($data['employee'])->toHaveKeys(['id', 'name', 'employee_no']);
-    expect($data['vessel'])->toHaveKeys(['id', 'name']);
-    expect($data['position'])->toHaveKeys(['id', 'name']);
-    expect($data['summary'])->toMatchArray([
-        'onsite_from' => '15 Jan 2024',
-        'onsite_to' => '20 Jul 2024',
-        'joined_vessel_at' => '15 Jan 2024',
-        'disembarked_at' => '20 Jul 2024',
-        'sea_service_days' => 188,
-        'remarks' => 'Inspection crew',
-        'assignment_status' => 'active',
-        'is_open' => true,
-    ]);
-    expect($data['summary']['known_periods'])->toBeArray()->not->toBeEmpty();
-    expect($data['inferred_state']['label'] ?? null)->toBe('Demobilisation Standby');
+        expect($data['checks'])->toBeArray()->not->toBeEmpty();
+        foreach ($data['checks'] as $check) {
+            expect($check)->toHaveKeys(['code', 'passed', 'message']);
+            expect($check['code'])->toBeString()->not->toBeEmpty();
+            expect($check['passed'])->toBeBool();
+            expect($check['message'])->toBeString()->not->toBeEmpty();
+        }
 
-    expect($data['timeline'])->toHaveCount(2);
-    expect($data['timeline'][0])->toEqual([
-        'phase_code' => 'p2',
-        'phase_label' => 'On Vessel',
-        'start' => '15 Jan 2024',
-        'end' => '20 Jul 2024',
-        'end_display' => '20 Jul 2024',
-        'is_open' => false,
-        'duration_days' => 188,
-    ]);
-    expect($data['timeline'][1])->toEqual([
-        'phase_code' => 'p3',
-        'phase_label' => 'Demobilisation Standby',
-        'start' => '20 Jul 2024',
-        'end' => null,
-        'end_display' => 'Current',
-        'is_open' => true,
-        'duration_days' => null,
-    ]);
-
-    expect($data['checks'])->toBeArray()->not->toBeEmpty();
-    foreach ($data['checks'] as $check) {
-        expect($check)->toHaveKeys(['code', 'passed', 'message']);
-        expect($check['code'])->toBeString()->not->toBeEmpty();
-        expect($check['passed'])->toBeBool();
-        expect($check['message'])->toBeString()->not->toBeEmpty();
+        expect($data['sea_service'])->toHaveKeys([
+            'status',
+            'days',
+            'months',
+            'start_date',
+            'end_date',
+            'vessel_id',
+            'vessel_name',
+            'existing_id',
+            'message',
+        ]);
+        expect($data['sea_service']['status'])->toBe('will_create');
+        expect($data['sea_service']['days'])->toBe(188);
+        expect($data['sea_service']['months'])->toBe(6);
+        expect($data['sea_service']['start_date'])->toBe('2024-01-15');
+        expect($data['sea_service']['end_date'])->toBe('2024-07-20');
+    } finally {
+        CarbonImmutable::setTestNow();
     }
-
-    expect($data['sea_service'])->toHaveKeys([
-        'status',
-        'days',
-        'months',
-        'start_date',
-        'end_date',
-        'vessel_id',
-        'vessel_name',
-        'existing_id',
-        'message',
-    ]);
-    expect($data['sea_service']['status'])->toBe('will_create');
-    expect($data['sea_service']['days'])->toBe(188);
-    expect($data['sea_service']['months'])->toBe(6);
-    expect($data['sea_service']['start_date'])->toBe('2024-01-15');
-    expect($data['sea_service']['end_date'])->toBe('2024-07-20');
 });
 
 test('completed historical history is allowed for active inactive terminated and on_leave employees', function (string $status) {

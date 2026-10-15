@@ -162,7 +162,7 @@ export function DailyPulse({
             <StatusCard
                 label="Crew on board"
                 value={pulse.onboard_now}
-                detail="Active P4 crew assigned to vessels now"
+                detail="Active P2 crew assigned to vessels now"
                 icon={Anchor}
             >
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">

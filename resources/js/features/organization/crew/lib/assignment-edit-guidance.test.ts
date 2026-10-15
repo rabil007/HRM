@@ -19,8 +19,8 @@ const baseAssignment = {
     client: { id: 1, name: 'Client A' },
     current_phase: {
         id: 99,
-        code: 'p2a',
-        label: 'Join Standby',
+        code: 'p1a',
+        label: 'Pre-Joining Standby',
         status: 'active',
         status_label: 'Active',
     },
@@ -70,7 +70,7 @@ const permissions = {
 };
 
 describe('buildAssignmentEditGuidance', () => {
-    it('describes P2A editing guidance', () => {
+    it('describes P1A editing guidance', () => {
         const guidance = buildAssignmentEditGuidance({
             assignment: baseAssignment,
             formData: {
@@ -87,12 +87,12 @@ describe('buildAssignmentEditGuidance', () => {
             permissions,
         });
 
-        assert.match(guidance.phaseLabel, /P2A · Join Standby/);
+        assert.match(guidance.phaseLabel, /P1A · Pre-Joining Standby/);
         assert.match(guidance.explanation, /Waiting to join the vessel/);
         assert.ok(guidance.safeToUpdate?.includes('Vessel'));
     });
 
-    it('shows destination update guidance for P2A vessel changes', () => {
+    it('shows destination update guidance for P1A vessel changes', () => {
         const guidance = buildAssignmentEditGuidance({
             assignment: baseAssignment,
             formData: {

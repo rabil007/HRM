@@ -157,7 +157,7 @@ export function CrewEmployeeOperationalStatus({
                                 className="border-amber-500/60 bg-amber-500/20 font-semibold tracking-wider text-amber-950 uppercase dark:text-amber-100"
                             >
                                 <Ship className="mr-1 size-3" aria-hidden />
-                                On Vessel · P4
+                                On Vessel · P2
                             </Badge>
                             {assignmentNo ? (
                                 <span className="text-xs font-medium text-amber-900/80 dark:text-amber-200/80">
@@ -172,7 +172,7 @@ export function CrewEmployeeOperationalStatus({
                                 {assignmentNo ? ` · ${assignmentNo}` : ''}
                             </p>
                             <p className="text-xs text-amber-900/90 dark:text-amber-200/90">
-                                P4 started {sinceText ?? '—'}
+                                P2 started {sinceText ?? '—'}
                                 {daysInPhase != null
                                     ? ` · ${daysInPhase} ${daysInPhase === 1 ? 'day' : 'days'} onboard`
                                     : ''}
@@ -212,7 +212,7 @@ export function CrewEmployeeOperationalStatus({
                                 className="border-sky-500/50 bg-sky-500/20 font-semibold tracking-wider text-sky-950 uppercase dark:text-sky-100"
                             >
                                 <Clock className="mr-1 size-3" aria-hidden />
-                                Join Standby · P2A
+                                Pre-Joining Standby · P1A
                             </Badge>
                             {assignmentNo ? (
                                 <span className="text-xs font-medium text-sky-900/80 dark:text-sky-200/80">
@@ -222,7 +222,7 @@ export function CrewEmployeeOperationalStatus({
                         </div>
 
                         <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
-                            Currently in Join Standby
+                            Currently in Pre-Joining Standby
                             {assignmentNo ? ` for ${assignmentNo}` : ''}
                             {daysInPhase != null
                                 ? ` · ${daysInPhase} ${daysInPhase === 1 ? 'day' : 'days'}`
@@ -276,7 +276,7 @@ export function CrewEmployeeOperationalStatus({
                                 className="border-indigo-500/50 bg-indigo-500/20 font-semibold tracking-wider text-indigo-950 uppercase dark:text-indigo-100"
                             >
                                 <Clock className="mr-1 size-3" aria-hidden />
-                                Demob Standby · P5
+                                Demobilisation Standby · P3
                             </Badge>
                             {assignmentNo ? (
                                 <span className="text-xs font-medium text-indigo-900/80 dark:text-indigo-200/80">
@@ -362,7 +362,7 @@ export function CrewEmployeeOperationalStatus({
         );
     }
 
-    // Other active phases: P0 Pre-Mobilisation, P1 Travel In, P2B Training, P3 Ready to Join, P6 Home/Redeploy
+    // Other active phases: P0 Pre-Arrival, P1B Training, P4 Home / Redeployment (plus legacy travel_in / ready_to_join status codes)
     const phaseIcons: Record<string, typeof Plane> = {
         travel_in: Plane,
         training: GraduationCap,

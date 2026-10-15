@@ -193,13 +193,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('guides active P2A without transfer suggestions', () => {
+    it('guides active P1A without transfer suggestions', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'join_standby',
-                    label: 'Join Standby',
-                    current_phase: 'p2a',
+                    label: 'Pre-joining standby',
+                    current_phase: 'p1a',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -209,7 +209,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.match(guidance?.phaseLabel ?? '', /P2A · Join Standby/);
+        assert.match(guidance?.phaseLabel ?? '', /P1A · Pre-joining standby/);
         assert.equal(guidance?.destinationAdvisory?.severity, 'attention');
         assert.equal(
             guidance?.actions.some(
@@ -219,13 +219,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('guides active P2B without transfer suggestions', () => {
+    it('guides active P1B without transfer suggestions', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'training',
                     label: 'Training',
-                    current_phase: 'p2b',
+                    current_phase: 'p1b',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -247,7 +247,7 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('guides active P3 toward join vessel workflow', () => {
+    it('keeps legacy ready_to_join status guidance for historical filter compatibility', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
@@ -262,7 +262,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.match(guidance?.phaseLabel ?? '', /P3 · Ready to Join/);
+        assert.match(guidance?.phaseLabel ?? '', /P3 · Ready to Join/); // legacy status code only
         assert.ok(
             guidance?.actions.some((action) => action.label === 'Join Vessel'),
         );
@@ -274,13 +274,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('shows transfer vessel for P4 without a selected destination', () => {
+    it('shows transfer vessel for P2 On Vessel without a selected destination', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'on_vessel',
                     label: 'On Vessel',
-                    current_phase: 'p4',
+                    current_phase: 'p2',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -299,13 +299,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(transfer?.label, 'Transfer Vessel');
     });
 
-    it('shows transfer to destination when P4 and different vessel selected', () => {
+    it('shows transfer to destination when P2 On Vessel and different vessel selected', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'on_vessel',
                     label: 'On Vessel',
-                    current_phase: 'p4',
+                    current_phase: 'p2',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -324,13 +324,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('does not duplicate intent cards for compact P4 guidance', () => {
+    it('does not duplicate intent cards for compact On Vessel guidance', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'on_vessel',
                     label: 'On Vessel',
-                    current_phase: 'p4',
+                    current_phase: 'p2',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -348,13 +348,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.ok(guidance?.actions.length <= 3);
     });
 
-    it('guides active P5 toward return home or redeploy', () => {
+    it('guides active P3 demobilisation standby toward return home or redeploy', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'demob_standby',
                     label: 'Demobilisation Standby',
-                    current_phase: 'p5',
+                    current_phase: 'p3',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -362,19 +362,19 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.match(guidance?.phaseLabel ?? '', /P5 · Demobilisation Standby/);
+        assert.match(guidance?.phaseLabel ?? '', /P3 · Demobilisation Standby/);
         assert.ok(
             guidance?.actions.some((action) => action.label === 'Return Home'),
         );
     });
 
-    it('guides active P6 toward close, redeploy, or planning', () => {
+    it('guides active P4 home/redeploy toward close, redeploy, or planning', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'home_redeploy',
                     label: 'Home / Redeployment',
-                    current_phase: 'p6',
+                    current_phase: 'p4',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -382,19 +382,19 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.match(guidance?.phaseLabel ?? '', /P6 · Home/);
+        assert.match(guidance?.phaseLabel ?? '', /P4 · Home/);
         assert.ok(
             guidance?.actions.some((action) => action.label === 'Redeploy'),
         );
     });
 
-    it('uses change-mobilisation guidance for pre-P4 destination differences', () => {
+    it('uses change-mobilisation guidance for pre-onboard destination differences', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'join_standby',
-                    label: 'Join Standby',
-                    current_phase: 'p2a',
+                    label: 'Pre-joining standby',
+                    current_phase: 'p1a',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -414,13 +414,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         );
     });
 
-    it('warns when P4 planned join is before current planned sign-off', () => {
+    it('warns when P2 planned join is before current planned sign-off', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'on_vessel',
                     label: 'On Vessel',
-                    current_phase: 'p4',
+                    current_phase: 'p2',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -443,11 +443,11 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(guidance?.plannedDateAdvisory?.severity, 'conflict');
     });
 
-    it('does not warn for P4 when planned join is on or after planned sign-off', () => {
+    it('does not warn for P2 when planned join is on or after planned sign-off', () => {
         const baseStatus = {
             status: 'on_vessel',
             label: 'On Vessel',
-            current_phase: 'p4',
+            current_phase: 'p2',
             has_active_assignment: true,
             assignment_id: 42,
             assignment_no: 'CA-2026-000042',
@@ -474,13 +474,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(afterJoin?.plannedDateAdvisory, undefined);
     });
 
-    it('does not treat P2A planned_next_date as planned sign-off overlap', () => {
+    it('does not treat P1A planned_next_date as planned sign-off overlap', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'join_standby',
-                    label: 'Join Standby',
-                    current_phase: 'p2a',
+                    label: 'Pre-joining standby',
+                    current_phase: 'p1a',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -494,13 +494,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(guidance?.plannedDateAdvisory, undefined);
     });
 
-    it('does not treat P2B planned_next_date as planned sign-off overlap', () => {
+    it('does not treat P1B planned_next_date as planned sign-off overlap', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'training',
                     label: 'Training',
-                    current_phase: 'p2b',
+                    current_phase: 'p1b',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -514,7 +514,7 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(guidance?.plannedDateAdvisory, undefined);
     });
 
-    it('does not treat P3 planned_next_date as planned sign-off overlap', () => {
+    it('does not treat legacy ready_to_join planned_next_date as planned sign-off overlap', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
@@ -534,13 +534,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(guidance?.plannedDateAdvisory, undefined);
     });
 
-    it('does not treat P5 planned_next_date as planned sign-off overlap', () => {
+    it('does not treat P3 demob planned_next_date as planned sign-off overlap', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'demob_standby',
                     label: 'Demobilisation Standby',
-                    current_phase: 'p5',
+                    current_phase: 'p3',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -553,13 +553,13 @@ describe('buildAssignmentReadinessGuidance', () => {
         assert.equal(guidance?.plannedDateAdvisory, undefined);
     });
 
-    it('does not show planned sign-off overlap advisory for P6', () => {
+    it('does not show planned sign-off overlap advisory for P4 home', () => {
         const guidance = buildAssignmentReadinessGuidance(
             buildContext({
                 status: makeStatus({
                     status: 'home_redeploy',
                     label: 'Home / Redeployment',
-                    current_phase: 'p6',
+                    current_phase: 'p4',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
@@ -577,7 +577,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             buildContext({
                 status: makeStatus({
                     status: 'join_standby',
-                    label: 'Join Standby',
+                    label: 'Pre-joining standby',
                     current_phase: null,
                     has_active_assignment: true,
                     assignment_id: null,
@@ -600,7 +600,7 @@ describe('buildAssignmentReadinessGuidance', () => {
                 status: makeStatus({
                     status: 'on_vessel',
                     label: 'On Vessel',
-                    current_phase: 'p4',
+                    current_phase: 'p2',
                     has_active_assignment: true,
                     assignment_id: 42,
                     assignment_no: 'CA-2026-000042',
