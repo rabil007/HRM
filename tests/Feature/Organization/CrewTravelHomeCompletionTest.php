@@ -56,7 +56,7 @@ function makeActiveP5Assignment(): array
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-05 10:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
@@ -65,7 +65,7 @@ function makeActiveP5Assignment(): array
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-04-01 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     return [
@@ -285,7 +285,7 @@ test('direct p4 to p6 disembarkation regression remains available', function () 
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-05 10:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $service->perform($company->id, $id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-01-10 12:00:00',
@@ -295,7 +295,7 @@ test('direct p4 to p6 disembarkation regression remains available', function () 
 
     $result = $service->perform($company->id, $id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-04-01 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $user->id);
 
     expect($result->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)

@@ -274,11 +274,9 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
             ->where('rows.0.relief_crew_assignment_id', $linked->id)
         );
 })->with([
-    'p0' => [CrewPhaseCode::PreMobilisation, CrewReliefStatus::Mobilising],
-    'p1' => [CrewPhaseCode::TravelIn, CrewReliefStatus::Mobilising],
-    'p2a' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::Mobilising],
-    'p2b' => [CrewPhaseCode::Training, CrewReliefStatus::Mobilising],
-    'p3' => [CrewPhaseCode::ReadyToJoin, CrewReliefStatus::ReadyToJoin],
+    'p0' => [CrewPhaseCode::PreArrival, CrewReliefStatus::Mobilising],
+    'p1a' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::ReadyToJoin],
+    'p1b' => [CrewPhaseCode::Training, CrewReliefStatus::Mobilising],
 ]);
 
 test('relief desk filter options exclude ready to join but still resolve historical p3 rows', function () {
@@ -292,7 +290,7 @@ test('relief desk filter options exclude ready to join but still resolve histori
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);
@@ -383,7 +381,7 @@ test('relief desk risk follows existing readiness semantics', function (int $day
         $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
         $linked->update(['status' => CrewAssignmentStatus::Active]);
         $linked->currentPhase->update([
-            'phase_code' => CrewPhaseCode::ReadyToJoin,
+            'phase_code' => CrewPhaseCode::JoinStandby,
             'status' => CrewPhaseStatus::Active,
         ]);
     }
@@ -412,7 +410,7 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);
@@ -558,7 +556,7 @@ test('open assignment actions are hidden without assignment view permission', fu
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);
@@ -600,7 +598,7 @@ test('focus filters limit the desk to matching operational buckets', function ()
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Active,
     ]);
 
@@ -666,7 +664,7 @@ test('linked relief assignment from another company is not exposed', function ()
         $foreignEmployee,
         $other['rank'],
         makeCrewMovementVessel('Foreign Linked', $other['company']),
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
     );
     CrewPlanningAssignment::query()->create([
         'company_id' => $fixtures['company']->id,

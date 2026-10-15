@@ -1,18 +1,21 @@
-export const CREW_PHASE_CODES = [
-    'p0',
+export const CREW_PHASE_CODES = ['p0', 'p1a', 'p1b', 'p2', 'p3', 'p4'] as const;
+
+export type CrewPhaseCode = (typeof CREW_PHASE_CODES)[number];
+
+/** @deprecated Legacy stored codes — display only for historical audit rows if ever surfaced */
+export const LEGACY_CREW_PHASE_CODES = [
     'p1',
     'p2a',
     'p2b',
     'p3',
-    'p4',
     'p5',
     'p6',
 ] as const;
 
-export type CrewPhaseCode = (typeof CREW_PHASE_CODES)[number];
+export type LegacyCrewPhaseCode = (typeof LEGACY_CREW_PHASE_CODES)[number];
 
 export type CrewPhaseCopy = {
-    code: CrewPhaseCode;
+    code: CrewPhaseCode | LegacyCrewPhaseCode;
     label: string;
     description: string;
     compact: string;
@@ -20,49 +23,67 @@ export type CrewPhaseCopy = {
 
 const CREW_PHASE_COPY = {
     p0: {
-        label: 'Pre-Mobilisation',
+        label: 'Pre-Arrival',
         description:
             'Assignment prepared and waiting for the crew member to arrive.',
         compact: 'Waiting for arrival',
     },
-    p1: {
-        label: 'Travel In',
-        description: 'Travelling to the joining location.',
-        compact: 'Travelling to join',
-    },
-    p2a: {
-        label: 'Join Standby',
+    p1a: {
+        label: 'Pre-Joining Standby',
         description:
             'Waiting or staying in hotel/accommodation before joining the vessel.',
-        compact: 'Waiting/hotel before joining',
+        compact: 'Pre-joining standby',
     },
-    p2b: {
+    p1b: {
         label: 'Training',
         description: 'Completing required training before joining.',
         compact: 'Training',
     },
-    p3: {
-        label: 'Ready to Join',
-        description: 'Cleared and ready to board the vessel.',
-        compact: 'Ready to board',
-    },
-    p4: {
+    p2: {
         label: 'On Vessel',
         description: 'Currently onboard the vessel.',
         compact: 'On vessel',
     },
-    p5: {
+    p3: {
         label: 'Demobilisation Standby',
         description:
             'Disembarked and waiting or staying in hotel/accommodation for onward or home travel.',
-        compact: 'Waiting/hotel after disembarkation',
+        compact: 'Demob standby',
     },
-    p6: {
+    p4: {
         label: 'Home / Redeployment',
         description: 'Returned home or moving toward the next assignment.',
-        compact: 'Home / redeployment',
+        compact: 'Home / redeploy',
     },
-} as const satisfies Record<CrewPhaseCode, Omit<CrewPhaseCopy, 'code'>>;
+    p1: {
+        label: 'Travel In (legacy)',
+        description: 'Retired lifecycle phase.',
+        compact: 'Legacy travel in',
+    },
+    p2a: {
+        label: 'Pre-Joining Standby (legacy code)',
+        description: 'Former P2A code; use P1A.',
+        compact: 'Legacy P2A',
+    },
+    p2b: {
+        label: 'Training (legacy code)',
+        description: 'Former P2B code; use P1B.',
+        compact: 'Legacy P2B',
+    },
+    p5: {
+        label: 'Demobilisation Standby (legacy code)',
+        description: 'Former P5 code; use P3.',
+        compact: 'Legacy P5',
+    },
+    p6: {
+        label: 'Home / Redeployment (legacy code)',
+        description: 'Former P6 code; use P4.',
+        compact: 'Legacy P6',
+    },
+} as const satisfies Record<
+    CrewPhaseCode | LegacyCrewPhaseCode | 'p3',
+    Omit<CrewPhaseCopy, 'code'>
+>;
 
 export function isCrewPhaseCode(
     value: string | null | undefined,
@@ -82,13 +103,13 @@ export function crewPhaseCopy(
 
     const key = code.toLowerCase();
 
-    if (!isCrewPhaseCode(key)) {
+    if (!(key in CREW_PHASE_COPY)) {
         return null;
     }
 
     return {
-        code: key,
-        ...CREW_PHASE_COPY[key],
+        code: key as CrewPhaseCopy['code'],
+        ...CREW_PHASE_COPY[key as keyof typeof CREW_PHASE_COPY],
     };
 }
 

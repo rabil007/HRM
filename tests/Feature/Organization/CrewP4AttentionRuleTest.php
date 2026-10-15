@@ -253,7 +253,7 @@ it('non-P4 phase active more than 14 days still emits phase_stale', function () 
     $phase = CrewAssignmentPhase::query()->create([
         'company_id' => $fixtures['company']->id,
         'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now()->subDays(20)->toDateTimeString(),

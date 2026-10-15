@@ -46,7 +46,7 @@ test('crew arrival resolver ignores foreign company completed legacy p1 phase in
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $assignment->id,
         'company_id' => $foreignCompany->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-06-01 08:00:00',
@@ -106,7 +106,7 @@ test('crew arrival resolver sql filter and order by ignore foreign company phase
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $assignment3->id,
         'company_id' => $foreignCompany->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-05-10 08:00:00',
@@ -133,7 +133,7 @@ test('crew arrival resolver sql filter and order by ignore foreign company phase
     expect($orderedDesc->first()->assignment_no)->toBe('CA-TENANT-LOCAL-P2A');
 });
 
-test('crew arrival resolver preserves same company p2a precedence over completed p1', function () {
+test('crew arrival resolver uses earliest p1a actual start by sequence', function () {
     ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
 
     $assignment = CrewAssignment::factory()
@@ -146,7 +146,7 @@ test('crew arrival resolver preserves same company p2a precedence over completed
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $assignment->id,
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-06-01 08:00:00',
@@ -162,20 +162,20 @@ test('crew arrival resolver preserves same company p2a precedence over completed
     ]);
 
     expect(CrewArrivalResolver::timestamp($assignment->fresh(['phases']))?->format('Y-m-d H:i:s'))
-        ->toBe('2026-06-15 09:00:00')
+        ->toBe('2026-06-01 08:00:00')
         ->and(CrewArrivalResolver::date($assignment->fresh(['phases']), 'UTC'))
-        ->toBe('2026-06-15');
+        ->toBe('2026-06-01');
 
     $filtered = CrewArrivalResolver::applyDateFilter(
         CrewAssignment::query()->where('company_id', $company->id),
-        '2026-06-15',
-        '2026-06-15',
+        '2026-06-01',
+        '2026-06-01',
     )->get();
     expect($filtered)->toHaveCount(1)
         ->and($filtered->first()->id)->toBe($assignment->id);
 });
 
-test('crew arrival resolver uses same company completed p1 as fallback when no p2a exists', function () {
+test('crew arrival resolver uses first p1a actual start by sequence', function () {
     ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
 
     $assignment = CrewAssignment::factory()
@@ -188,7 +188,7 @@ test('crew arrival resolver uses same company completed p1 as fallback when no p
     CrewAssignmentPhase::factory()->create([
         'crew_assignment_id' => $assignment->id,
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-04-01 08:00:00',
@@ -196,14 +196,14 @@ test('crew arrival resolver uses same company completed p1 as fallback when no p
     ]);
 
     expect(CrewArrivalResolver::timestamp($assignment->fresh(['phases']))?->format('Y-m-d H:i:s'))
-        ->toBe('2026-04-05 14:00:00')
+        ->toBe('2026-04-01 08:00:00')
         ->and(CrewArrivalResolver::date($assignment->fresh(['phases']), 'UTC'))
-        ->toBe('2026-04-05');
+        ->toBe('2026-04-01');
 
     $filtered = CrewArrivalResolver::applyDateFilter(
         CrewAssignment::query()->where('company_id', $company->id),
-        '2026-04-05',
-        '2026-04-05',
+        '2026-04-01',
+        '2026-04-01',
     )->get();
     expect($filtered)->toHaveCount(1)
         ->and($filtered->first()->id)->toBe($assignment->id);

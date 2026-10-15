@@ -41,7 +41,7 @@ test('start assignment creates active p0 only', function () {
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->phases)->toHaveCount(1)
         ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe(['p0']);
 });
@@ -77,7 +77,7 @@ test('p2a available actions exclude mark ready', function () {
     ], $user->id);
     $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $assignment = $assignment->fresh(['currentPhase']);
@@ -103,7 +103,7 @@ test('crafted mark ready from p2a is rejected at http boundary', function () {
     ], $user->id);
     $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $this->actingAs($user)
@@ -129,7 +129,7 @@ test('p2a join vessel reaches on vessel', function () {
     ], $user->id);
     $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
 
     $this->actingAs($user)
@@ -156,7 +156,7 @@ test('training loop returns to join standby and rejects crafted p3 completion', 
     ], $user->id);
     $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $user->id);
     $service->perform($company->id, $assignment->id, CrewMovementAction::SendToTraining, [
         'occurred_at' => '2026-01-03 08:00:00',
@@ -186,48 +186,7 @@ test('training loop returns to join standby and rejects crafted p3 completion', 
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active);
 });
 
-test('legacy p1 record arrival reaches join standby', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeLegacyPhaseCleanupFixtures();
-    $vessel = makeCrewMovementVessel('Stage1 Legacy P1', $company);
-
-    $assignment = makeCurrentCrewPhaseAssignment(
-        $company,
-        $employee,
-        $rank,
-        $vessel,
-        CrewPhaseCode::TravelIn,
-    );
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.perform-action', $assignment), [
-            'action' => CrewMovementAction::RecordArrival->value,
-            'occurred_at' => '2026-01-03 14:00:00',
-        ])
-        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
-
-    expect($assignment->fresh('currentPhase')->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
-});
-
-test('legacy p3 join vessel reaches on vessel', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeLegacyPhaseCleanupFixtures();
-    $vessel = makeCrewMovementVessel('Stage1 Legacy P3', $company);
-
-    $assignment = makeCurrentCrewPhaseAssignment(
-        $company,
-        $employee,
-        $rank,
-        $vessel,
-        CrewPhaseCode::ReadyToJoin,
-    );
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-assignments.perform-action', $assignment), [
-            'action' => CrewMovementAction::JoinVessel->value,
-            'occurred_at' => '2026-01-10 12:00:00',
-            'vessel_id' => $vessel->id,
-            'position_id' => $rank->id,
-        ])
-        ->assertRedirect(route('organization.crew-assignments.show', $assignment));
-
-    expect($assignment->fresh('currentPhase')->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
+test('obsolete travel in and ready to join phase codes are not recognized', function () {
+    expect(CrewPhaseCode::tryFrom('p1'))->toBeNull()
+        ->and(CrewPhaseCode::tryFrom('p3'))->toBe(CrewPhaseCode::DemobStandby);
 });

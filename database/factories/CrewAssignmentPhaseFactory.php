@@ -21,7 +21,7 @@ class CrewAssignmentPhaseFactory extends Factory
     public function definition(): array
     {
         return [
-            'phase_code' => CrewPhaseCode::PreMobilisation,
+            'phase_code' => CrewPhaseCode::PreArrival,
             'sequence' => 1,
             'status' => CrewPhaseStatus::Planned,
             'planned_start_at' => null,

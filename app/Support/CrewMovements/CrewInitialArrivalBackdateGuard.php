@@ -35,7 +35,7 @@ final class CrewInitialArrivalBackdateGuard
             return false;
         }
 
-        if ($current->phase_code !== CrewPhaseCode::PreMobilisation) {
+        if ($current->phase_code !== CrewPhaseCode::PreArrival) {
             return false;
         }
 

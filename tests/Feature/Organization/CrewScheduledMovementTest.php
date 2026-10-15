@@ -436,7 +436,7 @@ test('demo lifecycle schedule then execute arrival join disembark return home', 
         ->assertSessionDoesntHaveErrors()
         ->assertRedirect();
 
-    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(1);
 
     $setNow('2027-01-10 08:00:00');

@@ -62,7 +62,7 @@ test('prepare creates applied timeline for normal p2a p3 p4 flow', function () {
     grantCompanyPermissions($fixtures['user'], $fixtures['company'], ['payroll.crew_timesheets.prepare']);
 
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-03 18:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 2, '2026-07-04 08:00:00', '2026-07-05 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-07-04 08:00:00', '2026-07-05 18:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-07-06 08:00:00', '2026-07-20 18:00:00');
 
     $response = $this->withSession(['current_company_id' => $fixtures['company']->id])
@@ -182,7 +182,7 @@ test('prepare allocates a recorded assignment across each overlapping payroll pe
 
     addTimelinePhase(
         $fixtures['assignment'],
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
         1,
         '2026-07-25 08:00:00',
         '2026-07-31 14:00:00',
@@ -378,7 +378,7 @@ test('prepare supports multiple assignments in one period', function () {
 test('handover transition date does not create overlap warning and onsite wins', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-01 08:00:00', '2026-07-06 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-06 18:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-06 18:00:00', '2026-07-20 18:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(
@@ -406,7 +406,7 @@ test('handover transition date does not create overlap warning and onsite wins',
 test('genuine multi-day overlap creates blocking overlap warning and onsite wins', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 1, '2026-07-01 08:00:00', '2026-07-10 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-07-01 08:00:00', '2026-07-10 18:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 2, '2026-07-06 08:00:00', '2026-07-20 18:00:00');
 
     $preparation = app(PrepareCrewTimesheetTimeline::class)->handle(

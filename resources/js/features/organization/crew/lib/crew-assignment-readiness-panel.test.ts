@@ -43,7 +43,7 @@ function makeFormOptions(
             '42': {
                 status: 'on_vessel',
                 label: 'On vessel',
-                current_phase: 'p4',
+                current_phase: 'p2',
                 current_vessel: 'Ocean Star',
                 assignment_id: 100,
                 assignment_no: 'CA-2026-000042',

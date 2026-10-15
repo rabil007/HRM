@@ -124,7 +124,7 @@ class CrewMovementAttentionQuery
         }
 
         if ($assignment->status === CrewAssignmentStatus::Active
-            && ($current?->phase_code === CrewPhaseCode::ReadyToJoin
+            && ($current?->phase_code === CrewPhaseCode::JoinStandby
                 || $current?->phase_code === CrewPhaseCode::OnVessel)) {
             if ($assignment->vessel_id === null) {
                 $warnings[] = [
@@ -300,7 +300,6 @@ class CrewMovementAttentionQuery
         $preJoinHotelPhases = [
             CrewPhaseCode::JoinStandby->value,
             CrewPhaseCode::Training->value,
-            CrewPhaseCode::ReadyToJoin->value,
         ];
 
         $preJoinHotel = $activeAssignments->filter(

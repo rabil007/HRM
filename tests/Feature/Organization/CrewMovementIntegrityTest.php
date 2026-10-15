@@ -160,7 +160,7 @@ test('actual movement actions reject future occurred_at timestamps', function (s
         default => tap(
             $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id),
             function (CrewAssignment $draft) use ($service, $company, $user): void {
-                if ($draft->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation) {
+                if ($draft->currentPhase?->phase_code === CrewPhaseCode::PreArrival) {
                     $service->perform($company->id, $draft->id, CrewMovementAction::ApproveMobilisation, [
                         'occurred_at' => '2026-09-10 08:00:00',
                     ], $user->id);

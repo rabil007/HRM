@@ -1,37 +1,21 @@
 import type { ReactElement } from 'react';
 import { crewPhaseCopy } from '@/features/organization/crew/lib/crew-phase-descriptions';
-import { isLegacyCrewPhase } from '@/features/organization/crew/lib/crew-phase-visibility';
+import {
+    NORMAL_VISIBLE_CREW_PHASES,
+    normalizePhaseCodeForDisplay,
+} from '@/features/organization/crew/lib/crew-phase-visibility';
 import { cn } from '@/lib/utils';
 
-const JOURNEY_STEPS = [
-    { code: 'p0', label: 'P0' },
-    { code: 'p2a', label: 'P2A' },
-    { code: 'p2b', label: 'P2B' },
-    { code: 'p4', label: 'P4' },
-    { code: 'p5', label: 'P5' },
-    { code: 'p6', label: 'P6' },
-] as const;
+const JOURNEY_STEPS = NORMAL_VISIBLE_CREW_PHASES.map((code) => ({
+    code,
+    label: code.toUpperCase(),
+}));
 
 function isHighlightedStep(
     stepCode: string,
-    normalizedCurrent: string,
-    legacy: boolean,
+    normalizedCurrent: string | null,
 ): boolean {
-    if (stepCode === normalizedCurrent) {
-        return true;
-    }
-
-    if (legacy) {
-        if (normalizedCurrent === 'p1' && stepCode === 'p0') {
-            return true;
-        }
-
-        if (normalizedCurrent === 'p3' && stepCode === 'p2b') {
-            return true;
-        }
-    }
-
-    return false;
+    return normalizedCurrent !== null && stepCode === normalizedCurrent;
 }
 
 export function CrewMovementJourneyIndicator({
@@ -41,13 +25,15 @@ export function CrewMovementJourneyIndicator({
     currentPhaseCode: string | null;
     className?: string;
 }): ReactElement | null {
-    const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
+    const normalizedCurrent =
+        normalizePhaseCodeForDisplay(currentPhaseCode) ??
+        currentPhaseCode?.toLowerCase() ??
+        null;
 
     if (!normalizedCurrent) {
         return null;
     }
 
-    const legacy = isLegacyCrewPhase(normalizedCurrent);
     const currentCopy = crewPhaseCopy(normalizedCurrent);
 
     return (
@@ -70,7 +56,6 @@ export function CrewMovementJourneyIndicator({
                     const highlighted = isHighlightedStep(
                         step.code,
                         normalizedCurrent,
-                        legacy,
                     );
 
                     return (

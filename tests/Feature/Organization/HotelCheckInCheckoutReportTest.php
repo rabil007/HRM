@@ -103,7 +103,7 @@ test('basic listing returns stay with employee, hotel, stay type, dates, assignm
             ->where('stays.0.stay_days_has_future_checkout', true)
             ->where('stays.0.assignment.assignment_no', 'CA-HOTEL-001')
             ->where('stays.0.assignment.vessel_name', $assignment->vessel->name)
-            ->where('stays.0.starting_checkpoint', 'P2A · Join Standby')
+            ->where('stays.0.starting_checkpoint', 'P1A · Pre-Joining Standby')
             ->where('summary.total', 1)
             ->where('summary.currently_checked_in', 1)
             ->where('can.export', true));

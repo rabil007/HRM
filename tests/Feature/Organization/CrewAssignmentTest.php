@@ -30,11 +30,11 @@ test('assignment can contain multiple ordered phases', function () {
         ->create();
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 2,
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
@@ -47,8 +47,8 @@ test('assignment can contain multiple ordered phases', function () {
     expect($ordered)->toHaveCount(3)
         ->and($ordered->pluck('sequence')->all())->toBe([1, 2, 3])
         ->and($ordered->pluck('phase_code')->all())->toBe([
-            CrewPhaseCode::TravelIn,
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
         ]);
 });
@@ -73,19 +73,19 @@ test('same phase code can occur multiple times in one assignment', function () {
         'sequence' => 5,
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 6,
     ]);
 
     $phases = $assignment->phases()->ordered()->get();
 
     expect($phases)->toHaveCount(4)
-        ->and($phases->where('phase_code', CrewPhaseCode::JoinStandby))->toHaveCount(2)
+        ->and($phases->where('phase_code', CrewPhaseCode::JoinStandby))->toHaveCount(3)
         ->and($phases->pluck('phase_code')->map->value->all())->toBe([
-            'p2a',
-            'p2b',
-            'p2a',
-            'p3',
+            'p1a',
+            'p1b',
+            'p1a',
+            'p1a',
         ]);
 });
 

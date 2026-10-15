@@ -503,8 +503,8 @@ final class CrewTimesheetPreparationReviewResource
             'remarks' => array_values(array_unique($remarks)),
             'occurrence' => null,
             'occurrence_count' => 1,
-            'is_legacy' => $phaseCode?->isLegacy() ?? false,
-            'legacy_context_label' => $phaseCode?->legacyContextLabel(),
+            'is_legacy' => false,
+            'legacy_context_label' => null,
             'has_payroll_period' => $hasPayableAllocation || ($payrollFrom !== null || $payrollTo !== null),
         ];
     }

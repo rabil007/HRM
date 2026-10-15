@@ -340,7 +340,7 @@ it('cannot repair completed P4 or completed assignments', function () {
     // Disembark and complete
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-08-01 08:00:00',
-        'next_phase' => 'p6',
+        'next_phase' => 'p4',
     ], $this->user->id);
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::CloseAssignment, [
         'occurred_at' => '2026-08-05 08:00:00',

@@ -118,7 +118,7 @@ test('2. Active P0 assignment is editable', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('P0 Vessel');
 
-    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreMobilisation);
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreArrival);
 
     expect(CrewAssignmentEditability::isEditable($assignment))->toBeTrue();
 
@@ -155,10 +155,10 @@ test('3. Active P1, P2A, P2B, P3 assignments are editable', function (CrewPhaseC
 
     expect($assignment->fresh()->planned_join_at->toDateString())->toBe('2026-10-10');
 })->with([
-    'P1 TravelIn' => CrewPhaseCode::TravelIn,
+    'P1 TravelIn' => CrewPhaseCode::JoinStandby,
     'P2A JoinStandby' => CrewPhaseCode::JoinStandby,
     'P2B Training' => CrewPhaseCode::Training,
-    'P3 ReadyToJoin' => CrewPhaseCode::ReadyToJoin,
+    'P3 ReadyToJoin' => CrewPhaseCode::JoinStandby,
 ]);
 
 test('edit page includes linked employee training id without lazy loading', function () {
@@ -267,7 +267,7 @@ test('8. Cancelled assignment is not editable and update is rejected', function 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Cancelled Vessel');
 
-    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Cancelled);
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreArrival, CrewAssignmentStatus::Cancelled);
 
     expect(CrewAssignmentEditability::isEditable($assignment))->toBeFalse();
 
@@ -324,29 +324,29 @@ test('generic editability follows draft and pre-p4 mobilisation only', function 
             'vessel_id' => $vessel->id,
         ]);
     } else {
-        $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, $phaseCode ?? CrewPhaseCode::TravelIn, $status);
+        $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, $phaseCode ?? CrewPhaseCode::JoinStandby, $status);
     }
 
     expect(CrewAssignmentEditability::isEditable($assignment->fresh(['currentPhase'])))->toBe($expected);
 })->with([
     'draft' => [null, CrewAssignmentStatus::Draft, true],
-    'p0' => [CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Active, true],
-    'p1' => [CrewPhaseCode::TravelIn, CrewAssignmentStatus::Active, true],
-    'p2a' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
-    'p2b' => [CrewPhaseCode::Training, CrewAssignmentStatus::Active, true],
-    'p3' => [CrewPhaseCode::ReadyToJoin, CrewAssignmentStatus::Active, true],
-    'p4' => [CrewPhaseCode::OnVessel, CrewAssignmentStatus::Active, false],
-    'p5' => [CrewPhaseCode::DemobStandby, CrewAssignmentStatus::Active, false],
-    'p6' => [CrewPhaseCode::HomeRedeploy, CrewAssignmentStatus::Active, false],
+    'p0' => [CrewPhaseCode::PreArrival, CrewAssignmentStatus::Active, true],
+    'p1' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
+    'p1a' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
+    'p1b' => [CrewPhaseCode::Training, CrewAssignmentStatus::Active, true],
+    'p3' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
+    'p2' => [CrewPhaseCode::OnVessel, CrewAssignmentStatus::Active, false],
+    'p3' => [CrewPhaseCode::DemobStandby, CrewAssignmentStatus::Active, false],
+    'p4' => [CrewPhaseCode::HomeRedeploy, CrewAssignmentStatus::Active, false],
     'completed' => [CrewPhaseCode::OnVessel, CrewAssignmentStatus::Completed, false],
-    'cancelled' => [CrewPhaseCode::TravelIn, CrewAssignmentStatus::Cancelled, false],
+    'cancelled' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Cancelled, false],
 ]);
 
 test('10. Assignment show payload exposes is_editable true for P3 and false for P4', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Show Editability Vessel');
 
-    $p3Assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::ReadyToJoin);
+    $p3Assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
     $p4Assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
 
     $this->actingAs($user)
@@ -540,7 +540,7 @@ test('18. edit assignment cannot mutate started_at phase or actual movement time
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Actuals Guard Vessel');
 
-    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::TravelIn);
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::JoinStandby);
     $originalStartedAt = $assignment->started_at?->copy();
     $originalPhaseStart = $assignment->currentPhase?->actual_start_at?->copy();
     $originalPhaseId = $assignment->current_phase_id;

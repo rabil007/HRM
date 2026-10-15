@@ -30,10 +30,7 @@ function advanceToReadyForE2ETour(CrewMovementService $service, int $companyId, 
     ], $userId);
     $service->perform($companyId, $assignmentId, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-08-05 10:00:00',
-        'next_phase' => 'p2a',
-    ], $userId);
-    $service->perform($companyId, $assignmentId, CrewMovementAction::MarkReady, [
-        'occurred_at' => '2026-08-08 09:00:00',
+        'next_phase' => 'p1a',
     ], $userId);
 }
 

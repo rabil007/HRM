@@ -11,7 +11,7 @@ describe('movement action impact previews', () => {
         assert.equal(config.submitLabel, 'Confirm Transfer');
         assert.match(
             config.impactDescription.join(' '),
-            /P4 On Vessel phase ends/i,
+            /On Vessel phase ends/i,
         );
         assert.match(
             config.impactDescription.join(' '),

@@ -59,11 +59,9 @@ test('normal mobilisation produces correct payable days and payroll record', fun
     setDailyCrewContractRates($fixtures, 100, 30, 20);
     makeSeptemberDailyCrewPeriod($fixtures);
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-09-01 08:00:00', '2026-09-02 08:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::TravelIn, 2, '2026-09-02 08:00:00', '2026-09-03 08:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 3, '2026-09-03 08:00:00', '2026-09-06 08:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 4, '2026-09-06 08:00:00', '2026-09-07 08:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 5, '2026-09-07 08:00:00', '2026-09-20 18:00:00', CrewPhaseStatus::Completed);
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreArrival, 1, '2026-09-01 08:00:00', '2026-09-02 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-09-02 08:00:00', '2026-09-07 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-09-07 08:00:00', '2026-09-20 18:00:00', CrewPhaseStatus::Completed);
 
     ['preparation' => $preparation, 'timesheet' => $timesheet, 'record' => $record] = runDailyCrewPayrollPipeline($fixtures);
 
@@ -76,15 +74,15 @@ test('normal mobilisation produces correct payable days and payroll record', fun
         ->where('pay_category', CrewTimesheetPayCategory::Onsite)
         ->firstOrFail();
 
-    expect((float) $standbyLine->days)->toBe(4.0)
+    expect((float) $standbyLine->days)->toBe(5.0)
         ->and((float) $onsiteLine->days)->toBe(14.0)
-        ->and((float) $timesheet->sign_on_standby_days)->toBe(4.0)
+        ->and((float) $timesheet->sign_on_standby_days)->toBe(5.0)
         ->and((float) $timesheet->onsite_days)->toBe(14.0)
         ->and($timesheet->source)->toBe(CrewTimesheetSource::CrewOperations)
         ->and($timesheet->movement_source_hash)->toBe($preparation->source_hash)
         ->and($record)->not->toBeNull()
-        ->and((float) $record->basic_salary)->toBe(1800.0)
-        ->and((float) $record->calculation_breakdown['sign_on_standby_days'])->toBe(4.0)
+        ->and((float) $record->basic_salary)->toBe(1900.0)
+        ->and((float) $record->calculation_breakdown['sign_on_standby_days'])->toBe(5.0)
         ->and((float) $record->calculation_breakdown['onsite_days'])->toBe(14.0);
 
     assertPayrollReconciles($record);
@@ -100,9 +98,9 @@ test('training loop preserves payable standby days once without duplicate calend
 
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 1, '2026-09-03 08:00:00', '2026-09-04 18:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::Training, 2, '2026-09-05 08:00:00', '2026-09-06 18:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 3, '2026-09-07 08:00:00', '2026-09-08 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 3, '2026-09-07 08:00:00', '2026-09-08 08:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::Training, 4, '2026-09-09 08:00:00', '2026-09-10 18:00:00');
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::ReadyToJoin, 5, '2026-09-11 08:00:00', '2026-09-12 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 5, '2026-09-11 08:00:00', '2026-09-12 08:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 6, '2026-09-12 08:00:00', '2026-09-18 18:00:00', CrewPhaseStatus::Completed);
 
     ['preparation' => $preparation, 'record' => $record] = runDailyCrewPayrollPipeline($fixtures);

@@ -4,6 +4,7 @@ import type {
     CrewRecommendedAction,
 } from '../types.ts';
 import { CREW_MOVEMENT_ACTION_LABELS } from '../types.ts';
+import { isOnVesselPhaseCode } from './crew-phase-visibility.ts';
 
 export type OperationalStatePermissions = {
     perform_movement: boolean;
@@ -196,7 +197,7 @@ export function lastOperationalChangeSummary(
 
     if (
         assignment.actual_join_at &&
-        assignment.current_phase?.code === 'p4' &&
+        isOnVesselPhaseCode(assignment.current_phase?.code) &&
         assignment.vessel?.name
     ) {
         return {

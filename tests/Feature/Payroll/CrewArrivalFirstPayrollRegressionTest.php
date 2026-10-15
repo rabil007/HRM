@@ -19,8 +19,7 @@ use Carbon\Carbon;
 test('p0 is excluded and p2a generates sign-on standby in pay category resolver', function () {
     $resolver = new CrewPhasePayCategoryResolver;
 
-    expect($resolver->resolve(CrewPhaseCode::PreMobilisation))->toBe(CrewTimesheetPayCategory::Excluded)
-        ->and($resolver->resolve(CrewPhaseCode::TravelIn))->toBe(CrewTimesheetPayCategory::Excluded)
+    expect($resolver->resolve(CrewPhaseCode::PreArrival))->toBe(CrewTimesheetPayCategory::Excluded)
         ->and($resolver->resolve(CrewPhaseCode::JoinStandby))->toBe(CrewTimesheetPayCategory::SignOnStandby);
 });
 
@@ -57,7 +56,7 @@ test('exact p0 to p2a same day boundary allocates sign on standby without double
     $p0 = CrewAssignmentPhase::factory()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-04-05 08:00:00',
@@ -134,7 +133,7 @@ test('updating planned_arrival_at does not alter the crew timeline source hash',
     $p0 = CrewAssignmentPhase::factory()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => '2026-04-05 08:00:00',

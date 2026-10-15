@@ -36,7 +36,7 @@ test('forEmployee returns pre mobilisation for draft assignment', function () {
     $phase = CrewAssignmentPhase::query()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $assignment->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Planned,
     ]);

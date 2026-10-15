@@ -180,11 +180,9 @@ final class CrewReliefReadinessResolver
             }
 
             return in_array($phase->phase_code, [
-                CrewPhaseCode::PreMobilisation,
-                CrewPhaseCode::TravelIn,
+                CrewPhaseCode::PreArrival,
                 CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::Training,
-                CrewPhaseCode::ReadyToJoin,
                 CrewPhaseCode::OnVessel,
             ], true);
         }
@@ -210,11 +208,9 @@ final class CrewReliefReadinessResolver
         }
 
         return in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
-            CrewPhaseCode::ReadyToJoin,
             CrewPhaseCode::OnVessel,
         ], true);
     }
@@ -327,15 +323,13 @@ final class CrewReliefReadinessResolver
             return CrewReliefStatus::ReliefOnboard;
         }
 
-        if ($phase->phase_code === CrewPhaseCode::ReadyToJoin
+        if ($phase->phase_code === CrewPhaseCode::JoinStandby
             && $phase->status === CrewPhaseStatus::Active) {
             return CrewReliefStatus::ReadyToJoin;
         }
 
         if (in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
-            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::Training,
         ], true)) {
             return CrewReliefStatus::Mobilising;
@@ -359,7 +353,7 @@ final class CrewReliefReadinessResolver
         }
 
         if ($linked->status === CrewAssignmentStatus::Draft
-            && $phase->phase_code === CrewPhaseCode::PreMobilisation
+            && $phase->phase_code === CrewPhaseCode::PreArrival
             && $phase->status === CrewPhaseStatus::Planned) {
             return CrewReliefStatus::AssignmentCreated;
         }
@@ -370,15 +364,13 @@ final class CrewReliefReadinessResolver
             return CrewReliefStatus::ReliefOnboard;
         }
 
-        if ($phase->phase_code === CrewPhaseCode::ReadyToJoin
+        if ($phase->phase_code === CrewPhaseCode::JoinStandby
             && $phase->status === CrewPhaseStatus::Active) {
             return CrewReliefStatus::ReadyToJoin;
         }
 
         if (in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
-            CrewPhaseCode::TravelIn,
-            CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::Training,
         ], true)) {
             return CrewReliefStatus::Mobilising;

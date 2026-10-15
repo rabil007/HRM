@@ -133,7 +133,7 @@ function buildAssignmentSummaryLine(
         const dayLabel = status.days_in_phase === 1 ? 'day' : 'days';
         const phaseCode = status.current_phase?.toLowerCase();
 
-        if (phaseCode === 'p4') {
+        if (phaseCode === 'p2') {
             parts.push(`${status.days_in_phase} ${dayLabel} onboard`);
         } else if (phaseCode) {
             parts.push(`${status.days_in_phase} ${dayLabel} in phase`);
@@ -142,7 +142,7 @@ function buildAssignmentSummaryLine(
 
     if (
         status.planned_next_date &&
-        status.current_phase?.toLowerCase() === 'p4'
+        status.current_phase?.toLowerCase() === 'p2'
     ) {
         parts.push(`Sign-off: ${status.planned_next_date.slice(0, 10)}`);
     }

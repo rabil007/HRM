@@ -40,7 +40,7 @@ function listItem(
         employee_id: 1,
         employee_name: 'Crew Member',
         employee_no: 'E1',
-        current_phase_code: 'p4',
+        current_phase_code: 'p2',
         current_phase_label: 'On Vessel',
         current_phase_started_at: '2026-08-01',
         days_in_phase: 44,
@@ -74,7 +74,7 @@ function listItem(
         position: null,
         vessel: { id: 1, name: 'Horizon' },
         client: null,
-        current_phase: { code: 'p4', label: 'On Vessel', status: 'active' },
+        current_phase: { code: 'p2', label: 'On Vessel', status: 'active' },
         days_in_phase: 44,
         planned_join_at: '2026-08-01',
         planned_arrival_at: null,
@@ -164,7 +164,7 @@ describe('crew quick detail operational summary', () => {
                 ...assignment,
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'active',
                 },
                 available_actions: ['record_arrival'],
@@ -178,7 +178,7 @@ describe('crew quick detail operational summary', () => {
                 planned_arrival_at: null,
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'active',
                 },
                 available_actions: ['record_arrival'],
@@ -216,11 +216,11 @@ describe('crew quick detail operational summary', () => {
         assert.match(travelling.focus, /legacy travel in/i);
     });
 
-    it('prefers join vessel or training for p2a without mark ready guidance', () => {
+    it('prefers join vessel or training for p1a without mark ready guidance', () => {
         const assignment = listItem({
             current_phase: {
-                code: 'p2a',
-                label: 'Join Standby',
+                code: 'p1a',
+                label: 'Pre-Joining Standby',
                 status: 'active',
             },
             available_actions: ['join_vessel', 'send_to_training'],
@@ -228,7 +228,7 @@ describe('crew quick detail operational summary', () => {
         const model = crewQuickDetailModel(assignment, can, now);
 
         assert.equal(model.movement, 'join_vessel');
-        assert.match(model.focus, /join standby/i);
+        assert.match(model.focus, /pre-joining standby/i);
         assert.doesNotMatch(model.focus, /mark ready/i);
         assert.doesNotMatch(model.focus, /marking this crew member ready/i);
 
@@ -243,26 +243,26 @@ describe('crew quick detail operational summary', () => {
         assert.equal(trainingOnly.movement, 'send_to_training');
     });
 
-    it('recommends join vessel for legacy p3 when available', () => {
+    it('recommends travel home for demobilisation standby when available', () => {
         const model = crewQuickDetailModel(
             listItem({
                 current_phase: {
                     code: 'p3',
-                    label: 'Ready to Join',
+                    label: 'Demobilisation Standby',
                     status: 'active',
                 },
-                available_actions: ['join_vessel'],
+                available_actions: ['travel_home'],
             }),
             can,
             now,
         );
 
-        assert.equal(model.movement, 'join_vessel');
-        assert.match(model.focus, /legacy ready to join/i);
+        assert.equal(model.movement, 'travel_home');
+        assert.match(model.focus, /travel home/i);
     });
 
     it('does not show historic joining as the next event during demobilisation or after closure', () => {
-        for (const phase of ['p5', 'p6']) {
+        for (const phase of ['p3', 'p4']) {
             const model = crewQuickDetailModel(
                 listItem({
                     current_phase: {
@@ -320,7 +320,7 @@ describe('crew quick detail operational summary', () => {
             listItem({
                 current_phase: {
                     code: 'p0',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-Arrival',
                     status: 'planned',
                 },
                 available_actions: ['approve_mobilisation'],

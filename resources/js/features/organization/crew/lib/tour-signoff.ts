@@ -103,7 +103,9 @@ export function actionUsesDirectP4TourSignoff(
         return true;
     }
 
-    return action === 'redeploy' && startingPhase === 'p4';
+    const normalized = startingPhase?.toLowerCase();
+
+    return action === 'redeploy' && normalized === 'p2';
 }
 
 export function shouldShowDirectP4TourSignoffFields(
@@ -126,7 +128,7 @@ export function normalizeTourSignoffPayload(
 ): TourSignoffPayload {
     const payload: TourSignoffPayload = { ...data };
 
-    if (action === 'redeploy' && data.starting_phase !== 'p4') {
+    if (action === 'redeploy' && data.starting_phase !== 'p2') {
         delete payload.planned_signoff_choice;
         delete payload.planned_signoff_override_reason;
 

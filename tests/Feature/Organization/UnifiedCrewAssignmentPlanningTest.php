@@ -169,7 +169,7 @@ test('assignment can start directly without planning first', function () {
 
     expect($assignment)->not->toBeNull()
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_start_at)->not->toBeNull()
         ->and(CrewPlanningAssignment::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
@@ -200,7 +200,7 @@ test('draft assignment can transition to active on the SAME CrewAssignment recor
     expect($active->id)->toBe($originalId)
         ->and($active->assignment_no)->toBe($originalNo)
         ->and($active->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($active->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($active->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($active->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($active->started_at)->not->toBeNull()
         ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe(1);

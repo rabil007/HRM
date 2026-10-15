@@ -242,7 +242,7 @@ it('includes Draft, P0, P2A, and P2B assignments, and excludes On-Vessel, Comple
         'planned_join_at' => $today->addDays(2)->toDateTimeString(),
     ]);
     $phaseP0 = CrewAssignmentPhase::factory()->forAssignment($caP0)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'sequence' => 1,
     ]);

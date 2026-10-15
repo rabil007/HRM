@@ -149,7 +149,7 @@ final class PrepareCrewTimesheetTimeline
                     'employee_id' => $issue['employee_id'],
                     'crew_assignment_id' => $issue['crew_assignment_id'],
                     'crew_assignment_phase_id' => $issue['crew_assignment_phase_id'],
-                    'phase_code' => $issue['phase_code'] ?? CrewPhaseCode::PreMobilisation,
+                    'phase_code' => $issue['phase_code'] ?? CrewPhaseCode::PreArrival,
                     'pay_category' => CrewTimesheetPayCategory::Excluded,
                     'from_date' => $issue['from_date'],
                     'to_date' => $issue['to_date'],

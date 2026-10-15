@@ -428,7 +428,7 @@ it('does not treat overdue Planning or pre-P4 assignments as actual onboard but 
     $phase = CrewAssignmentPhase::query()->create([
         'company_id' => $ctx['company']->id,
         'crew_assignment_id' => $draft->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Planned,
     ]);

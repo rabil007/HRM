@@ -8,14 +8,14 @@ import {
 } from './crew-phase-descriptions.ts';
 
 describe('crew phase descriptions', () => {
-    it('covers every P0–P6 code with a label, description, and compact guide line', () => {
+    it('covers every modern phase code with a label, description, and compact guide line', () => {
         const items = crewPhaseGuideItems();
 
         assert.deepEqual(
             items.map((item) => item.code),
             [...CREW_PHASE_CODES],
         );
-        assert.equal(items.length, 8);
+        assert.equal(items.length, 6);
 
         for (const item of items) {
             assert.ok(item.label.length > 0);
@@ -25,7 +25,7 @@ describe('crew phase descriptions', () => {
         }
     });
 
-    it('explains pre-mobilisation as waiting for arrival in the arrival-first workflow', () => {
+    it('explains pre-arrival as waiting for arrival in the arrival-first workflow', () => {
         const copy = crewPhaseCopy('p0');
 
         assert.equal(
@@ -37,27 +37,27 @@ describe('crew phase descriptions', () => {
         assert.match(copy?.description ?? '', /arrive/i);
     });
 
-    it('explains join standby as waiting or hotel/accommodation before joining', () => {
-        const copy = crewPhaseCopy('p2a');
+    it('explains pre-joining standby as waiting or hotel/accommodation before joining', () => {
+        const copy = crewPhaseCopy('p1a');
 
         assert.equal(
             copy?.description,
             'Waiting or staying in hotel/accommodation before joining the vessel.',
         );
-        assert.equal(copy?.compact, 'Waiting/hotel before joining');
+        assert.equal(copy?.compact, 'Pre-joining standby');
         assert.match(copy?.description ?? '', /waiting/i);
         assert.match(copy?.description ?? '', /hotel\/accommodation/i);
         assert.match(copy?.description ?? '', /before joining/i);
     });
 
     it('explains demobilisation standby as disembarked and waiting or hotel/accommodation', () => {
-        const copy = crewPhaseCopy('p5');
+        const copy = crewPhaseCopy('p3');
 
         assert.equal(
             copy?.description,
             'Disembarked and waiting or staying in hotel/accommodation for onward or home travel.',
         );
-        assert.equal(copy?.compact, 'Waiting/hotel after disembarkation');
+        assert.equal(copy?.compact, 'Demob standby');
         assert.match(copy?.description ?? '', /disembarked/i);
         assert.match(copy?.description ?? '', /hotel\/accommodation/i);
     });
@@ -69,13 +69,11 @@ describe('crew phase descriptions', () => {
 
         assert.deepEqual(guide, [
             'P0 — Waiting for arrival',
-            'P1 — Travelling to join',
-            'P2A — Waiting/hotel before joining',
-            'P2B — Training',
-            'P3 — Ready to board',
-            'P4 — On vessel',
-            'P5 — Waiting/hotel after disembarkation',
-            'P6 — Home / redeployment',
+            'P1A — Pre-joining standby',
+            'P1B — Training',
+            'P2 — On vessel',
+            'P3 — Demob standby',
+            'P4 — Home / redeploy',
         ]);
     });
 
@@ -86,6 +84,16 @@ describe('crew phase descriptions', () => {
         assert.equal(crewPhaseCopy('unknown'), null);
         assert.equal(crewPhaseCopy('p7'), null);
         assert.equal(crewPhaseDescription('draft'), null);
-        assert.equal(crewPhaseCopy('P2A')?.code, 'p2a');
+        assert.equal(crewPhaseCopy('P1A')?.code, 'p1a');
+    });
+
+    it('maps legacy p2a display copy without treating it as the modern onboard p2 code', () => {
+        const legacy = crewPhaseCopy('p2a');
+        const onboard = crewPhaseCopy('p2');
+
+        assert.notEqual(legacy?.label, onboard?.label);
+        assert.match(legacy?.label ?? '', /legacy/i);
+        assert.equal(onboard?.code, 'p2');
+        assert.equal(onboard?.label, 'On Vessel');
     });
 });

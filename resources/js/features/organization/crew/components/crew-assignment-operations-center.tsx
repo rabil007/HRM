@@ -44,7 +44,7 @@ export function CrewAssignmentOperationsCenter({
     const showMovementActions =
         (can.perform_movement || can.cancel) &&
         assignment.available_actions.length > 0;
-    const isOnVessel = assignment.current_phase?.code === 'p4';
+    const isOnVessel = assignment.current_phase?.code === 'p2';
 
     const canApplyTour =
         can.perform_movement && assignment.can_apply_tour_of_duty;

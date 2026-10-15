@@ -63,8 +63,8 @@ final class CrewMovementCorrectionPresenter
                 'phase_label' => $phase->phase_code->label(),
                 'status' => $phase->status->value,
                 'status_label' => $phase->status->label(),
-                'is_legacy' => $phase->phase_code->isLegacy(),
-                'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
+                'is_legacy' => false,
+                'legacy_context_label' => null,
             ] : null,
             'requester' => $this->userSummary($requester),
             'decision_maker' => $this->userSummary($decisionMaker),
@@ -166,8 +166,8 @@ final class CrewMovementCorrectionPresenter
                 'actual_end_at' => $phase->actual_end_at?->toIso8601String(),
                 'remarks' => $phase->remarks,
                 'details' => $phase->details,
-                'is_legacy' => $phase->phase_code->isLegacy(),
-                'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
+                'is_legacy' => false,
+                'legacy_context_label' => null,
                 'allowed_fields' => $this->catalog->allowedFields($phase),
                 'has_pending_correction' => $phase->relationLoaded('pendingCorrections')
                     ? $phase->pendingCorrections->isNotEmpty()
@@ -199,8 +199,8 @@ final class CrewMovementCorrectionPresenter
                 'phase_label' => $phase->phase_code->label(),
                 'status' => $phase->status->value,
                 'status_label' => $phase->status->label(),
-                'is_legacy' => $phase->phase_code->isLegacy(),
-                'legacy_context_label' => $phase->phase_code->legacyContextLabel(),
+                'is_legacy' => false,
+                'legacy_context_label' => null,
                 'allowed_fields' => $this->catalog->allowedFields($phase),
                 'has_pending_correction' => $phase->relationLoaded('pendingCorrections')
                     ? $phase->pendingCorrections->isNotEmpty()

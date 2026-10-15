@@ -596,7 +596,7 @@ test('preview response matches the canonical contract exactly', function () {
 
     expect($data['timeline'])->toHaveCount(2);
     expect($data['timeline'][0])->toEqual([
-        'phase_code' => 'p4',
+        'phase_code' => 'p2',
         'phase_label' => 'On Vessel',
         'start' => '15 Jan 2024',
         'end' => '20 Jul 2024',
@@ -605,7 +605,7 @@ test('preview response matches the canonical contract exactly', function () {
         'duration_days' => 188,
     ]);
     expect($data['timeline'][1])->toEqual([
-        'phase_code' => 'p5',
+        'phase_code' => 'p3',
         'phase_label' => 'Demobilisation Standby',
         'start' => '20 Jul 2024',
         'end' => null,
@@ -736,7 +736,7 @@ test('open historical bootstrap is allowed for active employees', function () {
         ->assertOk()
         ->assertJsonPath('valid', true)
         ->assertJsonPath('summary.assignment_status', 'active')
-        ->assertJsonPath('inferred_state.phase_code', 'p4');
+        ->assertJsonPath('inferred_state.phase_code', 'p2');
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), $payload)
@@ -902,7 +902,7 @@ test('simplified periods map to P2A P4 P5 without fabricating training or pre-mo
             CrewPhaseCode::DemobStandby,
         ])
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreArrival))->toBeFalse()
         ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active)
         ->and($phases[2]->actual_end_at)->toBeNull();
 });
@@ -1438,7 +1438,7 @@ test('on vessel plus disembarked without home leaves active P5 open', function (
         ->assertOk()
         ->assertJsonPath('summary.is_open', true)
         ->assertJsonPath('summary.assignment_status', 'active')
-        ->assertJsonPath('inferred_state.phase_code', 'p5');
+        ->assertJsonPath('inferred_state.phase_code', 'p3');
 
     $this->actingAs($user)
         ->post(route('organization.crew-assignments.historical.store'), [
@@ -1691,7 +1691,7 @@ test('historical validation surfaces ambiguous state sea service and overlap mes
         ->assertJsonValidationErrors(['sea_service']);
 });
 
-test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () {
+test('simplified lifecycle creates only known P1A P2 P3 P4 phases', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Modern Lifecycle Vessel', $company);
 
@@ -1732,9 +1732,7 @@ test('simplified lifecycle creates only known P2A P4 P5 P6 phases', function () 
             CrewPhaseCode::DemobStandby,
             CrewPhaseCode::HomeRedeploy,
         ])
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::TravelIn))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::ReadyToJoin))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreArrival))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse();
 });
 

@@ -271,7 +271,6 @@ class CurrentCrewQuery
             return in_array($assignment->currentPhase?->phase_code, [
                 CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::Training,
-                CrewPhaseCode::ReadyToJoin,
                 CrewPhaseCode::DemobStandby,
             ], true);
         });
@@ -428,7 +427,6 @@ class CurrentCrewQuery
                 $phase->whereIn('phase_code', [
                     CrewPhaseCode::JoinStandby,
                     CrewPhaseCode::Training,
-                    CrewPhaseCode::ReadyToJoin,
                 ]);
 
                 return;

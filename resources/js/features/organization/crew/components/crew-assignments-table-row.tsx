@@ -59,7 +59,7 @@ export function CrewAssignmentsTableRow({
     const showMovementActions =
         (canPerformMovement || canCancel) &&
         assignment.available_actions.length > 0;
-    const isOnVessel = assignment.current_phase?.code === 'p4';
+    const isOnVessel = assignment.current_phase?.code === 'p2';
     const reliefHref = isOnVessel ? reliefActionHref(assignment) : null;
     const reliefActionLabel =
         assignment.relief_action_label ??

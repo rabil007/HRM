@@ -19,7 +19,7 @@ export function readinessStatusLabel(
         case 'ready_to_join':
             return 'Ready to Join';
         case 'pre_mobilisation':
-            return 'Pre-Mobilisation';
+            return 'Pre-Arrival';
         case 'travel_in':
             return 'Travel';
         default:

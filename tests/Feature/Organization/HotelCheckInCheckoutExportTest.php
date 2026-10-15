@@ -178,7 +178,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         ->and($mapped[13])->toBe($assignment->status->label())
         ->and($mapped[14])->toBe($assignment->vessel->name)
         ->and($mapped[15])->toBe($assignment->client->name)
-        ->and($mapped[16])->toBe('P2A · Join Standby')
+        ->and($mapped[16])->toBe('P1A · Pre-Joining Standby')
         ->and($mapped[18])->toBe((int) $assignment->id);
 });
 

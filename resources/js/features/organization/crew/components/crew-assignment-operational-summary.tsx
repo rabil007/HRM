@@ -133,7 +133,7 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
     detail: string;
     tone: SummaryTone;
 } {
-    if (assignment.current_phase?.code === 'p4') {
+    if (assignment.current_phase?.code === 'p2') {
         const days = assignment.days_until_signoff;
 
         return {
@@ -164,7 +164,7 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
     }
 
     if (
-        ['p0', 'p1', 'p2a', 'p2b', 'p3'].includes(
+        ['p0', 'p1', 'p1a', 'p1b'].includes(
             assignment.current_phase?.code ?? '',
         )
     ) {

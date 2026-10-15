@@ -225,7 +225,7 @@ test('bulk add starts one employee as a normal active assignment', function () {
         ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
         ->and($assignment->remarks)->toBe('Bulk mobilisation')
         ->and($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i:s'))->toBe('2026-09-15 15:45:12')
@@ -273,7 +273,7 @@ test('bulk add starts multiple employees in one batch with a shared server times
             ->and($assignment->planned_join_at?->toDateString())->toBe('2026-09-20')
             ->and($assignment->remarks)->toBe('Bulk mobilisation')
             ->and($assignment->phases)->toHaveCount(1)
-            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
             ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
     }
 
@@ -302,7 +302,7 @@ test('omitted bulk current stage defaults every row to travel in', function () {
         ->all();
 
     expect($codes)->toHaveCount(2)
-        ->and($codes)->each->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($codes)->each->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('explicit bulk p0 starts every row at active pre-mobilisation', function () {
@@ -325,7 +325,7 @@ test('explicit bulk p0 starts every row at active pre-mobilisation', function ()
 
     foreach ($assignments as $assignment) {
         expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+            ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
             ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
             ->and($assignment->phases)->toHaveCount(1)
             ->and((new CrewPhasePayCategoryResolver)->resolve($assignment->currentPhase->phase_code))->toBe(CrewTimesheetPayCategory::Excluded);
@@ -453,11 +453,11 @@ test('browser supplied current stage in bulk add is ignored and rows start in p0
         ->assertRedirect(route('organization.crew-assignments.index'));
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
-    expect($assignment?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+    expect($assignment?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 })->with([
-    'p2a' => ['p2a'],
+    'p1a' => ['p1a'],
     'p3' => ['p3'],
-    'p4' => ['p4'],
+    'p2' => ['p2'],
 ]);
 
 test('client supplied stage started at cannot alter the bulk start time', function () {
@@ -665,7 +665,7 @@ test('bulk unchecked arrival date still stores forecast planned arrival', functi
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->with('currentPhase')->first();
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04')
         ->and($assignment->currentPhase?->actual_start_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-13');
 });

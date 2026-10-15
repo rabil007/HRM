@@ -78,7 +78,7 @@ test('approve mobilisation advances draft to travel in', function () {
     $assignment->refresh()->load('currentPhase');
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('transfer vessel redirects to the new destination assignment', function () {
@@ -159,7 +159,7 @@ test('confirm disembarkation creates sea service', function () {
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::ConfirmDisembarkation->value,
             'occurred_at' => '2026-03-01 08:00:00',
-            'next_phase' => 'p6',
+            'next_phase' => 'p4',
         ])
         ->assertRedirect();
 
@@ -274,7 +274,7 @@ test('record arrival rejects invalid next phase', function () {
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::RecordArrival->value,
             'occurred_at' => '2026-01-05 10:00:00',
-            'next_phase' => 'p4',
+            'next_phase' => 'p2',
         ])
         ->assertSessionHasErrors('next_phase');
 });
@@ -289,7 +289,7 @@ test('disembarkation before actual join is rejected', function () {
         ->post(route('organization.crew-assignments.perform-action', $assignment), [
             'action' => CrewMovementAction::ConfirmDisembarkation->value,
             'occurred_at' => '2025-12-01 08:00:00',
-            'next_phase' => 'p5',
+            'next_phase' => 'p3',
         ])
         ->assertSessionHasErrors('occurred_at');
 });
@@ -340,8 +340,8 @@ test('active p0 rejects crafted approve mobilisation at http boundary without cr
 
     $assignment->refresh()->load('phases');
     expect($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
-        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::TravelIn)->count())->toBe(0);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
+        ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(0);
 });
 
 test('redeploy with starting phase p1 is rejected at http boundary', function () {
@@ -351,7 +351,7 @@ test('redeploy with starting phase p1 is rejected at http boundary', function ()
 
     app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-02-01 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $newVessel = makeCrewMovementVessel('Redeploy Target Vessel');
@@ -375,7 +375,7 @@ test('redeploy with starting phase p3 is rejected at http boundary', function ()
 
     app(CrewMovementService::class)->perform($company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
         'occurred_at' => '2026-02-01 08:00:00',
-        'next_phase' => 'p5',
+        'next_phase' => 'p3',
     ], $user->id);
 
     $newVessel = makeCrewMovementVessel('Redeploy Target Vessel');
@@ -429,10 +429,10 @@ test('record arrival on legacy p1 transitions to join standby only', function ()
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
     );
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::TravelIn);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
 
     $this->actingAs($user)
         ->from(route('organization.crew-assignments.show', $assignment))
@@ -455,7 +455,7 @@ test('record arrival on legacy p1 rejects crafted ready to join destination', fu
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::TravelIn,
+        CrewPhaseCode::JoinStandby,
     );
 
     $this->actingAs($user)

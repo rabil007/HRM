@@ -226,9 +226,9 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ]);
 
     $phaseData = [
-        [CrewPhaseCode::PreMobilisation, 1, '2026-01-01', '2026-01-03'],
-        [CrewPhaseCode::TravelIn, 2, '2026-01-03', '2026-01-04'],
-        [CrewPhaseCode::ReadyToJoin, 3, '2026-01-04', '2026-01-10'],
+        [CrewPhaseCode::PreArrival, 1, '2026-01-01', '2026-01-03'],
+        [CrewPhaseCode::JoinStandby, 2, '2026-01-03', '2026-01-04'],
+        [CrewPhaseCode::JoinStandby, 3, '2026-01-04', '2026-01-10'],
         [CrewPhaseCode::OnVessel, 4, '2026-01-10', '2026-02-10'],
         [CrewPhaseCode::DemobStandby, 5, '2026-02-10', '2026-02-12'],
         [CrewPhaseCode::HomeRedeploy, 6, '2026-02-12', '2026-02-15'],
@@ -239,7 +239,7 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
             'phase_code' => $code,
             'sequence' => $sequence,
             'status' => CrewPhaseStatus::Completed,
-            'planned_start_at' => $code === CrewPhaseCode::TravelIn ? '2026-01-02' : null,
+            'planned_start_at' => $code === CrewPhaseCode::JoinStandby ? '2026-01-02' : null,
             'actual_start_at' => $start,
             'actual_end_at' => $end,
         ]);
@@ -257,12 +257,13 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ]),
     );
 
-    expect($row['planned_travel_in'])->toBe('2026-01-02')
-        ->and($row['has_legacy_phases'])->toBeTrue()
+    expect($row['planned_travel_in'])->toBeNull()
+        ->and($row['has_legacy_phases'])->toBeFalse()
         ->and($row['planned_travel_home'])->toBe('2026-02-12')
         ->and($row['pre_mobilisation']['from'])->toBe('2026-01-01')
-        ->and($row['travel_in']['to'])->toBe('2026-01-04')
-        ->and($row['ready_to_join']['total_days'])->toBe(7)
+        ->and($row['travel_in']['periods'])->toBe([])
+        ->and($row['ready_to_join']['periods'])->toBe([])
+        ->and($row['join_standby']['total_days'])->toBe(8)
         ->and($row['on_vessel']['actual_join'])->toBe('2026-01-10')
         ->and($row['on_vessel']['actual_disembarkation'])->toBe('2026-02-10')
         ->and($row['on_vessel']['actual_disembarkation'])->not->toBe($row['planned_signoff'])
@@ -272,17 +273,17 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ->and($row['home_redeploy']['total_days'])->toBe(4)
         ->and($row['assignment_closed'])->toBe('2026-02-15')
         ->and($row['total_assignment_days'])->toBe(45)
-        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(6)
+        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(7)
         ->and($row['payroll_days']['onsite']['total_days'])->toBe(32)
         ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(2)
-        ->and($row['payroll_days']['total_days'])->toBe(40);
+        ->and($row['payroll_days']['total_days'])->toBe(41);
 });
 
 test('planned only phases do not report actual duration', function () {
     ['employee' => $employee] = makeCrewAssignmentFixtures();
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Planned,
         'planned_start_at' => '2026-07-01',
         'planned_end_at' => '2026-07-10',
@@ -356,7 +357,7 @@ test('modern assignments without legacy phases do not expose legacy placeholders
         ]);
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-08-10',
@@ -613,15 +614,15 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ]),
     );
 
-    expect($row['starting_phase_code'])->toBe('p2a')
-        ->and($row['starting_phase_label'])->toBe('Join Standby')
-        ->and($row['current_phase']['code'])->toBe('p4')
+    expect($row['starting_phase_code'])->toBe('p1a')
+        ->and($row['starting_phase_label'])->toBe('Pre-Joining Standby')
+        ->and($row['current_phase']['code'])->toBe('p2')
         ->and($row['linked_assignments']['previous']['assignment_no'])->toBe('CA-2026-000041')
         ->and($row['linked_assignments']['previous']['source'])->toBe('manual')
         ->and($row['linked_assignments']['previous']['source_label'])->toBe('Manual')
         ->and($row['linked_assignments']['relationship'])->toBe('redeployment')
         ->and($row['linked_assignments']['relationship_label'])->toBe('Redeployment')
-        ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p5')
+        ->and($row['linked_assignments']['previous']['starting_phase_code'])->toBe('p3')
         ->and($row['linked_assignments']['previous']['starting_phase_label'])->toBe('Demobilisation Standby')
         ->and($row['source'])->toBe('redeployment')
         ->and($row['source_label'])->toBe('Redeployment')
@@ -665,17 +666,17 @@ test('it exposes linked redeployment starting checkpoint separately from current
         ]),
     );
 
-    expect($directRow['starting_phase_code'])->toBe('p4')
+    expect($directRow['starting_phase_code'])->toBe('p2')
         ->and($directRow['starting_phase_label'])->toBe('On Vessel')
-        ->and($directRow['current_phase']['code'])->toBe('p4');
+        ->and($directRow['current_phase']['code'])->toBe('p2');
 });
 
-test('it separates legacy p1 p3 timeline entries from modern lifecycle', function () {
+test('it keeps repeated p1a segments in the modern timeline only', function () {
     ['employee' => $employee] = makeCrewAssignmentFixtures();
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-03 08:00:00',
@@ -690,7 +691,7 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
         'actual_end_at' => '2026-01-05 12:00:00',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 3,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-05 12:00:00',
@@ -701,11 +702,11 @@ test('it separates legacy p1 p3 timeline entries from modern lifecycle', functio
         $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
     );
 
-    expect($row['has_legacy_phases'])->toBeTrue()
+    expect($row['has_legacy_phases'])->toBeFalse()
         ->and($row['phase_timeline'])->toHaveCount(3)
-        ->and(collect($row['modern_phase_timeline'])->pluck('phase_code')->all())->toBe(['p2a'])
-        ->and(collect($row['legacy_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1', 'p3'])
-        ->and($row['legacy_phase_timeline'][0]['remarks'])->toBe('Legacy travel');
+        ->and(collect($row['modern_phase_timeline'])->pluck('phase_code')->all())->toBe(['p1a', 'p1a', 'p1a'])
+        ->and($row['legacy_phase_timeline'])->toBe([])
+        ->and($row['modern_phase_timeline'][0]['remarks'])->toBe('Legacy travel');
 });
 
 test('it identifies direct redeployment without return home phase', function () {

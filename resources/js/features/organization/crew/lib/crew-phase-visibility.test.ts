@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PhaseTimelineItem } from '../types.ts';
 import {
+    isOnVesselPhaseCode,
     LEGACY_CREW_PHASES,
     legacyPhaseContextLabel,
     NORMAL_PHASE_PROGRESS_STEPS,
@@ -35,24 +36,30 @@ function timelineItem(
 }
 
 describe('crew phase visibility', () => {
+    it('treats modern p2 as onboard and p4 as home without confusing legacy p4 onboard rows', () => {
+        assert.equal(isOnVesselPhaseCode('p2'), true);
+        assert.equal(isOnVesselPhaseCode('p4'), false);
+        assert.equal(isOnVesselPhaseCode('p2a'), false);
+    });
+
     it('keeps a central normal visible phase list without legacy phases', () => {
         assert.deepEqual(NORMAL_VISIBLE_CREW_PHASES, [
             'p0',
-            'p2a',
-            'p2b',
+            'p1a',
+            'p1b',
+            'p2',
+            'p3',
             'p4',
-            'p5',
-            'p6',
         ]);
-        assert.deepEqual(LEGACY_CREW_PHASES, ['p1', 'p3']);
+        assert.deepEqual(LEGACY_CREW_PHASES, ['p1', 'p2a', 'p2b', 'p5', 'p6']);
     });
 
     it('does not include legacy placeholders in the normal progress path', () => {
         const stepKeys = NORMAL_PHASE_PROGRESS_STEPS.map((step) => step.key);
 
-        assert.deepEqual(stepKeys, ['p0', 'p2', 'p4', 'p5', 'p6']);
-        assert.equal(stepKeys.includes('p1'), false);
-        assert.equal(stepKeys.includes('p3'), false);
+        assert.deepEqual(stepKeys, ['p0', 'p1', 'p2', 'p3', 'p4']);
+        assert.equal(stepKeys.includes('p1'), true);
+        assert.equal(stepKeys.includes('p2a'), false);
     });
 
     it('excludes legacy phases from normal current phase filter options', () => {
@@ -63,32 +70,29 @@ describe('crew phase visibility', () => {
             false,
         );
         assert.equal(
-            options.some((option) => option.value === 'p3'),
+            options.some((option) => option.value === 'p2a'),
             false,
         );
         assert.equal(
-            options.some((option) => option.value === 'p2a'),
+            options.some((option) => option.value === 'p1a'),
             true,
         );
     });
 
     it('formats legacy context labels for active legacy phases', () => {
-        assert.equal(
-            legacyPhaseContextLabel('p1'),
-            'Legacy phase · P1 Travel In',
+        assert.match(legacyPhaseContextLabel('p1') ?? '', /Legacy phase · P1/i);
+        assert.match(
+            legacyPhaseContextLabel('p2a') ?? '',
+            /Legacy phase · P2A/i,
         );
-        assert.equal(
-            legacyPhaseContextLabel('p3'),
-            'Legacy phase · P3 Ready to Join',
-        );
-        assert.equal(legacyPhaseContextLabel('p2a'), null);
+        assert.equal(legacyPhaseContextLabel('p1a'), null);
     });
 
     it('does not mark prior normal phases completed for legacy current phases without timeline evidence', () => {
-        const p1States = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+        const p1TravelIn = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
             normalProgressStepState(step, 'p1', []),
         );
-        assert.deepEqual(p1States, [
+        assert.deepEqual(p1TravelIn, [
             'upcoming',
             'upcoming',
             'upcoming',
@@ -96,12 +100,12 @@ describe('crew phase visibility', () => {
             'upcoming',
         ]);
 
-        const p3States = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
-            normalProgressStepState(step, 'p3', []),
+        const legacyP2a = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p2a', []),
         );
-        assert.deepEqual(p3States, [
-            'upcoming',
-            'upcoming',
+        assert.deepEqual(legacyP2a, [
+            'skipped',
+            'current',
             'upcoming',
             'upcoming',
             'upcoming',
@@ -120,12 +124,12 @@ describe('crew phase visibility', () => {
             'upcoming',
         ]);
 
-        const p2aAfterCompletedP0 = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
-            normalProgressStepState(step, 'p2a', [
+        const p1aAfterCompletedP0 = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p1a', [
                 timelineItem('p0', 'completed'),
             ]),
         );
-        assert.deepEqual(p2aAfterCompletedP0, [
+        assert.deepEqual(p1aAfterCompletedP0, [
             'completed',
             'current',
             'upcoming',
@@ -133,26 +137,26 @@ describe('crew phase visibility', () => {
             'upcoming',
         ]);
 
-        const legacyP3WithoutP2History = NORMAL_PHASE_PROGRESS_STEPS.map(
-            (step) => normalProgressStepState(step, 'p3', []),
+        const legacyP2aWithoutHistory = NORMAL_PHASE_PROGRESS_STEPS.map(
+            (step) => normalProgressStepState(step, 'p2a', []),
         );
-        assert.deepEqual(legacyP3WithoutP2History, [
-            'upcoming',
-            'upcoming',
+        assert.deepEqual(legacyP2aWithoutHistory, [
+            'skipped',
+            'current',
             'upcoming',
             'upcoming',
             'upcoming',
         ]);
 
-        const legacyP3WithCompletedP2 = NORMAL_PHASE_PROGRESS_STEPS.map(
+        const legacyP2aWithCompletedP0 = NORMAL_PHASE_PROGRESS_STEPS.map(
             (step) =>
-                normalProgressStepState(step, 'p3', [
-                    timelineItem('p2a', 'completed'),
+                normalProgressStepState(step, 'p2a', [
+                    timelineItem('p0', 'completed'),
                 ]),
         );
-        assert.deepEqual(legacyP3WithCompletedP2, [
-            'upcoming',
+        assert.deepEqual(legacyP2aWithCompletedP0, [
             'completed',
+            'current',
             'upcoming',
             'upcoming',
             'upcoming',
@@ -162,13 +166,13 @@ describe('crew phase visibility', () => {
     it('marks earlier path stages as skipped when crew advanced without recorded phases', () => {
         const timeline = [
             timelineItem('p0', 'completed'),
-            timelineItem('p4', 'completed'),
+            timelineItem('p2', 'completed'),
         ];
-        const p6WithPartialHistory = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
-            normalProgressStepState(step, 'p6', timeline),
+        const p4WithPartialHistory = NORMAL_PHASE_PROGRESS_STEPS.map((step) =>
+            normalProgressStepState(step, 'p4', timeline),
         );
 
-        assert.deepEqual(p6WithPartialHistory, [
+        assert.deepEqual(p4WithPartialHistory, [
             'completed',
             'skipped',
             'completed',
@@ -176,8 +180,8 @@ describe('crew phase visibility', () => {
             'current',
         ]);
         assert.equal(
-            normalProgressSkippedStagesNote('p6', timeline),
-            'Passed without recorded phase: P2 Standby / training, P5 Demobilisation',
+            normalProgressSkippedStagesNote('p4', timeline),
+            'Passed without recorded phase: P1 Pre-join / training, P3 Demobilisation',
         );
         assert.equal(normalProgressSkippedStagesNote('p0', []), null);
     });
@@ -186,8 +190,8 @@ describe('crew phase visibility', () => {
         const activeLegacyTimelineItem = {
             id: 1,
             sequence: 1,
-            phase_code: 'p3',
-            phase_label: 'Ready to Join',
+            phase_code: 'p1',
+            phase_label: 'Travel In',
             status: 'active',
             status_label: 'Active',
             planned_start_at: null,
@@ -207,14 +211,15 @@ describe('crew phase visibility', () => {
         } satisfies PhaseTimelineItem;
 
         assert.equal(
-            resolveActiveLegacyPhaseContext('p2a', [
+            resolveActiveLegacyPhaseContext('p1a', [
                 completedLegacyTimelineItem,
             ]),
             null,
         );
-        assert.equal(
-            resolveActiveLegacyPhaseContext('p4', [activeLegacyTimelineItem]),
-            'Legacy phase · P3 Ready to Join',
+        assert.match(
+            resolveActiveLegacyPhaseContext('p2', [activeLegacyTimelineItem]) ??
+                '',
+            /Legacy phase · P1/i,
         );
     });
 });

@@ -91,7 +91,7 @@ it('rejects crafted mark ready from join standby at the http boundary', function
     ], $fixtures['user']->id);
     $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-02 08:00:00',
-        'next_phase' => 'p2a',
+        'next_phase' => 'p1a',
     ], $fixtures['user']->id);
 
     $this->actingAs($fixtures['user'])

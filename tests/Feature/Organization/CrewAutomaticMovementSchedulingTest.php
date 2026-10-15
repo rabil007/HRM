@@ -58,7 +58,7 @@ function makeAutomaticSchedulingFixtures(bool $withSchedulePermission = true): a
     return $fixtures;
 }
 
-function makeActivePreMobilisationAssignment(array $fixtures): CrewAssignment
+function makeActivePreArrivalAssignment(array $fixtures): CrewAssignment
 {
     $service = app(CrewMovementService::class);
     $vessel = makeCrewMovementVessel('Auto Schedule Vessel', $fixtures['company']);
@@ -98,7 +98,7 @@ test('resolve crew movement timing treats equal and past as immediate', function
 
 test('past movement records immediately through the actions endpoint', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -119,7 +119,7 @@ test('past movement records immediately through the actions endpoint', function 
 
 test('current movement records immediately through the actions endpoint', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     Carbon::setTestNow(CarbonImmutable::parse('2027-01-15 09:00:00', 'Asia/Dubai'));
 
@@ -142,7 +142,7 @@ test('current movement records immediately through the actions endpoint', functi
 
 test('future arrival creates schedule without changing current phase or side effects', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
     $phaseBefore = $assignment->currentPhase?->phase_code;
     $seaBefore = EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count();
 
@@ -162,7 +162,7 @@ test('future arrival creates schedule without changing current phase or side eff
         ->where('crew_assignment_id', $assignment->id)
         ->first();
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->phase_code)->toBe($phaseBefore)
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and(EmployeeSeaService::query()->where('company_id', $fixtures['company']->id)->count())->toBe($seaBefore)
@@ -174,7 +174,7 @@ test('future arrival creates schedule without changing current phase or side eff
 
 test('forged schedule_later mode with a past timestamp still records immediately', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -197,7 +197,7 @@ test('forged schedule_later mode with a past timestamp still records immediately
 
 test('forged record_now mode with a future timestamp schedules instead of executing', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -213,13 +213,13 @@ test('forged record_now mode with a future timestamp schedules instead of execut
 
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 });
 
 test('future cancel is rejected and does not schedule or cancel the assignment', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -237,13 +237,13 @@ test('future cancel is rejected and does not schedule or cancel the assignment',
     $assignment->refresh()->load('currentPhase');
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });
 
 test('unauthorized scheduling is rejected and never falls back to immediate execution', function () {
     $fixtures = makeAutomaticSchedulingFixtures(withSchedulePermission: false);
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -259,13 +259,13 @@ test('unauthorized scheduling is rejected and never falls back to immediate exec
 
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });
 
 test('pending schedule uniqueness is enforced on automatic routing', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -294,7 +294,7 @@ test('pending schedule uniqueness is enforced on automatic routing', function ()
 
 test('due scheduled arrival executes and advances p0 to p2a', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -322,7 +322,7 @@ test('due scheduled arrival executes and advances p0 to p2a', function () {
 
 test('failed scheduled execution keeps p0 and marks needs attention', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -343,14 +343,14 @@ test('failed scheduled execution keeps p0 and marks needs attention', function (
         ->where('crew_assignment_id', $assignment->id)
         ->firstOrFail();
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($schedule->status)->toBe(CrewScheduledMovementStatus::NeedsAttention)
         ->and($schedule->last_error_code)->toBe('lateness_exceeded');
 });
 
 test('valid backdated initial arrival reconciles p0 safely', function () {
     $fixtures = makeAutomaticSchedulingFixtures();
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
     $p0StartBefore = $assignment->currentPhase?->actual_start_at?->timezone('Asia/Dubai')->toDateTimeString();
 
     $this->actingAs($fixtures['user'])
@@ -366,7 +366,7 @@ test('valid backdated initial arrival reconciles p0 safely', function () {
 
     $assignment->refresh()->load(['currentPhase', 'phases']);
     $closedP0 = $assignment->phases->first(
-        fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation,
+        fn ($phase) => $phase->phase_code === CrewPhaseCode::PreArrival,
     );
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
@@ -384,7 +384,7 @@ test('legacy stored future actual override never allows early actual execution',
 
     expect(CrewOperationsSettings::allowFutureActualMovementDates($fixtures['company']->id))->toBeFalse();
 
-    $assignment = makeActivePreMobilisationAssignment($fixtures);
+    $assignment = makeActivePreArrivalAssignment($fixtures);
 
     $this->actingAs($fixtures['user'])
         ->withSession(['current_company_id' => $fixtures['company']->id])
@@ -398,7 +398,7 @@ test('legacy stored future actual override never allows early actual execution',
 
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->exists())->toBeTrue();
 });
 

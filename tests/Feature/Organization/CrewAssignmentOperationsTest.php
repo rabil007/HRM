@@ -117,7 +117,7 @@ test('authorized users can create a draft assignment', function () {
     expect($assignment)->not->toBeNull()
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Draft)
         ->and($assignment->assignment_no)->not->toBeEmpty()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('users without create permission cannot store assignments', function () {

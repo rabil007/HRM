@@ -15,7 +15,7 @@ const baseContext = {
     employee_id: 1,
     employee_name: 'Abdul Hamid',
     employee_no: 'EMP-001',
-    current_phase_code: 'p4',
+    current_phase_code: 'p2',
     current_phase_label: 'On Vessel',
     current_phase_started_at: '2026-09-10T08:00:00',
     days_in_phase: 7,
@@ -123,7 +123,7 @@ describe('buildMovementImpactPreview', () => {
     it('renders redeploy preview with assignment and destination vessel', () => {
         const context = {
             ...baseContext,
-            current_phase_code: 'p5',
+            current_phase_code: 'p3',
             current_phase_label: 'Demobilisation Standby',
         };
         const config = getMovementActionConfig('redeploy');
@@ -136,7 +136,7 @@ describe('buildMovementImpactPreview', () => {
         });
 
         assert.equal(preview?.subject, 'CA-2026-000041');
-        assert.match(preview?.currentState ?? '', /P5/);
+        assert.match(preview?.currentState ?? '', /P3/);
         assert.equal(preview?.destinationState, 'Sea Falcon');
     });
 
@@ -146,10 +146,10 @@ describe('buildMovementImpactPreview', () => {
             action: 'confirm_disembarkation',
             config,
             context: baseContext,
-            formData: buildForm('confirm_disembarkation', { next_phase: 'p5' }),
+            formData: buildForm('confirm_disembarkation', { next_phase: 'p3' }),
         });
 
-        assert.match(preview?.impacts?.join(' ') ?? '', /P4 On Vessel ends/i);
+        assert.match(preview?.impacts?.join(' ') ?? '', /On Vessel ends/i);
         assert.match(
             preview?.warning ?? '',
             /Planning a Sign-Off does not disembark/i,
@@ -163,7 +163,7 @@ describe('buildMovementImpactPreview', () => {
             config,
             context: {
                 ...baseContext,
-                current_phase_code: 'p5',
+                current_phase_code: 'p3',
                 current_phase_label: 'Demobilisation Standby',
             },
             formData: buildForm('travel_home'),
@@ -182,7 +182,7 @@ describe('buildMovementImpactPreview', () => {
             config,
             context: {
                 ...baseContext,
-                current_phase_code: 'p6',
+                current_phase_code: 'p4',
                 current_phase_label: 'Home / Redeployment',
             },
             formData: buildForm('close_assignment'),
@@ -213,15 +213,15 @@ describe('buildMovementImpactPreview', () => {
             config,
             context: {
                 ...baseContext,
-                current_phase_code: 'p3',
-                current_phase_label: 'Ready to Join',
+                current_phase_code: 'p1a',
+                current_phase_label: 'Pre-Joining Standby',
             },
             formData: buildForm('join_vessel'),
             formOptions,
         });
 
         assert.equal(preview?.compact, true);
-        assert.match(preview?.impacts?.[0] ?? '', /P4 · On Vessel/);
+        assert.match(preview?.impacts?.[0] ?? '', /P2 · On Vessel/);
         assert.equal(config.submitLabel, 'Confirm Join');
     });
 
@@ -233,13 +233,13 @@ describe('buildMovementImpactPreview', () => {
             context: {
                 ...baseContext,
                 current_phase_code: 'p0',
-                current_phase_label: 'Pre-Mobilisation',
+                current_phase_label: 'Pre-Arrival',
             },
             formData: buildForm('approve_mobilisation'),
         });
 
         assert.equal(preview?.compact, true);
-        assert.match(preview?.impacts?.[0] ?? '', /Pre-Mobilisation/);
+        assert.match(preview?.impacts?.[0] ?? '', /Pre-Arrival/);
     });
 
     it('does not add impact preview for plan sign-off', () => {

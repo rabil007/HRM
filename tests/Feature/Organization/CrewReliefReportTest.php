@@ -105,7 +105,7 @@ test('report only shows active P4 onboard crew and excludes completed or non-p4 
 
     // P1 Travel in assignment
     $travelEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $travelEmployee, $rank, $vessel, CrewPhaseCode::TravelIn, [
+    makeCurrentCrewPhaseAssignment($company, $travelEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-TRAVEL-001',
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
@@ -230,10 +230,10 @@ test('attention rules: relief in training (P2B) is flagged as relief not ready w
             ->where('rows.0.relief_employee.name', $reliefEmployee->name)
             ->where('rows.0.relief_status', CrewReliefStatus::Mobilising->label())
             ->where('rows.0.relief_phase_label', CrewPhaseCode::Training->label())
-            ->where('rows.0.readiness', 'in_progress')
+            ->where('rows.0.readiness', 'ready')
             ->where('rows.0.attention.level', 'warning')
             ->where('rows.0.attention.label', 'Relief still in training')
-            ->where('summary.relief_not_ready', 1)
+            ->where('summary.relief_not_ready', 0)
         );
 });
 
@@ -248,7 +248,7 @@ test('attention rules: relief joins late when planned join date is after sign-of
     ]);
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-002',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-18 00:00:00', // 3 days late
@@ -276,7 +276,7 @@ test('attention rules: relief ready (P3) with matching date is healthy', functio
     ]);
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-003',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-25 00:00:00',
@@ -306,7 +306,7 @@ test('attention rules: relief assignment conflict is flagged as critical', funct
 
     $reliefEmployee = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
     // Incoming relief assignment
-    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $reliefEmployee, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-004',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-20 00:00:00',
@@ -533,7 +533,7 @@ test('department restricted user sees redacted name for relief crew in inaccessi
         'planned_signoff_at' => '2026-10-25 00:00:00',
     ]);
 
-    makeCurrentCrewPhaseAssignment($company, $engineRelief, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $engineRelief, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-ENGINE-RELIEF',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-25 00:00:00',
@@ -571,7 +571,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
     $relief2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::Training, [
+    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::PreArrival, [
         'assignment_no' => 'CA-RELIEF-TRAIN',
         'relieves_crew_assignment_id' => $outgoing2->id,
         'planned_join_at' => '2026-10-20 00:00:00',
@@ -584,7 +584,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
         'planned_signoff_at' => '2026-11-04 00:00:00',
     ]);
     $relief3 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $relief3, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $relief3, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-READY',
         'relieves_crew_assignment_id' => $outgoing3->id,
         'planned_join_at' => '2026-11-04 00:00:00',
@@ -616,7 +616,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
             ->where('rows.0.assignment_no', 'CA-PRESET-5DAYS')
         );
 
-    // Preset: not_ready (matches emp2 in training)
+    // Preset: not_ready (matches emp2 with relief still mobilising)
     $this->actingAs($user)
         ->get(route('organization.reports.crew-relief.index', ['preset' => 'not_ready']))
         ->assertOk()
@@ -640,7 +640,7 @@ test('cross company relief assignment cannot be linked or viewed', function () {
     $foreignVessel = makeCrewMovementVessel('Foreign Vessel', $otherCompany);
 
     // Create a relief assignment in Company B that attempts to relieve Company A's assignment
-    makeCurrentCrewPhaseAssignment($otherCompany, $foreignEmployee, $foreignRank, $foreignVessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($otherCompany, $foreignEmployee, $foreignRank, $foreignVessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-COMPANY-B-RELIEF',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-25 00:00:00',
@@ -694,7 +694,7 @@ test('conflict detection prevents mixed model numeric ID collision between crew 
     $reliefPhase = CrewAssignmentPhase::query()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $reliefAssignment->id,
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => '2026-10-01 08:00:00',
@@ -799,7 +799,7 @@ test('pagination architecture hydrates only page items and preserves urgency sor
         'planned_signoff_at' => '2026-10-05 00:00:00', // 5 days overdue
     ]);
     $overdueRelief = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $overdueRelief, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $overdueRelief, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-OVERDUE',
         'relieves_crew_assignment_id' => $overdueOutgoing->id,
         'planned_join_at' => '2026-10-05 00:00:00',
@@ -818,7 +818,7 @@ test('pagination architecture hydrates only page items and preserves urgency sor
         ]);
 
         $relief = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-        makeCurrentCrewPhaseAssignment($company, $relief, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+        makeCurrentCrewPhaseAssignment($company, $relief, $rank, $vessel, CrewPhaseCode::JoinStandby, [
             'assignment_no' => sprintf('CA-RELIEF-%03d', $i),
             'relieves_crew_assignment_id' => $outgoing->id,
             'planned_join_at' => '2026-11-01 00:00:00',
@@ -1030,7 +1030,7 @@ test('summary reflects readiness and attention filters for the filtered report s
         'planned_signoff_at' => '2026-10-15 00:00:00',
     ]);
     $reliefReady = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $reliefReady, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $reliefReady, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-READY',
         'relieves_crew_assignment_id' => $outgoingReady->id,
         'planned_join_at' => '2026-10-15 00:00:00',
@@ -1048,7 +1048,7 @@ test('summary reflects readiness and attention filters for the filtered report s
         'planned_signoff_at' => '2026-10-22 00:00:00',
     ]);
     $reliefConflict = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
+    makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreArrival, [
         'assignment_no' => 'CA-RELIEF-CONFLICT',
         'relieves_crew_assignment_id' => $outgoingConflict->id,
         'planned_join_at' => '2026-10-22 00:00:00',
@@ -1137,7 +1137,7 @@ test('restricted relief cannot be inferred using readiness filters', function ()
     ]);
 
     // Secret relief has an active conflict -> real readiness would be 'at_risk'
-    makeCurrentCrewPhaseAssignment($company, $hiddenReliefEmp, $rank, $vessel, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $hiddenReliefEmp, $rank, $vessel, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-SECRET-RELIEF-1',
         'relieves_crew_assignment_id' => $outgoing->id,
         'planned_join_at' => '2026-10-25 00:00:00',
@@ -1368,7 +1368,7 @@ test('two overlapping relief plans for the same employee within the batch detect
     $sharedReliefEmp = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
 
     // Plan A: joins 2026-10-25, signs off 2026-11-25
-    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselA, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselA, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-PLAN-A',
         'relieves_crew_assignment_id' => $outgoingA->id,
         'planned_join_at' => '2026-10-25 00:00:00',
@@ -1376,7 +1376,7 @@ test('two overlapping relief plans for the same employee within the batch detect
     ]);
 
     // Plan B: joins 2026-11-01, signs off 2026-12-01 (overlaps with Plan A between Nov 1 and Nov 25)
-    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselB, CrewPhaseCode::ReadyToJoin, [
+    makeCurrentCrewPhaseAssignment($company, $sharedReliefEmp, $rank, $vesselB, CrewPhaseCode::JoinStandby, [
         'assignment_no' => 'CA-RELIEF-PLAN-B',
         'relieves_crew_assignment_id' => $outgoingB->id,
         'planned_join_at' => '2026-11-01 00:00:00',

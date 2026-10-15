@@ -322,7 +322,7 @@ class CrewAssignmentController extends Controller
                     'planned_join_at' => $validated['planned_join_at'] ?? null,
                     'planned_signoff_at' => $validated['planned_signoff_at'] ?? null,
                     'relieves_crew_assignment_id' => $validated['relieves_crew_assignment_id'] ?? null,
-                    'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                    'current_stage' => CrewPhaseCode::PreArrival->value,
                     'already_arrived' => $alreadyArrived,
                     'remarks' => $validated['remarks'] ?? null,
                 ];

@@ -30,7 +30,7 @@ test('viewer with corrections.view receives permitted correction summary, histor
 
     $phase1 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Completed,
         'sequence' => 1,
         'actual_start_at' => now()->subDays(5),
@@ -113,7 +113,7 @@ test('viewer without corrections.view and without corrections.request does not r
 
     $phase1 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Completed,
         'sequence' => 1,
         'actual_start_at' => now()->subDays(5),
@@ -195,7 +195,7 @@ test('viewer with corrections.request only receives request context with pending
 
     $phase1 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Completed,
         'sequence' => 1,
         'actual_start_at' => now()->subDays(5),
@@ -320,7 +320,7 @@ test('viewer with corrections.override only receives request context with pendin
 
     $phase1 = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
         'company_id' => $company->id,
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'status' => CrewPhaseStatus::Completed,
         'sequence' => 1,
         'actual_start_at' => now()->subDays(5),

@@ -31,7 +31,7 @@ export function ConfirmDisembarkationForm({
         context.actual_join_at &&
         disembarkDate &&
         disembarkDate < context.actual_join_at;
-    const showPostSignoffAccommodation = form.data.next_phase === 'p5';
+    const showPostSignoffAccommodation = form.data.next_phase === 'p3';
     const noHotelAccommodation = form.data.no_hotel_accommodation;
     const lastAutoCheckInDateRef = useRef(
         form.data.check_in_date || form.data.occurred_at.slice(0, 10),
@@ -61,7 +61,7 @@ export function ConfirmDisembarkationForm({
     };
 
     const setNextPhase = (value: string): void => {
-        if (value === 'p6') {
+        if (value === 'p4') {
             form.setData({
                 ...form.data,
                 next_phase: value,

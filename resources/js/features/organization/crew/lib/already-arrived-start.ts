@@ -1,12 +1,12 @@
 /**
- * Optional Start Assignment shortcut: skip Pre-Mobilisation and open at P2A.
+ * Optional Start Assignment shortcut: skip Pre-Arrival and open at P1A.
  * Backend Store/Bulk requests remain authoritative.
  */
 
-export const ALREADY_ARRIVED_LABEL = 'Already Arrived — Skip Pre-Mobilisation';
+export const ALREADY_ARRIVED_LABEL = 'Already Arrived — Skip Pre-Arrival';
 
 export const ALREADY_ARRIVED_EXPLANATION =
-    'The crew member has already arrived. The assignment will start directly in Join Standby (P2A), skipping Pre-Mobilisation.';
+    'The crew member has already arrived. The assignment will start directly in Pre-Joining Standby (P1A), skipping Pre-Arrival.';
 
 export const ALREADY_ARRIVED_EXPLANATION_AFTER_PLANNING =
     'The crew member has already arrived. Enter the Actual Arrival Date below — the planned arrival from Crew Planning is kept separately and is not used as the actual date.';

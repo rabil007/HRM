@@ -1528,7 +1528,7 @@ export function CrewMovementHistoryReportTable({
                                             {row.status_label}
                                         </Badge>
                                         {row.status === 'active' &&
-                                        row.current_phase?.code === 'p4' ? (
+                                        row.current_phase?.code === 'p2' ? (
                                             <span className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
                                                 On Vessel
                                             </span>

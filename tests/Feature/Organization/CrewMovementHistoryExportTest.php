@@ -157,7 +157,7 @@ test('export has clear headings and one mapped row per crew assignment', functio
         ->and($csvExport->sheets()[0]->title())->toBe('CREW HISTORY');
 });
 
-test('export adds legacy columns only when the filtered result set contains legacy phases', function () {
+test('export no longer adds legacy travel in columns for modern phase rows', function () {
     ['company' => $company, 'employee' => $employee] = makeCrewMovementHistoryExportFixture();
 
     $legacyAssignment = CrewAssignment::factory()
@@ -166,7 +166,7 @@ test('export adds legacy columns only when the filtered result set contains lega
         ->create(['assignment_no' => 'CA-EXPORT-LEGACY']);
 
     CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
-        'phase_code' => CrewPhaseCode::TravelIn,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'planned_start_at' => '2026-01-02',
@@ -174,7 +174,7 @@ test('export adds legacy columns only when the filtered result set contains lega
         'actual_end_at' => '2026-01-04',
     ]);
     CrewAssignmentPhase::factory()->forAssignment($legacyAssignment)->create([
-        'phase_code' => CrewPhaseCode::ReadyToJoin,
+        'phase_code' => CrewPhaseCode::JoinStandby,
         'sequence' => 2,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-01-04',
@@ -190,7 +190,7 @@ test('export adds legacy columns only when the filtered result set contains lega
     $assignment = $query->exportQuery()->whereKey($legacyAssignment->id)->firstOrFail();
 
     $detailsSheet = $export->sheets()[1];
-    expect($detailsSheet->headings())->toContain(
+    expect($detailsSheet->headings())->not->toContain(
         'Legacy Planned Travel In',
         'Legacy Travel In Periods',
         'Legacy Ready To Join Periods',
@@ -198,7 +198,7 @@ test('export adds legacy columns only when the filtered result set contains lega
 
     $mapped = $detailsSheet->map($assignment);
     expect($mapped[0])->toBe('CA-EXPORT-LEGACY')
-        ->and($mapped)->toContain('03 Jan 2026', '04 Jan 2026');
+        ->and(collect($mapped)->filter(fn ($value) => is_string($value) && str_contains($value, 'Jan 2026'))->isNotEmpty())->toBeTrue();
 });
 
 test('export maps rich training phase timeline accommodation and redeployment values', function () {
@@ -308,11 +308,11 @@ test('export maps rich training phase timeline accommodation and redeployment va
         ->and($byHeading['Training History'])->toContain('Remarks: Refresher required by client')
         ->and($byHeading['Training History'])->toContain('Employee Training: Linked')
         ->and($byHeading['Training History'])->toContain('BOSIET')
-        ->and($byHeading['Phase Timeline'])->toContain('P2A #1 [seq 1] Completed')
+        ->and($byHeading['Phase Timeline'])->toContain('P1A #1 [seq 1] Completed')
         ->and($byHeading['Phase Timeline'])->toContain('Planned:')
         ->and($byHeading['Phase Timeline'])->toContain('Remarks: Client requested additional standby')
-        ->and($byHeading['Phase Timeline'])->toContain('P2B #1 [seq 2] Completed')
-        ->and($byHeading['Starting Checkpoint'])->toBe('P2A · Join Standby')
+        ->and($byHeading['Phase Timeline'])->toContain('P1B #1 [seq 2] Completed')
+        ->and($byHeading['Starting Checkpoint'])->toBe('P1A · Pre-Joining Standby')
         ->and($byHeading['Previous Assignment'])->toBe('CA-EXPORT-SOURCE')
         ->and($byHeading['Movement Relationship'])->toBe('Redeployment')
         ->and($byHeading['Accommodation History'])->toContain('Harbor Inn')

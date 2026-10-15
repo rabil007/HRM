@@ -808,14 +808,12 @@ export const CREW_MOVEMENT_ACTION_LABELS: Record<CrewMovementAction, string> = {
 };
 
 export const CREW_PHASE_LABELS: Record<string, string> = {
-    p0: 'Pre-Mobilisation',
-    p1: 'Travel In',
-    p2a: 'Join Standby',
-    p2b: 'Training',
-    p3: 'Ready to Join',
-    p4: 'On Vessel',
-    p5: 'Demobilisation Standby',
-    p6: 'Home / Redeployment',
+    p0: 'Pre-Arrival',
+    p1a: 'Pre-Joining Standby',
+    p1b: 'Training',
+    p2: 'On Vessel',
+    p3: 'Demobilisation Standby',
+    p4: 'Home / Redeployment',
 };
 
 export interface CrewMovementActionFormData {

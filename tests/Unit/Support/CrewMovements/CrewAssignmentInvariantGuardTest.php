@@ -116,7 +116,7 @@ test('draft assignment may have planned current phase', function () {
 
     $assignment = CrewAssignment::factory()->forEmployee($employee)->draft()->create();
     $phase = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Planned,
         'sequence' => 1,
     ]);

@@ -45,7 +45,7 @@ export function CrewMovementHistorySummaryCards({
         if (key === 'on_vessel') {
             onSelect({
                 status: '',
-                current_phase: 'p4',
+                current_phase: 'p2',
                 needs_attention: '',
             });
 
@@ -83,7 +83,7 @@ export function CrewMovementHistorySummaryCards({
                             !filters.current_phase &&
                             !filters.needs_attention) ||
                         (card.key === 'on_vessel' &&
-                            filters.current_phase === 'p4') ||
+                            filters.current_phase === 'p2') ||
                         (card.key === 'needs_attention' &&
                             filters.needs_attention === '1');
 

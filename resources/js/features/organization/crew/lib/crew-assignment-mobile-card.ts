@@ -1,4 +1,5 @@
 import type { CrewAssignmentListItem } from '../types';
+import { isOnVesselPhaseCode } from './crew-phase-visibility.ts';
 
 export type CrewAssignmentMobileCardModel = {
     title: string;
@@ -41,7 +42,7 @@ export function crewAssignmentMobileCardModel(
     assignment: CrewAssignmentListItem,
     can: { update: boolean; performMovement: boolean; cancel: boolean },
 ): CrewAssignmentMobileCardModel {
-    const isOnVessel = assignment.current_phase?.code === 'p4';
+    const isOnVessel = isOnVesselPhaseCode(assignment.current_phase?.code);
 
     return {
         title: assignment.employee?.name ?? 'Unassigned',

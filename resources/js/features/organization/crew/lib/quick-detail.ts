@@ -4,6 +4,10 @@ import type {
     CrewAssignmentWarning,
     CrewMovementAction,
 } from '../types.ts';
+import {
+    isOnVesselPhaseCode,
+    normalizePhaseCodeForDisplay,
+} from './crew-phase-visibility.ts';
 
 export type QuickDetailPermissions = Pick<
     CrewAssignmentPagePermissions,
@@ -20,8 +24,10 @@ export type QuickDetailIssue = Pick<
 
 const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
     p1: 'record_arrival',
+    p1b: 'complete_training',
+    p2: 'plan_signoff',
+    p3: 'travel_home',
     p2b: 'complete_training',
-    p3: 'join_vessel',
     p4: 'plan_signoff',
     p5: 'travel_home',
 };
@@ -34,7 +40,9 @@ function nextMovementForPhase(
         return undefined;
     }
 
-    if (phase === 'p0') {
+    const normalized = normalizePhaseCodeForDisplay(phase) ?? phase;
+
+    if (normalized === 'p0') {
         if (availableActions.includes('record_arrival')) {
             return 'record_arrival';
         }
@@ -46,7 +54,7 @@ function nextMovementForPhase(
         return undefined;
     }
 
-    if (phase === 'p2a') {
+    if (normalized === 'p1a') {
         if (availableActions.includes('join_vessel')) {
             return 'join_vessel';
         }
@@ -58,18 +66,21 @@ function nextMovementForPhase(
         return undefined;
     }
 
-    return NEXT_MOVEMENT[phase];
+    return NEXT_MOVEMENT[normalized] ?? NEXT_MOVEMENT[phase];
 }
 
 const MOVEMENT_GUIDANCE: Record<string, string> = {
-    p0: 'Pre-mobilisation is in progress. Record arrival when the crew member reaches the join location.',
-    p1: 'Legacy Travel In assignment. Record arrival to move the crew member into Join Standby.',
-    p2a: 'Crew member is on join standby. Send to training if required, or record Join Vessel when they actually board.',
+    p0: 'Pre-arrival is in progress. Record arrival when the crew member reaches the join location.',
+    p1: 'Legacy Travel In assignment. Record arrival to move the crew member into Pre-Joining Standby.',
+    p1a: 'Crew member is on pre-joining standby. Send to training if required, or record Join Vessel when they actually board.',
+    p1b: 'Record completion once the course is finished.',
+    p2: 'Review the sign-off plan and relief arrangements.',
+    p3: 'Confirm travel home or use another movement to redeploy.',
+    p4: 'Review the record before closing this cycle or redeploying.',
+    p2a: 'Legacy P2A code — treat as pre-joining standby before joining the vessel.',
     p2b: 'Record completion once the course is finished.',
-    p3: 'Legacy Ready to Join assignment. Record Join Vessel when the crew member actually boards.',
-    p4: 'Review the sign-off plan and relief arrangements.',
-    p5: 'Confirm travel home or use another movement to redeploy.',
-    p6: 'Review the record before closing this cycle or redeploying.',
+    p5: 'Legacy P5 code — confirm travel home or redeploy.',
+    p6: 'Legacy P6 code — review before closing or redeploying.',
 };
 
 export function datetimeLocalInTimezone(now: Date, timezone: string): string {
@@ -142,6 +153,7 @@ export function crewQuickDetailModel(
     now = new Date(),
 ) {
     const phase = assignment.current_phase?.code;
+    const normalizedPhase = normalizePhaseCodeForDisplay(phase) ?? phase;
     const finished = ['closed', 'cancelled', 'voided'].includes(
         assignment.status,
     );
@@ -184,23 +196,26 @@ export function crewQuickDetailModel(
     let milestone: { label: string; date: string | null } | null = null;
 
     if (!finished) {
-        if (phase === 'p4') {
+        if (isOnVesselPhaseCode(phase)) {
             milestone = {
                 label: 'Planned sign-off',
                 date: assignment.planned_signoff_at,
             };
-        } else if (phase === 'p2b') {
+        } else if (normalizedPhase === 'p1b') {
             milestone = {
                 label: 'Training completion',
                 date: assignment.movement_context
                     .training_expected_completion_at,
             };
-        } else if (phase === 'p0' && assignment.planned_arrival_at) {
+        } else if (normalizedPhase === 'p0' && assignment.planned_arrival_at) {
             milestone = {
                 label: 'Arrival Date',
                 date: assignment.planned_arrival_at,
             };
-        } else if (phase && ['p0', 'p1', 'p2a', 'p3'].includes(phase)) {
+        } else if (
+            normalizedPhase &&
+            ['p0', 'p1', 'p1a', 'p1b'].includes(normalizedPhase)
+        ) {
             milestone = {
                 label: 'Expected Join',
                 date: assignment.planned_join_at,
@@ -227,17 +242,19 @@ export function crewQuickDetailModel(
         readiness.status !== 'ready';
     const needsRelief =
         !finished &&
-        phase === 'p4' &&
+        isOnVesselPhaseCode(phase) &&
         (assignment.relief_status === 'no_relief' ||
             assignment.relief_risk === 'critical' ||
             assignment.relief_risk === 'warning');
+    const guidanceKey = normalizedPhase ?? phase ?? '';
     const focus = finished
         ? 'This assignment is complete. Open the full record to review its history.'
         : needsDocumentReview
           ? 'Review outstanding document checks. These are advisory; permitted movements remain available.'
           : needsRelief
             ? 'Review relief coverage before confirming the planned sign-off.'
-            : (MOVEMENT_GUIDANCE[phase ?? ''] ??
+            : (MOVEMENT_GUIDANCE[guidanceKey] ??
+              MOVEMENT_GUIDANCE[phase ?? ''] ??
               'Open the full assignment to review the current movement.');
 
     return {
@@ -253,7 +270,7 @@ export function crewQuickDetailModel(
         readiness,
         timezone,
         reliefGapDays:
-            phase === 'p4' &&
+            isOnVesselPhaseCode(phase) &&
             assignment.relief_planned_join_date &&
             assignment.planned_signoff_at
                 ? calendarDayDifference(

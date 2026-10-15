@@ -55,7 +55,7 @@ test('crew planning onboard view excludes p3 crew even when vessel_id is set', f
         $employee,
         $rank,
         $vessel,
-        CrewPhaseCode::ReadyToJoin,
+        CrewPhaseCode::JoinStandby,
     );
 
     $this->actingAs($user)

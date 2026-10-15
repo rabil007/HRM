@@ -141,7 +141,7 @@ final class CrewReliefStatusResolver
             ];
         }
 
-        if ($reliefPhaseCode === CrewPhaseCode::ReadyToJoin) {
+        if ($reliefPhaseCode === CrewPhaseCode::JoinStandby || $reliefPhaseCode === CrewPhaseCode::Training) {
             return [
                 'code' => self::READINESS_READY,
                 'label' => 'Ready',

@@ -65,7 +65,7 @@ final class BulkStartCrewAssignments
                         'client_id' => $payload['client_id'] ?? null,
                         'vessel_id' => $payload['vessel_id'] ?? null,
                         'planned_join_at' => $payload['planned_join_at'] ?? null,
-                        'current_stage' => CrewPhaseCode::PreMobilisation->value,
+                        'current_stage' => CrewPhaseCode::PreArrival->value,
                         'already_arrived' => $alreadyArrived,
                         'remarks' => $payload['remarks'] ?? null,
                     ];

@@ -1,16 +1,17 @@
 import type { PhaseTimelineItem } from '../types.ts';
-import { crewPhaseCopy } from './crew-phase-descriptions.ts';
+import { crewPhaseCopy, isCrewPhaseCode } from './crew-phase-descriptions.ts';
 
 export const NORMAL_VISIBLE_CREW_PHASES = [
     'p0',
-    'p2a',
-    'p2b',
+    'p1a',
+    'p1b',
+    'p2',
+    'p3',
     'p4',
-    'p5',
-    'p6',
 ] as const;
 
-export const LEGACY_CREW_PHASES = ['p1', 'p3'] as const;
+/** Retired selectable phases — timeline may still reference these strings in old exports */
+export const LEGACY_CREW_PHASES = ['p1', 'p2a', 'p2b', 'p5', 'p6'] as const;
 
 export type NormalVisibleCrewPhase =
     (typeof NORMAL_VISIBLE_CREW_PHASES)[number];
@@ -27,32 +28,32 @@ export const NORMAL_PHASE_PROGRESS_STEPS: NormalPhaseProgressStep[] = [
     {
         key: 'p0',
         code: 'P0',
-        label: 'Pre-mobilisation',
+        label: 'Pre-arrival',
         codes: ['p0'],
+    },
+    {
+        key: 'p1',
+        code: 'P1',
+        label: 'Pre-join / training',
+        codes: ['p1a', 'p1b'],
     },
     {
         key: 'p2',
         code: 'P2',
-        label: 'Standby / training',
-        codes: ['p2a', 'p2b'],
+        label: 'On vessel',
+        codes: ['p2'],
+    },
+    {
+        key: 'p3',
+        code: 'P3',
+        label: 'Demobilisation',
+        codes: ['p3'],
     },
     {
         key: 'p4',
         code: 'P4',
-        label: 'On vessel',
-        codes: ['p4'],
-    },
-    {
-        key: 'p5',
-        code: 'P5',
-        label: 'Demobilisation',
-        codes: ['p5'],
-    },
-    {
-        key: 'p6',
-        code: 'P6',
         label: 'Home / redeploy',
-        codes: ['p6'],
+        codes: ['p4'],
     },
 ];
 
@@ -92,11 +93,82 @@ export function legacyPhaseContextLabel(
 ): string | null {
     const copy = crewPhaseCopy(code);
 
-    if (!copy || !isLegacyCrewPhase(copy.code)) {
+    if (!copy || !isLegacyCrewPhase(copy.code as string)) {
         return null;
     }
 
     return `Legacy phase · ${copy.code.toUpperCase()} ${copy.label}`;
+}
+
+export function isOnVesselPhaseCode(code: string | null | undefined): boolean {
+    return normalizePhaseCodeForDisplay(code) === 'p2';
+}
+
+export function isHomeRedeployPhaseCode(
+    code: string | null | undefined,
+): boolean {
+    return normalizePhaseCodeForDisplay(code) === 'p4';
+}
+
+export function normalizePhaseCodeForDisplay(
+    code: string | null | undefined,
+): string | null {
+    if (code === null || code === undefined || code === '') {
+        return null;
+    }
+
+    const lower = code.toLowerCase();
+
+    const legacyToModern: Record<string, string> = {
+        p2a: 'p1a',
+        p2b: 'p1b',
+        p5: 'p3',
+        p6: 'p4',
+    };
+
+    if (lower in legacyToModern) {
+        return legacyToModern[lower];
+    }
+
+    return lower;
+}
+
+export function phaseMatchesProgressStep(
+    phaseCode: string | null | undefined,
+    step: NormalPhaseProgressStep,
+): boolean {
+    const normalized = normalizePhaseCodeForDisplay(phaseCode);
+
+    if (normalized === null) {
+        return false;
+    }
+
+    return step.codes.includes(normalized);
+}
+
+export function visiblePhaseTimelineItems(
+    items: PhaseTimelineItem[],
+): PhaseTimelineItem[] {
+    return items.filter((item) => {
+        const code = item.phase_code?.toLowerCase() ?? '';
+
+        if (code === 'p1' || code === 'p3') {
+            return false;
+        }
+
+        return (
+            isNormalVisibleCrewPhase(code) ||
+            isLegacyCrewPhase(code) ||
+            isCrewPhaseCode(code)
+        );
+    });
+}
+
+export function phaseDisplayLabel(code: string | null | undefined): string {
+    const normalized = normalizePhaseCodeForDisplay(code);
+    const copy = crewPhaseCopy(normalized ?? code);
+
+    return copy?.label ?? (code ?? '').toUpperCase();
 }
 
 export function normalVisiblePhaseFilterOptions(): Array<{
@@ -117,7 +189,11 @@ function completedPhaseCodes(timeline: PhaseTimelineItem[]): Set<string> {
     return new Set(
         timeline
             .filter((item) => item.status === 'completed')
-            .map((item) => item.phase_code.toLowerCase()),
+            .map(
+                (item) =>
+                    normalizePhaseCodeForDisplay(item.phase_code) ??
+                    item.phase_code.toLowerCase(),
+            ),
     );
 }
 
@@ -127,7 +203,12 @@ function latestTimelinePhaseForStep(
 ): PhaseTimelineItem | undefined {
     return [...phaseTimeline]
         .reverse()
-        .find((phase) => step.codes.includes(phase.phase_code.toLowerCase()));
+        .find((phase) =>
+            step.codes.includes(
+                normalizePhaseCodeForDisplay(phase.phase_code) ??
+                    phase.phase_code.toLowerCase(),
+            ),
+        );
 }
 
 export function resolveActiveLegacyPhaseContext(
@@ -154,7 +235,10 @@ export function normalProgressStepStates(
     currentPhaseCode: string | null,
     phaseTimeline: PhaseTimelineItem[] = [],
 ): NormalProgressStepState[] {
-    const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
+    const normalizedCurrent =
+        normalizePhaseCodeForDisplay(currentPhaseCode) ??
+        currentPhaseCode?.toLowerCase() ??
+        null;
     const completedCodes = completedPhaseCodes(phaseTimeline);
     const currentPathIndex = resolveNormalPhasePathIndex(currentPhaseCode);
 
@@ -231,7 +315,10 @@ export function normalProgressStepDetail(
     currentPhaseCode: string | null,
     phaseTimeline: PhaseTimelineItem[] = [],
 ): string {
-    const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
+    const normalizedCurrent =
+        normalizePhaseCodeForDisplay(currentPhaseCode) ??
+        currentPhaseCode?.toLowerCase() ??
+        null;
     const state = normalProgressStepState(
         step,
         currentPhaseCode,
@@ -240,11 +327,11 @@ export function normalProgressStepDetail(
     const matchingPhase = latestTimelinePhaseForStep(step, phaseTimeline);
 
     if (state === 'current') {
-        if (normalizedCurrent === 'p2a') {
-            return 'Join standby · now';
+        if (normalizedCurrent === 'p1a') {
+            return 'Pre-joining standby · now';
         }
 
-        if (normalizedCurrent === 'p2b') {
+        if (normalizedCurrent === 'p1b') {
             return 'Training · now';
         }
 
@@ -267,10 +354,6 @@ export function normalProgressStepDetail(
     return 'Not reached yet';
 }
 
-/**
- * Compact note listing normal-path stages that were passed without a recorded
- * phase entry. Does not invent phase records — presentation only.
- */
 export function normalProgressSkippedStagesNote(
     currentPhaseCode: string | null,
     phaseTimeline: PhaseTimelineItem[] = [],
@@ -293,7 +376,10 @@ export function normalProgressSummary(
     currentPhaseCode: string | null,
     phaseTimeline: PhaseTimelineItem[] = [],
 ): string | null {
-    const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
+    const normalizedCurrent =
+        normalizePhaseCodeForDisplay(currentPhaseCode) ??
+        currentPhaseCode?.toLowerCase() ??
+        null;
 
     if (!normalizedCurrent) {
         return null;
@@ -314,7 +400,8 @@ export function normalProgressSummary(
     const activePhase = phaseTimeline.find(
         (phase) =>
             phase.status === 'active' &&
-            phase.phase_code.toLowerCase() === normalizedCurrent,
+            (normalizePhaseCodeForDisplay(phase.phase_code) ??
+                phase.phase_code.toLowerCase()) === normalizedCurrent,
     );
     const startedAt = activePhase?.actual_start_at;
 
@@ -328,7 +415,10 @@ export function normalProgressSummary(
 export function resolveNormalPhasePathIndex(
     currentPhaseCode: string | null,
 ): number {
-    const normalizedCurrent = currentPhaseCode?.toLowerCase() ?? null;
+    const normalizedCurrent =
+        normalizePhaseCodeForDisplay(currentPhaseCode) ??
+        currentPhaseCode?.toLowerCase() ??
+        null;
 
     if (!normalizedCurrent || isLegacyCrewPhase(normalizedCurrent)) {
         return -1;
