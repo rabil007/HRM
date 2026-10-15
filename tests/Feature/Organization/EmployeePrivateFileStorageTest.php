@@ -47,7 +47,7 @@ test('new training certificates are stored on the private disk not the public di
     $this->actingAs($user);
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['training.create', 'training.view']);
+    grantCompanyPermissions($user, $company, ['training.create', 'training.view', 'documents.upload']);
 
     $course = Course::query()->create([
         'name' => 'STCW Basic Safety',
@@ -64,7 +64,8 @@ test('new training certificates are stored on the private disk not the public di
 
     $training = EmployeeTraining::query()->where('employee_id', $employee->id)->sole();
 
-    expect($training->certificate_path)->toStartWith("employees/{$company->id}/training-certificates/")
+    expect($training->certificate_path)->toStartWith("employee-documents/{$company->id}/{$employee->id}/")
+        ->and($training->employee_document_id)->not->toBeNull()
         ->and($training->certificate_url)->toContain('/organization/employees/'.$employee->id.'/training/'.$training->id.'/certificate')
         ->and($training->certificate_url)->not->toContain('/storage/');
 

@@ -21,10 +21,12 @@ export function TrainingTableRow({
     browseHref,
     canUpdate = false,
     canDelete = false,
+    canManageCertificateDocuments = false,
     selected = false,
     onToggleSelection,
     onEdit,
     onReplace,
+    onLink,
     onDelete,
 }: {
     training: TrainingListItem;
@@ -32,10 +34,12 @@ export function TrainingTableRow({
     browseHref: string;
     canUpdate?: boolean;
     canDelete?: boolean;
+    canManageCertificateDocuments?: boolean;
     selected?: boolean;
     onToggleSelection?: () => void;
     onEdit?: (training: TrainingListItem) => void;
     onReplace?: (training: TrainingListItem) => void;
+    onLink?: (training: TrainingListItem) => void;
     onDelete?: (training: TrainingListItem) => void;
 }) {
     return (
@@ -124,6 +128,8 @@ export function TrainingTableRow({
                     certificateUrl={training.certificate_url}
                     showEdit={canUpdate}
                     onEdit={onEdit ? () => onEdit(training) : undefined}
+                    showLink={canManageCertificateDocuments && canUpdate}
+                    onLink={onLink ? () => onLink(training) : undefined}
                     showReplace={canUpdate && !!training.certificate_url}
                     onReplace={
                         onReplace ? () => onReplace(training) : undefined

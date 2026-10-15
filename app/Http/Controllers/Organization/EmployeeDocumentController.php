@@ -19,6 +19,7 @@ use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -169,6 +170,7 @@ class EmployeeDocumentController extends Controller
         }
 
         $document->update($updates);
+        app(TrainingCertificateDocumentIntegration::class)->syncLinkedTrainingsFromDocument($document->refresh());
 
         return back()->with('success', 'Document updated.');
     }
@@ -178,6 +180,7 @@ class EmployeeDocumentController extends Controller
         Employee $employee,
         EmployeeDocument $document,
         StoresEmployeeDocument $store,
+        TrainingCertificateDocumentIntegration $trainingCertificateDocuments,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -191,6 +194,8 @@ class EmployeeDocumentController extends Controller
             $request->user()?->id,
             $request->validated()
         );
+
+        $trainingCertificateDocuments->syncLinkedTrainingsFromDocument($document->refresh());
 
         return back()->with('success', 'Document file replaced.');
     }

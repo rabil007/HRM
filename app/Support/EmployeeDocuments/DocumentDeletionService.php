@@ -4,9 +4,9 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\DocumentInstance;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeTraining;
 use App\Support\BulkDocuments\CancelPendingBulkDocumentSignatureRequests;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
-use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Support\Facades\DB;
 
 class DocumentDeletionService
@@ -17,6 +17,17 @@ class DocumentDeletionService
 
     public function delete(EmployeeDocument $document): void
     {
+        $linkedTraining = EmployeeTraining::query()
+            ->where('company_id', $document->company_id)
+            ->where('employee_document_id', $document->id)
+            ->exists();
+
+        abort_if(
+            $linkedTraining,
+            422,
+            'This document is linked to one or more training records. Unlink or delete the training associations first.',
+        );
+
         $this->cancelPendingSignatureRequests->forDocuments(
             (int) $document->company_id,
             [$document->id],
@@ -44,7 +55,7 @@ class DocumentDeletionService
         });
 
         foreach ($paths as $path) {
-            EmployeePrivateFile::deleteStored($path, $companyId, EmployeePrivateFileKind::Document);
+            EmployeePrivateFile::deleteCompanyOwnedFile($path, $companyId);
         }
     }
 }

@@ -149,6 +149,7 @@ test('authorized users can store update and destroy training with certificate', 
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -250,6 +251,7 @@ test('authorized users can bulk store multiple training certificates', function 
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $firstCourse = Course::query()->create([
@@ -349,6 +351,7 @@ test('bulk store validation errors use indexed keys', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $validCourse = Course::query()->create([
@@ -427,6 +430,7 @@ test('storing a training certificate invokes the document upload optimizer', fun
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -501,6 +505,7 @@ test('csv import appends training rows for the employee', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     Course::query()->create([
@@ -656,7 +661,7 @@ test('cannot manage training for employee in another company', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $companyA, ['training.view', 'training.create', 'training.update', 'training.delete', 'training.import']);
+    grantCompanyPermissions($user, $companyA, ['training.view', 'training.create', 'training.update', 'training.delete', 'training.import', 'documents.upload', 'documents.view']);
 
     $course = Course::query()->create([
         'name' => 'COC',
@@ -732,6 +737,7 @@ test('training csv import respects template visible fields', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     Course::query()->create([
@@ -803,6 +809,7 @@ test('users with permission can bulk delete training records', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $first = EmployeeTraining::factory()->forEmployee($employee)->create(['sort_order' => 0]);
@@ -865,7 +872,7 @@ test('bulk delete ignores training records from another employee', function () {
             'status' => 'active',
         ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view', 'training.view', 'training.create', 'training.update', 'training.delete', 'training.import']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'training.view', 'training.create', 'training.update', 'training.delete', 'training.import', 'documents.upload', 'documents.view']);
 
     $ownRecord = EmployeeTraining::factory()->forEmployee($employee)->create();
     $otherRecord = EmployeeTraining::factory()->forEmployee($otherEmployee)->create();
@@ -970,6 +977,7 @@ test('users with permission can replace a training certificate and keep version 
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -1059,6 +1067,7 @@ test('users with permission can replace a training certificate and update metada
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -1147,6 +1156,7 @@ test('training update ignores certificate file uploads', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -1227,6 +1237,7 @@ test('destroying a training record deletes current and version certificate files
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $course = Course::query()->create([
@@ -1557,6 +1568,7 @@ test('training show page exposes manage permission', function () {
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'training.view', 'training.create', 'training.update', 'training.delete', 'training.import',
+        'documents.upload', 'documents.view',
     ]);
 
     $training = EmployeeTraining::factory()->forEmployee($employee)->create();

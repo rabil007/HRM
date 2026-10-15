@@ -274,7 +274,7 @@ class DocumentDownloadService
             return redirect()->away($filePath);
         }
 
-        $resolved = EmployeePrivateFile::resolve($filePath, $companyId, EmployeePrivateFileKind::Document);
+        $resolved = EmployeePrivateFile::resolveCompanyOwnedFile($filePath, $companyId);
 
         abort_if($resolved === null, 404, 'File not found.');
 
