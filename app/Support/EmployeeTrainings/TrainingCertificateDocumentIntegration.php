@@ -67,6 +67,12 @@ class TrainingCertificateDocumentIntegration
         $this->assertDocumentLinkable($training, $employee, $document, $companyId, $confirmReplaceLink);
 
         DB::transaction(function () use ($training, $document): void {
+            EmployeeTraining::query()->whereKey($training->id)->lockForUpdate()->firstOrFail();
+            EmployeeDocument::query()->whereKey($document->id)->lockForUpdate()->firstOrFail();
+
+            $training->refresh();
+            $document->refresh();
+
             $this->reconcileLegacyCertificateHistoryBeforeLink($training, $document);
             $this->assignDocumentToTraining($training, $document);
             $this->syncTrainingDatesFromDocument($training, $document);
@@ -258,6 +264,8 @@ class TrainingCertificateDocumentIntegration
 
                 return 'linked';
             });
+        } catch (ValidationException) {
+            return 'conflicting_version_history';
         } catch (Throwable) {
             return 'failed';
         }
@@ -309,6 +317,20 @@ class TrainingCertificateDocumentIntegration
             }
         }
 
+        $existingDocument = EmployeeDocument::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $training->employee_id)
+            ->where('file_path', $training->certificate_path)
+            ->first();
+
+        if ($existingDocument instanceof EmployeeDocument) {
+            try {
+                $this->assertTrainingVersionsCompatibleWithDocument($training, $existingDocument);
+            } catch (ValidationException) {
+                return 'conflicting_version_history';
+            }
+        }
+
         return 'eligible';
     }
 
@@ -352,30 +374,127 @@ class TrainingCertificateDocumentIntegration
         EmployeeTraining $training,
         EmployeeDocument $document,
     ): void {
+        $this->assertTrainingVersionsCompatibleWithDocument($training, $document);
+
         foreach ($training->versions->sortBy('version')->values() as $version) {
             if (! $version instanceof EmployeeTrainingVersion) {
                 continue;
             }
 
-            EmployeeDocumentVersion::query()->firstOrCreate(
-                [
-                    'employee_document_id' => $document->id,
-                    'version' => (int) $version->version,
-                ],
-                [
-                    'company_id' => $training->company_id,
-                    'employee_id' => $training->employee_id,
-                    'file_path' => $version->file_path,
-                    'original_filename' => $version->original_filename,
-                    'mime_type' => $version->mime_type,
-                    'size_bytes' => $version->size_bytes,
-                    'checksum' => $version->checksum,
-                    'uploaded_by' => null,
-                    'uploaded_at' => $version->created_at,
-                    'replaced_by' => $version->replaced_by,
-                ],
-            );
+            $versionNumber = (int) $version->version;
+
+            $existing = EmployeeDocumentVersion::query()
+                ->where('employee_document_id', $document->id)
+                ->where('version', $versionNumber)
+                ->first();
+
+            if ($existing instanceof EmployeeDocumentVersion) {
+                if (! $this->certificateAttachmentsMatch(
+                    $version->file_path,
+                    $version->checksum,
+                    $existing->file_path,
+                    $existing->checksum,
+                )) {
+                    throw ValidationException::withMessages([
+                        'employee_document_id' => 'Version '.$versionNumber.' of this training certificate does not match the selected document history. The link was rejected to preserve both file histories.',
+                    ]);
+                }
+
+                continue;
+            }
+
+            EmployeeDocumentVersion::query()->create([
+                'employee_document_id' => $document->id,
+                'company_id' => $training->company_id,
+                'employee_id' => $training->employee_id,
+                'version' => $versionNumber,
+                'file_path' => $version->file_path,
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'size_bytes' => $version->size_bytes,
+                'checksum' => $version->checksum,
+                'uploaded_by' => null,
+                'uploaded_at' => $version->created_at,
+                'replaced_by' => $version->replaced_by,
+            ]);
         }
+    }
+
+    private function assertTrainingVersionsCompatibleWithDocument(
+        EmployeeTraining $training,
+        EmployeeDocument $document,
+    ): void {
+        $training->loadMissing('versions');
+        $document->loadMissing('versions');
+
+        $documentVersionsByNumber = $document->versions->keyBy(
+            fn (EmployeeDocumentVersion $row): int => (int) $row->version,
+        );
+
+        foreach ($training->versions as $trainingVersion) {
+            if (! $trainingVersion instanceof EmployeeTrainingVersion) {
+                continue;
+            }
+
+            $versionNumber = (int) $trainingVersion->version;
+            $documentVersion = $documentVersionsByNumber->get($versionNumber);
+
+            if (! $documentVersion instanceof EmployeeDocumentVersion) {
+                continue;
+            }
+
+            if (! $this->certificateAttachmentsMatch(
+                $trainingVersion->file_path,
+                $trainingVersion->checksum,
+                $documentVersion->file_path,
+                $documentVersion->checksum,
+            )) {
+                throw ValidationException::withMessages([
+                    'employee_document_id' => 'Version '.$versionNumber.' of this training certificate does not match the selected document history. The link was rejected to preserve both file histories.',
+                ]);
+            }
+        }
+
+        if (
+            (int) $training->current_version === (int) $document->current_version
+            && is_string($training->certificate_path)
+            && $training->certificate_path !== ''
+            && is_string($document->file_path)
+            && $document->file_path !== ''
+            && ! $this->certificateAttachmentsMatch(
+                $training->certificate_path,
+                $training->certificate_checksum,
+                $document->file_path,
+                $document->checksum,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'employee_document_id' => 'The current training certificate file does not match the selected document version. The link was rejected to preserve both file histories.',
+            ]);
+        }
+    }
+
+    private function certificateAttachmentsMatch(
+        ?string $pathA,
+        ?string $checksumA,
+        ?string $pathB,
+        ?string $checksumB,
+    ): bool {
+        $normalizedPathA = is_string($pathA) ? $pathA : '';
+        $normalizedPathB = is_string($pathB) ? $pathB : '';
+
+        if ($normalizedPathA !== '' && $normalizedPathB !== '' && $normalizedPathA === $normalizedPathB) {
+            return true;
+        }
+
+        $normalizedChecksumA = trim((string) ($checksumA ?? ''));
+        $normalizedChecksumB = trim((string) ($checksumB ?? ''));
+
+        if ($normalizedChecksumA !== '' && $normalizedChecksumB !== '' && hash_equals($normalizedChecksumA, $normalizedChecksumB)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

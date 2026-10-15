@@ -380,6 +380,366 @@ test('linking document imports legacy training certificate versions when paths o
         ->exists())->toBeTrue();
 });
 
+test('linking rejects matching version number with different certificate files', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $currentPath = "employees/{$company->id}/training-certificates/current.pdf";
+    $trainingVersionOnePath = "employees/{$company->id}/training-certificates/training-v1.pdf";
+    $documentVersionOnePath = "employees/{$company->id}/training-certificates/document-v1.pdf";
+    Storage::disk('local')->put($currentPath, 'current');
+    Storage::disk('local')->put($trainingVersionOnePath, 'training-v1');
+    Storage::disk('local')->put($documentVersionOnePath, 'document-v1');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Shared Current',
+        'file_path' => $currentPath,
+        'original_filename' => 'current.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'current-checksum',
+        'current_version' => 2,
+        'status' => 'valid',
+    ]);
+
+    EmployeeDocumentVersion::query()->create([
+        'employee_document_id' => $document->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $documentVersionOnePath,
+        'original_filename' => 'document-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'document-v1-checksum',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $currentPath,
+        'certificate_original_filename' => 'current.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'current-checksum',
+        'current_version' => 2,
+        'employee_document_id' => null,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $trainingVersionOnePath,
+        'original_filename' => 'training-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'training-v1-checksum',
+    ]);
+
+    $documentVersionCount = EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count();
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertSessionHasErrors('employee_document_id');
+
+    $training->refresh();
+    $document->refresh();
+
+    expect($training->employee_document_id)->toBeNull()
+        ->and($document->file_path)->toBe($currentPath)
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count())->toBe($documentVersionCount);
+});
+
+test('linking matching version attachments succeeds without duplicating history', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $currentPath = "employees/{$company->id}/training-certificates/current.pdf";
+    $sharedVersionOnePath = "employees/{$company->id}/training-certificates/shared-v1.pdf";
+    Storage::disk('local')->put($currentPath, 'current');
+    Storage::disk('local')->put($sharedVersionOnePath, 'shared-v1');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Shared Cert',
+        'file_path' => $currentPath,
+        'original_filename' => 'current.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'current-checksum',
+        'current_version' => 2,
+        'status' => 'valid',
+    ]);
+
+    EmployeeDocumentVersion::query()->create([
+        'employee_document_id' => $document->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $sharedVersionOnePath,
+        'original_filename' => 'shared-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'shared-v1-checksum',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $currentPath,
+        'certificate_original_filename' => 'current.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'current-checksum',
+        'current_version' => 2,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $sharedVersionOnePath,
+        'original_filename' => 'shared-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'shared-v1-checksum',
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertRedirect();
+
+    expect(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count())->toBe(1);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training->refresh()]), [
+        'employee_document_id' => $document->id,
+    ])->assertRedirect();
+
+    expect(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count())->toBe(1);
+});
+
+test('linked compatible certificate versions remain downloadable', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'training.view',
+        'training.create',
+        'training.update',
+        'training.delete',
+        'documents.upload',
+        'documents.view',
+        'documents.download',
+    ]);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $currentPath = "employees/{$company->id}/training-certificates/current.pdf";
+    $versionPath = "employees/{$company->id}/training-certificates/v1.pdf";
+    Storage::disk('local')->put($currentPath, 'current');
+    Storage::disk('local')->put($versionPath, 'version-one');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Shared Cert',
+        'file_path' => $currentPath,
+        'original_filename' => 'current.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'current-checksum',
+        'current_version' => 2,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $currentPath,
+        'certificate_original_filename' => 'current.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'current-checksum',
+        'current_version' => 2,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $versionPath,
+        'original_filename' => 'v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'v1-checksum',
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertRedirect();
+
+    $version = EmployeeDocumentVersion::query()
+        ->where('employee_document_id', $document->id)
+        ->where('version', 1)
+        ->firstOrFail();
+
+    $this->get(route('organization.documents.files.download', $document))
+        ->assertOk();
+
+    $this->get(route('organization.documents.files.versions.download', [
+        'document' => $document->id,
+        'version' => $version->id,
+    ]))->assertOk();
+});
+
+test('backfill reports conflicting version history when an existing document shares the current file', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $currentPath = "employees/{$company->id}/training-certificates/current.pdf";
+    $trainingVersionOnePath = "employees/{$company->id}/training-certificates/training-v1.pdf";
+    $documentVersionOnePath = "employees/{$company->id}/training-certificates/document-v1.pdf";
+    Storage::disk('local')->put($currentPath, 'current');
+    Storage::disk('local')->put($trainingVersionOnePath, 'training-v1');
+    Storage::disk('local')->put($documentVersionOnePath, 'document-v1');
+
+    $existingDocument = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Existing',
+        'file_path' => $currentPath,
+        'original_filename' => 'current.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'current-checksum',
+        'current_version' => 2,
+        'status' => 'valid',
+    ]);
+
+    EmployeeDocumentVersion::query()->create([
+        'employee_document_id' => $existingDocument->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $documentVersionOnePath,
+        'original_filename' => 'document-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'document-v1-checksum',
+    ]);
+
+    $legacyTraining = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $currentPath,
+        'certificate_original_filename' => 'current.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'current-checksum',
+        'current_version' => 2,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $legacyTraining->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $trainingVersionOnePath,
+        'original_filename' => 'training-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'training-v1-checksum',
+    ]);
+
+    $documentCountBefore = EmployeeDocument::query()->where('employee_id', $employee->id)->count();
+
+    Artisan::call('training:backfill-certificate-documents', [
+        '--company' => $company->id,
+        '--dry-run' => true,
+    ]);
+
+    expect(Artisan::output())->toContain('conflicting_version_history');
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    expect(Artisan::output())->toContain('conflicting_version_history')
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe($documentCountBefore);
+});
+
+test('linking document to another employee is forbidden', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'OT'.random_int(1000, 9999),
+        'name' => 'Other Trainee',
+        'status' => 'active',
+    ]);
+
+    $otherPath = 'employee-documents/'.$company->id.'/'.$otherEmployee->id.'/type-'.$type->id.'/other-employee.pdf';
+    Storage::disk('local')->put($otherPath, 'other-employee');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $otherEmployee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Other Employee Cert',
+        'file_path' => $otherPath,
+        'original_filename' => 'other-employee.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'other',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertNotFound();
+});
+
 test('linking unrelated document with legacy certificate history is rejected', function () {
     fakeEmployeeFileDisks();
 
