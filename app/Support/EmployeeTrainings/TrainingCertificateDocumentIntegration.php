@@ -11,9 +11,12 @@ use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
+use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class TrainingCertificateDocumentIntegration
 {
@@ -64,6 +67,7 @@ class TrainingCertificateDocumentIntegration
         $this->assertDocumentLinkable($training, $employee, $document, $companyId, $confirmReplaceLink);
 
         DB::transaction(function () use ($training, $document): void {
+            $this->reconcileLegacyCertificateHistoryBeforeLink($training, $document);
             $this->assignDocumentToTraining($training, $document);
             $this->syncTrainingDatesFromDocument($training, $document);
         });
@@ -196,6 +200,71 @@ class TrainingCertificateDocumentIntegration
 
     public function migrateLegacyTrainingCertificate(EmployeeTraining $training, bool $dryRun = false): string
     {
+        $assessment = $this->assessLegacyTrainingCertificateMigration($training);
+
+        if ($dryRun) {
+            return $assessment === 'eligible' ? 'would_link' : $assessment;
+        }
+
+        if ($assessment !== 'eligible') {
+            return $assessment;
+        }
+
+        try {
+            return DB::transaction(function () use ($training): string {
+                /** @var EmployeeTraining $locked */
+                $locked = EmployeeTraining::query()
+                    ->whereKey($training->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if ($locked->employee_document_id !== null) {
+                    return 'already_linked';
+                }
+
+                $reassessment = $this->assessLegacyTrainingCertificateMigration($locked);
+
+                if ($reassessment !== 'eligible') {
+                    return $reassessment;
+                }
+
+                $locked->loadMissing(['course:id,name', 'versions']);
+
+                $documentType = $this->documentTypeResolver->resolve();
+
+                $document = EmployeeDocument::query()->create([
+                    'company_id' => $locked->company_id,
+                    'employee_id' => $locked->employee_id,
+                    'document_type_id' => $documentType->id,
+                    'type' => 'other',
+                    'document_type' => (string) $documentType->id,
+                    'title' => $this->documentTitleForTraining($locked),
+                    'file_path' => $locked->certificate_path,
+                    'original_filename' => $locked->certificate_original_filename,
+                    'mime_type' => $locked->certificate_mime_type,
+                    'size_bytes' => $locked->certificate_size_bytes,
+                    'checksum' => $locked->certificate_checksum ?? '',
+                    'current_version' => (int) ($locked->current_version ?? 1),
+                    'issue_date' => $locked->issue_date?->toDateString(),
+                    'expiry_date' => $locked->expiry_date?->toDateString(),
+                    'status' => DocumentExpiry::persistedStatus($locked->expiry_date?->toDateString()),
+                    'uploaded_by' => null,
+                    'replaced_at' => $locked->replaced_at,
+                ]);
+
+                $this->importTrainingCertificateVersionsIntoDocument($locked, $document);
+
+                $locked->update(['employee_document_id' => $document->id]);
+
+                return 'linked';
+            });
+        } catch (Throwable) {
+            return 'failed';
+        }
+    }
+
+    public function assessLegacyTrainingCertificateMigration(EmployeeTraining $training): string
+    {
         if ($training->employee_document_id !== null) {
             return 'already_linked';
         }
@@ -204,76 +273,169 @@ class TrainingCertificateDocumentIntegration
             return 'skipped_no_file';
         }
 
-        if (EmployeeTraining::query()
+        $companyId = (int) $training->company_id;
+
+        if (! $this->isAllowedCompanyCertificatePath($training->certificate_path, $companyId)) {
+            return 'invalid_file_path';
+        }
+
+        if (! $this->certificateFileIsReadable($training->certificate_path, $companyId)) {
+            return 'missing_current_file';
+        }
+
+        if ($this->certificatePathLinkedToAnotherTraining($training)) {
+            return 'duplicate_conflicting_reference';
+        }
+
+        $training->loadMissing('versions');
+
+        foreach ($training->versions as $version) {
+            if (! $version instanceof EmployeeTrainingVersion) {
+                continue;
+            }
+
+            $versionPath = $version->file_path;
+
+            if ($versionPath === null || $versionPath === '') {
+                continue;
+            }
+
+            if (! $this->isAllowedCompanyCertificatePath($versionPath, $companyId)) {
+                return 'invalid_file_path';
+            }
+
+            if (! $this->certificateFileIsReadable($versionPath, $companyId)) {
+                return 'missing_historical_version';
+            }
+        }
+
+        return 'eligible';
+    }
+
+    private function reconcileLegacyCertificateHistoryBeforeLink(
+        EmployeeTraining $training,
+        EmployeeDocument $document,
+    ): void {
+        $training->loadMissing('versions');
+        $document->loadMissing('versions');
+
+        $legacyPaths = $this->collectTrainingCertificatePaths($training);
+        $documentPaths = $this->collectDocumentCertificatePaths($document);
+
+        if ($legacyPaths === []) {
+            return;
+        }
+
+        $sharedPaths = array_values(array_intersect($legacyPaths, $documentPaths));
+
+        if ($sharedPaths === []) {
+            throw ValidationException::withMessages([
+                'employee_document_id' => 'This training record already has certificate files that do not match the selected document. Link a document that uses the same certificate files, or remove the legacy certificate first.',
+            ]);
+        }
+
+        $this->importTrainingCertificateVersionsIntoDocument($training, $document);
+
+        $maxDocumentVersion = max(
+            (int) $document->current_version,
+            (int) $training->current_version,
+            (int) $document->versions->max('version'),
+            (int) $training->versions->max('version'),
+        );
+
+        if ($maxDocumentVersion > (int) $document->current_version) {
+            $document->update(['current_version' => $maxDocumentVersion]);
+        }
+    }
+
+    private function importTrainingCertificateVersionsIntoDocument(
+        EmployeeTraining $training,
+        EmployeeDocument $document,
+    ): void {
+        foreach ($training->versions->sortBy('version')->values() as $version) {
+            if (! $version instanceof EmployeeTrainingVersion) {
+                continue;
+            }
+
+            EmployeeDocumentVersion::query()->firstOrCreate(
+                [
+                    'employee_document_id' => $document->id,
+                    'version' => (int) $version->version,
+                ],
+                [
+                    'company_id' => $training->company_id,
+                    'employee_id' => $training->employee_id,
+                    'file_path' => $version->file_path,
+                    'original_filename' => $version->original_filename,
+                    'mime_type' => $version->mime_type,
+                    'size_bytes' => $version->size_bytes,
+                    'checksum' => $version->checksum,
+                    'uploaded_by' => null,
+                    'uploaded_at' => $version->created_at,
+                    'replaced_by' => $version->replaced_by,
+                ],
+            );
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectTrainingCertificatePaths(EmployeeTraining $training): array
+    {
+        $paths = $training->versions
+            ->pluck('file_path')
+            ->filter(fn (?string $path): bool => is_string($path) && $path !== '')
+            ->all();
+
+        if ($training->certificate_path !== null && $training->certificate_path !== '') {
+            $paths[] = $training->certificate_path;
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function collectDocumentCertificatePaths(EmployeeDocument $document): array
+    {
+        $paths = $document->versions
+            ->pluck('file_path')
+            ->filter(fn (?string $path): bool => is_string($path) && $path !== '')
+            ->all();
+
+        if ($document->file_path !== null && $document->file_path !== '') {
+            $paths[] = $document->file_path;
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    private function isAllowedCompanyCertificatePath(string $path, int $companyId): bool
+    {
+        foreach (EmployeePrivateFileKind::cases() as $kind) {
+            if (EmployeePrivateFile::validatedRelativePath($path, $companyId, $kind) !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function certificateFileIsReadable(string $path, int $companyId): bool
+    {
+        return EmployeePrivateFile::resolveCompanyOwnedFile($path, $companyId) !== null;
+    }
+
+    private function certificatePathLinkedToAnotherTraining(EmployeeTraining $training): bool
+    {
+        return EmployeeTraining::query()
             ->where('employee_document_id', '>', 0)
             ->where('certificate_path', $training->certificate_path)
             ->where('company_id', $training->company_id)
-            ->exists()) {
-            return 'skipped_duplicate_path';
-        }
-
-        if ($dryRun) {
-            return 'would_link';
-        }
-
-        return DB::transaction(function () use ($training): string {
-            $training->loadMissing(['course:id,name', 'versions']);
-
-            $documentType = $this->documentTypeResolver->resolve();
-
-            $document = EmployeeDocument::query()->create([
-                'company_id' => $training->company_id,
-                'employee_id' => $training->employee_id,
-                'document_type_id' => $documentType->id,
-                'type' => 'other',
-                'document_type' => (string) $documentType->id,
-                'title' => $this->documentTitleForTraining($training),
-                'file_path' => $training->certificate_path,
-                'original_filename' => $training->certificate_original_filename,
-                'mime_type' => $training->certificate_mime_type,
-                'size_bytes' => $training->certificate_size_bytes,
-                'checksum' => $training->certificate_checksum ?? '',
-                'current_version' => (int) ($training->current_version ?? 1),
-                'issue_date' => $training->issue_date?->toDateString(),
-                'expiry_date' => $training->expiry_date?->toDateString(),
-                'status' => DocumentExpiry::persistedStatus($training->expiry_date?->toDateString()),
-                'uploaded_by' => null,
-                'replaced_at' => $training->replaced_at,
-            ]);
-
-            $archivedVersions = $training->versions
-                ->sortBy('version')
-                ->values();
-
-            foreach ($archivedVersions as $version) {
-                if (! $version instanceof EmployeeTrainingVersion) {
-                    continue;
-                }
-
-                EmployeeDocumentVersion::query()->firstOrCreate(
-                    [
-                        'employee_document_id' => $document->id,
-                        'version' => (int) $version->version,
-                    ],
-                    [
-                        'company_id' => $training->company_id,
-                        'employee_id' => $training->employee_id,
-                        'file_path' => $version->file_path,
-                        'original_filename' => $version->original_filename,
-                        'mime_type' => $version->mime_type,
-                        'size_bytes' => $version->size_bytes,
-                        'checksum' => $version->checksum,
-                        'uploaded_by' => null,
-                        'uploaded_at' => $version->created_at,
-                        'replaced_by' => $version->replaced_by,
-                    ],
-                );
-            }
-
-            $training->update(['employee_document_id' => $document->id]);
-
-            return 'linked';
-        });
+            ->whereKeyNot($training->id)
+            ->exists();
     }
 
     private function assignDocumentToTraining(EmployeeTraining $training, EmployeeDocument $document): void

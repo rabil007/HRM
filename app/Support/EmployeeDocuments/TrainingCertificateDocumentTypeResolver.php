@@ -10,6 +10,16 @@ class TrainingCertificateDocumentTypeResolver
 {
     public const TITLE = 'Training Certificate';
 
+    public function findExisting(): ?DocumentType
+    {
+        $existing = DocumentType::withTrashed()
+            ->where('title', self::TITLE)
+            ->orderBy('id')
+            ->first();
+
+        return $existing instanceof DocumentType ? $existing : null;
+    }
+
     public function resolve(): DocumentType
     {
         return Cache::lock('document-type:training-certificate', 10)->block(5, function (): DocumentType {

@@ -14,6 +14,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\EmployeeTrainings\DeletesEmployeeTrainingRecord;
 use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
 use App\Support\EmployeeTrainings\TrainingAccess;
 use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
@@ -30,6 +31,7 @@ class EmployeeTrainingController extends Controller
     public function __construct(
         private StoresEmployeeTrainingCertificate $certificateStore,
         private TrainingCertificateDocumentIntegration $certificateDocuments,
+        private DeletesEmployeeTrainingRecord $trainingRecordDeletion,
     ) {}
 
     /** @var array<string, string> */
@@ -258,9 +260,7 @@ class EmployeeTrainingController extends Controller
 
         TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
-        $this->certificateDocuments->unlinkDocument($training);
-        $this->certificateStore->deleteForTraining($training);
-        $training->delete();
+        $this->trainingRecordDeletion->delete($training);
 
         return back()->with('success', 'Training record removed.');
     }
@@ -284,9 +284,7 @@ class EmployeeTrainingController extends Controller
         }
 
         foreach ($trainings as $training) {
-            $this->certificateDocuments->unlinkDocument($training);
-            $this->certificateStore->deleteForTraining($training);
-            $training->delete();
+            $this->trainingRecordDeletion->delete($training);
         }
 
         $deleted = $trainings->count();

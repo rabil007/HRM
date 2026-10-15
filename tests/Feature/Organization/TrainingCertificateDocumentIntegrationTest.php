@@ -170,6 +170,107 @@ test('document-side replacement syncs linked training certificate mirror fields'
         ->and($document->current_version)->toBe(2);
 });
 
+test('deleting integrated training preserves linked document files and version history', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $training = EmployeeTraining::query()->where('employee_id', $employee->id)->sole();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('renewed.pdf', 120, 'application/pdf'),
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+    ])->assertRedirect();
+
+    $document->refresh();
+    $versionPath = EmployeeDocumentVersion::query()
+        ->where('employee_document_id', $document->id)
+        ->value('file_path');
+
+    expect($versionPath)->not->toBeNull();
+    Storage::disk('local')->assertExists($document->file_path);
+    Storage::disk('local')->assertExists($versionPath);
+
+    $this->delete(route('organization.employees.training.destroy', [$employee, $training]))
+        ->assertRedirect();
+
+    expect(EmployeeDocument::query()->find($document->id))->not->toBeNull()
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count())->toBe(1);
+
+    Storage::disk('local')->assertExists($document->file_path);
+    Storage::disk('local')->assertExists($versionPath);
+});
+
+test('bulk deleting integrated trainings preserves all linked documents and files', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    foreach (['one.pdf', 'two.pdf'] as $filename) {
+        $this->post(route('organization.employees.training.store', $employee), [
+            'course_id' => $course->id,
+            'issue_date' => '2024-11-26',
+            'institute_center' => 'MTC',
+            'certificate' => UploadedFile::fake()->create($filename, 100, 'application/pdf'),
+        ])->assertRedirect();
+    }
+
+    $trainings = EmployeeTraining::query()->where('employee_id', $employee->id)->get();
+    $documentIds = $trainings->pluck('employee_document_id')->all();
+    $paths = EmployeeDocument::query()->whereIn('id', $documentIds)->pluck('file_path')->all();
+
+    $this->post(route('organization.employees.training.bulk-destroy', $employee), [
+        'training_ids' => $trainings->pluck('id')->all(),
+    ])->assertRedirect();
+
+    foreach ($documentIds as $documentId) {
+        expect(EmployeeDocument::query()->find($documentId))->not->toBeNull();
+    }
+
+    foreach ($paths as $path) {
+        Storage::disk('local')->assertExists($path);
+    }
+});
+
+test('deleting legacy training removes private certificate files when not document-owned', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $path = "employees/{$company->id}/training-certificates/legacy-only.pdf";
+    Storage::disk('local')->put($path, 'legacy-only');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'legacy-only.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'checksum',
+    ]);
+
+    $this->actingAs($user);
+
+    $this->delete(route('organization.employees.training.destroy', [$employee, $training]))
+        ->assertRedirect();
+
+    Storage::disk('local')->assertMissing($path);
+});
+
 test('deleting training preserves linked employee document', function () {
     fakeEmployeeFileDisks();
 
@@ -214,6 +315,200 @@ test('deleting linked employee document is blocked', function () {
 
     $this->delete(route('organization.employees.documents.destroy', [$employee, $document]))
         ->assertStatus(422);
+});
+
+test('linking document imports legacy training certificate versions when paths overlap', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $currentPath = "employees/{$company->id}/training-certificates/current.pdf";
+    $versionPath = "employees/{$company->id}/training-certificates/v1.pdf";
+    Storage::disk('local')->put($currentPath, 'current');
+    Storage::disk('local')->put($versionPath, 'version-one');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Shared Cert',
+        'file_path' => $currentPath,
+        'original_filename' => 'current.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'current-checksum',
+        'current_version' => 2,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $currentPath,
+        'certificate_original_filename' => 'current.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 100,
+        'certificate_checksum' => 'current-checksum',
+        'current_version' => 2,
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $versionPath,
+        'original_filename' => 'v1.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 50,
+        'checksum' => 'v1-checksum',
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertRedirect();
+
+    expect(EmployeeDocumentVersion::query()
+        ->where('employee_document_id', $document->id)
+        ->where('version', 1)
+        ->where('file_path', $versionPath)
+        ->exists())->toBeTrue();
+});
+
+test('linking unrelated document with legacy certificate history is rejected', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $legacyPath = "employees/{$company->id}/training-certificates/legacy.pdf";
+    $otherPath = 'employee-documents/'.$company->id.'/'.$employee->id.'/type-'.$type->id.'/other.pdf';
+    Storage::disk('local')->put($legacyPath, 'legacy');
+    Storage::disk('local')->put($otherPath, 'other');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Other Cert',
+        'file_path' => $otherPath,
+        'original_filename' => 'other.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 100,
+        'checksum' => 'other',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $legacyPath,
+        'certificate_original_filename' => 'legacy.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'legacy',
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $training]), [
+        'employee_document_id' => $document->id,
+    ])->assertSessionHasErrors('employee_document_id');
+});
+
+test('backfill dry run performs no writes', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+
+    $path = "employees/{$company->id}/training-certificates/dry-run.pdf";
+    Storage::disk('local')->put($path, 'dry-run');
+
+    EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'dry-run.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'dry-run',
+    ]);
+
+    $documentCountBefore = EmployeeDocument::query()->count();
+
+    Artisan::call('training:backfill-certificate-documents', [
+        '--company' => $company->id,
+        '--dry-run' => true,
+    ]);
+
+    expect(EmployeeDocument::query()->count())->toBe($documentCountBefore)
+        ->and(Artisan::output())->toContain('Dry run complete');
+});
+
+test('backfill reports missing current file without creating documents', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+
+    $path = "employees/{$company->id}/training-certificates/missing.pdf";
+
+    EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'missing.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'missing',
+    ]);
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    expect(Artisan::output())->toContain('missing_current_file')
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('backfill rejects invalid cross tenant certificate paths', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Co',
+        'slug' => 'other-co-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => Country::query()->first()->id,
+        'currency_id' => Currency::query()->first()->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $path = "employees/{$otherCompany->id}/training-certificates/cross-tenant.pdf";
+    Storage::disk('local')->put($path, 'cross');
+
+    EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'cross-tenant.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'cross',
+    ]);
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    expect(Artisan::output())->toContain('invalid_file_path')
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0);
 });
 
 test('legacy backfill command links training certificates idempotently', function () {

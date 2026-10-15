@@ -418,9 +418,11 @@ Training completion metadata stays on `employee_trainings`. The **employee docum
 
 New certificate uploads from Training create (or link) a `Training Certificate` document type row titled with the **course name**. Replacing from Training or from Documents uses the **document version engine only** for integrated records; legacy training-only version rows remain readable until backfilled.
 
-Cross-domain certificate actions require **both** training permissions and `documents.upload` (see `TrainingCertificateDocumentPermissions`). Deleting a training record unlinks but **preserves** the document. Deleting a document linked to training is blocked until associations are removed.
+Cross-domain certificate actions require **both** training permissions and `documents.upload` (see `TrainingCertificateDocumentPermissions`). Deleting a training record unlinks but **preserves** the linked employee document and its physical files (including document version history). Legacy-only training rows still delete their private certificate files when no document owns those paths. Deleting a document linked to training is blocked until associations are removed.
 
-Legacy certificates without a link are backfilled idempotently (no automatic production run):
+Linking an existing Training Certificate document to a training row that already has legacy certificate files requires overlapping file paths; legacy version rows are imported into `employee_document_versions` before the association is saved. Unrelated certificate histories are rejected with validation errors instead of silently replacing visible history.
+
+Legacy certificates without a link are backfilled idempotently (no automatic production run). The command validates tenant-safe paths and readable files before creating document rows, uses row locks for concurrent safety, and reports categories such as `would_link`, `missing_current_file`, `missing_historical_version`, and `duplicate_conflicting_reference`. Dry runs never modify data or create document types.
 
 ```bash
 php artisan training:backfill-certificate-documents --dry-run

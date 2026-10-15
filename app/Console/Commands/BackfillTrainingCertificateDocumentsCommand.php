@@ -14,6 +14,20 @@ class BackfillTrainingCertificateDocumentsCommand extends Command
 
     protected $description = 'Link legacy training certificate files to employee documents (idempotent).';
 
+    /** @var list<string> */
+    private const REPORT_CATEGORIES = [
+        'already_linked',
+        'skipped_no_file',
+        'invalid_file_path',
+        'missing_current_file',
+        'missing_historical_version',
+        'duplicate_conflicting_reference',
+        'would_link',
+        'linked',
+        'failed',
+        'skipped',
+    ];
+
     public function handle(TrainingCertificateDocumentIntegration $integration): int
     {
         $dryRun = (bool) $this->option('dry-run');
@@ -28,13 +42,7 @@ class BackfillTrainingCertificateDocumentsCommand extends Command
             $query->where('company_id', (int) $companyId);
         }
 
-        $counts = [
-            'already_linked' => 0,
-            'skipped_no_file' => 0,
-            'skipped_duplicate_path' => 0,
-            'would_link' => 0,
-            'linked' => 0,
-        ];
+        $counts = array_fill_keys(self::REPORT_CATEGORIES, 0);
 
         $query->orderBy('id')->chunkById(100, function ($trainings) use ($integration, $dryRun, &$counts): void {
             foreach ($trainings as $training) {
@@ -47,7 +55,19 @@ class BackfillTrainingCertificateDocumentsCommand extends Command
             }
         });
 
-        $this->table(['Result', 'Count'], collect($counts)->map(fn (int $count, string $result) => [$result, $count])->all());
+        $rows = collect($counts)
+            ->filter(fn (int $count): bool => $count > 0)
+            ->map(fn (int $count, string $result): array => [$result, $count])
+            ->values()
+            ->all();
+
+        if ($rows === []) {
+            $this->info('No legacy training certificates matched the backfill criteria.');
+        } else {
+            $this->table(['Result', 'Count'], $rows);
+        }
+
+        $this->line('Totals: '.array_sum($counts).' training row(s) evaluated.');
 
         if ($dryRun) {
             $this->info('Dry run complete. No records were modified.');
