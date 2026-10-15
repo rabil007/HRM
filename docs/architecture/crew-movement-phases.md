@@ -1505,11 +1505,21 @@ Rank CSV import supports `name,is_active,max_tour_of_duty_days` (blank Tour cell
 
 ## Phase code migration and disposable test data
 
-Migration `2026_10_14_120000_remap_crew_assignment_phase_codes_to_six_phase_lifecycle.php` remaps stored phase codes on `crew_assignment_phases`, related payroll timeline lines, and scheduled movement expectations. Obsolete Travel In (`p1`) and legacy Ready to Join (`p3`) rows are stored as `p1a` after migration — they are not resurrected as selectable workflow phases in the application.
+Migration `2026_10_14_120000_remap_crew_assignment_phase_codes_to_six_phase_lifecycle.php` remaps stored phase codes on `crew_assignment_phases`, related payroll timeline lines, and scheduled movement expectations. **Obsolete Travel In (`p1`) and legacy Ready to Join (`p3`) are not silently converted to Pre-Joining Standby (`p1a`).** If either remains after staging, `migrate` fails with an actionable error. Follow-up migration `2026_10_15_100000_validate_crew_six_phase_codes_after_lifecycle_remap.php` rejects any non-final codes (including staging markers) on those columns.
+
+Environments that already applied an earlier version of the remap that folded obsolete rows into `p1a` cannot distinguish those rows from legitimate `p1a` history automatically; use guarded reset on disposable databases or manual correction when accuracy matters.
 
 **Do not** run `migrate:fresh`, `db:wipe`, or other destructive database resets against a shared or unverified database. Master data (employees, vessels, clients, payroll approvals) must be preserved.
 
-When local or staging crew assignment rows are disposable test fixtures only, use the guarded operational reset workflow documented in `docs/runbooks/crew-movement-qa.md` after verifying the target database. Review incompatible pending scheduled movements before reset; do not silently execute obsolete phase payloads.
+When local or staging crew assignment rows are disposable test fixtures only, use the guarded **`crew:reset`** command after verifying the target database (allowed only in `local` / `development` with configured database identity — see `CrewOperationsResetEnvironmentGuard`):
+
+```bash
+php artisan crew:reset --dry-run
+# verify counts and blocking issues, then:
+php artisan crew:reset
+```
+
+`crew:reset` removes Crew Operations transactional data (assignments, phases, scheduled movements, etc.) and does **not** delete employees, vessels, clients, or approved payroll. Review incompatible pending scheduled movements before reset; do not silently execute obsolete phase payloads.
 
 | Stored code | Name |
 |-------------|------|
