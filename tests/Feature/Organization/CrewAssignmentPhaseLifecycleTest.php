@@ -25,8 +25,15 @@ function makePhaseLifecycleFixtures(): array
 test('six-phase enum values and obsolete codes', function () {
     expect(CrewPhaseCode::values())->toBe(['p0', 'p1a', 'p1b', 'p2', 'p3', 'p4'])
         ->and(CrewPhaseCode::tryFrom('p1'))->toBeNull()
+        ->and(CrewPhaseCode::tryFrom('p2a'))->toBeNull()
+        ->and(CrewPhaseCode::tryFrom('p2b'))->toBeNull()
+        ->and(CrewPhaseCode::tryFrom('p5'))->toBeNull()
+        ->and(CrewPhaseCode::tryFrom('p6'))->toBeNull()
         ->and(CrewPhaseCode::OnVessel->value)->toBe('p2')
-        ->and(CrewPhaseCode::HomeRedeploy->value)->toBe('p4');
+        ->and(CrewPhaseCode::DemobStandby->value)->toBe('p3')
+        ->and(CrewPhaseCode::DemobStandby->label())->toBe('Demobilisation Standby')
+        ->and(CrewPhaseCode::HomeRedeploy->value)->toBe('p4')
+        ->and(CrewPhaseCode::HomeRedeploy->label())->toBe('Home / Redeployment');
 });
 
 test('standard lifecycle transitions p0 through p4 home', function () {
@@ -169,4 +176,21 @@ test('p2 disembark directly to p4 home', function () {
 
     expect($assignment->fresh('currentPhase')->currentPhase?->phase_code)->toBe(CrewPhaseCode::HomeRedeploy)
         ->and($assignment->fresh('currentPhase')->currentPhase?->status)->toBe(CrewPhaseStatus::Active);
+});
+
+test('current movement api rejects obsolete next_phase codes', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank, 'user' => $user] = makePhaseLifecycleFixtures();
+    $vessel = makeCrewMovementVessel('Obsolete Next Phase', $company);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::ConfirmDisembarkation->value,
+            'occurred_at' => '2026-03-01T18:00',
+            'next_phase' => 'p5',
+            'accommodation_status' => 'no_accommodation',
+        ])
+        ->assertSessionHasErrors('next_phase');
+
+    expect($assignment->fresh('currentPhase')->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel);
 });

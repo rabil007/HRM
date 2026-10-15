@@ -33,6 +33,7 @@ import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phas
 import {
     legacyPhaseContextLabel,
     NORMAL_PHASE_PROGRESS_STEPS,
+    normalizePhaseCodeForDisplay,
     normalProgressStepState,
 } from '@/features/organization/crew/lib/crew-phase-visibility';
 import {
@@ -318,9 +319,13 @@ function QuickDetailContent({
                                 ? formatDisplayDate(model.milestone.date)
                                 : model.finished
                                   ? 'Review history'
-                                  : phase?.code === 'p5'
+                                  : normalizePhaseCodeForDisplay(
+                                          phase?.code,
+                                      ) === 'p3'
                                     ? 'Travel or redeploy'
-                                    : phase?.code === 'p6'
+                                    : normalizePhaseCodeForDisplay(
+                                            phase?.code,
+                                        ) === 'p4'
                                       ? 'Close or redeploy'
                                       : 'Review assignment'}
                         </p>
@@ -550,7 +555,7 @@ function QuickDetailContent({
                         </section>
                     ) : null}
 
-                    {phase?.code === 'p2b' ? (
+                    {normalizePhaseCodeForDisplay(phase?.code) === 'p1b' ? (
                         <section className="space-y-2">
                             <SectionTitle>Current training</SectionTitle>
                             <dl className="divide-y divide-border/50">

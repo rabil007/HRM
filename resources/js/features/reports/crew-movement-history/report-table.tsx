@@ -566,20 +566,28 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
     const normalPhases: PhaseRecord[] = [
         {
             code: 'P0',
-            label: 'Pre-Mobilisation',
+            label: 'Pre-Arrival',
             summary: row.pre_mobilisation,
         },
-        { code: 'P2A', label: 'Join Standby', summary: row.join_standby },
         {
-            code: 'P2B',
+            code: 'P1A',
+            label: 'Pre-Joining Standby',
+            summary: row.join_standby,
+        },
+        {
+            code: 'P1B',
             label: 'Training',
             summary: row.training,
             details: row.training.details,
         },
-        { code: 'P4', label: 'On Vessel', summary: row.on_vessel },
-        { code: 'P5', label: 'Demob Standby', summary: row.demob_standby },
+        { code: 'P2', label: 'On Vessel', summary: row.on_vessel },
         {
-            code: 'P6',
+            code: 'P3',
+            label: 'Demobilisation Standby',
+            summary: row.demob_standby,
+        },
+        {
+            code: 'P4',
             label: 'Home / Redeployment',
             summary: row.home_redeploy,
         },
@@ -592,8 +600,8 @@ function FullAssignmentRecord({ row }: { row: CrewMovementHistoryRow }) {
             summary: row.travel_in,
         },
         {
-            code: 'P3',
-            label: 'Ready to Join',
+            code: 'Ready to Join',
+            label: 'Ready to Join (legacy)',
             summary: row.ready_to_join,
         },
     ].filter((phase) => phase.summary.periods.length > 0);

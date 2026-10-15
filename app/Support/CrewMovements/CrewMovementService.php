@@ -1084,7 +1084,7 @@ final class CrewMovementService
 
         if (! in_array($current->phase_code, [CrewPhaseCode::DemobStandby, CrewPhaseCode::HomeRedeploy], true)) {
             throw CrewMovementException::make(
-                'Redeploy is only available from P5 Demobilisation Standby or P6 Home / Redeployment.',
+                'Redeploy is only available from P3 Demobilisation Standby or P4 Home / Redeployment.',
                 'redeploy_invalid_phase',
             );
         }
@@ -1926,7 +1926,7 @@ final class CrewMovementService
             ->tap(function ($activity) use ($assignment): void {
                 $activity->company_id = $assignment->company_id;
             })
-            ->log('Crew assignment started with Already Arrived shortcut (P2A Join Standby)');
+            ->log('Crew assignment started with Already Arrived shortcut (P1A Pre-Joining Standby)');
     }
 
     private function reloadLocked(int $companyId, int $assignmentId): CrewAssignment

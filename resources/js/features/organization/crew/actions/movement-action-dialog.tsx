@@ -125,15 +125,15 @@ function buildInitialForm(
 ): CrewMovementActionFormData {
     const config = getMovementActionConfig(action, context.current_phase_code);
     const nextPhase =
-        action === 'record_arrival' && context.current_phase_code === 'p0'
-            ? 'p2a'
-            : action === 'record_arrival' && context.current_phase_code === 'p1'
-              ? 'p2a'
-              : action === 'complete_training'
-                ? 'p2a'
-                : (config.nextPhaseOptions?.[0]?.value ??
-                  config.fixedNextPhase ??
-                  '');
+        action === 'record_arrival' &&
+        (context.current_phase_code === 'p0' ||
+            context.current_phase_code === 'p1')
+            ? 'p1a'
+            : action === 'complete_training'
+              ? 'p1a'
+              : (config.nextPhaseOptions?.[0]?.value ??
+                config.fixedNextPhase ??
+                '');
 
     const companyTz = context.company_timezone;
     const initialOccurredAt = nowInCompanyTime(companyTz);
@@ -454,7 +454,7 @@ export function MovementActionDialog({
             }
 
             if (action === 'confirm_disembarkation') {
-                if (payload.next_phase === 'p6') {
+                if (payload.next_phase === 'p4') {
                     delete (payload as { accommodation_status?: string })
                         .accommodation_status;
                     delete (payload as { hotel_id?: number | null }).hotel_id;
@@ -524,7 +524,7 @@ export function MovementActionDialog({
                         .source_check_out_date;
                 }
 
-                if (payload.starting_phase === 'p2a') {
+                if (payload.starting_phase === 'p1a') {
                     if (payload.no_hotel_accommodation) {
                         payload.accommodation_status = 'no_accommodation';
                         payload.hotel_id = null;

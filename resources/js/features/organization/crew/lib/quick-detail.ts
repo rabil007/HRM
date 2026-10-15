@@ -27,9 +27,11 @@ const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
     p1b: 'complete_training',
     p2: 'plan_signoff',
     p3: 'travel_home',
+    p4: 'close_assignment',
+    // Exclusive legacy codes (pre-normalize fallback only)
     p2b: 'complete_training',
-    p4: 'plan_signoff',
     p5: 'travel_home',
+    p6: 'close_assignment',
 };
 
 function nextMovementForPhase(

@@ -303,7 +303,7 @@ function buildPlannedDateAdvisory(
     const { status, plannedJoinAt } = context;
 
     // planned_next_date is phase-dependent (join / sign-off / travel) and must not
-    // be treated as a universal planned sign-off field outside P4 On Vessel.
+    // be treated as a universal planned sign-off field outside P2 On Vessel.
     if (
         status?.status !== 'on_vessel' ||
         !plannedJoinAt ||

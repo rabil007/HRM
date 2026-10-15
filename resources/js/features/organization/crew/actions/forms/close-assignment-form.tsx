@@ -14,7 +14,7 @@ export function CloseAssignmentForm({
         <div className="space-y-4">
             <div className="space-y-1 rounded-lg border bg-muted/20 p-3 text-sm">
                 <div>
-                    <span className="text-muted-foreground">P6 started: </span>
+                    <span className="text-muted-foreground">P4 started: </span>
                     <span className="font-medium">
                         {formatDisplayDate(
                             toCompanyDateLocal(

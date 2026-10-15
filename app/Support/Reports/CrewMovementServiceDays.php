@@ -17,7 +17,8 @@ use Illuminate\Support\Collection;
  * company-local date. Each phase span still includes that date, but an
  * aggregate total counts the date once. Priority matches the payroll preview
  * (onsite, then sign-off standby, then sign-on standby). Excluded phases
- * (P0, P1, P6) never take a date from a service category.
+ * (P0 Pre-Arrival, P4 Home / Redeployment; exclusive legacy Travel In if present)
+ * never take a date from a service category.
  *
  * Dates after company-local today are not counted. The payroll preview is a
  * separate calculation and is not clamped here, so a future actual end can

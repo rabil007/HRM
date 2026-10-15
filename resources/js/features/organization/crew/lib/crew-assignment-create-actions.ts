@@ -8,7 +8,7 @@ export const CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS: Record<
     string
 > = {
     already_arrived:
-        'Create an active assignment directly in Join Standby (P2A). Actual arrival date required.',
+        'Create an active assignment directly in Pre-Joining Standby (P1A). Actual arrival date required.',
     pre_mobilisation:
         'Activate the assignment in P0 before the employee arrives.',
     draft: 'Save the assignment without starting crew movement.',

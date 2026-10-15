@@ -152,7 +152,9 @@ export function visiblePhaseTimelineItems(
     return items.filter((item) => {
         const code = item.phase_code?.toLowerCase() ?? '';
 
-        if (code === 'p1' || code === 'p3') {
+        // Travel In (p1) is retired. Modern p3 is Demobilisation Standby and must remain visible.
+        // Never hide modern p3/p4 by code string alone — those meanings changed in the six-phase lifecycle.
+        if (code === 'p1') {
             return false;
         }
 

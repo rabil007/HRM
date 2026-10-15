@@ -32,4 +32,15 @@ describe('CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS', () => {
         );
         assert.ok(CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.draft.length > 0);
     });
+
+    it('describes Already Arrived using modern P1A Pre-Joining Standby wording', () => {
+        assert.match(
+            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.already_arrived,
+            /Pre-Joining Standby \(P1A\)/,
+        );
+        assert.doesNotMatch(
+            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.already_arrived,
+            /P2A/,
+        );
+    });
 });

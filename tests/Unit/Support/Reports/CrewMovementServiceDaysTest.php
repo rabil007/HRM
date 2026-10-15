@@ -70,6 +70,75 @@ test('excluded phases never take a service date from onsite or standby', functio
     CarbonImmutable::setTestNow();
 });
 
+test('example A allocates join handoff day to on vessel and keeps hotel inclusive of standby span', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-05 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+
+    $summary = CrewMovementServiceDays::summarize(
+        $assignment->phases()->orderBy('sequence')->get(),
+        'Asia/Dubai',
+        CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+    );
+
+    // Standby 1–5 Oct, joined 5 Oct → allocated standby 4 days; 5 Oct belongs to On Vessel.
+    expect($summary['standby_service_days'])->toBe(4)
+        ->and($summary['vessel_service_days'])->toBe(6);
+});
+
+test('example B allocates disembarkation day to on vessel for demobilisation standby', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-10 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-14 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-14 08:00:00',
+        'actual_end_at' => '2026-10-14 18:00:00',
+    ]);
+
+    $summary = CrewMovementServiceDays::summarize(
+        $assignment->phases()->orderBy('sequence')->get(),
+        'Asia/Dubai',
+        CarbonImmutable::parse('2026-10-20', 'Asia/Dubai'),
+    );
+
+    // Disembarked 10 Oct, home 14 Oct → demob standby 4 days; 10 Oct stays On Vessel.
+    expect($summary['standby_service_days'])->toBe(4)
+        ->and($summary['vessel_service_days'])->toBe(10);
+});
+
 test('invalid or unfinished non-active phases are not counted as service', function () {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-13 12:00:00', 'Asia/Dubai'));
     ['employee' => $employee] = makeCrewAssignmentFixtures();
