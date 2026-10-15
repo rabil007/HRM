@@ -4,7 +4,9 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\DocumentInstance;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeDocumentVersion;
 use App\Models\EmployeeTraining;
+use App\Models\EmployeeTrainingVersion;
 use App\Support\BulkDocuments\CancelPendingBulkDocumentSignatureRequests;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +46,7 @@ class DocumentDeletionService
             ->all();
 
         $companyId = (int) $document->company_id;
+        $documentId = (int) $document->id;
 
         DB::transaction(function () use ($companyId, $document): void {
             DocumentInstance::query()
@@ -55,7 +58,42 @@ class DocumentDeletionService
         });
 
         foreach ($paths as $path) {
+            if ($this->pathReferencedElsewhere($path, $companyId, $documentId)) {
+                continue;
+            }
+
             EmployeePrivateFile::deleteCompanyOwnedFile($path, $companyId);
         }
+    }
+
+    public function pathReferencedElsewhere(string $path, int $companyId, int $excludeDocumentId): bool
+    {
+        if (EmployeeDocument::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->whereKeyNot($excludeDocumentId)
+            ->exists()) {
+            return true;
+        }
+
+        if (EmployeeDocumentVersion::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->where('employee_document_id', '!=', $excludeDocumentId)
+            ->exists()) {
+            return true;
+        }
+
+        if (EmployeeTraining::query()
+            ->where('company_id', $companyId)
+            ->where('certificate_path', $path)
+            ->exists()) {
+            return true;
+        }
+
+        return EmployeeTrainingVersion::query()
+            ->where('company_id', $companyId)
+            ->where('file_path', $path)
+            ->exists();
     }
 }

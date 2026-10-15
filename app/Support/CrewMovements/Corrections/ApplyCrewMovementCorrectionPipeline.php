@@ -11,6 +11,7 @@ use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
 use App\Support\CrewMovements\SeaServiceSyncService;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -27,6 +28,8 @@ final class ApplyCrewMovementCorrectionPipeline
 
     private readonly CrewMovementCorrectionValueSnapshot $snapshot;
 
+    private readonly TrainingCertificateDocumentIntegration $certificateDocuments;
+
     public function __construct(
         ?ApplyCrewMovementCorrection $applier = null,
         ?RecalculateTourSignoffAfterP4StartCorrection $tourSignoffRecalc = null,
@@ -34,6 +37,7 @@ final class ApplyCrewMovementCorrectionPipeline
 
         ?SeaServiceSyncService $seaServiceSync = null,
         ?CrewMovementCorrectionValueSnapshot $snapshot = null,
+        ?TrainingCertificateDocumentIntegration $certificateDocuments = null,
     ) {
         $this->applier = $applier ?? app(ApplyCrewMovementCorrection::class);
         $this->tourSignoffRecalc = $tourSignoffRecalc ?? app(RecalculateTourSignoffAfterP4StartCorrection::class);
@@ -41,6 +45,7 @@ final class ApplyCrewMovementCorrectionPipeline
 
         $this->seaServiceSync = $seaServiceSync ?? app(SeaServiceSyncService::class);
         $this->snapshot = $snapshot ?? app(CrewMovementCorrectionValueSnapshot::class);
+        $this->certificateDocuments = $certificateDocuments ?? app(TrainingCertificateDocumentIntegration::class);
     }
 
     /**
@@ -106,6 +111,10 @@ final class ApplyCrewMovementCorrectionPipeline
                 }
                 if ($trainingUpdates !== []) {
                     $employeeTraining->update($trainingUpdates);
+                    $this->certificateDocuments->syncTrainingDatesToLinkedDocument(
+                        $employeeTraining->refresh(),
+                        syncExpiry: false,
+                    );
                 }
             }
         }

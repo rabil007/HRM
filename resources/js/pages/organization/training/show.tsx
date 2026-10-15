@@ -140,10 +140,35 @@ export default function TrainingShow({
                         can.update || can.delete ? (
                             <TrainingShowHeaderActions
                                 certificateUrl={training.certificate_url}
+                                showLink={
+                                    can.manage_certificate_documents &&
+                                    can.update
+                                }
+                                onLink={
+                                    can.manage_certificate_documents &&
+                                    can.update
+                                        ? () => setLinkTraining(training)
+                                        : undefined
+                                }
+                                showUpload={
+                                    can.manage_certificate_documents &&
+                                    can.update &&
+                                    !training.certificate_url
+                                }
+                                onUpload={
+                                    can.manage_certificate_documents &&
+                                    can.update &&
+                                    !training.certificate_url
+                                        ? () => setReplaceTraining(training)
+                                        : undefined
+                                }
                                 showReplace={
-                                    can.update && !!training.certificate_url
+                                    can.manage_certificate_documents &&
+                                    can.update &&
+                                    !!training.certificate_url
                                 }
                                 onReplace={
+                                    can.manage_certificate_documents &&
                                     can.update
                                         ? () => setReplaceTraining(training)
                                         : undefined

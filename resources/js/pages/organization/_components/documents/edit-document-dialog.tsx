@@ -173,38 +173,67 @@ export function EditDocumentDialog({
                                             )}
                                         />
                                     </Label>
-                                    <CreatableSelect
-                                        value={editForm.data.document_type_id}
-                                        onValueChange={(value) =>
-                                            editForm.setData(
-                                                'document_type_id',
-                                                value,
-                                            )
-                                        }
-                                        variant="card"
-                                        placeholder="Select type…"
-                                        options={documentTypeOptions}
-                                        onOptionsChange={(next) => {
-                                            const added = next.find(
-                                                (option) =>
-                                                    !documentTypeOptions.some(
-                                                        (existing) =>
-                                                            existing.value ===
-                                                            option.value,
+                                    {document?.linked_to_training ? (
+                                        <>
+                                            <Input
+                                                className={cn(
+                                                    recordFieldInputClass(
+                                                        false,
                                                     ),
-                                            );
-
-                                            if (added) {
-                                                appendDocumentType({
-                                                    id: added.id,
-                                                    label: added.label,
-                                                });
+                                                    'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                                )}
+                                                value={
+                                                    document.document_type_label ??
+                                                    document.document_type ??
+                                                    'Training Certificate'
+                                                }
+                                                disabled
+                                                readOnly
+                                            />
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Document type is locked because
+                                                this file is linked to a
+                                                training certificate.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <CreatableSelect
+                                            value={
+                                                editForm.data.document_type_id
                                             }
-                                        }}
-                                        creatable
-                                        canCreate={canCreateDocumentType}
-                                        createConfig={documentTypeCreateConfig}
-                                    />
+                                            onValueChange={(value) =>
+                                                editForm.setData(
+                                                    'document_type_id',
+                                                    value,
+                                                )
+                                            }
+                                            variant="card"
+                                            placeholder="Select type…"
+                                            options={documentTypeOptions}
+                                            onOptionsChange={(next) => {
+                                                const added = next.find(
+                                                    (option) =>
+                                                        !documentTypeOptions.some(
+                                                            (existing) =>
+                                                                existing.value ===
+                                                                option.value,
+                                                        ),
+                                                );
+
+                                                if (added) {
+                                                    appendDocumentType({
+                                                        id: added.id,
+                                                        label: added.label,
+                                                    });
+                                                }
+                                            }}
+                                            creatable
+                                            canCreate={canCreateDocumentType}
+                                            createConfig={
+                                                documentTypeCreateConfig
+                                            }
+                                        />
+                                    )}
                                     {editForm.errors.document_type_id ? (
                                         <p className="text-xs text-destructive">
                                             {editForm.errors.document_type_id}

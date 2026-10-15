@@ -23,6 +23,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -71,31 +72,38 @@ class EmployeeTrainingController extends Controller
         );
 
         $attributes = $this->trainingAttributes($validated, null);
+        $hasCertificate = $request->hasFile('certificate');
 
-        $this->assertTrainingHasContent($attributes, $request->hasFile('certificate'));
+        $this->assertTrainingHasContent($attributes, $hasCertificate);
 
-        $maxSort = EmployeeTraining::query()
-            ->where('employee_id', $employee->id)
-            ->where('company_id', $companyId)
-            ->max('sort_order');
-
-        $training = EmployeeTraining::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $employee->id,
-            'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            ...$attributes,
-        ]);
-
-        if ($request->hasFile('certificate')) {
+        if ($hasCertificate) {
             TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
-            $this->certificateDocuments->attachUploadedCertificate(
-                $training,
-                $employee,
-                $request->file('certificate'),
-                $companyId,
-                $request->user()?->id,
-            );
         }
+
+        DB::transaction(function () use ($request, $employee, $companyId, $attributes, $hasCertificate): void {
+            $maxSort = EmployeeTraining::query()
+                ->where('employee_id', $employee->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->max('sort_order');
+
+            $training = EmployeeTraining::query()->create([
+                'company_id' => $companyId,
+                'employee_id' => $employee->id,
+                'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
+                ...$attributes,
+            ]);
+
+            if ($hasCertificate) {
+                $this->certificateDocuments->attachUploadedCertificate(
+                    $training,
+                    $employee,
+                    $request->file('certificate'),
+                    $companyId,
+                    $request->user()?->id,
+                );
+            }
+        });
 
         return back()->with('success', 'Training record added.');
     }
@@ -107,12 +115,8 @@ class EmployeeTrainingController extends Controller
         TrainingAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validated();
-
-        $maxSort = EmployeeTraining::query()
-            ->where('employee_id', $employee->id)
-            ->where('company_id', $companyId)
-            ->max('sort_order');
-        $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
+        $preparedRows = [];
+        $requiresCertificatePermission = false;
 
         foreach ($validated['trainings'] as $index => $trainingData) {
             $attributes = $this->trainingAttributes($trainingData, null);
@@ -132,26 +136,52 @@ class EmployeeTrainingController extends Controller
                 "trainings.{$index}.certificate",
             );
 
-            $training = EmployeeTraining::query()->create([
-                'company_id' => $companyId,
-                'employee_id' => $employee->id,
-                'sort_order' => $nextSort,
-                ...$attributes,
-            ]);
-
-            $nextSort++;
-
             if ($hasCertificate) {
-                TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
-                $this->certificateDocuments->attachUploadedCertificate(
-                    $training,
-                    $employee,
-                    $request->file("trainings.{$index}.certificate"),
-                    $companyId,
-                    $request->user()?->id,
-                );
+                $requiresCertificatePermission = true;
             }
+
+            $preparedRows[] = [
+                'attributes' => $attributes,
+                'has_certificate' => $hasCertificate,
+                'certificate' => $hasCertificate
+                    ? $request->file("trainings.{$index}.certificate")
+                    : null,
+            ];
         }
+
+        if ($requiresCertificatePermission) {
+            TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
+        }
+
+        DB::transaction(function () use ($preparedRows, $employee, $companyId, $request): void {
+            $maxSort = EmployeeTraining::query()
+                ->where('employee_id', $employee->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->max('sort_order');
+            $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
+
+            foreach ($preparedRows as $row) {
+                $training = EmployeeTraining::query()->create([
+                    'company_id' => $companyId,
+                    'employee_id' => $employee->id,
+                    'sort_order' => $nextSort,
+                    ...$row['attributes'],
+                ]);
+
+                $nextSort++;
+
+                if ($row['has_certificate']) {
+                    $this->certificateDocuments->attachUploadedCertificate(
+                        $training,
+                        $employee,
+                        $row['certificate'],
+                        $companyId,
+                        $request->user()?->id,
+                    );
+                }
+            }
+        });
 
         return back()->with('success', 'Training records added.');
     }
@@ -204,27 +234,56 @@ class EmployeeTrainingController extends Controller
 
         TrainingAccess::assertTrainingBelongsToEmployee($employee, $training, $companyId, 403, $request->user());
 
+        $file = $request->file('file');
+        $metadata = $request->validated();
+        $userId = $request->user()?->id;
+
         if ($training->usesIntegratedCertificateDocument()) {
             $this->certificateDocuments->replaceLinkedCertificate(
                 $training,
                 $employee,
-                $request->file('file'),
+                $file,
                 $companyId,
-                $request->user()?->id,
-                $request->validated(),
+                $userId,
+                $metadata,
             );
-        } else {
-            $this->certificateStore->replace(
-                $training,
-                $request->file('file'),
-                $companyId,
-                $employee->id,
-                $request->user()?->id,
-                $request->validated(),
-            );
+
+            return back()->with('success', 'Training certificate replaced.');
         }
 
-        return back()->with('success', 'Training certificate replaced.');
+        if ($training->certificate_path !== null && $training->certificate_path !== '') {
+            $this->certificateDocuments->integrateLegacyAndReplaceCertificate(
+                $training,
+                $employee,
+                $file,
+                $companyId,
+                $userId,
+                $metadata,
+            );
+
+            return back()->with('success', 'Training certificate replaced.');
+        }
+
+        TrainingCertificateDocumentPermissions::assertCanUploadOrLink($request->user());
+
+        DB::transaction(function () use ($training, $employee, $file, $companyId, $userId, $metadata): void {
+            if ($metadata !== []) {
+                $training->update(array_intersect_key(
+                    $metadata,
+                    array_flip(['issue_date', 'expiry_date', 'institute_center', 'country_id']),
+                ));
+            }
+
+            $this->certificateDocuments->attachUploadedCertificate(
+                $training->refresh(),
+                $employee,
+                $file,
+                $companyId,
+                $userId,
+            );
+        });
+
+        return back()->with('success', 'Training certificate uploaded.');
     }
 
     public function linkDocument(

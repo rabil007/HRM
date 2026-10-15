@@ -165,6 +165,9 @@ class EmployeeDocumentController extends Controller
                 ]);
             }
 
+            app(TrainingCertificateDocumentIntegration::class)
+                ->assertDocumentTypeChangeAllowed($document, (int) $documentType->id);
+
             $updates['document_type_id'] = $documentType->id;
             $updates['document_type'] = (string) $documentType->id;
         }

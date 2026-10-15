@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\Course;
 use App\Models\Currency;
 use App\Models\Department;
+use App\Models\DocumentInstance;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
@@ -13,9 +14,12 @@ use App\Models\EmployeeDocumentVersion;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Models\User;
+use App\Support\Documents\RecipientRequests\SyncSignedDocumentInstanceToLibrary;
 use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 
@@ -1466,6 +1470,493 @@ test('training certificate document type resolver restores inactive and soft del
     expect($resolved->id)->toBe($type->id)
         ->and($resolved->trashed())->toBeFalse()
         ->and($resolved->is_active)->toBeTrue();
+});
+
+test('training upload without documents.upload leaves no partial training row', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures(false);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
+    ])->assertForbidden();
+
+    expect(EmployeeTraining::query()->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('bulk training upload failure in a later row leaves no partial records', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $integration = Mockery::mock(TrainingCertificateDocumentIntegration::class);
+    $integration->shouldReceive('attachUploadedCertificate')
+        ->once()
+        ->andThrow(new RuntimeException('Simulated storage failure'));
+    app()->instance(TrainingCertificateDocumentIntegration::class, $integration);
+
+    $this->post(route('organization.employees.training.bulk-store', $employee), [
+        'trainings' => [
+            [
+                'course_id' => $course->id,
+                'issue_date' => '2024-11-26',
+                'institute_center' => 'MTC',
+            ],
+            [
+                'course_id' => $course->id,
+                'issue_date' => '2024-12-01',
+                'institute_center' => 'MTC',
+                'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertStatus(500);
+
+    expect(EmployeeTraining::query()->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('compatible backfill reuses an existing training certificate document instead of creating a duplicate owner', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $path = "employees/{$company->id}/training-certificates/shared-cert.pdf";
+    Storage::disk('local')->put($path, 'shared-pdf');
+
+    $existing = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'file_path' => $path,
+        'original_filename' => 'shared-cert.pdf',
+        'checksum' => 'shared-sum',
+        'title' => 'Existing HUET',
+        'expiry_date' => '2030-01-01',
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'shared-cert.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'shared-sum',
+        'current_version' => 1,
+        'expiry_date' => '2029-11-26',
+    ]);
+
+    Artisan::call('training:backfill-certificate-documents', [
+        '--company' => $company->id,
+        '--dry-run' => true,
+    ]);
+
+    expect(Artisan::output())->toContain('would_reuse')
+        ->and($training->refresh()->employee_document_id)->toBeNull()
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(1);
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    expect(Artisan::output())->toContain('reused')
+        ->and($training->refresh()->employee_document_id)->toBe($existing->id)
+        ->and(EmployeeDocument::query()->where('file_path', $path)->count())->toBe(1);
+});
+
+test('conflicting backfill with mismatched document type makes no writes', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+
+    $passportType = DocumentType::query()->create([
+        'title' => 'Passport',
+        'is_active' => true,
+    ]);
+
+    $path = "employees/{$company->id}/training-certificates/conflict-cert.pdf";
+    Storage::disk('local')->put($path, 'conflict-pdf');
+
+    makeTrainingCertificateDocument($company, $employee, $passportType->id, [
+        'file_path' => $path,
+        'title' => 'Passport Copy',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $path,
+        'certificate_original_filename' => 'conflict-cert.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 10,
+        'certificate_checksum' => 'conflict-sum',
+        'current_version' => 1,
+    ]);
+
+    Artisan::call('training:backfill-certificate-documents', ['--company' => $company->id]);
+
+    expect(Artisan::output())->toContain('duplicate_conflicting_reference')
+        ->and($training->refresh()->employee_document_id)->toBeNull()
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(1);
+});
+
+test('deleting a duplicate document owner cannot destroy an active shared certificate file', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    grantCompanyPermissions($user, $company, ['documents.delete']);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $path = "employee-documents/{$company->id}/{$employee->id}/type-{$type->id}/shared.pdf";
+    Storage::disk('local')->put($path, 'shared-bytes');
+
+    $active = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'file_path' => $path,
+        'title' => 'Active Cert',
+    ]);
+
+    $duplicate = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'file_path' => $path,
+        'title' => 'Duplicate Owner',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'employee_document_id' => $active->id,
+        'certificate_path' => $path,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->delete(route('organization.employees.documents.destroy', [$employee, $duplicate]))
+        ->assertRedirect();
+
+    expect(Storage::disk('local')->exists($path))->toBeTrue()
+        ->and($training->refresh()->certificate_path)->toBe($path)
+        ->and(EmployeeDocument::query()->whereKey($active->id)->exists())->toBeTrue()
+        ->and(EmployeeDocument::withTrashed()->find($duplicate->id)?->trashed())->toBeTrue();
+});
+
+test('linked training certificate cannot be reclassified to an unrelated document type', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $training = EmployeeTraining::query()->where('employee_id', $employee->id)->sole();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
+    $passportType = DocumentType::query()->create([
+        'title' => 'Passport',
+        'is_active' => true,
+    ]);
+
+    $this->put(route('organization.employees.documents.update', [$employee, $document]), [
+        'document_type_id' => $passportType->id,
+        'title' => $document->title,
+        'issue_date' => $document->issue_date?->toDateString(),
+        'expiry_date' => $document->expiry_date?->toDateString(),
+    ])->assertSessionHasErrors('document_type_id');
+
+    expect($document->refresh()->document_type_id)->toBe(
+        app(TrainingCertificateDocumentTypeResolver::class)->resolve()->id
+    );
+});
+
+test('first certificate attachment on an existing training uses integrated document storage', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => null,
+        'employee_document_id' => null,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('first-cert.pdf', 100, 'application/pdf'),
+        'issue_date' => '2024-11-26',
+        'expiry_date' => '2029-11-26',
+        'institute_center' => 'MTC',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $training->refresh();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
+
+    expect($training->usesIntegratedCertificateDocument())->toBeTrue()
+        ->and($training->certificate_path)->toBe($document->file_path)
+        ->and($document->title)->toBe($course->name);
+});
+
+test('legacy certificate replacement integrates history before replacing through documents', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $legacyPath = "employees/{$company->id}/training-certificates/legacy.pdf";
+    Storage::disk('local')->put($legacyPath, 'legacy-bytes');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $legacyPath,
+        'certificate_original_filename' => 'legacy.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 12,
+        'certificate_checksum' => 'legacy-sum',
+        'current_version' => 1,
+        'employee_document_id' => null,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('renewed.pdf', 120, 'application/pdf'),
+        'issue_date' => '2025-01-01',
+        'expiry_date' => '2030-01-01',
+        'institute_center' => 'MTC',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $training->refresh();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
+
+    expect($training->usesIntegratedCertificateDocument())->toBeTrue()
+        ->and($document->current_version)->toBe(2)
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->count())->toBe(1)
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->value('file_path'))->toBe($legacyPath)
+        ->and($training->certificate_path)->toBe($document->file_path)
+        ->and($training->certificate_path)->not->toBe($legacyPath);
+});
+
+test('signing a linked training certificate document syncs training downloads and preserves history', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $oldPath = "employee-documents/{$company->id}/{$employee->id}/type-{$type->id}/unsigned.pdf";
+    Storage::disk('local')->put($oldPath, 'unsigned-pdf');
+
+    $document = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'file_path' => $oldPath,
+        'original_filename' => 'unsigned.pdf',
+        'checksum' => 'unsigned-sum',
+        'current_version' => 1,
+        'title' => $course->name,
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'employee_document_id' => $document->id,
+        'certificate_path' => $oldPath,
+        'certificate_checksum' => 'unsigned-sum',
+        'current_version' => 1,
+    ]);
+
+    $tempSigned = tempnam(sys_get_temp_dir(), 'signed_');
+    file_put_contents($tempSigned, 'signed-pdf-bytes');
+
+    $instance = new DocumentInstance([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'employee_document_id' => $document->id,
+        'title_snapshot' => $course->name,
+        'status' => 'generated',
+    ]);
+
+    $syncLibrary = app(SyncSignedDocumentInstanceToLibrary::class);
+    $replacement = DB::transaction(
+        fn () => $syncLibrary->prepareReplacement($instance, $tempSigned, $company->id),
+    );
+
+    expect($replacement)->not->toBeNull();
+
+    $syncLibrary->finalizeReplacement($replacement);
+
+    $document->refresh();
+    $training->refresh();
+
+    expect($training->certificate_path)->toBe($document->file_path)
+        ->and($training->certificate_path)->not->toBe($oldPath)
+        ->and($document->current_version)->toBe(2)
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->value('file_path'))->toBe($oldPath)
+        ->and(Storage::disk('local')->exists($oldPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($document->file_path))->toBeTrue();
+
+    @unlink($tempSigned);
+});
+
+test('crew training resync updates linked document issue date and title without clearing expiry', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $document = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'title' => 'Old Course Title',
+        'issue_date' => '2024-03-01',
+        'expiry_date' => '2029-03-01',
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'issue_date' => '2024-03-01',
+        'expiry_date' => '2029-03-01',
+        'employee_document_id' => $document->id,
+        'certificate_path' => $document->file_path,
+    ]);
+
+    $training->update([
+        'issue_date' => '2024-03-06',
+        'course_id' => $course->id,
+    ]);
+
+    app(TrainingCertificateDocumentIntegration::class)
+        ->syncTrainingDatesToLinkedDocument($training->refresh(), syncExpiry: false);
+
+    $document->refresh();
+
+    expect($document->issue_date?->toDateString())->toBe('2024-03-06')
+        ->and($document->expiry_date?->toDateString())->toBe('2029-03-01')
+        ->and($document->title)->toBe($course->name);
+});
+
+test('linking the same document to two trainings is rejected under lock', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $document = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'title' => 'Shared Link Target',
+    ]);
+    Storage::disk('local')->put($document->file_path, 'pdf');
+
+    $first = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+    ]);
+    $second = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $first]), [
+        'employee_document_id' => $document->id,
+    ])->assertRedirect();
+
+    $this->post(route('organization.employees.training.link-document', [$employee, $second]), [
+        'employee_document_id' => $document->id,
+    ])->assertSessionHasErrors('employee_document_id');
+
+    expect($first->refresh()->employee_document_id)->toBe($document->id)
+        ->and($second->refresh()->employee_document_id)->toBeNull();
+});
+
+test('documents manager can update linked certificate metadata without training.update', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'course' => $course] = trainingCertificateIntegrationFixtures(null);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $documentsManager = User::factory()->create();
+    grantCompanyPermissions($documentsManager, $company, [
+        'employees.view',
+        'documents.view',
+        'documents.upload',
+    ]);
+
+    $document = makeTrainingCertificateDocument($company, $employee, $type->id, [
+        'title' => $course->name,
+        'issue_date' => '2024-11-26',
+        'expiry_date' => '2029-11-26',
+        'status' => 'valid',
+    ]);
+    Storage::disk('local')->put($document->file_path, 'pdf');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'employee_document_id' => $document->id,
+        'certificate_path' => $document->file_path,
+        'issue_date' => '2024-11-26',
+        'expiry_date' => '2029-11-26',
+    ]);
+
+    $this->actingAs($documentsManager);
+
+    $this->put(route('organization.employees.documents.update', [$employee, $document]), [
+        'document_type_id' => $type->id,
+        'title' => 'Updated Certificate Title',
+        'issue_date' => '2024-12-01',
+        'expiry_date' => '2030-12-01',
+        'notes' => 'Updated by documents manager',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($document->refresh()->title)->toBe('Updated Certificate Title')
+        ->and($document->expiry_date?->toDateString())->toBe('2030-12-01')
+        ->and($training->refresh()->issue_date?->toDateString())->toBe('2024-12-01')
+        ->and($training->expiry_date?->toDateString())->toBe('2030-12-01');
+});
+
+test('two training certificates for the same employee remain independently eligible for expiry alerts', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+    $secondCourse = Course::query()->create([
+        'name' => 'BOSIET',
+        'is_active' => true,
+    ]);
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-01-01',
+        'expiry_date' => now()->addDays(5)->toDateString(),
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('huet.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $secondCourse->id,
+        'issue_date' => '2024-02-01',
+        'expiry_date' => now()->addDays(5)->toDateString(),
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('bosiet.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $documents = EmployeeDocument::query()
+        ->where('employee_id', $employee->id)
+        ->where('document_type_id', $type->id)
+        ->get();
+
+    expect($documents)->toHaveCount(2)
+        ->and($documents->pluck('expiry_date')->map->toDateString()->unique()->count())->toBe(1)
+        ->and($documents->pluck('id')->unique()->count())->toBe(2);
 });
 
 /**

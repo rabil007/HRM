@@ -1,4 +1,11 @@
-import { ExternalLink, Link2, Pencil, RefreshCw, Trash2 } from 'lucide-react';
+import {
+    ExternalLink,
+    Link2,
+    Pencil,
+    RefreshCw,
+    Trash2,
+    Upload,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Button } from '@/components/ui/button';
@@ -12,10 +19,12 @@ type TrainingListRowActionsProps = {
     certificateUrl?: string | null;
     onEdit?: () => void;
     onReplace?: () => void;
+    onUpload?: () => void;
     onLink?: () => void;
     onDelete?: () => void;
     showEdit?: boolean;
     showReplace?: boolean;
+    showUpload?: boolean;
     showLink?: boolean;
     showDelete?: boolean;
     className?: string;
@@ -26,10 +35,12 @@ export function TrainingListRowActions({
     certificateUrl,
     onEdit,
     onReplace,
+    onUpload,
     onLink,
     onDelete,
     showEdit = false,
     showReplace = false,
+    showUpload = false,
     showLink = false,
     showDelete = false,
     className,
@@ -78,6 +89,19 @@ export function TrainingListRowActions({
                     <Link2 className="size-4" />
                 </Button>
             ) : null}
+            {showUpload && onUpload ? (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={iconButtonClass}
+                    title="Upload certificate"
+                    aria-label="Upload certificate"
+                    onClick={onUpload}
+                >
+                    <Upload className="size-4" />
+                </Button>
+            ) : null}
             {showReplace && onReplace ? (
                 <Button
                     type="button"
@@ -98,17 +122,25 @@ export function TrainingListRowActions({
 type TrainingShowHeaderActionsProps = {
     certificateUrl?: string | null;
     onReplace?: () => void;
+    onUpload?: () => void;
+    onLink?: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
     showReplace?: boolean;
+    showUpload?: boolean;
+    showLink?: boolean;
 };
 
 export function TrainingShowHeaderActions({
     certificateUrl,
     onReplace,
+    onUpload,
+    onLink,
     onEdit,
     onDelete,
     showReplace = false,
+    showUpload = false,
+    showLink = false,
 }: TrainingShowHeaderActionsProps): ReactElement {
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -122,6 +154,30 @@ export function TrainingShowHeaderActions({
                 >
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
+                </Button>
+            ) : null}
+            {showLink && onLink ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={onLink}
+                >
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Link document
+                </Button>
+            ) : null}
+            {showUpload && onUpload ? (
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl"
+                    onClick={onUpload}
+                >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload certificate
                 </Button>
             ) : null}
             {showReplace && onReplace ? (

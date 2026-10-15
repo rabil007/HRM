@@ -159,7 +159,8 @@ class DocumentBrowseQuery
                 'documentType:id,title',
                 'uploader:id,name',
             ])
-            ->withCount('versions');
+            ->withCount('versions')
+            ->withExists('employeeTrainings');
 
         DocumentExpiry::applyExpiryFilter($query, $expiryFilter);
 
@@ -194,7 +195,8 @@ class DocumentBrowseQuery
                 'documentType:id,title',
                 'uploader:id,name',
             ])
-            ->withCount('versions');
+            ->withCount('versions')
+            ->withExists('employeeTrainings');
 
         if ($search !== '') {
             $this->applyBrowseSearch($query, $search);
@@ -338,6 +340,7 @@ class DocumentBrowseQuery
                 'uploader:id,name',
             ])
             ->withCount('versions')
+            ->withExists('employeeTrainings')
             ->latestUpload()
             ->get()
             ->map(fn (EmployeeDocument $document) => $document->toProfileArray())

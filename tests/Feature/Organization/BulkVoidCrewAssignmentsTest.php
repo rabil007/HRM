@@ -8,6 +8,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
@@ -17,6 +18,7 @@ use App\Models\User;
 use App\Support\CrewMovements\Actions\BulkVoidCrewAssignments;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -380,6 +382,54 @@ test('training cleanup handles optional deletion and removes certificates while 
     // 23. Certificate files removed from storage (both current and historical version)
     expect(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath2))->toBeFalse()
         ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($versionFilePath2))->toBeFalse();
+});
+
+test('crew void training cleanup preserves document-owned certificate files', function () {
+    Storage::fake(EmployeePrivateFile::DISK);
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures([
+        'training.delete',
+        'documents.upload',
+        'documents.view',
+    ]);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
+
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+    $filePath = "employee-documents/{$company->id}/{$employee->id}/type-{$type->id}/backfilled.pdf";
+    Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'document owned certificate');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Backfilled Cert',
+        'file_path' => $filePath,
+        'original_filename' => 'backfilled.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 24,
+        'checksum' => 'doc-owned',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'source_crew_assignment_phase_id' => $assignment->currentPhase->id,
+        'employee_document_id' => $document->id,
+        'certificate_path' => $filePath,
+        'current_version' => 1,
+    ]);
+
+    postBulkVoidViaHttp($user, [$assignment->id], 'Void integrated training', deleteTraining: true)
+        ->assertRedirect(route('organization.crew-assignments.index'))
+        ->assertSessionHas('success');
+
+    expect(EmployeeTraining::withTrashed()->find($training->id)->trashed())->toBeTrue()
+        ->and(EmployeeDocument::query()->whereKey($document->id)->exists())->toBeTrue()
+        ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath))->toBeTrue()
+        ->and($document->refresh()->file_path)->toBe($filePath);
 });
 
 test('user without training.delete cannot request training cleanup', function () {
