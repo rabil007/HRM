@@ -20,6 +20,36 @@ use Illuminate\Support\Collection;
  */
 final class CrewPayableDateOwnership
 {
+    /**
+     * Phase statuses that may contribute payable calendar days.
+     * Matches automatic Crew Timesheet preparation.
+     *
+     * @return list<CrewPhaseStatus>
+     */
+    public static function eligibleStatuses(): array
+    {
+        return [
+            CrewPhaseStatus::Active,
+            CrewPhaseStatus::Completed,
+        ];
+    }
+
+    public static function isEligibleStatus(CrewPhaseStatus $status): bool
+    {
+        return in_array($status, self::eligibleStatuses(), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function eligibleStatusValues(): array
+    {
+        return array_map(
+            static fn (CrewPhaseStatus $status): string => $status->value,
+            self::eligibleStatuses(),
+        );
+    }
+
     public static function compare(int $leftPriority, int $leftPhaseId, int $rightPriority, int $rightPhaseId): int
     {
         $priority = $rightPriority <=> $leftPriority;
@@ -78,6 +108,12 @@ final class CrewPayableDateOwnership
             }
 
             if ($companyId !== null && isset($phase->company_id) && (int) $phase->company_id !== $companyId) {
+                continue;
+            }
+
+            // Planned / cancelled / corrected phases never inflate payable service days.
+            // Completed standby on a later-cancelled assignment remains eligible.
+            if (! self::isEligibleStatus($phase->status)) {
                 continue;
             }
 
@@ -309,7 +345,9 @@ final class CrewPayableDateOwnership
             $phaseId = $index + 1;
             $start = $phase['actual_start_at'] ?? null;
             $end = $phase['actual_end_at'] ?? null;
-            $open = $end === null && $phase['status'] === CrewPhaseStatus::Active;
+            $status = $phase['status'];
+            $eligible = self::isEligibleStatus($status);
+            $open = $end === null && $status === CrewPhaseStatus::Active;
             $resolvedEnd = $end ?? ($open ? $today : null);
             $calendarSpan = null;
             $futureOnly = false;
@@ -321,7 +359,12 @@ final class CrewPayableDateOwnership
                 $calendarSpan = (int) $spanFrom->diffInDays($spanTo) + 1;
             }
 
-            if ($start !== null && $resolvedEnd !== null && ! $resolvedEnd->lt($start)) {
+            if (
+                $eligible
+                && $start !== null
+                && $resolvedEnd !== null
+                && ! $resolvedEnd->lt($start)
+            ) {
                 $from = self::localDate($start, $timezone);
                 $to = self::localDate($resolvedEnd, $timezone);
 

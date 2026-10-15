@@ -13,12 +13,15 @@ use App\Models\Position;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\CrewMovements\CrewArrivalResolver;
+use App\Support\CrewMovements\CrewAssignmentLinkChain;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourStatusQuery;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use App\Support\Positions\CrewPositionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 final class CrewMovementHistoryQuery
@@ -60,8 +63,69 @@ final class CrewMovementHistoryQuery
             ->withQueryString();
 
         CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
+        $this->attachAllocationCompetingPhases($paginator->getCollection());
 
         return $paginator->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
+    }
+
+    /**
+     * Batch-load eligible phases for each page row's linked assignment chain
+     * (A→B→C) so ownership matches payroll without N+1 lookups in the presenter.
+     *
+     * @param  Collection<int, CrewAssignment>  $assignments
+     */
+    private function attachAllocationCompetingPhases(Collection $assignments): void
+    {
+        if ($assignments->isEmpty()) {
+            return;
+        }
+
+        $chainIdsByAssignment = CrewAssignmentLinkChain::assignmentIdsByRootAssignments($assignments);
+        $allChainIds = collect($chainIdsByAssignment)
+            ->flatten()
+            ->map(fn ($id): int => (int) $id)
+            ->filter(fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($allChainIds === []) {
+            foreach ($assignments as $assignment) {
+                $assignment->setRelation('allocationCompetingPhases', collect());
+            }
+
+            return;
+        }
+
+        $phasesByAssignmentId = CrewAssignmentPhase::query()
+            ->select([
+                'id',
+                'company_id',
+                'crew_assignment_id',
+                'phase_code',
+                'sequence',
+                'status',
+                'actual_start_at',
+                'actual_end_at',
+            ])
+            ->where('company_id', $this->companyId)
+            ->whereIn('status', CrewPayableDateOwnership::eligibleStatusValues())
+            ->whereNotNull('actual_start_at')
+            ->whereIn('crew_assignment_id', $allChainIds)
+            ->get()
+            ->groupBy(fn (CrewAssignmentPhase $phase): int => (int) $phase->crew_assignment_id);
+
+        foreach ($assignments as $assignment) {
+            $assignmentId = (int) $assignment->id;
+            $chainIds = $chainIdsByAssignment[$assignmentId] ?? [$assignmentId];
+            $competing = collect();
+
+            foreach ($chainIds as $chainAssignmentId) {
+                $competing = $competing->merge($phasesByAssignmentId->get((int) $chainAssignmentId, collect()));
+            }
+
+            $assignment->setRelation('allocationCompetingPhases', $competing->values());
+        }
     }
 
     /**

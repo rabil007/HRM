@@ -559,14 +559,27 @@ class CrewAssignmentPresenter
     }
 
     /**
+     * Linked previous/next assignments (full A→B→C chain) may compete for the same
+     * payable date. Unrelated same-employee assignments are excluded.
+     *
      * @return Collection<int, CrewAssignmentPhase>
      */
     private static function siblingPhases(CrewAssignment $assignment): Collection
     {
         $companyId = (int) $assignment->company_id;
         $employeeId = (int) $assignment->employee_id;
+        $assignmentId = (int) $assignment->id;
 
-        if ($employeeId < 1 || $assignment->id === null) {
+        if ($employeeId < 1 || $assignmentId < 1) {
+            return collect();
+        }
+
+        $chainIds = array_values(array_filter(
+            CrewAssignmentLinkChain::assignmentIds($companyId, $employeeId, $assignmentId),
+            static fn (int $id): bool => $id !== $assignmentId,
+        ));
+
+        if ($chainIds === []) {
             return collect();
         }
 
@@ -581,17 +594,9 @@ class CrewAssignmentPresenter
                 'actual_end_at',
             ])
             ->where('company_id', $companyId)
-            ->where('crew_assignment_id', '!=', $assignment->id)
-            ->whereIn('crew_assignment_id', function ($query) use ($assignment, $companyId, $employeeId): void {
-                $query->select('id')
-                    ->from('crew_assignments')
-                    ->where('company_id', $companyId)
-                    ->where('employee_id', $employeeId)
-                    ->where(function ($linked) use ($assignment): void {
-                        $linked->where('id', $assignment->previous_assignment_id)
-                            ->orWhere('previous_assignment_id', $assignment->id);
-                    });
-            })
+            ->whereIn('status', CrewPayableDateOwnership::eligibleStatusValues())
+            ->whereNotNull('actual_start_at')
+            ->whereIn('crew_assignment_id', $chainIds)
             ->get();
     }
 

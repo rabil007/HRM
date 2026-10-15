@@ -10,6 +10,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Support\CrewAccommodation\CrewAccommodationService;
 use App\Support\CrewMovements\CrewArrivalResolver;
+use App\Support\CrewMovements\CrewAssignmentLinkChain;
 use App\Support\CrewMovements\CrewDateProvenance;
 use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourProgress;
@@ -558,8 +559,11 @@ final class CrewMovementHistoryPresenter
     }
 
     /**
-     * Phases that can claim the same employee/date: this assignment plus linked
-     * previous/next assignments when those phase dates are already loaded.
+     * Phases that can claim the same employee/date across the full assignment chain.
+     *
+     * Prefer a page-batched relation (allocationCompetingPhases) to avoid N+1 on
+     * report pages. Fall back to immediately linked previous/next phases, then to
+     * a company/employee-scoped eligible-phase query when needed for A→B→C chains.
      *
      * @param  Collection<int, CrewAssignmentPhase>  $phases
      * @return Collection<int, CrewAssignmentPhase>
@@ -570,34 +574,50 @@ final class CrewMovementHistoryPresenter
         int $companyId,
         int $employeeId,
     ): Collection {
-        $linked = collect();
+        if ($assignment->relationLoaded('allocationCompetingPhases')) {
+            $batched = $assignment->getRelation('allocationCompetingPhases');
 
-        $append = function (?CrewAssignment $candidate) use (&$linked, $companyId, $employeeId): void {
-            if (
-                $candidate === null
-                || (int) $candidate->company_id !== $companyId
-                || (int) $candidate->employee_id !== $employeeId
-                || ! $candidate->relationLoaded('phases')
-            ) {
-                return;
-            }
-
-            $linked = $linked->merge($candidate->phases->filter(
-                fn (CrewAssignmentPhase $phase): bool => ! isset($phase->company_id) || (int) $phase->company_id === $companyId,
-            ));
-        };
-
-        if ($assignment->relationLoaded('previousAssignment')) {
-            $append($assignment->previousAssignment);
+            return $phases
+                ->merge(
+                    $batched instanceof Collection
+                        ? $batched->filter(
+                            fn (CrewAssignmentPhase $phase): bool => (! isset($phase->company_id) || (int) $phase->company_id === $companyId)
+                                && (int) $phase->crew_assignment_id !== (int) $assignment->id
+                                && CrewPayableDateOwnership::isEligibleStatus($phase->status),
+                        )
+                        : collect(),
+                )
+                ->unique('id')
+                ->values();
         }
 
-        if ($assignment->relationLoaded('nextAssignments')) {
-            foreach ($assignment->nextAssignments as $next) {
-                $append($next);
-            }
+        // Fallback for non-paginated callers: walk the full linked chain (A→B→C).
+        $chainIds = array_values(array_filter(
+            CrewAssignmentLinkChain::assignmentIds($companyId, $employeeId, (int) $assignment->id),
+            static fn (int $id): bool => $id !== (int) $assignment->id,
+        ));
+
+        if ($chainIds === []) {
+            return $phases->values();
         }
 
-        return $phases->merge($linked)->unique('id')->values();
+        $competing = CrewAssignmentPhase::query()
+            ->select([
+                'id',
+                'company_id',
+                'crew_assignment_id',
+                'phase_code',
+                'status',
+                'actual_start_at',
+                'actual_end_at',
+            ])
+            ->where('company_id', $companyId)
+            ->whereIn('status', CrewPayableDateOwnership::eligibleStatusValues())
+            ->whereNotNull('actual_start_at')
+            ->whereIn('crew_assignment_id', $chainIds)
+            ->get();
+
+        return $phases->merge($competing)->unique('id')->values();
     }
 
     /**

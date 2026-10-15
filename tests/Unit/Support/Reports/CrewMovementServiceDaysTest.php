@@ -320,3 +320,171 @@ test('a same-day vessel transfer is one onsite day across linked assignments', f
 
     CarbonImmutable::setTestNow();
 });
+
+test('only active and completed phases contribute payable service days', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $today = CarbonImmutable::parse('2026-10-20', 'Asia/Dubai');
+
+    $completed = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($completed)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($completed)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-05 08:00:00',
+        'actual_end_at' => '2026-10-08 18:00:00',
+    ]);
+
+    $active = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($active)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    $plannedOnly = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($plannedOnly)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Planned,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+        'planned_start_at' => '2026-10-01 08:00:00',
+        'planned_end_at' => '2026-10-05 08:00:00',
+    ]);
+
+    $cancelledPhase = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($cancelledPhase)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Cancelled,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+
+    $corrected = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($corrected)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Corrected,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+
+    $missingDates = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($missingDates)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => null,
+        'actual_end_at' => null,
+    ]);
+
+    $futureOnly = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($futureOnly)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-25 08:00:00',
+        'actual_end_at' => '2026-10-28 18:00:00',
+    ]);
+
+    $cancelledAssignmentWithCompletedStandby = CrewAssignment::factory()
+        ->forEmployee($employee)
+        ->cancelled()
+        ->create();
+    CrewAssignmentPhase::factory()->forAssignment($cancelledAssignmentWithCompletedStandby)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-05 08:00:00',
+    ]);
+
+    $summarize = fn (CrewAssignment $assignment): array => CrewMovementServiceDays::summarize(
+        $assignment->phases()->get(),
+        'Asia/Dubai',
+        $today,
+        employeeId: (int) $employee->id,
+        companyId: (int) $assignment->company_id,
+        assignmentId: (int) $assignment->id,
+    );
+
+    expect($summarize($completed)['standby_service_days'])->toBe(4)
+        ->and($summarize($completed)['vessel_service_days'])->toBe(4)
+        ->and($summarize($active)['vessel_service_days'])->toBe(11)
+        ->and($summarize($plannedOnly)['recorded'])->toBeFalse()
+        ->and($summarize($cancelledPhase)['recorded'])->toBeFalse()
+        ->and($summarize($corrected)['recorded'])->toBeFalse()
+        ->and($summarize($missingDates)['recorded'])->toBeFalse()
+        ->and($summarize($futureOnly)['future_actual_only'])->toBeTrue()
+        ->and($summarize($futureOnly)['standby_service_days'])->toBe(0)
+        ->and($summarize($cancelledAssignmentWithCompletedStandby)['standby_service_days'])->toBe(5);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('three-assignment vessel transfer chain allocates each shared day once', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $assignmentA = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $phaseA = CrewAssignmentPhase::factory()->forAssignment($assignmentA)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-10 08:00:00',
+    ]);
+
+    $assignmentB = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'source' => 'vessel_transfer',
+        'previous_assignment_id' => $assignmentA->id,
+    ]);
+    $phaseB = CrewAssignmentPhase::factory()->forAssignment($assignmentB)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-15 08:00:00',
+    ]);
+
+    $assignmentC = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+        'source' => 'vessel_transfer',
+        'previous_assignment_id' => $assignmentB->id,
+    ]);
+    $phaseC = CrewAssignmentPhase::factory()->forAssignment($assignmentC)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-15 08:00:00',
+        'actual_end_at' => null,
+    ]);
+
+    $allPhases = CrewAssignmentPhase::query()
+        ->whereIn('id', [$phaseA->id, $phaseB->id, $phaseC->id])
+        ->get();
+    $today = CarbonImmutable::parse('2026-10-20', 'Asia/Dubai');
+    $companyId = (int) $assignmentA->company_id;
+    $employeeId = (int) $employee->id;
+
+    $summaryA = CrewMovementServiceDays::summarize($allPhases, 'Asia/Dubai', $today, $employeeId, $companyId, (int) $assignmentA->id);
+    $summaryB = CrewMovementServiceDays::summarize($allPhases, 'Asia/Dubai', $today, $employeeId, $companyId, (int) $assignmentB->id);
+    $summaryC = CrewMovementServiceDays::summarize($allPhases, 'Asia/Dubai', $today, $employeeId, $companyId, (int) $assignmentC->id);
+
+    expect($summaryA['vessel_service_days'] + $summaryB['vessel_service_days'] + $summaryC['vessel_service_days'])->toBe(20)
+        ->and($summaryA['vessel_service_days'])->toBe(10)
+        ->and($summaryB['vessel_service_days'])->toBe(5)
+        ->and($summaryC['vessel_service_days'])->toBe(5);
+
+    CarbonImmutable::setTestNow();
+});
