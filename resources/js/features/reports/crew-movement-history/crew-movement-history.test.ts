@@ -1,5 +1,40 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const reportTablePath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    'report-table.tsx',
+);
+
+function summaryTableHeaderSource(): string {
+    const source = readFileSync(reportTablePath, 'utf8');
+    const start = source.indexOf('<TableHeader>');
+    const end = source.indexOf('</TableHeader>');
+
+    assert.ok(
+        start >= 0 && end > start,
+        'report table must define a TableHeader',
+    );
+
+    return source.slice(start, end);
+}
+
+function assertLabelsInOrder(source: string, labels: string[]): void {
+    let cursor = -1;
+
+    for (const label of labels) {
+        const index = source.indexOf(label, cursor + 1);
+
+        assert.ok(
+            index > cursor,
+            `Expected "${label}" after the previous summary header label`,
+        );
+        cursor = index;
+    }
+}
 
 describe('crew movement history presentation logic', () => {
     it('formats numeric days accurately', () => {
@@ -32,7 +67,7 @@ describe('crew movement history presentation logic', () => {
             };
         };
 
-        // Active P4 ongoing
+        // Active P2 On Vessel ongoing
         const activeRow = resolveSignOff(true, null);
         assert.equal(activeRow.isOngoing, true);
         assert.equal(activeRow.display, 'Ongoing');
@@ -111,7 +146,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(redeployed.label, 'Redeployed');
         assert.equal(redeployed.date, '2026-07-01');
 
-        // Returned home normally (P5 -> P6)
+        // Returned home normally (P3 -> P4)
         const normalHome = resolveReturnHomeOrRedeployed({
             outcome: 'returned_home',
             outcome_label: 'Returned Home',
@@ -123,7 +158,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(normalHome.label, 'Returned Home');
         assert.equal(normalHome.date, '2026-09-02');
 
-        // Direct P4 -> P6 (neutral Home / Redeploy)
+        // Direct P2 -> P4 (neutral Home / Redeploy)
         const directP4P6 = resolveReturnHomeOrRedeployed({
             outcome: 'home_redeploy',
             outcome_label: 'Home / Redeploy',
@@ -141,37 +176,49 @@ describe('crew movement history presentation logic', () => {
         assert.equal(neither.label, '—');
     });
 
-    it('preserves all 13 operational Excel-style table column definitions', () => {
-        const columns = [
-            'Emp No',
-            'Crew Name',
-            'Rank',
-            'Vessel',
-            'Client',
+    it('renders standby breakdown columns in chronological order in the report table header', () => {
+        const header = summaryTableHeaderSource();
+
+        assertLabelsInOrder(header, [
             'Arrival',
+            'Pre-Joining Standby (Days)',
             'Joined Vessel',
             'Sign-Off / Disembarked',
+            'Demobilisation Standby (Days)',
             'Returned Home',
-            'Standby Service Days',
-            'Vessel Service Days',
-            'Status',
-            'Actions',
-        ];
+            'Total Standby',
+        ]);
 
-        assert.equal(columns.length, 13);
-        assert.ok(columns.includes('Emp No'));
-        assert.ok(columns.includes('Crew Name'));
-        assert.ok(columns.includes('Rank'));
-        assert.ok(columns.includes('Vessel'));
-        assert.ok(columns.includes('Client'));
-        assert.ok(columns.includes('Arrival'));
-        assert.ok(columns.includes('Joined Vessel'));
-        assert.ok(columns.includes('Sign-Off / Disembarked'));
-        assert.ok(columns.includes('Returned Home'));
-        assert.ok(columns.includes('Standby Service Days'));
-        assert.ok(columns.includes('Vessel Service Days'));
-        assert.ok(columns.includes('Status'));
-        assert.ok(columns.includes('Actions'));
+        assert.match(
+            header,
+            /Pre-Joining Standby and Training/,
+            'Pre-Joining tooltip must state that Training is included',
+        );
+        assert.equal(
+            header.includes('Standby Service Days'),
+            false,
+            'retired Standby Service Days heading must not remain in the summary header',
+        );
+    });
+
+    it('treats missing standby phases as zero when totaling standby', () => {
+        const totalStandby = (
+            preJoining: number | null,
+            demobilisation: number | null,
+        ): number | null => {
+            if (preJoining === null && demobilisation === null) {
+                return null;
+            }
+
+            return (preJoining ?? 0) + (demobilisation ?? 0);
+        };
+
+        assert.equal(totalStandby(3, 2), 5);
+        assert.equal(totalStandby(3, 0), 3);
+        assert.equal(totalStandby(0, 2), 2);
+        assert.equal(totalStandby(0, 0), 0);
+        assert.equal(totalStandby(1, 1), 2);
+        assert.equal(totalStandby(null, null), null);
     });
 
     it('verifies vessel service period shortcut values', () => {
