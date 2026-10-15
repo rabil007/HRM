@@ -57,7 +57,7 @@ final class CrewSchedulableMovementActions
         ?string $nextPhase = null,
     ): ?CrewPhaseCode {
         return match ($action) {
-            CrewMovementAction::ApproveMobilisation => CrewPhaseCode::PreMobilisation,
+            CrewMovementAction::ApproveMobilisation => CrewPhaseCode::PreArrival,
             CrewMovementAction::RecordArrival => CrewPhaseCode::tryFrom((string) ($nextPhase ?: CrewPhaseCode::JoinStandby->value))
                 ?? CrewPhaseCode::JoinStandby,
             CrewMovementAction::SendToTraining => CrewPhaseCode::Training,

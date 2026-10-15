@@ -63,10 +63,10 @@ function resolvePositionName(
     );
 }
 
-function isPreP4Phase(assignment: CrewAssignmentDetail): boolean {
+function isPreOnboardPhase(assignment: CrewAssignmentDetail): boolean {
     const code = assignment.current_phase?.code?.toLowerCase() ?? '';
 
-    return ['p0', 'p1', 'p2a', 'p2b', 'p3'].includes(code);
+    return ['p0', 'p1', 'p1a', 'p1b', 'p2a', 'p2b'].includes(code);
 }
 
 function buildPhaseExplanation(
@@ -93,6 +93,7 @@ function buildPhaseExplanation(
                 movementActionsNote:
                     'Actual arrival must remain a Movement Action.',
             };
+        case 'p1a':
         case 'p2a':
             return {
                 explanation: 'Waiting to join the vessel.',
@@ -103,6 +104,7 @@ function buildPhaseExplanation(
                 movementActionsNote:
                     'Actual joining still uses Join Vessel in Movement Actions.',
             };
+        case 'p1b':
         case 'p2b':
             return {
                 explanation: 'Training is part of this same mobilisation.',
@@ -113,16 +115,26 @@ function buildPhaseExplanation(
                 movementActionsNote:
                     'Do not create another assignment for the same mobilisation.',
             };
+        case 'p2':
+            return {
+                explanation:
+                    'On vessel. Update planning fields only when permitted for this phase.',
+                movementActionsNote:
+                    'Actual disembarkation and sign-off planning use Movement Actions.',
+            };
         case 'p3':
             return {
                 explanation:
-                    'Ready to board. Update destination/planning details only if the mobilisation plan changed before boarding.',
-                safeToUpdate:
-                    'Position · Arrival Date · Client · Vessel · Expected Vessel Join · Remarks',
-                destinationNote:
-                    'Because the employee has not boarded P4 yet, vessel changes here are not a Vessel Transfer.',
+                    'Demobilisation standby after disembarkation. Update planning details only when allowed.',
                 movementActionsNote:
-                    'Actual joining still uses Join Vessel in Movement Actions.',
+                    'Travel home and redeploy remain Movement Actions.',
+            };
+        case 'p4':
+            return {
+                explanation:
+                    'Home or redeployment stage. Review before closing or redeploying.',
+                movementActionsNote:
+                    'Close Assignment and Redeploy use Movement Actions.',
             };
         default:
             return {
@@ -242,13 +254,13 @@ export function buildAssignmentEditGuidance({
     );
     let destinationNote = phaseCopy.destinationNote;
 
-    if (vesselChanged && isPreP4Phase(assignment)) {
+    if (vesselChanged && isPreOnboardPhase(assignment)) {
         const vesselChange = planningChanges.find(
             (change) => change.field === 'vessel',
         );
 
         if (vesselChange) {
-            destinationNote = `${vesselChange.from} → ${vesselChange.to}. This updates the current mobilisation destination. Because the employee has not boarded P4 yet, this is not a Vessel Transfer.`;
+            destinationNote = `${vesselChange.from} → ${vesselChange.to}. This updates the current mobilisation destination. Because the employee has not boarded yet, this is not a Vessel Transfer.`;
         }
     }
 

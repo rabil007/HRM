@@ -571,7 +571,7 @@ test('quick presets correctly filter upcoming periods, no relief, and not ready'
         'planned_signoff_at' => '2026-10-20 00:00:00',
     ]);
     $relief2 = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
+    makeCurrentCrewPhaseAssignment($company, $relief2, $rank, $vessel, CrewPhaseCode::PreArrival, [
         'assignment_no' => 'CA-RELIEF-TRAIN',
         'relieves_crew_assignment_id' => $outgoing2->id,
         'planned_join_at' => '2026-10-20 00:00:00',
@@ -1048,7 +1048,7 @@ test('summary reflects readiness and attention filters for the filtered report s
         'planned_signoff_at' => '2026-10-22 00:00:00',
     ]);
     $reliefConflict = Employee::factory()->forCompany($company)->create(['position_id' => $rank->id, 'status' => 'active']);
-    makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreMobilisation, [
+    makeCurrentCrewPhaseAssignment($company, $reliefConflict, $rank, $vessel, CrewPhaseCode::PreArrival, [
         'assignment_no' => 'CA-RELIEF-CONFLICT',
         'relieves_crew_assignment_id' => $outgoingConflict->id,
         'planned_join_at' => '2026-10-22 00:00:00',

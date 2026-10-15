@@ -169,7 +169,7 @@ final class CrewAssignmentStatusResolver
         if ($assignment->status === CrewAssignmentStatus::Draft) {
             return $this->fromPhase(
                 $assignment,
-                CrewPhaseCode::PreMobilisation,
+                CrewPhaseCode::PreArrival,
                 $phase,
                 $vesselName,
                 $today,
@@ -236,7 +236,7 @@ final class CrewAssignmentStatusResolver
         bool $includeRestrictedFields = true,
     ): array {
         [$status, $label] = match ($code) {
-            CrewPhaseCode::PreMobilisation => ['pre_mobilisation', 'Pre-arrival'],
+            CrewPhaseCode::PreArrival => ['pre_mobilisation', 'Pre-arrival'],
             CrewPhaseCode::JoinStandby => ['join_standby', 'Pre-joining standby'],
             CrewPhaseCode::Training => ['training', 'Training'],
             CrewPhaseCode::OnVessel => ['on_vessel', 'On vessel'],
@@ -255,7 +255,7 @@ final class CrewAssignmentStatusResolver
         }
 
         $plannedNext = match ($code) {
-            CrewPhaseCode::PreMobilisation, CrewPhaseCode::JoinStandby,
+            CrewPhaseCode::PreArrival, CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training => $assignment->planned_join_at?->toDateString(),
             CrewPhaseCode::OnVessel => $assignment->planned_signoff_at?->toDateString(),
             CrewPhaseCode::DemobStandby => $assignment->planned_travel_at?->toDateString(),

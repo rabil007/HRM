@@ -15,7 +15,7 @@ final class CrewMovementTransitionMap
     private static function withinAssignmentMap(): array
     {
         return [
-            CrewPhaseCode::PreMobilisation->value => [
+            CrewPhaseCode::PreArrival->value => [
                 CrewPhaseCode::JoinStandby,
             ],
             CrewPhaseCode::JoinStandby->value => [

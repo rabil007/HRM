@@ -10,7 +10,7 @@ final class CrewPhasePayCategoryResolver
     public function resolve(CrewPhaseCode $phaseCode): CrewTimesheetPayCategory
     {
         return match ($phaseCode) {
-            CrewPhaseCode::PreMobilisation => CrewTimesheetPayCategory::Excluded,
+            CrewPhaseCode::PreArrival => CrewTimesheetPayCategory::Excluded,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training => CrewTimesheetPayCategory::SignOnStandby,
             CrewPhaseCode::OnVessel => CrewTimesheetPayCategory::Onsite,

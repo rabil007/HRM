@@ -258,7 +258,7 @@ final class StartPlanningMobilisation
                     $phase = CrewAssignmentPhase::query()->create([
                         'company_id' => $companyId,
                         'crew_assignment_id' => $assignment->id,
-                        'phase_code' => CrewPhaseCode::PreMobilisation,
+                        'phase_code' => CrewPhaseCode::PreArrival,
                         'sequence' => 1,
                         'status' => CrewPhaseStatus::Active,
                         'actual_start_at' => $now,

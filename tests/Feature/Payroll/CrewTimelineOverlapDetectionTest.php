@@ -55,7 +55,7 @@ test('genuine timestamp overlap produces a blocking overlap warning', function (
 test('pre-mobilisation does not emit travel-in excluded notices and join standby stays payable', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-07-01 08:00:00', '2026-07-01 18:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreArrival, 1, '2026-07-01 08:00:00', '2026-07-01 18:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-07-01 18:00:00', '2026-07-05 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 3, '2026-07-05 10:00:00', '2026-07-08 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 4, '2026-07-08 10:00:00', '2026-07-20 10:00:00');

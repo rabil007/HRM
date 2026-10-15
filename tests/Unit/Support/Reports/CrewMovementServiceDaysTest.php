@@ -38,7 +38,7 @@ test('excluded phases never take a service date from onsite or standby', functio
     $today = CarbonImmutable::parse('2026-10-13', 'Asia/Dubai');
 
     foreach ([
-        [CrewPhaseCode::PreMobilisation, CrewPhaseStatus::Completed, 1, '2026-10-01 08:00:00', '2026-10-03 08:00:00'],
+        [CrewPhaseCode::PreArrival, CrewPhaseStatus::Completed, 1, '2026-10-01 08:00:00', '2026-10-03 08:00:00'],
         [CrewPhaseCode::JoinStandby, CrewPhaseStatus::Completed, 2, '2026-10-03 08:00:00', '2026-10-04 08:00:00'],
         [CrewPhaseCode::OnVessel, CrewPhaseStatus::Completed, 3, '2026-10-04 08:00:00', '2026-10-07 08:00:00'],
         [CrewPhaseCode::DemobStandby, CrewPhaseStatus::Completed, 4, '2026-10-07 08:00:00', '2026-10-10 08:00:00'],

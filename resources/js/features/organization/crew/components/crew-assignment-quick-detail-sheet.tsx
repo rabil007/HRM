@@ -151,7 +151,7 @@ function QuickDetailContent({
     const phase = assignment.current_phase;
     const legacyContext = legacyPhaseContextLabel(phase?.code ?? null);
     const phaseDescription = crewPhaseDescription(phase?.code);
-    const isOnVessel = phase?.code === 'p4' && !model.finished;
+    const isOnVessel = phase?.code === 'p2' && !model.finished;
     const documentsHref =
         can.view_documents && assignment.employee
             ? (model.readiness?.documents_href ??

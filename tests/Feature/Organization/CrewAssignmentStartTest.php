@@ -97,7 +97,7 @@ test('create-only user can still save as draft', function () {
     expect($assignment)->not->toBeNull()
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Draft)
         ->and($assignment->started_at)->toBeNull()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
         ->and($assignment->currentPhase?->actual_start_at)->toBeNull();
 });
@@ -129,7 +129,7 @@ test('omitted current stage starts active travel in with matching timestamps', f
         ->and($assignment->tour_of_duty_days)->toBeNull()
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
         ->and($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->sequence)->toBe(1)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
@@ -154,7 +154,7 @@ test('explicit pre-mobilisation start assignment creates active p0', function ()
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00');
 });
@@ -177,7 +177,7 @@ test('explicit start without stage_started_at uses identical company-local times
     expect($assignment)->not->toBeNull()
         ->and($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
 });
 
@@ -218,7 +218,7 @@ test('omitted assignment start date uses company-local now', function () {
     expect($assignment->started_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
         ->and($assignment->currentPhase?->actual_start_at?->utc()->format('Y-m-d H:i:s'))->toBe('2026-09-15 08:00:00')
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('crafted stage started at cannot backdate a normal web start assignment', function () {
@@ -257,7 +257,7 @@ test('crafted future stage started at cannot affect a normal web start assignmen
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 12:00')
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($assignment->started_at))->toBeTrue();
 });
@@ -315,7 +315,7 @@ test('direct start stages create only the selected phase', function (string $sta
         ->and($assignment->currentPhase?->sequence)->toBe(1)
         ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe([$stage]);
 })->with([
-    'p0' => ['p0', CrewPhaseCode::PreMobilisation],
+    'p0' => ['p0', CrewPhaseCode::PreArrival],
 ]);
 
 test('browser supplied current stage is ignored by store endpoint and defaults to p0', function (string $stage) {
@@ -335,7 +335,7 @@ test('browser supplied current stage is ignored by store endpoint and defaults t
         ->assertRedirect();
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 })->with(['p1a', 'p3', 'p1b', 'p2', 'p3', 'p4']);
 
 test('service rejects payable join-standby stages as a direct start', function (string $stage) {
@@ -464,7 +464,7 @@ test('active p0 rejects crafted approve mobilisation and creates no p1', functio
 
     $assignment->refresh()->load('phases');
     expect($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(0);
 });
 
@@ -483,7 +483,7 @@ test('draft p0 start assignment activates existing p0 without creating p1', func
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-09-15 11:00')
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->phases)->toHaveCount(1)
         ->and($p0?->status)->toBe(CrewPhaseStatus::Active)
@@ -597,7 +597,7 @@ test('direct start with future arrival and no expected join succeeds without inv
         ->and($assignment->started_at)->not->toBeNull()
         ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-09-26')
         ->and($assignment->planned_join_at)->toBeNull()
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase?->actual_start_at)->not->toBeNull();
 });
@@ -1087,7 +1087,7 @@ test('unchecked already arrived keeps the existing p0 start flow', function () {
 
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->with('phases')->first();
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->phases)->toHaveCount(1)
         ->and($assignment->started_at?->timezone($company->timezone)->format('Y-m-d H:i'))->toBe('2026-10-13 12:00')
         ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04')
@@ -1156,7 +1156,7 @@ test('draft submission ignores already arrived shortcut', function () {
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->first();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Draft)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
         ->and($assignment->currentPhase?->actual_start_at)->toBeNull()
         ->and($assignment->planned_arrival_at?->toDateString())->toBe('2026-10-04');

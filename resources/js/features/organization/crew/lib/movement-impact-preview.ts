@@ -133,7 +133,7 @@ export function buildMovementImpactPreview({
                     formOptions,
                     formData.vessel_id,
                 ),
-                impacts: [`This will start: P4 · ${CREW_PHASE_LABELS.p4}`],
+                impacts: [`This will start: P2 · ${CREW_PHASE_LABELS.p2}`],
             };
         case 'approve_mobilisation':
             return {

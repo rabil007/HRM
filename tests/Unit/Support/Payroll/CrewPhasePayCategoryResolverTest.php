@@ -10,7 +10,7 @@ test('crew payroll mapping uses six-phase lifecycle categories', function (
 ) {
     expect((new CrewPhasePayCategoryResolver)->resolve($phase))->toBe($expected);
 })->with([
-    'p0 excluded' => [CrewPhaseCode::PreMobilisation, CrewTimesheetPayCategory::Excluded],
+    'p0 excluded' => [CrewPhaseCode::PreArrival, CrewTimesheetPayCategory::Excluded],
     'p1a sign-on standby' => [CrewPhaseCode::JoinStandby, CrewTimesheetPayCategory::SignOnStandby],
     'p1b sign-on standby' => [CrewPhaseCode::Training, CrewTimesheetPayCategory::SignOnStandby],
     'p2 onsite' => [CrewPhaseCode::OnVessel, CrewTimesheetPayCategory::Onsite],

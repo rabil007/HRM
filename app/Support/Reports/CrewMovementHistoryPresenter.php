@@ -197,7 +197,7 @@ final class CrewMovementHistoryPresenter
             'modern_phase_timeline' => $modernTimeline,
             'legacy_phase_timeline' => $legacyTimeline,
             'has_legacy_phases' => false,
-            'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreMobilisation->value]),
+            'pre_mobilisation' => self::flatten($summaries[CrewPhaseCode::PreArrival->value]),
             'travel_in' => $travelIn,
             'join_standby' => $summaries[CrewPhaseCode::JoinStandby->value],
             'training' => [

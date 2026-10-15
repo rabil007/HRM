@@ -37,7 +37,7 @@ test('draft creation creates planned p0 and sets current phase', function () {
     expect($assignment->status)->toBe(CrewAssignmentStatus::Draft)
         ->and($assignment->assignment_no)->toStartWith('CA-')
         ->and($assignment->created_by)->toBe($user->id)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
         ->and($assignment->phases)->toHaveCount(1);
 });
@@ -54,7 +54,7 @@ test('full happy path p0 through completed p6', function () {
         'occurred_at' => '2026-01-01 08:00:00',
     ], $user->id);
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 
     $assignment = $service->perform($company->id, $id, CrewMovementAction::RecordArrival, [
         'occurred_at' => '2026-01-05 10:00:00',
@@ -343,7 +343,7 @@ test('invalid transition rolls back all changes', function () {
 
     expect(CrewAssignmentPhase::query()->where('crew_assignment_id', $id)->count())->toBe($beforePhases)
         ->and($assignment->fresh()->status)->toBe($beforeStatus)
-        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('simulated failure after phase completion rolls back phase and assignment updates', function () {
@@ -373,7 +373,7 @@ test('simulated failure after phase completion rolls back phase and assignment u
     $fresh = CrewAssignment::query()->findOrFail($id);
     expect($fresh->status)->toBe(CrewAssignmentStatus::Draft)
         ->and($fresh->phases()->count())->toBe(1)
-        ->and($fresh->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($fresh->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($fresh->currentPhase?->status)->toBe(CrewPhaseStatus::Planned);
 });
 

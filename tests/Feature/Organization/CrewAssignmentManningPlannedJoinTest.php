@@ -72,7 +72,7 @@ test('planned join forecast counts modern pre-vessel phases with future planned 
 
     expect($counts[$key] ?? 0)->toBe(1);
 })->with([
-    'p0 pre-mobilisation' => [CrewPhaseCode::PreMobilisation],
+    'p0 pre-mobilisation' => [CrewPhaseCode::PreArrival],
     'p2a join standby' => [CrewPhaseCode::JoinStandby],
     'p2b training' => [CrewPhaseCode::Training],
     'legacy p1 travel in' => [CrewPhaseCode::JoinStandby],

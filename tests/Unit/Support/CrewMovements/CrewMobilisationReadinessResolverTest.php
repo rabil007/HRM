@@ -9,7 +9,7 @@ use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
 use Carbon\Carbon;
 
-function makePreMobilisationAssignment(): array
+function makePreArrivalAssignment(): array
 {
     $fixtures = makeCrewAssignmentFixtures();
     $assignment = app(CrewMovementService::class)->createDraft(
@@ -25,7 +25,7 @@ function makePreMobilisationAssignment(): array
 it('marks a ready employee when required documents are valid', function () {
     Carbon::setTestNow('2026-05-20');
 
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'Seaman Book '.uniqid(),
         'is_active' => true,
@@ -53,7 +53,7 @@ it('marks a ready employee when required documents are valid', function () {
 });
 
 it('marks missing required documents as not ready', function () {
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'Seaman Book '.uniqid(),
         'is_active' => true,
@@ -70,7 +70,7 @@ it('marks missing required documents as not ready', function () {
 it('marks expired required documents as not ready', function () {
     Carbon::setTestNow('2026-05-20');
 
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'Medical '.uniqid(),
         'is_active' => true,
@@ -97,7 +97,7 @@ it('marks expired required documents as not ready', function () {
 it('marks expiring required documents as attention', function () {
     Carbon::setTestNow('2026-05-20');
 
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'BOSIET '.uniqid(),
         'is_active' => true,
@@ -122,7 +122,7 @@ it('marks expiring required documents as attention', function () {
 });
 
 it('treats a required document with no upload as missing', function () {
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'Passport '.uniqid(),
         'is_active' => true,
@@ -137,7 +137,7 @@ it('treats a required document with no upload as missing', function () {
 });
 
 it('does not apply other company document requirements', function () {
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $foreign = makeCrewAssignmentFixtures();
     $type = DocumentType::query()->create([
         'title' => 'Foreign Seaman Book '.uniqid(),
@@ -154,7 +154,7 @@ it('does not apply other company document requirements', function () {
 });
 
 it('does not treat readiness as a movement restriction', function () {
-    $fixtures = makePreMobilisationAssignment();
+    $fixtures = makePreArrivalAssignment();
     $type = DocumentType::query()->create([
         'title' => 'Seaman Book '.uniqid(),
         'is_active' => true,

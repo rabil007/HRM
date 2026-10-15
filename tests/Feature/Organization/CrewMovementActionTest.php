@@ -78,7 +78,7 @@ test('approve mobilisation advances draft to travel in', function () {
     $assignment->refresh()->load('currentPhase');
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('transfer vessel redirects to the new destination assignment', function () {
@@ -340,7 +340,7 @@ test('active p0 rejects crafted approve mobilisation at http boundary without cr
 
     $assignment->refresh()->load('phases');
     expect($assignment->phases)->toHaveCount(1)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and(CrewAssignmentPhase::query()->where('crew_assignment_id', $assignment->id)->where('phase_code', CrewPhaseCode::JoinStandby)->count())->toBe(0);
 });
 

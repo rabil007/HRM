@@ -27,7 +27,7 @@ class CrewMovementAvailableActions
         $phase = $current->phase_code;
         $phaseStatus = $current->status;
 
-        if ($status === CrewAssignmentStatus::Draft && $phase === CrewPhaseCode::PreMobilisation
+        if ($status === CrewAssignmentStatus::Draft && $phase === CrewPhaseCode::PreArrival
             && $phaseStatus === CrewPhaseStatus::Planned) {
             return [
                 CrewMovementAction::ApproveMobilisation->value,
@@ -37,7 +37,7 @@ class CrewMovementAvailableActions
 
         if ($status === CrewAssignmentStatus::Active) {
             return match ($phase) {
-                CrewPhaseCode::PreMobilisation => [
+                CrewPhaseCode::PreArrival => [
                     CrewMovementAction::RecordArrival->value,
                     CrewMovementAction::CancelAssignment->value,
                 ],

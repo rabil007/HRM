@@ -321,7 +321,7 @@ final class HistoricalPhaseBuilder
             && $previous['actual_end_at']->equalTo($last['actual_start_at']);
 
         [$eventKey, $eventLabel] = match (true) {
-            $last['phase_code'] === CrewPhaseCode::PreMobilisation => [
+            $last['phase_code'] === CrewPhaseCode::PreArrival => [
                 self::EVENT_PRE_MOBILISATION,
                 'Pre-Mobilisation',
             ],

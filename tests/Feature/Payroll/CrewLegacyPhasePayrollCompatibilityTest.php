@@ -124,7 +124,7 @@ test('modern p2a p2b p2a p4 keeps sign-on categories without duplicate payable d
 test('p0 pre-arrival stays excluded from payable totals', function () {
     $fixtures = makeDailyCrewTimelineFixtures();
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-07-01 08:00:00', '2026-07-05 10:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreArrival, 1, '2026-07-01 08:00:00', '2026-07-05 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-07-05 10:00:00', '2026-07-08 10:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-07-08 10:00:00', '2026-07-12 10:00:00');
 
@@ -136,7 +136,7 @@ test('p0 pre-arrival stays excluded from payable totals', function () {
 
     $p0Lines = CrewTimesheetPreparationLine::query()
         ->where('crew_timesheet_preparation_id', $preparation->id)
-        ->where('phase_code', CrewPhaseCode::PreMobilisation->value)
+        ->where('phase_code', CrewPhaseCode::PreArrival->value)
         ->get();
 
     expect($p0Lines)->toHaveCount(1)

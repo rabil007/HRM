@@ -118,7 +118,7 @@ test('2. Active P0 assignment is editable', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('P0 Vessel');
 
-    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreMobilisation);
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreArrival);
 
     expect(CrewAssignmentEditability::isEditable($assignment))->toBeTrue();
 
@@ -267,7 +267,7 @@ test('8. Cancelled assignment is not editable and update is rejected', function 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewEditabilityFixtures();
     $vessel = makeCrewMovementVessel('Cancelled Vessel');
 
-    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Cancelled);
+    $assignment = makeAssignmentWithPhase($company, $employee, $rank, $vessel, CrewPhaseCode::PreArrival, CrewAssignmentStatus::Cancelled);
 
     expect(CrewAssignmentEditability::isEditable($assignment))->toBeFalse();
 
@@ -330,7 +330,7 @@ test('generic editability follows draft and pre-p4 mobilisation only', function 
     expect(CrewAssignmentEditability::isEditable($assignment->fresh(['currentPhase'])))->toBe($expected);
 })->with([
     'draft' => [null, CrewAssignmentStatus::Draft, true],
-    'p0' => [CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Active, true],
+    'p0' => [CrewPhaseCode::PreArrival, CrewAssignmentStatus::Active, true],
     'p1' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
     'p1a' => [CrewPhaseCode::JoinStandby, CrewAssignmentStatus::Active, true],
     'p1b' => [CrewPhaseCode::Training, CrewAssignmentStatus::Active, true],

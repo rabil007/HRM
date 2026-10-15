@@ -180,7 +180,7 @@ final class CrewReliefReadinessResolver
             }
 
             return in_array($phase->phase_code, [
-                CrewPhaseCode::PreMobilisation,
+                CrewPhaseCode::PreArrival,
                 CrewPhaseCode::JoinStandby,
                 CrewPhaseCode::Training,
                 CrewPhaseCode::OnVessel,
@@ -208,7 +208,7 @@ final class CrewReliefReadinessResolver
         }
 
         return in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
             CrewPhaseCode::OnVessel,
@@ -329,7 +329,7 @@ final class CrewReliefReadinessResolver
         }
 
         if (in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::Training,
         ], true)) {
             return CrewReliefStatus::Mobilising;
@@ -353,7 +353,7 @@ final class CrewReliefReadinessResolver
         }
 
         if ($linked->status === CrewAssignmentStatus::Draft
-            && $phase->phase_code === CrewPhaseCode::PreMobilisation
+            && $phase->phase_code === CrewPhaseCode::PreArrival
             && $phase->status === CrewPhaseStatus::Planned) {
             return CrewReliefStatus::AssignmentCreated;
         }
@@ -370,7 +370,7 @@ final class CrewReliefReadinessResolver
         }
 
         if (in_array($phase->phase_code, [
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::Training,
         ], true)) {
             return CrewReliefStatus::Mobilising;

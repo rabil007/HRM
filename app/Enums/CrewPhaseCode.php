@@ -4,7 +4,7 @@ namespace App\Enums;
 
 enum CrewPhaseCode: string
 {
-    case PreMobilisation = 'p0';
+    case PreArrival = 'p0';
     case JoinStandby = 'p1a';
     case Training = 'p1b';
     case OnVessel = 'p2';
@@ -14,7 +14,7 @@ enum CrewPhaseCode: string
     public function label(): string
     {
         return match ($this) {
-            self::PreMobilisation => 'Pre-Arrival',
+            self::PreArrival => 'Pre-Arrival',
             self::JoinStandby => 'Pre-Joining Standby',
             self::Training => 'Training',
             self::OnVessel => 'On Vessel',
@@ -34,7 +34,7 @@ enum CrewPhaseCode: string
     public function isPreJoin(): bool
     {
         return in_array($this, [
-            self::PreMobilisation,
+            self::PreArrival,
             self::JoinStandby,
             self::Training,
         ], true);
@@ -46,7 +46,7 @@ enum CrewPhaseCode: string
     public static function preJoinValues(): array
     {
         return [
-            self::PreMobilisation->value,
+            self::PreArrival->value,
             self::JoinStandby->value,
             self::Training->value,
         ];
@@ -63,7 +63,7 @@ enum CrewPhaseCode: string
     public static function directStartPhases(): array
     {
         return [
-            self::PreMobilisation,
+            self::PreArrival,
         ];
     }
 
@@ -90,7 +90,7 @@ enum CrewPhaseCode: string
     public static function plannedJoinForecastPhases(): array
     {
         return [
-            self::PreMobilisation,
+            self::PreArrival,
             self::JoinStandby,
             self::Training,
         ];

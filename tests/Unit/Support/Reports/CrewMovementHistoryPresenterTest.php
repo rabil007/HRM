@@ -226,7 +226,7 @@ test('it maps every lifecycle phase and keeps planned and actual dates separate'
         ]);
 
     $phaseData = [
-        [CrewPhaseCode::PreMobilisation, 1, '2026-01-01', '2026-01-03'],
+        [CrewPhaseCode::PreArrival, 1, '2026-01-01', '2026-01-03'],
         [CrewPhaseCode::JoinStandby, 2, '2026-01-03', '2026-01-04'],
         [CrewPhaseCode::JoinStandby, 3, '2026-01-04', '2026-01-10'],
         [CrewPhaseCode::OnVessel, 4, '2026-01-10', '2026-02-10'],
@@ -283,7 +283,7 @@ test('planned only phases do not report actual duration', function () {
     ['employee' => $employee] = makeCrewAssignmentFixtures();
     $assignment = CrewAssignment::factory()->forEmployee($employee)->create();
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Planned,
         'planned_start_at' => '2026-07-01',
         'planned_end_at' => '2026-07-10',
@@ -357,7 +357,7 @@ test('modern assignments without legacy phases do not expose legacy placeholders
         ]);
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Completed,
         'actual_start_at' => '2026-08-10',

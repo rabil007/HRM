@@ -30,7 +30,7 @@ test('assignment can contain multiple ordered phases', function () {
         ->create();
 
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 2,
     ]);
     CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
@@ -48,7 +48,7 @@ test('assignment can contain multiple ordered phases', function () {
         ->and($ordered->pluck('sequence')->all())->toBe([1, 2, 3])
         ->and($ordered->pluck('phase_code')->all())->toBe([
             CrewPhaseCode::JoinStandby,
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
         ]);
 });

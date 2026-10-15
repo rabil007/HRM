@@ -59,7 +59,7 @@ test('starting stage selection store paths create draft, p0, and p2a assignments
 
     $p0 = CrewAssignment::query()->where('employee_id', $employeeB->id)->with('currentPhase')->first();
     expect($p0?->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($p0?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($p0?->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($p0?->currentPhase?->status)->toBe(CrewPhaseStatus::Active);
 
     $employeeC = Employee::factory()->create([

@@ -20,7 +20,7 @@ function recommendedActionForPhase(CrewPhaseCode $phase, CrewAssignmentStatus $s
         $fixtures['user']->id,
     )->load(['currentPhase', 'employee', 'company']);
 
-    if ($phase !== CrewPhaseCode::PreMobilisation) {
+    if ($phase !== CrewPhaseCode::PreArrival) {
         $assignment->update(['status' => $status]);
         $assignment->currentPhase->update([
             'phase_code' => $phase,
@@ -40,7 +40,7 @@ function recommendedActionForPhase(CrewPhaseCode $phase, CrewAssignmentStatus $s
 }
 
 it('recommends approve mobilisation for ready P0', function () {
-    [$assignment, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::PreMobilisation, CrewAssignmentStatus::Draft);
+    [$assignment, $available, $recommended] = recommendedActionForPhase(CrewPhaseCode::PreArrival, CrewAssignmentStatus::Draft);
 
     expect($recommended?->action)->toBe(CrewMovementAction::ApproveMobilisation->value)
         ->and($available)->toContain(CrewMovementAction::CancelAssignment->value)

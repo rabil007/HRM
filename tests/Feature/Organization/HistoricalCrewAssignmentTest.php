@@ -902,7 +902,7 @@ test('simplified periods map to P2A P4 P5 without fabricating training or pre-mo
             CrewPhaseCode::DemobStandby,
         ])
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse()
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreArrival))->toBeFalse()
         ->and($phases[2]->status)->toBe(CrewPhaseStatus::Active)
         ->and($phases[2]->actual_end_at)->toBeNull();
 });
@@ -1732,7 +1732,7 @@ test('simplified lifecycle creates only known P1A P2 P3 P4 phases', function () 
             CrewPhaseCode::DemobStandby,
             CrewPhaseCode::HomeRedeploy,
         ])
-        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreMobilisation))->toBeFalse()
+        ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::PreArrival))->toBeFalse()
         ->and($phases->contains(fn ($phase) => $phase->phase_code === CrewPhaseCode::Training))->toBeFalse();
 });
 

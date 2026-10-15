@@ -5,11 +5,11 @@ use App\Support\CrewMovements\CrewMovementTransitionMap;
 
 test('p0 can move to p1a but not backward', function () {
     expect(CrewMovementTransitionMap::canTransitionWithinAssignment(
-        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::PreArrival,
         CrewPhaseCode::JoinStandby,
     ))->toBeTrue()
         ->and(CrewMovementTransitionMap::canTransitionWithinAssignment(
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::OnVessel,
         ))->toBeFalse();
 });
@@ -53,7 +53,7 @@ test('p3 can move to p4 home', function () {
 test('invalid backward transitions are rejected', function () {
     expect(CrewMovementTransitionMap::canTransitionWithinAssignment(
         CrewPhaseCode::OnVessel,
-        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::PreArrival,
     ))->toBeFalse()
         ->and(CrewMovementTransitionMap::canTransitionWithinAssignment(
             CrewPhaseCode::Training,
@@ -70,7 +70,7 @@ test('p2 cannot transition directly to p1a in the same assignment', function () 
 
 test('p3 demob does not return p0 in allowed next phases', function () {
     expect(CrewMovementTransitionMap::allowedNextPhases(CrewPhaseCode::DemobStandby))
-        ->not->toContain(CrewPhaseCode::PreMobilisation);
+        ->not->toContain(CrewPhaseCode::PreArrival);
 });
 
 test('p4 home does not return p0 in allowed next phases', function () {
@@ -91,4 +91,10 @@ test('p1a allows training and join vessel only', function () {
 
     expect($next)->toHaveCount(2)
         ->and($next)->toContain(CrewPhaseCode::Training, CrewPhaseCode::OnVessel);
+});
+
+test('on vessel and home redeploy stored codes are distinct after lifecycle refactor', function () {
+    expect(CrewPhaseCode::OnVessel->value)->toBe('p2')
+        ->and(CrewPhaseCode::HomeRedeploy->value)->toBe('p4')
+        ->and(CrewPhaseCode::OnVessel->value)->not->toBe(CrewPhaseCode::HomeRedeploy->value);
 });

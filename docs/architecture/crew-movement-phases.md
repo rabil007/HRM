@@ -11,7 +11,7 @@ CrewPlanningAssignment (future planning)
 CrewAssignment (draft | active | completed | cancelled)
     ↓ movement lifecycle (active)
     Crew Assignment Phases
-    ↓ P4 On Vessel (synchronized on join, finalized on disembarkation)
+    ↓ P2 On Vessel (synchronized on join, finalized on disembarkation)
 Employee Sea Service
 ```
 
@@ -28,13 +28,13 @@ Current Crew, vessel manning actuals, the Crew Operations dashboard pulse, and c
 | Surface | URL | Meaning |
 |---------|-----|---------|
 | **Crew Assignments → Crew View** (default) | `/organization/crew` or `?view=crew` | Employee/assignment-oriented current assignments (Draft/Active unless filtered to history) |
-| **Crew Assignments → Pre-Join Hotel** | `/organization/crew?view=pre_join_hotel` | Active assignments whose **current** phase is P2A, P2B, or legacy P3 (hotel/standby before vessel joining) |
-| **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew (active P4) |
-| **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P5 (demobilisation standby after disembarkation) |
-| **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P6 and completed assignments with no newer Draft/Active assignment) |
+| **Crew Assignments → Pre-Join Hotel** | `/organization/crew?view=pre_join_hotel` | Active assignments whose **current** phase is P1A or P1B (hotel/standby before vessel joining) |
+| **Crew Assignments → Vessel View** | `/organization/crew?view=vessel` | Operational vessel-first roster of **currently onboard** crew (active P2 On Vessel) |
+| **Crew Assignments → Post-Sign-Off Hotel** | `/organization/crew?view=post_signoff_hotel` | Active assignments whose **current** phase is P3 (demobilisation standby after disembarkation) |
+| **Crew Assignments → On Home** | `/organization/crew?view=on_home` | Active employees currently home between mobilisation cycles (active P4 Home / Redeployment and completed assignments with no newer Draft/Active assignment) |
 | **Crew Planning → Planning** (default) | `/organization/crew-planning` or `?view=planning` | Planned/future vessel scheduling and movements (Gantt) |
 | **Crew Planning → Onboard by Vessel** | `/organization/crew-planning?view=onboard-vessels` | The same actual/current P4 vessel roster, shown beside planning workflows |
-| **Crew Relief Report** | `/organization/reports/crew-relief` | Operational relief monitoring for active P4 crew (sign-off windows, missing forecasts, relief status/risk, readiness, and exports). Legacy `/organization/crew-operations/relief-desk` redirects here. |
+| **Crew Relief Report** | `/organization/reports/crew-relief` | Operational relief monitoring for active P2 On Vessel crew (sign-off windows, missing forecasts, relief status/risk, readiness, and exports). Legacy `/organization/crew-operations/relief-desk` redirects here. |
 | **Crew Readiness** | `/organization/crew-operations/readiness` | Standalone operational workspace tracking upcoming crew preparing to mobilise (future named Planning rows + pre-join Assignments) and their document compliance readiness before joining |
 
 ### Operational Model Distinction
@@ -44,7 +44,7 @@ OMS-HRM maintains an explicit separation of concerns across the four operational
 - **Crew Planning** (`/organization/crew-planning`): Future vessel and rank scheduling (Gantt, availability, and vacant/named plan requirements). Planning decides the future.
 - **Crew Relief Report** (`/organization/reports/crew-relief`): Who needs replacement and relief progress. Monitors onboard crew sign-off windows, missing planned sign-off, risk levels, readiness, and identified relief candidates.
 - **Crew Readiness** (`/organization/crew-operations/readiness`): Who is preparing to mobilise, when they are expected to join, and what currently requires attention before mobilisation. Unified derived view of eligible future named planning rows and pre-join operational assignments with authoritative document compliance checks.
-- **Crew Assignments** (`/organization/crew`): Actual operational mobilisation and lifecycle execution (Draft → P0 → P2A/P2B → P4 → P5 → P6). Crew Assignment controls execution.
+- **Crew Assignments** (`/organization/crew`): Actual operational mobilisation and lifecycle execution (Draft → P0 → P1A/P1B → P2 → P3 → P4). Travel In and Ready to Join phases are retired. Crew Assignment controls execution.
 
 Crew Planning **Planning** is future scheduling/Gantt. Crew Planning **Onboard by Vessel** is still available from Crew Planning as reusable actual/current P4 operational state. It never derives onboard status from Gantt/planning records. **Crew Relief Report** (`/organization/reports/crew-relief`) is the operational replacement-monitoring surface over active P4 assignments and existing Planning relief links (`relieves_crew_assignment_id`); legacy Relief Desk URLs redirect here. **Crew Readiness** (`/organization/crew-operations/readiness`) is a derived operational workspace that queries existing named future plans and pre-join operational assignments without storing duplicate tracking records.
 
@@ -61,14 +61,14 @@ A person is onboard only when all of the following are true:
 ```text
 CrewAssignment.company_id = trusted current_company_id
 CrewAssignment.status = Active
-current phase = P4 On Vessel, status Active
+current phase = P2 On Vessel, status Active
 vessel_id is present
 employee is active in the current company
 ```
 
-That rule is shared by Crew Assignments Vessel View, Crew Planning Onboard by Vessel, vessel manning actual counts, and the onboard Excel export (`CurrentOnboardCrewQuery`). Draft assignments, Crew Planning bars, P2/P3/P5/P6, and `vessel_id` alone are not evidence of being onboard.
+That rule is shared by Crew Assignments Vessel View, Crew Planning Onboard by Vessel, vessel manning actual counts, and the onboard Excel export (`CurrentOnboardCrewQuery`). Draft assignments, Crew Planning bars, pre-vessel phases (P0/P1A/P1B), demobilisation/home phases (P3/P4), and `vessel_id` alone are not evidence of being onboard.
 
-`planned_signoff_at` on an active P4 row is an operational forecast only. It does not disembark the employee.
+`planned_signoff_at` on an active P2 On Vessel row is an operational forecast only. It does not disembark the employee.
 
 Both pages consume the same crew-domain roster (`OnboardByVesselBoard` / `CurrentCrewVesselQuery`). Parent rows are vessels. Each page loads the complete filtered onboard roster for those vessels — assignments are never paginated first.
 
@@ -1502,6 +1502,25 @@ Global (no `company_id`): ranks, vessels, clients, company visa types. Filter by
 Tenant-scoped: employees (`company_id`, `employee_no`), crew assignments, phases, sequences, crew rank policies.
 
 Rank CSV import supports `name,is_active,max_tour_of_duty_days` (blank Tour cell preserves existing value).
+
+## Phase code migration and disposable test data
+
+Migration `2026_10_14_120000_remap_crew_assignment_phase_codes_to_six_phase_lifecycle.php` remaps stored phase codes on `crew_assignment_phases`, related payroll timeline lines, and scheduled movement expectations. Obsolete Travel In (`p1`) and legacy Ready to Join (`p3`) rows are stored as `p1a` after migration — they are not resurrected as selectable workflow phases in the application.
+
+**Do not** run `migrate:fresh`, `db:wipe`, or other destructive database resets against a shared or unverified database. Master data (employees, vessels, clients, payroll approvals) must be preserved.
+
+When local or staging crew assignment rows are disposable test fixtures only, use the guarded operational reset workflow documented in `docs/runbooks/crew-movement-qa.md` after verifying the target database. Review incompatible pending scheduled movements before reset; do not silently execute obsolete phase payloads.
+
+| Stored code | Name |
+|-------------|------|
+| `p0` | Pre-Arrival |
+| `p1a` | Pre-Joining Standby |
+| `p1b` | Training |
+| `p2` | On Vessel |
+| `p3` | Demobilisation Standby |
+| `p4` | Home / Redeployment |
+
+Normal movement flow: `P0 → P1A → P2 → P3 → P4`, with optional `P1A ↔ P1B` training loops.
 
 ## Production verification commands
 

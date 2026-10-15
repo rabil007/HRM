@@ -121,7 +121,7 @@ final class CrewReliefAttentionResolver
             }
 
             if (in_array($reliefPhaseCode, [
-                CrewPhaseCode::PreMobilisation,
+                CrewPhaseCode::PreArrival,
                 CrewPhaseCode::JoinStandby,
             ], true)) {
                 return [

@@ -31,7 +31,7 @@ test('six-phase enum values and obsolete codes', function () {
 
 test('standard lifecycle transitions p0 through p4 home', function () {
     expect(CrewMovementTransitionMap::canTransitionWithinAssignment(
-        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::PreArrival,
         CrewPhaseCode::JoinStandby,
     ))->toBeTrue()
         ->and(CrewMovementTransitionMap::canTransitionWithinAssignment(

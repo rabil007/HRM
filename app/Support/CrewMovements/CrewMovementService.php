@@ -100,7 +100,7 @@ final class CrewMovementService
             $phase = CrewAssignmentPhase::query()->create([
                 'company_id' => $companyId,
                 'crew_assignment_id' => $assignment->id,
-                'phase_code' => CrewPhaseCode::PreMobilisation,
+                'phase_code' => CrewPhaseCode::PreArrival,
                 'sequence' => 1,
                 'status' => CrewPhaseStatus::Planned,
                 'remarks' => null,
@@ -504,7 +504,7 @@ final class CrewMovementService
      */
     private function approveMobilisation(CrewAssignment $assignment, array $payload, ?int $actorId): CrewAssignment
     {
-        $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::PreMobilisation);
+        $current = $this->requireCurrentPhase($assignment, CrewPhaseCode::PreArrival);
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
 
         if ($assignment->status !== CrewAssignmentStatus::Draft
@@ -555,7 +555,7 @@ final class CrewMovementService
         $this->assertStatus($assignment, CrewAssignmentStatus::Active);
         $current = $this->requireCurrentPhase($assignment);
 
-        if ($current->phase_code !== CrewPhaseCode::PreMobilisation) {
+        if ($current->phase_code !== CrewPhaseCode::PreArrival) {
             throw CrewMovementException::make(
                 'Record arrival can only be performed from Pre-Arrival.',
                 'invalid_phase_for_action',
@@ -1101,7 +1101,7 @@ final class CrewMovementService
 
         $occurredAt = $this->requireOccurredAt($assignment->company_id, $payload);
         $startingPhase = $this->requireNextPhaseCode($payload, [
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::OnVessel,
         ]);
@@ -1120,7 +1120,7 @@ final class CrewMovementService
             }
         }
 
-        $isDraftStart = $startingPhase === CrewPhaseCode::PreMobilisation;
+        $isDraftStart = $startingPhase === CrewPhaseCode::PreArrival;
         $isDirectOnVessel = $startingPhase === CrewPhaseCode::OnVessel;
 
         $resolvedVesselId = $isDraftStart
@@ -1464,7 +1464,7 @@ final class CrewMovementService
         ?CarbonInterface $plannedSignoffAt = null,
         ?string $remarks = null,
         ?int $actorId = null,
-        CrewPhaseCode $startingPhase = CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode $startingPhase = CrewPhaseCode::PreArrival,
         CrewPhaseStatus $phaseStatus = CrewPhaseStatus::Planned,
         ?CarbonInterface $phaseActualStartAt = null,
     ): CrewAssignment {
@@ -1594,7 +1594,7 @@ final class CrewMovementService
         $raw = trim((string) ($attributes['current_stage'] ?? $attributes['starting_phase'] ?? ''));
 
         if ($raw === '') {
-            return CrewPhaseCode::PreMobilisation;
+            return CrewPhaseCode::PreArrival;
         }
 
         $code = CrewPhaseCode::tryFrom($raw);

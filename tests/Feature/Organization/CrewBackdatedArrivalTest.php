@@ -82,7 +82,7 @@ test('backdated arrival before assignment creation succeeds for valid initial p0
     ], $user->id);
 
     $result->load('phases');
-    $p0 = $result->phases->firstWhere('phase_code', CrewPhaseCode::PreMobilisation);
+    $p0 = $result->phases->firstWhere('phase_code', CrewPhaseCode::PreArrival);
     $p2a = $result->currentPhase;
 
     expect($p2a?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
@@ -113,7 +113,7 @@ test('http record arrival accepts backdated initial p0 arrival', function () {
         ->assertSessionHasNoErrors();
 
     $assignment->refresh()->load(['currentPhase', 'phases']);
-    $p0 = $assignment->phases->firstWhere('phase_code', CrewPhaseCode::PreMobilisation);
+    $p0 = $assignment->phases->firstWhere('phase_code', CrewPhaseCode::PreArrival);
 
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
         ->and($p0?->actual_start_at?->timezone('Asia/Dubai')->toDateTimeString())->toBe('2026-10-07 09:00:00')
@@ -189,7 +189,7 @@ test('backdated arrival overlapping a completed assignment is rejected', functio
     ], $user->id))->toThrow(CrewMovementException::class, 'overlaps completed assignment');
 
     $assignment->refresh()->load('currentPhase');
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('backdating a later join vessel movement remains rejected', function () {
@@ -393,7 +393,7 @@ test('backdated arrival overlapping a cancelled assignment with actual history i
         '2026-10-07 12:00:00',
         [
             [
-                'phase_code' => CrewPhaseCode::PreMobilisation,
+                'phase_code' => CrewPhaseCode::PreArrival,
                 'status' => CrewPhaseStatus::Completed,
                 'actual_start_at' => '2026-09-20 08:00:00',
                 'actual_end_at' => '2026-09-22 09:00:00',
@@ -414,7 +414,7 @@ test('backdated arrival overlapping a cancelled assignment with actual history i
     ], $user->id))->toThrow(CrewMovementException::class, 'overlaps cancelled assignment CA-CANCELLED-ACTUAL');
 
     $assignment->refresh()->load('currentPhase');
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation);
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
 });
 
 test('cancelled draft without actual movement history does not block backdated arrival', function () {
@@ -442,7 +442,7 @@ test('cancelled draft without actual movement history does not block backdated a
     $phase = CrewAssignmentPhase::query()->create([
         'company_id' => $company->id,
         'crew_assignment_id' => $cancelledDraft->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Cancelled,
         'actual_start_at' => null,
@@ -616,7 +616,7 @@ test('rejected overlapping backdated arrival leaves prior sea service payroll so
     $seaService->refresh();
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($seaService->start_date?->toDateString())->toBe('2026-09-01')
         ->and($seaService->end_date?->toDateString())->toBe('2026-10-07')
         ->and($seaService->total_days)->toBe(6)
@@ -657,7 +657,7 @@ test('backdated arrival overlapping an unlinked crew planning reservation is rej
 
     $assignment->refresh()->load('currentPhase');
 
-    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase?->actual_start_at?->equalTo($originalStart))->toBeTrue();
 });
 

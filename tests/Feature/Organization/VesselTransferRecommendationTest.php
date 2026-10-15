@@ -103,7 +103,7 @@ test('planned future assignment does not block an actual on vessel interval', fu
     CrewAssignmentPhase::query()->create([
         'company_id' => $fixtures['company']->id,
         'crew_assignment_id' => $planned->id,
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'sequence' => 1,
         'status' => CrewPhaseStatus::Planned,
         'planned_start_at' => '2026-09-01 08:00:00',

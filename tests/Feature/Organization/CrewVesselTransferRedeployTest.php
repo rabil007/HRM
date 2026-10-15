@@ -283,7 +283,7 @@ test('redeploy from p5 can start at chosen phases including same vessel', functi
         ->where('properties->destination_assignment_id', $destination->id)
         ->exists())->toBeTrue();
 })->with([
-    'p0' => ['p0', CrewAssignmentStatus::Draft, CrewPhaseCode::PreMobilisation],
+    'p0' => ['p0', CrewAssignmentStatus::Draft, CrewPhaseCode::PreArrival],
     'p1a' => ['p1a', CrewAssignmentStatus::Active, CrewPhaseCode::JoinStandby],
     'p2' => ['p2', CrewAssignmentStatus::Active, CrewPhaseCode::OnVessel],
 ]);
@@ -506,7 +506,7 @@ test('redeploy to p0 clears planned sign-off and does not require destination ve
     ], $user->id);
 
     expect($destination->status)->toBe(CrewAssignmentStatus::Draft)
-        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($destination->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($destination->vessel_id)->toBeNull()
         ->and($destination->planned_signoff_at)->toBeNull();
 });

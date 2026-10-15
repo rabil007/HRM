@@ -46,64 +46,44 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     approve_mobilisation: {
         title: 'Start Assignment',
         description:
-            'This activates the draft Pre-Mobilisation assignment so operational movement can begin.',
+            'This activates the draft Pre-Arrival assignment so operational movement can begin.',
         occurredAtLabel: 'Started at',
         submitLabel: 'Start Assignment',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            'The assignment becomes active Pre-Mobilisation at the selected time.',
+            'The assignment becomes active Pre-Arrival at the selected time.',
     },
     record_arrival: {
         title: 'Record Arrival',
         description:
-            "This records the crew member's actual arrival and starts Join Standby.",
+            "This records the crew member's actual arrival and starts Pre-Joining Standby.",
         occurredAtLabel: 'Arrival date and time',
         submitLabel: 'Record Arrival',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            "This records the crew member's actual arrival and starts Join Standby.",
-        fixedNextPhase: 'p2a',
-    },
-    start_join_standby: {
-        title: 'Start Join Standby',
-        description: 'This starts Join Standby for the assignment.',
-        occurredAtLabel: 'Join standby started at',
-        submitLabel: 'Start Join Standby',
-        ...LIGHT_IMPACT_DEFAULTS,
-        impactDescription: 'This starts P2A Join Standby.',
-        fixedNextPhase: 'p2a',
+            "This records the crew member's actual arrival and starts Pre-Joining Standby.",
+        fixedNextPhase: 'p1a',
     },
     send_to_training: {
         title: 'Send to Training',
-        description: 'This completes Join Standby and starts P2B Training.',
+        description: 'This completes Pre-Joining Standby and starts Training.',
         occurredAtLabel: 'Training started at',
         submitLabel: 'Send to Training',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            'This completes Join Standby and starts P2B Training.',
-        fixedNextPhase: 'p2b',
+            'This completes Pre-Joining Standby and starts Training.',
+        fixedNextPhase: 'p1b',
     },
     complete_training: {
         title: 'Complete Training',
         description:
-            'Record training completion and return the employee to Join Standby.',
+            'Record training completion and return the employee to Pre-Joining Standby.',
         occurredAtLabel: 'Training completed at',
         submitLabel: 'Complete Training',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            'This completes P2B Training and returns the employee to Join Standby.',
-        fixedNextPhase: 'p2a',
-    },
-    mark_ready: {
-        title: 'Mark Ready',
-        description:
-            'This completes Join Standby and moves the employee to P3 Ready to Join. The next operational action will be Join Vessel.',
-        occurredAtLabel: 'Ready from',
-        submitLabel: 'Mark Ready',
-        ...LIGHT_IMPACT_DEFAULTS,
-        impactDescription:
-            'This moves the employee from P2A Join Standby to P3 Ready to Join.',
-        fixedNextPhase: 'p3',
+            'This completes Training and returns the employee to Pre-Joining Standby.',
+        fixedNextPhase: 'p1a',
     },
     join_vessel: {
         title: 'Join Vessel',
@@ -112,20 +92,20 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         occurredAtLabel: 'Actual join date and time',
         submitLabel: 'Confirm Join',
         ...LIGHT_IMPACT_DEFAULTS,
-        impactDescription: [`This will start: ${CREW_PHASE_LABELS.p4}`],
-        fixedNextPhase: 'p4',
+        impactDescription: [`This will start: ${CREW_PHASE_LABELS.p2}`],
+        fixedNextPhase: 'p2',
     },
     plan_signoff: {
         title: 'Plan Sign-Off',
         description:
-            'The employee remains in P4 On Vessel. This updates the linked Planning bar but does not record an actual disembarkation.',
+            'The employee remains On Vessel. This updates the linked Planning bar but does not record an actual disembarkation.',
         occurredAtLabel: null,
         submitLabel: 'Plan Sign-Off',
         impactTitle: 'What this does',
         impactDescription: '',
         impactPreview: 'none',
         impactSeverity: 'normal',
-        fixedNextPhase: 'p4',
+        fixedNextPhase: 'p2',
     },
     confirm_disembarkation: {
         title: 'Confirm Disembarkation',
@@ -135,22 +115,22 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         submitLabel: 'Confirm Disembarkation',
         ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
-            'P4 On Vessel ends at the selected movement time.',
+            'On Vessel ends at the selected movement time.',
             'Actual disembarkation is recorded at the selected movement time.',
             'Sea service is finalized according to existing logic.',
-            'The assignment moves into the next configured movement stage (P5 or P6).',
+            'The assignment moves into Demobilisation Standby or Home / Redeployment.',
         ],
         nextPhaseLabel: 'After disembarkation',
         nextPhaseOptions: [
             {
-                value: 'p5',
-                label: CREW_PHASE_LABELS.p5,
+                value: 'p3',
+                label: CREW_PHASE_LABELS.p3,
                 description:
                     'The employee has left the vessel but is waiting before travelling home.',
             },
             {
-                value: 'p6',
-                label: 'Home / Redeploy',
+                value: 'p4',
+                label: CREW_PHASE_LABELS.p4,
                 description:
                     'Skip demobilisation standby and proceed directly to home or redeployment.',
             },
@@ -164,8 +144,8 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         submitLabel: 'Start Demobilisation Standby',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription:
-            'This ends P4 On Vessel and starts P5 Demobilisation Standby.',
-        fixedNextPhase: 'p5',
+            'This ends On Vessel and starts Demobilisation Standby.',
+        fixedNextPhase: 'p3',
     },
     travel_home: {
         title: 'Return Home',
@@ -194,7 +174,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
                     'Keep this assignment active in Home / Redeployment because the crew member may be redeployed.',
             },
         ],
-        fixedNextPhase: 'p6',
+        fixedNextPhase: 'p4',
     },
     close_assignment: {
         title: 'Close Assignment',
@@ -223,7 +203,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
             'Operational follow-up and planning links for this mobilisation.',
             'The assignment state, which becomes Cancelled when permitted for the current phase.',
             'Historical movement and sea-service data already recorded remain preserved.',
-            'Active P4 On Vessel assignments cannot be cancelled directly.',
+            'Active On Vessel assignments cannot be cancelled directly.',
         ],
         destructive: true,
         keepOpenLabel: 'Keep Assignment',
@@ -231,18 +211,18 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
     transfer_vessel: {
         title: 'Transfer Vessel',
         description:
-            'Complete the current On Vessel assignment and start a linked assignment directly in P4 on the destination vessel. No standby or travel phases are invented.',
+            'Complete the current On Vessel assignment and start a linked assignment directly On Vessel on the destination vessel. No standby or travel phases are invented.',
         occurredAtLabel: 'Actual transfer date and time',
         submitLabel: 'Confirm Transfer',
         ...FULL_IMPACT_DEFAULTS,
         impactDescription: [
-            'The current P4 On Vessel phase ends at the selected movement time.',
+            'The current On Vessel phase ends at the selected movement time.',
             'Current assignment history on the source vessel remains preserved.',
-            'Sea service for the completed source P4 is synced according to existing logic.',
-            'A linked destination assignment is created and started in P4 on the destination vessel.',
+            'Sea service for the completed source phase is synced according to existing logic.',
+            'A linked destination assignment is created and started On Vessel on the destination vessel.',
             'The movement time becomes the operational boundary between source and destination.',
         ],
-        fixedNextPhase: 'p4',
+        fixedNextPhase: 'p2',
     },
     redeploy: {
         title: 'Redeploy',
@@ -254,7 +234,7 @@ export const MOVEMENT_ACTION_CONFIG: Partial<
         impactDescription: [
             'The current mobilisation is completed according to existing Redeploy logic.',
             'A linked destination assignment is created and remains connected to the source history.',
-            'The destination starts only in the phase selected by the existing workflow (P0, P2A, or P4).',
+            'The destination starts only in the phase selected by the existing workflow (P0, P1A, or P2).',
             'No earlier phases are invented on the destination assignment.',
         ],
     },
@@ -266,12 +246,12 @@ function lightRecordArrivalConfig(
     return {
         title: 'Record Arrival',
         description:
-            "This records the crew member's actual arrival and starts Join Standby.",
+            "This records the crew member's actual arrival and starts Pre-Joining Standby.",
         occurredAtLabel: 'Arrival date and time',
         submitLabel: 'Record Arrival',
         ...LIGHT_IMPACT_DEFAULTS,
         impactDescription,
-        fixedNextPhase: 'p2a',
+        fixedNextPhase: 'p1a',
     };
 }
 
@@ -281,13 +261,7 @@ export function getMovementActionConfig(
 ): MovementActionConfig {
     if (action === 'record_arrival' && currentPhase === 'p0') {
         return lightRecordArrivalConfig(
-            "This records the crew member's actual arrival and transitions the assignment from Pre-Mobilisation into Join Standby.",
-        );
-    }
-
-    if (action === 'record_arrival' && currentPhase === 'p1') {
-        return lightRecordArrivalConfig(
-            'This completes Travel In and moves the employee into Join Standby.',
+            "This records the crew member's actual arrival and transitions the assignment from Pre-Arrival into Pre-Joining Standby.",
         );
     }
 

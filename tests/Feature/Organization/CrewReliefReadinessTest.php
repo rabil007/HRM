@@ -92,7 +92,7 @@ it('resolves assignment_created, mobilising, ready_to_join and relief_onboard', 
 
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);

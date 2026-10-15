@@ -72,7 +72,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 && $vesselId !== null
                 && $vesselId !== ''
                 && $companyId > 0
-                && ! ($action === 'redeploy' && $this->input('starting_phase') === CrewPhaseCode::PreMobilisation->value)) {
+                && ! ($action === 'redeploy' && $this->input('starting_phase') === CrewPhaseCode::PreArrival->value)) {
                 $resolved = ClientAssignmentRules::resolveClientIdFromVessel($companyId, (int) $vesselId);
 
                 if ($resolved !== null) {
@@ -86,7 +86,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             $assignment = $this->route('assignment');
             if ($assignment instanceof CrewAssignment) {
                 $assignment->loadMissing('currentPhase');
-                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::PreMobilisation
+                if ($assignment->currentPhase?->phase_code === CrewPhaseCode::PreArrival
                     && ! $this->filled('next_phase')) {
                     $this->merge(['next_phase' => CrewPhaseCode::JoinStandby->value]);
                 }
@@ -110,7 +110,7 @@ class PerformCrewMovementActionRequest extends FormRequest
             }
         }
 
-        if ($startingPhase === CrewPhaseCode::PreMobilisation->value) {
+        if ($startingPhase === CrewPhaseCode::PreArrival->value) {
             $nullable['planned_signoff_at'] = null;
             $nullable['vessel_id'] = null;
             $nullable['position_id'] = null;
@@ -267,7 +267,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 'required',
                 'string',
                 Rule::in([
-                    CrewPhaseCode::PreMobilisation->value,
+                    CrewPhaseCode::PreArrival->value,
                     CrewPhaseCode::JoinStandby->value,
                     CrewPhaseCode::OnVessel->value,
                 ]),
@@ -450,7 +450,7 @@ class PerformCrewMovementActionRequest extends FormRequest
 
             if ($action === 'approve_mobilisation') {
                 $isDraft = $assignment->status === CrewAssignmentStatus::Draft;
-                $isPreMob = $assignment->currentPhase === null || $assignment->currentPhase->phase_code === CrewPhaseCode::PreMobilisation;
+                $isPreMob = $assignment->currentPhase === null || $assignment->currentPhase->phase_code === CrewPhaseCode::PreArrival;
 
                 if (! $isDraft || ! $isPreMob) {
                     $validator->errors()->add(
@@ -463,14 +463,14 @@ class PerformCrewMovementActionRequest extends FormRequest
             if ($action === 'record_arrival') {
                 $currentCode = $assignment->currentPhase?->phase_code;
 
-                if ($currentCode !== CrewPhaseCode::PreMobilisation) {
+                if ($currentCode !== CrewPhaseCode::PreArrival) {
                     $validator->errors()->add(
                         'action',
                         'Record Arrival can only be performed from Pre-Arrival.',
                     );
                 }
 
-                if ($currentCode === CrewPhaseCode::PreMobilisation && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
+                if ($currentCode === CrewPhaseCode::PreArrival && $this->input('next_phase') !== CrewPhaseCode::JoinStandby->value) {
                     $validator->errors()->add(
                         'next_phase',
                         'Pre-Arrival arrivals must transition to Pre-Joining Standby.',

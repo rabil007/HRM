@@ -22,30 +22,18 @@ const CREW_PHASE_GUIDE: Record<
         usuallyNext:
             'Start / continue mobilisation, then Record Arrival when appropriate.',
     },
-    p1: {
-        typicalActivity: 'Travel toward the mobilisation point.',
-        usuallyNext: 'Record Arrival',
-        compatibilityNote:
-            'Legacy compatibility phase. Normal web workflows do not create new P1 assignments.',
-    },
-    p2a: {
+    p1a: {
         typicalActivity:
             'Hotel / standby while waiting to join; destination may still change before boarding.',
         usuallyNext: 'Join Vessel',
         alternativePath:
             'Send to Training. Changing vessel here updates the current mobilisation — not Transfer Vessel.',
     },
-    p2b: {
+    p1b: {
         typicalActivity: 'Course or operational training during mobilisation.',
         usuallyNext: 'Complete Training, then continue toward vessel joining.',
     },
-    p3: {
-        typicalActivity: 'Final ready-to-board state.',
-        usuallyNext: 'Join Vessel',
-        compatibilityNote:
-            'Legacy compatibility phase. Not every modern workflow creates P3.',
-    },
-    p4: {
+    p2: {
         typicalActivity:
             'Active sea service, tour monitoring, sign-off planning, and relief planning.',
         usuallyNext:
@@ -53,14 +41,14 @@ const CREW_PHASE_GUIDE: Record<
         alternativePath:
             'Plan Sign-Off (forecast only) or Transfer Vessel for direct vessel-to-vessel movement.',
     },
-    p5: {
+    p3: {
         typicalActivity:
             'Post-sign-off hotel / standby while awaiting return home or next mobilisation.',
         usuallyNext: 'Return Home',
         alternativePath:
             'Redeploy if going directly into another mobilisation.',
     },
-    p6: {
+    p4: {
         typicalActivity:
             'Home or final redeployment stage of the current cycle.',
         usuallyNext: 'Close Assignment',
@@ -70,14 +58,15 @@ const CREW_PHASE_GUIDE: Record<
 
 export const CREW_PHASE_GUIDE_FLOW: CrewPhaseCode[] = [
     'p0',
-    'p2a',
-    'p2b',
+    'p1a',
+    'p1b',
+    'p2',
+    'p3',
     'p4',
-    'p5',
-    'p6',
 ];
 
-export const CREW_PHASE_GUIDE_COMPATIBILITY: CrewPhaseCode[] = ['p1', 'p3'];
+/** Retired phases are not part of the modern guide flow. */
+export const CREW_PHASE_GUIDE_COMPATIBILITY: CrewPhaseCode[] = [];
 
 export function crewPhaseGuideItems(): CrewPhaseGuideItem[] {
     return (Object.keys(CREW_PHASE_GUIDE) as CrewPhaseCode[]).map((code) => {

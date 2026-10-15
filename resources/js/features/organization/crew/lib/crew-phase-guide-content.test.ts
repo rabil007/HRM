@@ -11,18 +11,14 @@ describe('crew phase guide content', () => {
     it('includes the primary operational flow phases', () => {
         assert.deepEqual(
             crewPhaseGuideFlowItems().map((item) => item.code),
-            ['p0', 'p2a', 'p2b', 'p4', 'p5', 'p6'],
+            ['p0', 'p1a', 'p1b', 'p2', 'p3', 'p4'],
         );
     });
 
-    it('documents P1 and P3 as compatibility phases', () => {
+    it('does not document retired Travel In or Ready to Join compatibility phases', () => {
         assert.deepEqual(
             crewPhaseGuideCompatibilityItems().map((item) => item.code),
-            ['p1', 'p3'],
-        );
-        assert.match(
-            crewPhaseGuideCompatibilityItems()[0]?.compatibilityNote ?? '',
-            /Legacy compatibility/i,
+            [],
         );
     });
 
@@ -30,25 +26,25 @@ describe('crew phase guide content', () => {
         assert.match(CREW_PHASE_GUIDE_FOOTNOTE, /Not every assignment/i);
     });
 
-    it('shows transfer only as a P4 alternative path', () => {
-        const p4 = crewPhaseGuideItems().find((item) => item.code === 'p4');
+    it('shows transfer only as a P2 alternative path', () => {
+        const p2 = crewPhaseGuideItems().find((item) => item.code === 'p2');
 
-        assert.match(p4?.alternativePath ?? '', /Transfer Vessel/i);
+        assert.match(p2?.alternativePath ?? '', /Transfer Vessel/i);
         assert.equal(
-            crewPhaseGuideItems().find((item) => item.code === 'p2a')
+            crewPhaseGuideItems().find((item) => item.code === 'p1a')
                 ?.alternativePath,
             'Send to Training. Changing vessel here updates the current mobilisation — not Transfer Vessel.',
         );
     });
 
-    it('explains redeploy for P5 and P6', () => {
+    it('explains redeploy for P3 and P4', () => {
         assert.match(
-            crewPhaseGuideItems().find((item) => item.code === 'p5')
+            crewPhaseGuideItems().find((item) => item.code === 'p3')
                 ?.alternativePath ?? '',
             /Redeploy/i,
         );
         assert.match(
-            crewPhaseGuideItems().find((item) => item.code === 'p6')
+            crewPhaseGuideItems().find((item) => item.code === 'p4')
                 ?.alternativePath ?? '',
             /Redeploy/i,
         );

@@ -41,7 +41,7 @@ test('start assignment creates active p0 only', function () {
     $assignment = CrewAssignment::query()->where('company_id', $company->id)->latest('id')->first();
 
     expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
-        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->phases)->toHaveCount(1)
         ->and($assignment->phases->pluck('phase_code')->map->value->all())->toBe(['p0']);
 });

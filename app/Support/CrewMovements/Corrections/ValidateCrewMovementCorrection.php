@@ -498,7 +498,7 @@ final class ValidateCrewMovementCorrection
 
             if ($isPreJoin) {
                 $isArrivalOrStandbyPhase = ($stay->started_from_phase_id !== null && (int) $stay->started_from_phase_id === (int) $phase->id)
-                    || ($stay->started_from_phase_id === null && in_array($phase->phase_code, [CrewPhaseCode::JoinStandby, CrewPhaseCode::PreMobilisation], true));
+                    || ($stay->started_from_phase_id === null && in_array($phase->phase_code, [CrewPhaseCode::JoinStandby, CrewPhaseCode::PreArrival], true));
 
                 if ($isArrivalOrStandbyPhase && array_key_exists('actual_start_at', $normalized) && $start instanceof CarbonInterface && $stay->check_in_date !== null) {
                     $checkInLocalDate = Carbon::parse($stay->check_in_date, $timezone)->startOfDay();

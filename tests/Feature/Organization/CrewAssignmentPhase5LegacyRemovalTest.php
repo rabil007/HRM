@@ -59,7 +59,7 @@ test('draft P0 can still use CrewPhaseStatus Planned', function () {
     ], $user->id);
 
     expect($draft->status)->toBe(CrewAssignmentStatus::Draft)
-        ->and($draft->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($draft->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($draft->currentPhase?->status)->toBe(CrewPhaseStatus::Planned)
         ->and($draft->currentPhase?->actual_start_at)->toBeNull()
         ->and($draft->started_at)->toBeNull();

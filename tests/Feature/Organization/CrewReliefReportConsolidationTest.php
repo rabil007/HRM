@@ -274,7 +274,7 @@ test('relief desk maps linked pre-join phases to mobilising and ready to join', 
             ->where('rows.0.relief_crew_assignment_id', $linked->id)
         );
 })->with([
-    'p0' => [CrewPhaseCode::PreMobilisation, CrewReliefStatus::Mobilising],
+    'p0' => [CrewPhaseCode::PreArrival, CrewReliefStatus::Mobilising],
     'p1a' => [CrewPhaseCode::JoinStandby, CrewReliefStatus::ReadyToJoin],
     'p1b' => [CrewPhaseCode::Training, CrewReliefStatus::Mobilising],
 ]);
@@ -410,7 +410,7 @@ test('relief desk surfaces mobilisation readiness for pre-join relief without bl
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);
@@ -556,7 +556,7 @@ test('open assignment actions are hidden without assignment view permission', fu
     $linked = createAssignmentFromPlanning($plan, $fixtures['user']->id);
     $linked->update(['status' => CrewAssignmentStatus::Active]);
     $linked->currentPhase->update([
-        'phase_code' => CrewPhaseCode::PreMobilisation,
+        'phase_code' => CrewPhaseCode::PreArrival,
         'status' => CrewPhaseStatus::Active,
         'actual_start_at' => now(),
     ]);

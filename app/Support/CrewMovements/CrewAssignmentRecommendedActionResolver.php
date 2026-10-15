@@ -26,8 +26,8 @@ final class CrewAssignmentRecommendedActionResolver
         $permitted = $this->permittedActions($availableActions, $user);
         $phase = $assignment->currentPhase?->phase_code;
 
-        if ($phase === CrewPhaseCode::PreMobilisation) {
-            return $this->forPreMobilisation($permitted, $readiness);
+        if ($phase === CrewPhaseCode::PreArrival) {
+            return $this->forPreArrival($permitted, $readiness);
         }
 
         if ($phase === CrewPhaseCode::JoinStandby) {
@@ -69,7 +69,7 @@ final class CrewAssignmentRecommendedActionResolver
     /**
      * @param  list<string>  $permitted
      */
-    private function forPreMobilisation(
+    private function forPreArrival(
         array $permitted,
         ?CrewMobilisationReadinessResult $readiness,
     ): ?CrewAssignmentRecommendedActionResult {

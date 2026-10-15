@@ -29,8 +29,8 @@ import { TourSignoffFields } from './tour-signoff-fields';
 
 const REDEPLOY_STARTING_PHASES = [
     { value: 'p0', label: CREW_PHASE_LABELS.p0 },
-    { value: 'p2a', label: CREW_PHASE_LABELS.p2a },
-    { value: 'p4', label: CREW_PHASE_LABELS.p4 },
+    { value: 'p1a', label: CREW_PHASE_LABELS.p1a },
+    { value: 'p2', label: CREW_PHASE_LABELS.p2 },
 ] as const;
 
 export function RedeployForm({
@@ -42,12 +42,12 @@ export function RedeployForm({
     schedulingMode,
 }: MovementActionFormProps): ReactElement {
     const startingPhase = form.data.starting_phase;
-    const requiresVessel = startingPhase === 'p4';
+    const requiresVessel = startingPhase === 'p2';
     const redeployDate = form.data.occurred_at.slice(0, 10);
-    const showDestinationFields = ['p2a', 'p4'].includes(startingPhase);
-    const showDirectP4Tour = startingPhase === 'p4';
-    const showForecastSignoff = startingPhase === 'p2a';
-    const showDestinationAccommodation = startingPhase === 'p2a';
+    const showDestinationFields = ['p1a', 'p2'].includes(startingPhase);
+    const showDirectP4Tour = startingPhase === 'p2';
+    const showForecastSignoff = startingPhase === 'p1a';
+    const showDestinationAccommodation = startingPhase === 'p1a';
     const postSignoffAccommodation = context.post_signoff_accommodation;
     const noDestinationHotelAccommodation = form.data.no_hotel_accommodation;
     const availableRoomTypes = roomTypesForHotel(
@@ -245,8 +245,8 @@ export function RedeployForm({
                             next.client_id = null;
                             next.planned_signoff_at = '';
                             Object.assign(next, clearedDirectP4TourFields());
-                        } else if (value === 'p4') {
-                            if (!['p2a', 'p4'].includes(startingPhase)) {
+                        } else if (value === 'p2') {
+                            if (!['p1a', 'p2'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.position_id = context.position_id;
                                 next.client_id = context.client_id;
@@ -265,8 +265,8 @@ export function RedeployForm({
                                 defaultDestinationTourSignoffChoice(position);
                             next.planned_signoff_override_reason = '';
                             next.planned_signoff_at = '';
-                        } else if (value === 'p2a') {
-                            if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
+                        } else if (value === 'p1a') {
+                            if (!['p1', 'p1a', 'p2'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.position_id = context.position_id;
                                 next.client_id = context.client_id;
@@ -293,7 +293,7 @@ export function RedeployForm({
                                     syncedCheckIn.lastAutoCheckInDate;
                             }
                         } else {
-                            if (!['p1', 'p2a', 'p4'].includes(startingPhase)) {
+                            if (!['p1', 'p1a', 'p2'].includes(startingPhase)) {
                                 next.vessel_id = context.vessel_id;
                                 next.position_id = context.position_id;
                                 next.client_id = context.client_id;

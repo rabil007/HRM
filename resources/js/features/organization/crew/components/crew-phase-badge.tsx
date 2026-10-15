@@ -5,10 +5,13 @@ import { cn } from '@/lib/utils';
 const PHASE_CODE_STYLES: Record<string, string> = {
     p0: 'border-muted-foreground/30 bg-muted/50 text-muted-foreground',
     p1: 'border-info/30 bg-info/10 text-info',
+    p1a: 'border-warning/30 bg-warning/10 text-warning',
+    p1b: 'border-warning/30 bg-warning/10 text-warning',
+    p2: 'border-success/30 bg-success/10 text-success',
+    p3: 'border-primary/30 bg-primary/10 text-primary',
+    p4: 'border-muted-foreground/30 bg-muted/50 text-muted-foreground',
     p2a: 'border-warning/30 bg-warning/10 text-warning',
     p2b: 'border-warning/30 bg-warning/10 text-warning',
-    p3: 'border-primary/30 bg-primary/10 text-primary',
-    p4: 'border-success/30 bg-success/10 text-success',
     p5: 'border-warning/30 bg-warning/10 text-warning',
     p6: 'border-muted-foreground/30 bg-muted/50 text-muted-foreground',
 };

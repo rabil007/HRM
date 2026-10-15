@@ -201,7 +201,7 @@ export default function CrewAssignmentShow({
         [assignment.available_actions, can.cancel, cancelDismissed],
     );
 
-    const isOnVessel = assignment.current_phase?.code === 'p4';
+    const isOnVessel = assignment.current_phase?.code === 'p2';
     const reliefHref = isOnVessel
         ? reliefActionHref(assignment, can.view_planning, can.view)
         : null;

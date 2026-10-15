@@ -20,13 +20,16 @@ describe('already-arrived-start copy', () => {
     it('exposes the operator-facing checkbox label', () => {
         assert.equal(
             ALREADY_ARRIVED_LABEL,
-            'Already Arrived — Skip Pre-Mobilisation',
+            'Already Arrived — Skip Pre-Arrival',
         );
     });
 
-    it('explains the P2A shortcut', () => {
-        assert.match(ALREADY_ARRIVED_EXPLANATION, /Join Standby \(P2A\)/);
-        assert.match(ALREADY_ARRIVED_EXPLANATION, /skipping Pre-Mobilisation/);
+    it('explains the P1A shortcut', () => {
+        assert.match(
+            ALREADY_ARRIVED_EXPLANATION,
+            /Pre-Joining Standby \(P1A\)/,
+        );
+        assert.match(ALREADY_ARRIVED_EXPLANATION, /skipping Pre-Arrival/);
     });
 
     it('switches arrival labels for the checked state', () => {

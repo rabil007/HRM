@@ -59,7 +59,7 @@ test('normal mobilisation produces correct payable days and payroll record', fun
     setDailyCrewContractRates($fixtures, 100, 30, 20);
     makeSeptemberDailyCrewPeriod($fixtures);
 
-    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreMobilisation, 1, '2026-09-01 08:00:00', '2026-09-02 08:00:00');
+    addTimelinePhase($fixtures['assignment'], CrewPhaseCode::PreArrival, 1, '2026-09-01 08:00:00', '2026-09-02 08:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::JoinStandby, 2, '2026-09-02 08:00:00', '2026-09-07 08:00:00');
     addTimelinePhase($fixtures['assignment'], CrewPhaseCode::OnVessel, 3, '2026-09-07 08:00:00', '2026-09-20 18:00:00', CrewPhaseStatus::Completed);
 

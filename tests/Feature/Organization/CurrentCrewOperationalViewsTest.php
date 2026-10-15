@@ -33,7 +33,7 @@ test('summary counts map operational location cards from active current phases',
     $company = $fixtures['company'];
 
     $phases = [
-        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::PreArrival,
         CrewPhaseCode::JoinStandby,
         CrewPhaseCode::Training,
         CrewPhaseCode::JoinStandby,
@@ -119,7 +119,7 @@ test('pre join hotel view returns only active p1a and p1b assignments', function
 })->with([
     'p1a included' => [CrewPhaseCode::JoinStandby, true],
     'p1b included' => [CrewPhaseCode::Training, true],
-    'p0 excluded' => [CrewPhaseCode::PreMobilisation, false],
+    'p0 excluded' => [CrewPhaseCode::PreArrival, false],
     'p2 excluded' => [CrewPhaseCode::OnVessel, false],
     'p3 excluded' => [CrewPhaseCode::DemobStandby, false],
     'p4 excluded' => [CrewPhaseCode::HomeRedeploy, false],

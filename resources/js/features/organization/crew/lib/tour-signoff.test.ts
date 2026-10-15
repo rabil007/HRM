@@ -151,9 +151,9 @@ describe('shouldShowDirectP4TourSignoffFields', () => {
         assert.equal(shouldShowDirectP4TourSignoffFields('join_vessel'), true);
     });
 
-    it('shows Tour fields for redeploy P4 only', () => {
+    it('shows Tour fields for redeploy P2 only', () => {
         assert.equal(
-            shouldShowDirectP4TourSignoffFields('redeploy', 'p4'),
+            shouldShowDirectP4TourSignoffFields('redeploy', 'p2'),
             true,
         );
         assert.equal(
@@ -165,11 +165,11 @@ describe('shouldShowDirectP4TourSignoffFields', () => {
             false,
         );
         assert.equal(
-            shouldShowDirectP4TourSignoffFields('redeploy', 'p2a'),
+            shouldShowDirectP4TourSignoffFields('redeploy', 'p1a'),
             false,
         );
         assert.equal(
-            shouldShowDirectP4TourSignoffFields('redeploy', 'p3'),
+            shouldShowDirectP4TourSignoffFields('redeploy', 'p4'),
             false,
         );
     });
@@ -224,7 +224,7 @@ describe('normalizeTourSignoffPayload', () => {
     });
 
     it('excludes direct-P4 Tour fields for pre-P4 redeploy', () => {
-        for (const starting_phase of ['p0', 'p1', 'p2a', 'p3'] as const) {
+        for (const starting_phase of ['p0', 'p1', 'p1a', 'p4'] as const) {
             const payload = normalizeTourSignoffPayload(
                 baseForm({
                     action: 'redeploy',
@@ -250,11 +250,11 @@ describe('normalizeTourSignoffPayload', () => {
         }
     });
 
-    it('keeps Tour fields for direct-P4 redeploy', () => {
+    it('keeps Tour fields for direct onboard redeploy', () => {
         const payload = normalizeTourSignoffPayload(
             baseForm({
                 action: 'redeploy',
-                starting_phase: 'p4',
+                starting_phase: 'p2',
                 planned_signoff_choice: 'tour_of_duty',
             }),
             'redeploy',
@@ -276,7 +276,7 @@ describe('clearedDirectP4TourFields', () => {
 
 describe('actionUsesDirectP4TourSignoff', () => {
     it('initializes P4 redeploy Tour choice from destination rank helpers', () => {
-        assert.equal(actionUsesDirectP4TourSignoff('redeploy', 'p4'), true);
+        assert.equal(actionUsesDirectP4TourSignoff('redeploy', 'p2'), true);
         assert.equal(
             defaultDestinationTourSignoffChoice(
                 findRankTourOption(

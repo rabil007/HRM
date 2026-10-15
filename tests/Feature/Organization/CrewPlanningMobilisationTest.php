@@ -66,7 +66,7 @@ test('named planning record starts mobilisation to active CrewAssignment with P0
         ->and($assignment->planned_signoff_at?->format('Y-m-d'))->toBe('2027-09-30');
 
     expect($assignment->currentPhase)->not->toBeNull()
-        ->and($assignment->currentPhase->phase_code)->toBe(CrewPhaseCode::PreMobilisation)
+        ->and($assignment->currentPhase->phase_code)->toBe(CrewPhaseCode::PreArrival)
         ->and($assignment->currentPhase->status)->toBe(CrewPhaseStatus::Active)
         ->and($assignment->currentPhase->actual_start_at?->toIso8601String())->toBe($assignment->started_at->toIso8601String());
 

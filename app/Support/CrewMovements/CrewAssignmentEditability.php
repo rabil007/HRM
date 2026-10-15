@@ -33,7 +33,7 @@ class CrewAssignmentEditability
         }
 
         return in_array($current->phase_code, [
-            CrewPhaseCode::PreMobilisation,
+            CrewPhaseCode::PreArrival,
             CrewPhaseCode::JoinStandby,
             CrewPhaseCode::Training,
         ], true);

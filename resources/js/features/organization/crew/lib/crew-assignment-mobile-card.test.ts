@@ -21,7 +21,7 @@ function assignment(
         vessel: { id: 8, name: 'Horizon' },
         client: null,
         current_phase: {
-            code: 'p4',
+            code: 'p2',
             label: 'Onboard',
             status: 'active',
         },
@@ -38,7 +38,7 @@ function assignment(
             employee_id: 12,
             employee_name: 'Mohammed Rabil',
             employee_no: 'EMP-0012',
-            current_phase_code: 'p4',
+            current_phase_code: 'p2',
             current_phase_label: 'Onboard',
             current_phase_started_at: '2026-08-01',
             days_in_phase: 12,
@@ -112,7 +112,7 @@ describe('crewAssignmentMobileCardModel', () => {
         assert.equal(model.title, 'Mohammed Rabil');
         assert.equal(model.subtitle, 'CA-00482 · Engineer');
         assert.equal(model.vesselName, 'Horizon');
-        assert.equal(model.phaseCode, 'p4');
+        assert.equal(model.phaseCode, 'p2');
         assert.equal(model.phaseLabel, 'Onboard');
         assert.equal(model.isOnVessel, true);
         assert.equal(model.plannedSignoffAt, '2026-08-28');

@@ -23,7 +23,7 @@ function makePhasedAssignment(CrewPhaseCode $targetPhase): array
         'vessel_id' => $vessel->id,
     ], $user->id);
 
-    if ($targetPhase === CrewPhaseCode::PreMobilisation) {
+    if ($targetPhase === CrewPhaseCode::PreArrival) {
         return [$assignment->load('currentPhase'), $service, $fixtures, $vessel];
     }
 
@@ -84,7 +84,7 @@ test('available actions match guided menus for every phase', function (CrewPhase
     expect(CrewMovementAvailableActions::for($assignment))->toBe($expected);
 })->with([
     'draft p0' => [
-        CrewPhaseCode::PreMobilisation,
+        CrewPhaseCode::PreArrival,
         [
             CrewMovementAction::ApproveMobilisation->value,
             CrewMovementAction::CancelAssignment->value,
