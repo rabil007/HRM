@@ -22,8 +22,8 @@ describe('Crew assignment edit parity context', () => {
                 client: null,
                 current_phase: {
                     id: 1,
-                    code: 'p2a',
-                    label: 'Join Standby',
+                    code: 'p1a',
+                    label: 'Pre-Joining Standby',
                     status: 'active',
                     status_label: 'Active',
                 },

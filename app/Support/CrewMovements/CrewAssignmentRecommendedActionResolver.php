@@ -99,7 +99,7 @@ final class CrewAssignmentRecommendedActionResolver
             return $this->movementRecommendation(
                 $permitted,
                 CrewMovementAction::RecordArrival,
-                'Crew member is in pre-mobilisation. Record arrival when they reach the join location.',
+                'Crew member is in Pre-Arrival. Record arrival when they reach the join location.',
             );
         }
 

@@ -113,4 +113,4 @@ which requires `company_id` + `status = active` (and excludes soft-deleted rows)
 - Prefer `Employee::active()` or `ActiveEmployeeConstraint` over repeating `where('status', 'active')`.
 - Do not add a global Employee scope.
 - Do not use frontend hiding as the security boundary.
-- CrewAssignment remains the source of truth for P0–P6. This policy does not change phase semantics or reintroduce EmployeeDeployment.
+- CrewAssignment remains the source of truth for the P0–P4 six-phase lifecycle. This policy does not change phase semantics or reintroduce EmployeeDeployment.

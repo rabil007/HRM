@@ -70,7 +70,7 @@ final class CrewAlreadyArrivedStart
     }
 
     /**
-     * Resolve the operational P2A actual start from a required Actual Arrival Date.
+     * Resolve the operational P1A actual start from a required Actual Arrival Date.
      */
     public static function resolveActualArrivalAt(int $companyId, mixed $rawDate): CarbonInterface
     {

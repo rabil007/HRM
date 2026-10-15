@@ -26,7 +26,7 @@ enum CrewMovementAction: string
         return match ($this) {
             self::ApproveMobilisation => 'Start Assignment',
             self::RecordArrival => 'Record Arrival',
-            self::StartJoinStandby => 'Start Join Standby',
+            self::StartJoinStandby => 'Start Pre-Joining Standby',
             self::SendToTraining => 'Send to Training',
             self::CompleteTraining => 'Complete Training',
             self::MarkReady => 'Mark Ready',

@@ -14,12 +14,14 @@ describe('CrewAssignmentCreateDirectActions', () => {
         const source = readFileSync(componentPath, 'utf8');
 
         const alreadyIndex = source.indexOf('Already Arrived');
-        const preMobIndex = source.indexOf('Start Pre-Mobilisation');
+        const preArrivalIndex = source.indexOf('Start Pre-Arrival');
         const draftIndex = source.indexOf('Save as Draft');
 
         assert.ok(alreadyIndex >= 0);
-        assert.ok(preMobIndex > alreadyIndex);
-        assert.ok(draftIndex > preMobIndex);
+        assert.ok(preArrivalIndex > alreadyIndex);
+        assert.ok(draftIndex > preArrivalIndex);
+        assert.equal(source.includes('Start Pre-Mobilisation'), false);
+        assert.equal(source.includes('Pre-Mobilisation'), false);
     });
 
     it('does not wire hover or focus handlers that mutate form state', () => {

@@ -459,7 +459,7 @@ test('active p0 rejects crafted approve mobilisation and creates no p1', functio
         'occurred_at' => '2026-09-15 14:15:00',
     ], $user->id))->toThrow(
         CrewMovementException::class,
-        'Start Assignment can only be performed on a draft assignment in planned pre-mobilisation.',
+        'Start Assignment can only be performed on a draft assignment in planned Pre-Arrival.',
     );
 
     $assignment->refresh()->load('phases');

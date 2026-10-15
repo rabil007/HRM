@@ -45,7 +45,7 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 - **Employee profile templates** — company-specific field visibility, tab layout, and required-field rules used by employee create/edit and import workflows
 - **Attendance and leave** — attendance records and calendar, leave requests, balances, types, and approval workflows
 - **Payroll** — periods, salary inputs, timesheets, records, payslips, WPS export, approval and payment workflows ([docs/payroll.md](docs/payroll.md))
-- **Crew Operations** — Crew Assignments, P0–P6 movements, planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections, and related operational workflows ([docs/architecture/crew-movement-phases.md](docs/architecture/crew-movement-phases.md))
+- **Crew Operations** — Crew Assignments, P0–P4 six-phase movements (P0, P1A, P1B, P2, P3, P4), planning/Gantt, vessel manning, sea-service synchronization, movement history/corrections, and related operational workflows ([docs/architecture/crew-movement-phases.md](docs/architecture/crew-movement-phases.md))
 - **Bulk documents and e-signing** — document generation, distribution, signature requests, and public signed flows
 - **Integrations** — SMTP, WhatsApp, and Hikvision configuration and operational workflows
 - **Settings** — application branding, security, integration settings, and master data CRUD

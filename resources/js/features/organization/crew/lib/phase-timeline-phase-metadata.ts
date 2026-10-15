@@ -6,7 +6,7 @@ export type PhaseMetadataRow = {
     value: string;
 };
 
-const P2B_HANDLED_KEYS = new Set(['course', 'provider', 'course_id']);
+const TRAINING_HANDLED_KEYS = new Set(['course', 'provider', 'course_id']);
 
 const DETAIL_LABELS: Record<string, string> = {
     provider: 'Training Provider',
@@ -103,7 +103,7 @@ export function buildPhaseMetadataRows(
     }
 
     for (const [key, rawValue] of Object.entries(details)) {
-        if (usedKeys.has(key) || P2B_HANDLED_KEYS.has(key)) {
+        if (usedKeys.has(key) || TRAINING_HANDLED_KEYS.has(key)) {
             continue;
         }
 

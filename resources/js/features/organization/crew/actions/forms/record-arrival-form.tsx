@@ -218,7 +218,7 @@ export function RecordArrivalForm({
             {isFixedArrivalPhase ? (
                 <div className="rounded-md border border-border/60 bg-muted/40 p-3 text-sm text-muted-foreground">
                     This records the crew member&apos;s actual arrival and
-                    starts Join Standby.
+                    starts Pre-Joining Standby.
                 </div>
             ) : config.nextPhaseOptions && config.nextPhaseLabel ? (
                 <MovementNextPhaseChoice

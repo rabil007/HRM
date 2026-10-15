@@ -82,12 +82,12 @@ describe('bulkRowBlockReason', () => {
             bulkRowBlockReason(
                 status({
                     status: 'join_standby',
-                    label: 'Join Standby',
+                    label: 'Pre-joining standby',
                     has_active_assignment: true,
                 }),
                 null,
             ),
-            'Join Standby — this employee already has an active Crew Assignment.',
+            'Pre-joining standby — this employee already has an active Crew Assignment.',
         );
     });
 });

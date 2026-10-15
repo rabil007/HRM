@@ -16,14 +16,14 @@ The report excludes soft-deleted phases through the standard `phases` relationsh
 
 The normal report timeline (**Complete phase timeline**) shows only modern product-facing phases:
 
-- P0 Pre-Mobilisation
-- P2A Join Standby
-- P2B Training
-- P4 On Vessel
-- P5 Demobilisation Standby
-- P6 Home / Redeployment
+- P0 Pre-Arrival
+- P1A Pre-Joining Standby
+- P1B Training
+- P2 On Vessel
+- P3 Demobilisation Standby
+- P4 Home / Redeployment
 
-Legacy phases P1 Travel In and P3 Ready to Join are never mixed into the modern lifecycle visually. When an assignment actually recorded legacy movement, the UI shows a separate **Legacy recorded phases** section containing only the recorded P1/P3 periods (sequence, planned/actual timestamps, status, days, and remarks preserved). The presenter still exposes the full chronological `phase_timeline` plus derived `modern_phase_timeline` / `legacy_phase_timeline` without duplicating queries.
+Legacy phases Travel In (`p1`) and Ready to Join (legacy `p3`) are never mixed into the modern lifecycle visually. When an assignment actually recorded those historical movements, the UI shows a separate **Legacy recorded phases** section containing only the recorded periods (sequence, planned/actual timestamps, status, days, and remarks preserved). The presenter still exposes the full chronological `phase_timeline` plus derived `modern_phase_timeline` / `legacy_phase_timeline` without duplicating queries. Do not display retired P1/P3 explanations as if they are part of the current workflow.
 
 Current Phase filters offer the same modern phase list. Bookmarked legacy `current_phase=p1` or `current_phase=p3` query values remain supported by the backend filter when present.
 
@@ -39,22 +39,20 @@ Expanded detail includes assignment number and record ID, employee identity, ran
 | Planned Join | Assignment `planned_join_at` |
 | Planned Sign-Off | Assignment `planned_signoff_at` (+ `planned_signoff_source` / override reason) |
 | Planned Travel Home | Assignment `planned_travel_at` |
-| Actual Arrival | First P2A `actual_start_at`, with legacy fallback to completed P1 `actual_end_at` |
-| Actual Join | First P4 `actual_start_at` |
-| Actual Disembarkation | Completed P4 `actual_end_at` |
-| Actual Return Home | First P6 `actual_start_at` |
+| Actual Arrival | First P1A `actual_start_at` (`CrewArrivalResolver`) |
+| Actual Join | First P2 `actual_start_at` |
+| Actual Disembarkation | Completed P2 `actual_end_at` |
+| Actual Return Home | First P4 Home / Redeployment `actual_start_at` |
 | Assignment Started / Closed | Assignment `started_at` / `closed_at` |
 
 ### Actual Arrival precedence
 
 `CrewArrivalResolver` is authoritative for UI display, export, and Actual Arrival From/To filters:
 
-1. Prefer the **first** P2A / Join Standby occurrence by `sequence` with `actual_start_at`.
-2. Only when no P2A arrival exists, fall back to the **first** completed P1 / Travel In occurrence by `sequence` with `actual_end_at`.
+1. Prefer the **first** P1A / Pre-Joining Standby occurrence by `sequence` with `actual_start_at`.
+2. Remapped historical P2A arrivals are already stored as P1A after the six-phase lifecycle remap.
 
-Later repeated P2A or P1 occurrences never override the authoritative value. Filters apply `from`/`to` against that same resolved occurrence (not against any matching phase via loose `whereHas`).
-
-If both P1 and P2A exist, P2A wins. Filtering on the legacy P1 end date must not match an assignment that already has a P2A arrival.
+Later repeated P1A occurrences never override the authoritative value. Filters apply `from`/`to` against that same resolved occurrence (not against any matching phase via loose `whereHas`).
 
 Planned values remain date-oriented. **Actual operational events preserve company-local date and time** (`Y-m-d H:i:s` wall clock in the company timezone). Expanded UI and exports use those timestamps; compact table cells may stay concise.
 
@@ -108,8 +106,8 @@ Vessel transfer and redeployment create linked assignments (`previous_assignment
 
 Starting checkpoint and current phase are separate concepts on each linked summary:
 
-- **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example Redeployment destination that began at P2A).
-- **Current phase** — the assignment’s `currentPhase` (which may later be P4 even though the destination originally started at P2A).
+- **Starting checkpoint** — first persisted `CrewAssignmentPhase` ordered by `sequence` on the linked assignment (for example Redeployment destination that began at P1A).
+- **Current phase** — the assignment’s `currentPhase` (which may later be P2 even though the destination originally started at P1A).
 
 The journey **Relationship** (Vessel Transfer / Redeployment) is shown at the Linked Assignment Journey section level. Each linked card’s **Assignment source** is that assignment’s own creation `source` (for example Manual on a previous assignment) and must not be labeled as the movement relationship.
 
@@ -188,7 +186,7 @@ Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
   - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Standby Service Days, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
-  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P6 phase timeline occurrences, training history, accommodation stays, payroll preview days, and corrections.
+  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P4 phase timeline occurrences (plus a legacy section only when historical Travel In / Ready to Join rows exist), training history, accommodation stays, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.
 

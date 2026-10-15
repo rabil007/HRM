@@ -165,7 +165,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             buildContext({
                 status: makeStatus({
                     status: 'pre_mobilisation',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-arrival',
                     current_phase: 'p0',
                     has_active_assignment: true,
                     assignment_id: 42,
@@ -174,7 +174,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             }),
         );
 
-        assert.match(guidance?.phaseLabel ?? '', /P0 · Pre-Mobilisation/);
+        assert.match(guidance?.phaseLabel ?? '', /P0 · Pre-arrival/);
         assert.ok(
             guidance?.actions.some(
                 (action) => action.key === 'continue_assignment',
@@ -636,7 +636,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             buildContext({
                 status: makeStatus({
                     status: 'pre_mobilisation',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-arrival',
                     current_phase: 'p0',
                     has_active_assignment: true,
                     assignment_id: 42,
@@ -660,7 +660,7 @@ describe('buildAssignmentReadinessGuidance', () => {
             buildContext({
                 status: makeStatus({
                     status: 'pre_mobilisation',
-                    label: 'Pre-Mobilisation',
+                    label: 'Pre-arrival',
                     current_phase: 'p0',
                     has_active_assignment: true,
                     assignment_id: 42,

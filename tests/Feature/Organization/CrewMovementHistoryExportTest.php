@@ -140,7 +140,7 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Previous Assignment',
             'Sign-On Standby Days',
             'Total Movement Calendar Days',
-            'Join Standby Periods',
+            'Pre-Joining Standby Periods',
             'Training Details',
             'Needs Attention',
             'Pending Correction',
@@ -618,8 +618,8 @@ test('web summary and excel csv exports share allocated vessel and standby servi
         ->and($csvRow['Standby Service Days'])->toBe('8 days')
         ->and($detailRow['Vessel Service Days'])->toBe('4 days')
         ->and($detailRow['On Vessel Days'])->toBe(4)
-        ->and($detailRow['Join Standby Days'])->toBe(2)
-        ->and($detailRow['Demob Standby Days'])->toBe(6)
+        ->and($detailRow['Pre-Joining Standby Days'])->toBe(2)
+        ->and($detailRow['Demobilisation Standby Days'])->toBe(6)
         ->and($detailRow['Sign-On Standby Days'])->toBe(2)
         ->and($detailRow['Sign-Off Standby Days'])->toBe(6)
         ->and($presenter['join_standby']['total_days'])->toBe(2)

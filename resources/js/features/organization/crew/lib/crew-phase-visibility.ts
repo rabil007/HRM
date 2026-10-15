@@ -28,7 +28,7 @@ export const NORMAL_PHASE_PROGRESS_STEPS: NormalPhaseProgressStep[] = [
     {
         key: 'p0',
         code: 'P0',
-        label: 'Pre-arrival',
+        label: 'Pre-Arrival',
         codes: ['p0'],
     },
     {

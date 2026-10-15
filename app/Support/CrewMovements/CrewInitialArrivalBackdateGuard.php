@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
 /**
  * Narrow exception for recording an actual arrival before the initial P0 phase start.
  *
- * Only the first, still-active Pre-Mobilisation phase on an assignment with no later
+ * Only the first, still-active Pre-Arrival phase on an assignment with no later
  * movement history may be reconciled backwards. Assignment created_at and lifecycle
  * started_at are preserved; subsequent phases keep strict chronology.
  */

@@ -121,6 +121,14 @@ describe('crew phase visibility', () => {
             options.some((option) => option.value === 'p1a'),
             true,
         );
+        assert.equal(
+            options.some((option) => option.label === 'P0 · Pre-Arrival'),
+            true,
+        );
+        assert.equal(
+            options.some((option) => option.label.includes('Pre-Mobilisation')),
+            false,
+        );
     });
 
     it('formats legacy context labels for active legacy phases', () => {

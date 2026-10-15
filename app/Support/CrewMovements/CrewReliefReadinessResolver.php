@@ -158,9 +158,9 @@ final class CrewReliefReadinessResolver
 
     /**
      * Active operational relief: non-deleted vacant Planning with no linked assignment,
-     * or a named Active CrewAssignment (or linked Active assignment) still in P0–P4.
+     * or a named Active CrewAssignment (or linked Active assignment) still in P0–P2.
      * Draft CrewAssignments are non-committed and do not count.
-     * Active P5/P6 replacements are historical and must not block a new plan.
+     * Active P3/P4 (demobilisation / home) replacements must not block a new plan.
      */
     public function isOperationallyActive(CrewAssignment|CrewPlanningAssignment $plan): bool
     {

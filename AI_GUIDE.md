@@ -126,7 +126,7 @@ Do not run `migrate:fresh` / `db:wipe` against the Herd app database. Pest uses 
 
 | Task | Guide |
 |------|-------|
-| Crew Assignments / P0–P6 | [docs/architecture/crew-movement-phases.md](docs/architecture/crew-movement-phases.md) |
+| Crew Assignments / P0–P4 (six-phase lifecycle) | [docs/architecture/crew-movement-phases.md](docs/architecture/crew-movement-phases.md) |
 | Crew movement corrections | [docs/architecture/crew-movement-corrections.md](docs/architecture/crew-movement-corrections.md) |
 | Crew payroll / Crew Timesheet preparation | [docs/payroll.md](docs/payroll.md) and [docs/architecture/crew-payroll-timeline-preparation.md](docs/architecture/crew-payroll-timeline-preparation.md) |
 | Permissions / tenancy | [docs/permissions.md](docs/permissions.md) |

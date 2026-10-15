@@ -57,18 +57,23 @@ Payroll generation
 
 ## Phase mapping
 
-| Phase                     | Pay category                   |
-| ------------------------- | ------------------------------ |
-| P0 Pre-Mobilisation       | Excluded                       |
-| P1 Travel In              | Excluded (informational issue) |
-| P2A Join Standby          | Sign-On Standby                |
-| P2B Training              | Sign-On Standby                |
-| P3 Ready to Join          | Sign-On Standby                |
-| P4 On Vessel              | Onsite                         |
-| P5 Demobilisation Standby | Sign-Off Standby               |
-| P6 Home / Redeployment    | Excluded                       |
+| Phase | Pay category |
+| --- | --- |
+| P0 Pre-Arrival | Excluded |
+| P1A Pre-Joining Standby | Sign-On Standby |
+| P1B Training | Sign-On Standby |
+| P2 On Vessel | Onsite |
+| P3 Demobilisation Standby | Sign-Off Standby |
+| P4 Home / Redeployment | Excluded |
 
-Modern Crew assignments no longer create new P1 or P3 phases. Payroll preparation still reads historical P1/P3 when they exist on an assignment; it never fabricates empty legacy phase rows for modern assignments. Payroll review may show a small legacy context label on actual P1/P3 phases without hiding source lines or changing pay mapping.
+**Legacy compatibility (not created by modern workflows):**
+
+| Historical phase | Pay category |
+| --- | --- |
+| Travel In (`p1`) | Excluded (informational issue) |
+| Ready to Join (legacy `p3`, not modern Demobilisation Standby) | Sign-On Standby |
+
+Modern Crew assignments no longer create new Travel In (`p1`) or Ready to Join (legacy `p3`) phases. Payroll preparation still reads those historical rows when they exist; it never fabricates empty legacy phase rows for modern assignments. Payroll review may show a small legacy context label on actual historical P1 / Ready-to-Join rows without hiding source lines or changing pay mapping.
 
 Day priority when categories overlap:
 
@@ -108,7 +113,7 @@ Each preparation persists an explicit `effective_cutoff_date` (`CrewTimesheetPre
 
 1. **Open Daily Crew payable timelines**:
    - When an **open phase can affect automatic Daily Crew payable allocation** (`DailyCrewPayablePhaseEligibility`: actual-started, Daily Crew contract, payable category), the effective cutoff equals `$effectiveEnd` (period end or earlier explicit cutoff).
-   - Monthly Crew open phases and excluded open phases (for example P6 Home / Redeployment) do **not** force the cutoff to period end when the Daily Crew payable result cannot change.
+   - Monthly Crew open phases and excluded open phases (for example P4 Home / Redeployment) do **not** force the cutoff to period end when the Daily Crew payable result cannot change.
    - Because allocation is bounded by period end / explicit cutoff rather than wall-clock today, advancing the calendar alone does not invalidate an open-phase preparation.
 
 2. **Closed historical timelines**:
@@ -370,8 +375,8 @@ Presentation rules:
 - Sign-On Standby, Onsite, and Sign-Off Standby stay separate. Do not merge Sign-On and Sign-Off into a generic Standby total.
 - Every positive-day non-excluded preparation line remains visible. Do not collapse separate payroll lines into the employee-level earliest `from` and latest `to`.
 - Actual movement comes from the linked `CrewAssignmentPhase` (`actual_start_at` / `actual_end_at`). Payroll counted dates come from the preparation line `from_date` / `to_date` / `days`.
-- Linked assignments created by `vessel_transfer` or `redeployment` stay separate, with a transfer/redeployment divider. Multiple P4 periods are not merged into one continuous range.
-- P0, P1, and P6 excluded lines appear after the payable breakdown and do not contribute to Total Payable. Actual legacy P1/P3 phases may show a legacy context label; source lines and pay categories stay unchanged.
+- Linked assignments created by `vessel_transfer` or `redeployment` stay separate, with a transfer/redeployment divider. Multiple P2 On Vessel periods are not merged into one continuous range.
+- P0 and P4 excluded lines appear after the payable breakdown and do not contribute to Total Payable. Actual legacy Travel In (`p1`) and Ready to Join (legacy `p3`) phases may show a legacy context label; source lines and pay categories stay unchanged.
 - Blocking and informational warnings remain visible, including warning-only zero-day lines.
 - A skipped employee must show detected Crew Assignment payable days separately from applied Crew Assignment days (`0`). Original movement data stays visible for audit, but the modal must not imply the employee receives zero payroll.
 - The modal does not show salary amounts. Those are calculated later during payroll generation.
@@ -570,10 +575,10 @@ Hardening applied before production use. Manual / Excel and Monthly crew behavio
 | Scenario | Primary assertion |
 | --- | --- |
 | Normal mobilisation | Payable days by category through preparation → timesheet → payroll |
-| Training loop | Repeated P2B/P3 standby days allocated once |
+| Training loop | Repeated P1B / P1A standby days allocated once |
 | Vessel transfer | Shared calendar day allocated once; segment provenance preserved |
 | Cancellation after/before activity | Legitimate standby preserved; zero fake pay when no actuals |
-| P4 → P5 → P6 | Onsite / sign-off / excluded classification |
+| P2 → P3 → P4 | Onsite / sign-off / excluded classification |
 | Movement correction | Unapplied preparation invalidated; rebuilt payroll uses corrected timeline |
 | Month boundary | Each period receives only its legitimate dates |
 | Open onboard / historical period cap | Allocation capped at period end or explicit cutoff (not company today) |

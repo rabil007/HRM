@@ -149,7 +149,7 @@ describe('summarizePhaseVariance', () => {
         const summary = summarizePhaseVariance(
             phase({
                 phase_code: 'p0',
-                phase_label: 'Pre-Mobilisation',
+                phase_label: 'Pre-Arrival',
                 planned_start_at: null,
                 planned_end_at: null,
                 status: 'active',

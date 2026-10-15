@@ -16,7 +16,7 @@ function assignment(
         current_phase: {
             id: 10,
             code: 'p0',
-            label: 'Pre-Mobilisation',
+            label: 'Pre-Arrival',
         },
         phase_timeline: [],
         planned_arrival_at: '2026-10-18',

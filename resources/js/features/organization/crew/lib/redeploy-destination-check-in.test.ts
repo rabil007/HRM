@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { resolveDestinationCheckInDateOnP2AEntry } from './redeploy-destination-check-in.ts';
+import { resolveDestinationCheckInDateOnP1AEntry } from './redeploy-destination-check-in.ts';
 
-describe('resolveDestinationCheckInDateOnP2AEntry', () => {
+describe('resolveDestinationCheckInDateOnP1AEntry', () => {
     it('sets check-in to the current redeploy date when empty', () => {
         assert.deepEqual(
-            resolveDestinationCheckInDateOnP2AEntry({
+            resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '',
                 lastAutoCheckInDate: '2026-09-17',
@@ -20,7 +20,7 @@ describe('resolveDestinationCheckInDateOnP2AEntry', () => {
 
     it('updates an untouched auto-derived check-in date', () => {
         assert.deepEqual(
-            resolveDestinationCheckInDateOnP2AEntry({
+            resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '2026-09-17',
                 lastAutoCheckInDate: '2026-09-17',
@@ -35,7 +35,7 @@ describe('resolveDestinationCheckInDateOnP2AEntry', () => {
 
     it('preserves a manually edited check-in date', () => {
         assert.equal(
-            resolveDestinationCheckInDateOnP2AEntry({
+            resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '2026-09-21',
                 lastAutoCheckInDate: '2026-09-20',
@@ -47,7 +47,7 @@ describe('resolveDestinationCheckInDateOnP2AEntry', () => {
 
     it('does not populate check-in when no hotel accommodation is selected', () => {
         assert.equal(
-            resolveDestinationCheckInDateOnP2AEntry({
+            resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
                 currentCheckInDate: '',
                 lastAutoCheckInDate: '2026-09-17',

@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
-import { resolveDestinationCheckInDateOnP2AEntry } from '@/features/organization/crew/lib/redeploy-destination-check-in';
+import { resolveDestinationCheckInDateOnP1AEntry } from '@/features/organization/crew/lib/redeploy-destination-check-in';
 import {
     clearedDirectP4TourFields,
     defaultDestinationTourSignoffChoice,
@@ -275,7 +275,7 @@ export function RedeployForm({
                             Object.assign(next, clearedDirectP4TourFields());
 
                             const syncedCheckIn =
-                                resolveDestinationCheckInDateOnP2AEntry({
+                                resolveDestinationCheckInDateOnP1AEntry({
                                     redeployDate: form.data.occurred_at.slice(
                                         0,
                                         10,

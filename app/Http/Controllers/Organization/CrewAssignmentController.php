@@ -313,7 +313,7 @@ class CrewAssignmentController extends Controller
                     && CrewAlreadyArrivedStart::isEnabled($validated['already_arrived'] ?? false);
 
                 // Form still posts Actual Arrival Date in planned_arrival_at when Already Arrived
-                // is checked. Persist that only as P2A actual_start_at; keep forecast planned
+                // is checked. Persist that only as P1A actual_start_at; keep forecast planned
                 // arrival from Crew Planning (if any) independently.
                 $startAttributes = [
                     'position_id' => $validated['position_id'] ?? null,

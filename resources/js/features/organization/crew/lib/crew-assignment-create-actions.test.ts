@@ -11,7 +11,7 @@ describe('resolveSingleSubmitRequest', () => {
             submissionIntent: 'draft',
             alreadyArrived: false,
         });
-        assert.deepEqual(resolveSingleSubmitRequest('pre_mobilisation'), {
+        assert.deepEqual(resolveSingleSubmitRequest('pre_arrival'), {
             submissionIntent: 'start',
             alreadyArrived: false,
         });
@@ -28,7 +28,7 @@ describe('CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS', () => {
             CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.already_arrived.length > 0,
         );
         assert.ok(
-            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_mobilisation.length > 0,
+            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_arrival.length > 0,
         );
         assert.ok(CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.draft.length > 0);
     });
@@ -41,6 +41,14 @@ describe('CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS', () => {
         assert.doesNotMatch(
             CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.already_arrived,
             /P2A/,
+        );
+        assert.match(
+            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_arrival,
+            /P0 Pre-Arrival/,
+        );
+        assert.doesNotMatch(
+            CREW_ASSIGNMENT_CREATE_ACTION_TOOLTIPS.pre_arrival,
+            /Pre-Mobilisation/,
         );
     });
 });

@@ -12,18 +12,18 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { formatDisplayDate } from '@/lib/format-date';
 
-export function FutureArrivalPreMobilisationDialog({
+export function FutureArrivalPreArrivalDialog({
     open,
     plannedArrivalDate,
     processing,
     onOpenChange,
-    onConfirmPreMobilisation,
+    onConfirmPreArrival,
 }: {
     open: boolean;
     plannedArrivalDate: string;
     processing: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirmPreMobilisation: () => void;
+    onConfirmPreArrival: () => void;
 }): ReactElement {
     const formattedDate = formatDisplayDate(plannedArrivalDate);
 
@@ -49,8 +49,8 @@ export function FutureArrivalPreMobilisationDialog({
                             </p>
                             <p>
                                 Would you like to start this assignment in
-                                Pre-Mobilisation instead? The selected date will
-                                be saved as the Planned Arrival Date.
+                                Pre-Arrival instead? The selected date will be
+                                saved as the Planned Arrival Date.
                             </p>
                         </div>
                     </AlertDialogDescription>
@@ -68,7 +68,7 @@ export function FutureArrivalPreMobilisationDialog({
                             Starting phase
                         </span>
                         <span className="text-right font-semibold">
-                            P0 — Pre-Mobilisation
+                            P0 — Pre-Arrival
                         </span>
                     </div>
                     <div className="flex justify-between gap-3">
@@ -100,10 +100,10 @@ export function FutureArrivalPreMobilisationDialog({
                         type="button"
                         className="rounded-xl"
                         disabled={processing}
-                        onClick={onConfirmPreMobilisation}
+                        onClick={onConfirmPreArrival}
                     >
                         {processing ? <Spinner className="mr-2" /> : null}
-                        Start Pre-Mobilisation
+                        Start Pre-Arrival
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

@@ -17,7 +17,7 @@ use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
-test('named planning record starts mobilisation to active CrewAssignment with P0 Pre-Mobilisation', function () {
+test('named planning record starts mobilisation to active CrewAssignment with P0 Pre-Arrival', function () {
     ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Mobilisation Vessel Alpha', $company);
     grantCompanyPermissions($user, $company, [

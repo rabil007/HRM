@@ -82,13 +82,13 @@ function activeCurrentP0Assignment(
         current_phase: {
             id: 11,
             code: 'p0',
-            label: 'Pre-Mobilisation',
+            label: 'Pre-Arrival',
         },
         phase_timeline: [
             phase({
                 id: 11,
                 phase_code: 'p0',
-                phase_label: 'Pre-Mobilisation',
+                phase_label: 'Pre-Arrival',
                 status: 'active',
                 status_label: 'Active',
                 planned_start_at: null,
@@ -235,7 +235,7 @@ describe('CrewAssignmentPhaseTimeline render', () => {
                     phase({
                         id: 11,
                         phase_code: 'p0',
-                        phase_label: 'Pre-Mobilisation',
+                        phase_label: 'Pre-Arrival',
                         status: 'completed',
                         status_label: 'Completed',
                         planned_start_at: null,

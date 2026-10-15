@@ -49,19 +49,19 @@ Both flows execute the exact same underlying validation engine (`ValidateCrewMov
 | Recorded phases (`active` / `completed` with `actual_start_at`) | `actual_start_at`, `remarks` |
 | Completed phases | also `actual_end_at` |
 | Training | also `details.provider`, `details.course`, `details.course_id` |
-| On Vessel (P4) | also assignment `vessel_id`, `rank_id`, `client_id` |
+| On Vessel (P2) | also assignment `vessel_id`, `rank_id`, `client_id` |
 
 Derived updates on approve / override:
 
-- Completed P6 end → assignment `closed_at`
+- Completed P4 Home / Redeployment end → assignment `closed_at`
 - Completed Training provider / completion date / course_id → linked `EmployeeTraining` `institute_center`, `issue_date`, `course_id`
-- P4 `actual_start_at` or `rank_id` change → if `planned_signoff_source === tour_of_duty`, recalculates `planned_signoff_at` and P4 `planned_end_at` based on the rank's Tour of Duty rule. When the source is `manual_override` or `existing_plan`, the planned dates remain preserved.
+- P2 `actual_start_at` or `rank_id` change → if `planned_signoff_source === tour_of_duty`, recalculates `planned_signoff_at` and P2 `planned_end_at` based on the rank's Tour of Duty rule. When the source is `manual_override` or `existing_plan`, the planned dates remain preserved.
 - Linked vacant `CrewPlanningAssignment` rows are **not** synchronized. Correct the Planning slot explicitly if its context must change.
-- Completed P4 changes → linked `EmployeeSeaService` synchronized.
+- Completed P2 changes → linked `EmployeeSeaService` synchronized.
 
 Correcting P1 Travel In updates that phase `actual_start_at` only. It does **not** rewrite `CrewAssignment.started_at`. Assignment `started_at` / `closed_at` describe the assignment lifecycle and are not Crew payroll inputs.
 
-Modern assignments do not create new P1/P3 phases, so the correction picker naturally omits them. Historical assignments that recorded actual P1 or P3 movement remain correctable; the UI may show a small legacy context label on those phases only.
+Modern assignments do not create new Travel In (`p1`) or Ready to Join (legacy `p3`) phases, so the correction picker naturally omits them. Historical assignments that recorded those phases remain correctable; the UI may show a small legacy context label on those phases only. Legacy Ready to Join is not modern P3 Demobilisation Standby.
 
 ## Hard rules
 
@@ -71,10 +71,10 @@ Modern assignments do not create new P1/P3 phases, so the correction picker natu
 - Active phases stay open-ended (cannot add `actual_end_at` via correction)
 - Neighbor-phase boundary checks and company-timezone parsing
 - **Accommodation chronology integrity**: Resulting timestamps are validated against hotel stays:
-  - Pre-join hotel stays must check in on or after arrival and check out on or before P4 join.
+  - Pre-join hotel stays must check in on or after arrival and check out on or before P2 join.
   - Post-signoff hotel stays must check in on or after disembarkation and check out on or before return home boundary.
-- **Tour of Duty rank consistency**: If P4 `rank_id` is corrected and planned signoff source is `tour_of_duty`, the new rank must have a valid tour rule; otherwise the correction is rejected.
-- Active On Vessel conflicts are surfaced in the Crew Operations UI and guided toward Vessel Transfer. Corrections do not add a separate hard block for overlapping P4 intervals; existing timeline, company, and invariant checks still apply. Exact timestamp handoffs remain valid.
+- **Tour of Duty rank consistency**: If P2 `rank_id` is corrected and planned signoff source is `tour_of_duty`, the new rank must have a valid tour rule; otherwise the correction is rejected.
+- Active On Vessel conflicts are surfaced in the Crew Operations UI and guided toward Vessel Transfer. Corrections do not add a separate hard block for overlapping P2 intervals; existing timeline, company, and invariant checks still apply. Exact timestamp handoffs remain valid.
 - Self-approval in the normal flow is denied unless the actor holds `crew_operations.corrections.override`.
 - Privileged direct override requires active 2FA verification (`privileged.2fa` route middleware + domain policy assertion).
 - Operational phase status is never flipped to `corrected` for badges — badges come from correction relations.
@@ -100,7 +100,7 @@ Modern assignments do not create new P1/P3 phases, so the correction picker natu
 
 All workflows touching both Crew Assignment and Crew Planning (`LinkVacantCrewPlanningSlot`, `SaveCrewPlanningAssignment`, `ApproveCrewMovementCorrection`, and `OverrideCrewMovementCorrection`) strictly adhere to this canonical order (`Assignment` 🔒 → `Planning` 🔒) to eliminate deadlock risk.
 
-Then: stale-original conflict check → validate → apply → tour recalculation → invariants → sea-service sync (completed P4 only; reject if unsyncable) → training sync (completed P2B only) → mark approved / create approved override record.
+Then: stale-original conflict check → validate → apply → tour recalculation → invariants → sea-service sync (completed P2 only; reject if unsyncable) → training sync (completed P1B only) → mark approved / create approved override record.
 
 Notification failures after commit are reported and never roll back approval. Direct overrides do not dispatch self-decision notifications.
 

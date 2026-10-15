@@ -13,7 +13,7 @@ import {
 
 export type AlreadyArrivedArrivalDecision =
     | { type: 'submit' }
-    | { type: 'confirm_pre_mobilisation'; plannedArrivalDate: string }
+    | { type: 'confirm_pre_arrival'; plannedArrivalDate: string }
     | { type: 'client_error'; message: string };
 
 export function shouldDefaultSingleCreateArrivalDate(options: {
@@ -116,7 +116,7 @@ export function resolveAlreadyArrivedSubmitDecision(
         isCalendarDateAfterCompanyToday(valid, companyTimezone, referenceDate)
     ) {
         return {
-            type: 'confirm_pre_mobilisation',
+            type: 'confirm_pre_arrival',
             plannedArrivalDate: valid,
         };
     }
