@@ -423,6 +423,8 @@ export default function DocumentShow({
                                             doc.document_type_label,
                                         file_url: doc.file_url,
                                         mime_type: doc.mime_type,
+                                        original_filename:
+                                            doc.original_filename,
                                         can_preview: doc.can_preview,
                                     }}
                                     className="h-[min(60vh,820px)] min-h-[260px] sm:min-h-[420px]"
