@@ -103,10 +103,12 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Vessel',
             'Client',
             'Arrival Date',
+            'Pre-Joining Standby (Days)',
             'Join Vessel Date',
             'Sign-Off / Disembarkation Date',
+            'Demobilisation Standby (Days)',
             'Return Home Date',
-            'Standby Service Days',
+            'Total Standby',
             'Vessel Service Days',
             'Assignment Status',
             'Assignment No',
@@ -138,6 +140,9 @@ test('export has clear headings and one mapped row per crew assignment', functio
             'Actual Join Date/Time',
             'Accommodation History',
             'Previous Assignment',
+            'Pre-Joining Standby Service Days',
+            'Demobilisation Standby Service Days',
+            'Total Standby Service Days',
             'Sign-On Standby Days',
             'Total Movement Calendar Days',
             'Pre-Joining Standby Periods',
@@ -608,15 +613,24 @@ test('web summary and excel csv exports share allocated vessel and standby servi
     $detailRow = array_combine($details->headings(), $details->map($model));
 
     expect($presenter['vessel_service_days'])->toBe(4)
+        ->and($presenter['pre_joining_standby_days'])->toBe(2)
+        ->and($presenter['demobilisation_standby_days'])->toBe(6)
         ->and($presenter['standby_service_days'])->toBe(8)
         ->and($presenter['payroll_days']['onsite']['total_days'])->toBe(4)
         ->and($presenter['payroll_days']['sign_on_standby']['total_days'])->toBe(2)
         ->and($presenter['payroll_days']['sign_off_standby']['total_days'])->toBe(6)
         ->and($summaryRow['Vessel Service Days'])->toBe('4 days')
-        ->and($summaryRow['Standby Service Days'])->toBe('8 days')
+        ->and($summaryRow['Pre-Joining Standby (Days)'])->toBe('2 days')
+        ->and($summaryRow['Demobilisation Standby (Days)'])->toBe('6 days')
+        ->and($summaryRow['Total Standby'])->toBe('8 days')
         ->and($csvRow['Vessel Service Days'])->toBe('4 days')
-        ->and($csvRow['Standby Service Days'])->toBe('8 days')
+        ->and($csvRow['Pre-Joining Standby (Days)'])->toBe('2 days')
+        ->and($csvRow['Demobilisation Standby (Days)'])->toBe('6 days')
+        ->and($csvRow['Total Standby'])->toBe('8 days')
         ->and($detailRow['Vessel Service Days'])->toBe('4 days')
+        ->and($detailRow['Pre-Joining Standby Service Days'])->toBe('2 days')
+        ->and($detailRow['Demobilisation Standby Service Days'])->toBe('6 days')
+        ->and($detailRow['Total Standby Service Days'])->toBe('8 days')
         ->and($detailRow['On Vessel Days'])->toBe(4)
         ->and($detailRow['Pre-Joining Standby Days'])->toBe(2)
         ->and($detailRow['Demobilisation Standby Days'])->toBe(6)

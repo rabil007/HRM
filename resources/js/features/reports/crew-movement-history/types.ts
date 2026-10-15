@@ -212,10 +212,22 @@ export type CrewMovementHistoryRow = {
         is_redeployed_directly?: boolean;
         redeployed_at?: string | null;
     };
-    /** Distinct inclusive standby calendar dates after handoff priority. */
+    /**
+     * Allocated sign-on standby calendar dates after payable-date ownership.
+     * Includes P1A Pre-Joining Standby and P1B Training (same payroll category).
+     */
+    pre_joining_standby_days: number | null;
+    pre_joining_standby_days_label: string;
+    /** Distinct inclusive demobilisation (sign-off) standby calendar dates. */
+    demobilisation_standby_days: number | null;
+    demobilisation_standby_days_label: string;
+    /**
+     * Total Standby = Pre-Joining + Demobilisation after handoff priority.
+     * Missing phases count as zero.
+     */
     standby_service_days: number | null;
     standby_service_days_label: string;
-    /** Distinct inclusive P4 calendar dates. Shared handoff dates stay on the vessel. */
+    /** Distinct inclusive On Vessel calendar dates. Shared handoff dates stay on the vessel. */
     vessel_service_days: number | null;
     vessel_service_days_label: string;
     has_future_actual?: boolean;

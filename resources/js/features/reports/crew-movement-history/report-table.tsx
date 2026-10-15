@@ -52,7 +52,7 @@ import type {
     TrainingHistoryEntry,
 } from './types';
 
-const COLUMN_COUNT = 13;
+const COLUMN_COUNT = 15;
 
 const columns = {
     employeeNo: 'w-[105px] min-w-[105px]',
@@ -61,10 +61,12 @@ const columns = {
     vessel: 'w-[140px] min-w-[140px]',
     client: 'w-[130px] min-w-[130px]',
     arrival: 'w-[115px] min-w-[115px]',
+    preJoiningStandby: 'w-[150px] min-w-[150px]',
     joined: 'w-[115px] min-w-[115px]',
     signOff: 'w-[130px] min-w-[130px]',
+    demobStandby: 'w-[160px] min-w-[160px]',
     returnedHome: 'w-[130px] min-w-[130px]',
-    standbyDays: 'w-[150px] min-w-[150px]',
+    standbyDays: 'w-[130px] min-w-[130px]',
     vesselDays: 'w-[150px] min-w-[150px]',
     status: 'w-[140px] min-w-[140px]',
     actions: 'w-[60px] min-w-[60px]',
@@ -1231,7 +1233,7 @@ export function CrewMovementHistoryReportTable({
 
     return (
         <OrganizationDataTable
-            minWidth="min-w-[1720px]"
+            minWidth="min-w-[2040px]"
             compact
             tableClassName="table-fixed"
             header={
@@ -1301,6 +1303,16 @@ export function CrewMovementHistoryReportTable({
                         onSort={onSort}
                         className={columns.arrival}
                     />
+                    <DataTableHead
+                        className={cn(
+                            'whitespace-nowrap',
+                            columns.preJoiningStandby,
+                        )}
+                    >
+                        <span title="Allocated pre-joining standby days from recorded Pre-Joining Standby and Training phases. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
+                            Pre-Joining Standby (Days)
+                        </span>
+                    </DataTableHead>
                     <SortHead
                         column="actual_join"
                         label="Joined Vessel"
@@ -1318,6 +1330,16 @@ export function CrewMovementHistoryReportTable({
                     <DataTableHead
                         className={cn(
                             'whitespace-nowrap',
+                            columns.demobStandby,
+                        )}
+                    >
+                        <span title="Allocated demobilisation standby days from the recorded Demobilisation Standby phase. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
+                            Demobilisation Standby (Days)
+                        </span>
+                    </DataTableHead>
+                    <DataTableHead
+                        className={cn(
+                            'whitespace-nowrap',
                             columns.returnedHome,
                         )}
                     >
@@ -1326,8 +1348,8 @@ export function CrewMovementHistoryReportTable({
                     <DataTableHead
                         className={cn('whitespace-nowrap', columns.standbyDays)}
                     >
-                        <span title="Allocated standby service days. A date owned by the vessel is not also counted as standby.">
-                            Standby Service Days
+                        <span title="Total Standby = Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero. A date owned by the vessel is not also counted as standby.">
+                            Total Standby
                         </span>
                     </DataTableHead>
                     <DataTableHead
@@ -1459,6 +1481,14 @@ export function CrewMovementHistoryReportTable({
                                         ) : null}
                                     </div>
                                 </Cell>
+                                <Cell className={columns.preJoiningStandby}>
+                                    <span
+                                        className="text-xs font-medium text-foreground tabular-nums"
+                                        title="Allocated pre-joining standby days. A date owned by the vessel is not also standby."
+                                    >
+                                        {row.pre_joining_standby_days_label}
+                                    </span>
+                                </Cell>
                                 <Cell className={columns.joined}>
                                     <span className="text-xs font-medium text-foreground tabular-nums">
                                         {row.on_vessel.actual_join
@@ -1486,6 +1516,14 @@ export function CrewMovementHistoryReportTable({
                                                 : '—'}
                                         </span>
                                     )}
+                                </Cell>
+                                <Cell className={columns.demobStandby}>
+                                    <span
+                                        className="text-xs font-medium text-foreground tabular-nums"
+                                        title="Allocated demobilisation standby days. A date owned by the vessel is not also standby."
+                                    >
+                                        {row.demobilisation_standby_days_label}
+                                    </span>
                                 </Cell>
                                 <Cell className={columns.returnedHome}>
                                     {row.home_redeploy.outcome ===
@@ -1542,7 +1580,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.standbyDays}>
                                     <span
                                         className="text-xs font-bold text-foreground tabular-nums"
-                                        title="Allocated standby service days. A date owned by the vessel is not also counted as standby."
+                                        title="Total Standby = Pre-Joining Standby + Demobilisation Standby. A date owned by the vessel is not also counted as standby."
                                     >
                                         {row.standby_service_days_label}
                                     </span>
