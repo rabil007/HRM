@@ -597,6 +597,9 @@ class CrewAssignmentPresenter
             ->whereIn('status', CrewPayableDateOwnership::eligibleStatusValues())
             ->whereNotNull('actual_start_at')
             ->whereIn('crew_assignment_id', $chainIds)
+            ->whereHas('assignment', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId);
+            })
             ->get();
     }
 

@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Models\Hotel;
 use App\Models\RoomType;
@@ -759,6 +760,74 @@ test('linked same-day redeployment does not duplicate the handoff in report paya
         ->and($sourceRow['payroll_days']['onsite']['total_days'] + $destinationRow['payroll_days']['onsite']['total_days'])->toBe(20)
         ->and($sourceRow['standby_service_days'])->toBe(0)
         ->and($destinationRow['standby_service_days'])->toBe(0);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('movement history export batches linked phase lookups for multiple employees', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['company' => $company, 'employee' => $firstEmployee] = makeCrewAssignmentFixtures();
+    $secondEmployee = Employee::factory()->forCompany($company)->create();
+
+    $ids = [];
+
+    foreach ([$firstEmployee, $secondEmployee] as $index => $employee) {
+        $source = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+            'assignment_no' => 'CA-BATCH-'.$index.'-A',
+        ]);
+        CrewAssignmentPhase::factory()->forAssignment($source)->create([
+            'phase_code' => CrewPhaseCode::OnVessel,
+            'sequence' => 1,
+            'status' => CrewPhaseStatus::Completed,
+            'actual_start_at' => '2026-10-01 08:00:00',
+            'actual_end_at' => '2026-10-10 08:00:00',
+        ]);
+
+        $destination = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+            'assignment_no' => 'CA-BATCH-'.$index.'-B',
+            'source' => 'vessel_transfer',
+            'previous_assignment_id' => $source->id,
+        ]);
+        CrewAssignmentPhase::factory()->forAssignment($destination)->create([
+            'phase_code' => CrewPhaseCode::OnVessel,
+            'sequence' => 1,
+            'status' => CrewPhaseStatus::Active,
+            'actual_start_at' => '2026-10-10 08:00:00',
+            'actual_end_at' => null,
+        ]);
+
+        $ids[] = $source->id;
+        $ids[] = $destination->id;
+    }
+
+    $query = new CrewMovementHistoryQuery($company->id, new CrewMovementHistoryFilters, 'Asia/Dubai');
+    $models = $query->exportQuery()->whereIn('crew_assignments.id', $ids)->get();
+    $sheet = CrewMovementHistoryExport::forQuery($query->exportQuery())->sheets()[0];
+    $prepared = $sheet->prepareRows($models);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $mapped = [];
+
+    foreach ($prepared as $model) {
+        $mapped[$model->id] = $sheet->map($model);
+    }
+
+    $phaseQueries = collect(DB::getQueryLog())
+        ->filter(fn (array $logged): bool => str_contains($logged['query'], 'crew_assignment_phases'))
+        ->count();
+    DB::disableQueryLog();
+
+    $headings = $sheet->headings();
+    $vesselColumn = array_search('Vessel Service Days', $headings, true);
+
+    expect($models)->toHaveCount(4)
+        ->and($phaseQueries)->toBe(0)
+        ->and($mapped[$ids[0]][$vesselColumn])->toBe('10 days')
+        ->and($mapped[$ids[1]][$vesselColumn])->toBe('10 days')
+        ->and($mapped[$ids[2]][$vesselColumn])->toBe('10 days')
+        ->and($mapped[$ids[3]][$vesselColumn])->toBe('10 days');
 
     CarbonImmutable::setTestNow();
 });

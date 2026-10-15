@@ -63,20 +63,23 @@ final class CrewMovementHistoryQuery
             ->withQueryString();
 
         CrewPositionCatalog::hydrateCanonicalPositions($paginator->getCollection(), $this->companyId);
-        $this->attachAllocationCompetingPhases($paginator->getCollection());
+        self::attachAllocationCompetingPhases($paginator->getCollection(), $this->companyId);
 
         return $paginator->through(fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray($assignment));
     }
 
     /**
-     * Batch-load eligible phases for each page row's linked assignment chain
+     * Batch-load eligible phases for each row's linked assignment chain
      * (A→B→C) so ownership matches payroll without N+1 lookups in the presenter.
+     *
+     * Soft-deleted assignments are omitted by the link chain. Soft-deleted
+     * phases and phases whose parent assignment is soft-deleted are omitted here.
      *
      * @param  Collection<int, CrewAssignment>  $assignments
      */
-    private function attachAllocationCompetingPhases(Collection $assignments): void
+    public static function attachAllocationCompetingPhases(Collection $assignments, int $companyId): void
     {
-        if ($assignments->isEmpty()) {
+        if ($assignments->isEmpty() || $companyId < 1) {
             return;
         }
 
@@ -108,10 +111,13 @@ final class CrewMovementHistoryQuery
                 'actual_start_at',
                 'actual_end_at',
             ])
-            ->where('company_id', $this->companyId)
+            ->where('company_id', $companyId)
             ->whereIn('status', CrewPayableDateOwnership::eligibleStatusValues())
             ->whereNotNull('actual_start_at')
             ->whereIn('crew_assignment_id', $allChainIds)
+            ->whereHas('assignment', function ($query) use ($companyId): void {
+                $query->where('company_id', $companyId);
+            })
             ->get()
             ->groupBy(fn (CrewAssignmentPhase $phase): int => (int) $phase->crew_assignment_id);
 

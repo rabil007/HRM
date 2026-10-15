@@ -82,6 +82,7 @@ final class CrewAssignmentLinkChain
         return DB::table('crew_assignments')
             ->where('company_id', $companyId)
             ->where('employee_id', $employeeId)
+            ->whereNull('deleted_at')
             ->get(['id', 'previous_assignment_id'])
             ->all();
     }
@@ -118,12 +119,21 @@ final class CrewAssignmentLinkChain
         }
 
         $root = $assignmentId;
+        $visitedAncestors = [$assignmentId => true];
 
-        while (($previousById[$root] ?? null) !== null && array_key_exists((int) $previousById[$root], $previousById)) {
-            $root = (int) $previousById[$root];
+        while (true) {
+            $previousId = $previousById[$root] ?? null;
+
+            if ($previousId === null || ! array_key_exists($previousId, $previousById) || isset($visitedAncestors[$previousId])) {
+                break;
+            }
+
+            $visitedAncestors[$previousId] = true;
+            $root = $previousId;
         }
 
         $ids = [];
+        $queued = [$root => true];
         $queue = [$root];
 
         while ($queue !== []) {
@@ -131,6 +141,11 @@ final class CrewAssignmentLinkChain
             $ids[] = $current;
 
             foreach ($nextById[$current] ?? [] as $nextId) {
+                if (isset($queued[$nextId]) || ! array_key_exists($nextId, $previousById)) {
+                    continue;
+                }
+
+                $queued[$nextId] = true;
                 $queue[] = $nextId;
             }
         }

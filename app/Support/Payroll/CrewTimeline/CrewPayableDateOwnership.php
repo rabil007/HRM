@@ -136,7 +136,6 @@ final class CrewPayableDateOwnership
                 continue;
             }
 
-            $recorded = true;
             $from = self::localDate($phase->actual_start_at, $timezone);
             $to = self::localDate($end, $timezone);
             $phaseEmployeeId = $employeeId ?? (
@@ -145,16 +144,25 @@ final class CrewPayableDateOwnership
                     : 0
             );
             $phaseAssignmentId = (int) $phase->crew_assignment_id;
+            $reportsThisAssignment = $assignmentId === null || $phaseAssignmentId === $assignmentId;
+
+            if ($reportsThisAssignment) {
+                $recorded = true;
+            }
 
             if ($from->gt($todayDate)) {
-                $hasFutureActual = true;
-                $futureOnlyPhaseIds[(int) $phase->id] = true;
+                if ($reportsThisAssignment) {
+                    $hasFutureActual = true;
+                    $futureOnlyPhaseIds[(int) $phase->id] = true;
+                }
 
                 if ($clampToToday) {
                     continue;
                 }
             } elseif ($to->gt($todayDate)) {
-                $hasFutureActual = true;
+                if ($reportsThisAssignment) {
+                    $hasFutureActual = true;
+                }
 
                 if ($clampToToday) {
                     $to = $todayDate;
@@ -165,7 +173,7 @@ final class CrewPayableDateOwnership
                 continue;
             }
 
-            if (! $from->gt($todayDate)) {
+            if (! $from->gt($todayDate) && $reportsThisAssignment) {
                 $countedADate = true;
                 $countablePhaseIds[(int) $phase->id] = true;
             }

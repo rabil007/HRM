@@ -1527,3 +1527,97 @@ test('phase service days match allocated standby ownership for vessel handoffs',
 
     CarbonImmutable::setTestNow();
 });
+
+test('a linked future movement does not warn on the completed assignment', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $completed = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($completed)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+
+    $future = CrewAssignment::factory()->forEmployee($employee)->active()->create([
+        'previous_assignment_id' => $completed->id,
+        'source' => 'vessel_transfer',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($future)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-25 08:00:00',
+        'actual_end_at' => '2026-10-28 18:00:00',
+    ]);
+
+    $present = fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    $completedRow = $present($completed);
+    $futureRow = $present($future);
+
+    expect($completedRow['warnings'])->not->toContain('Future Actual')
+        ->and($completedRow['has_future_actual'])->toBeFalse()
+        ->and($completedRow['vessel_service_days'])->toBe(10)
+        ->and($futureRow['warnings'])->toContain('Future Actual')
+        ->and($futureRow['has_future_actual'])->toBeTrue()
+        ->and($futureRow['vessel_service_days'])->toBe(0)
+        ->and(collect($futureRow['warning_details'])->firstWhere('code', 'future_actual')['message'] ?? '')
+        ->toContain('starts after today');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('a soft-deleted linked assignment does not take a payable date', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $deleted = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $deletedPhase = CrewAssignmentPhase::factory()->forAssignment($deleted)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+    $deleted->delete();
+
+    $phaseRemoved = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $removedPhase = CrewAssignmentPhase::factory()->forAssignment($phaseRemoved)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+    $removedPhase->delete();
+
+    $owner = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'previous_assignment_id' => $phaseRemoved->id,
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($owner)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+    $phaseRemoved->update(['previous_assignment_id' => $deleted->id]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $owner->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($deleted->trashed())->toBeTrue()
+        ->and($deletedPhase->fresh()->trashed())->toBeFalse()
+        ->and($removedPhase->trashed())->toBeTrue()
+        ->and($row['vessel_service_days'])->toBe(1)
+        ->and($row['on_vessel']['total_days'])->toBe(1)
+        ->and($row['payroll_days']['onsite']['total_days'])->toBe(1);
+
+    CarbonImmutable::setTestNow();
+});
