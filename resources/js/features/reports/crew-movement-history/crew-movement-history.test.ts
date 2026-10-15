@@ -141,7 +141,7 @@ describe('crew movement history presentation logic', () => {
         assert.equal(neither.label, '—');
     });
 
-    it('preserves all 13 operational Excel-style table column definitions', () => {
+    it('preserves the operational Excel-style table column order with standby breakdown', () => {
         const columns = [
             'Emp No',
             'Crew Name',
@@ -149,29 +149,61 @@ describe('crew movement history presentation logic', () => {
             'Vessel',
             'Client',
             'Arrival',
+            'Pre-Joining Standby (Days)',
             'Joined Vessel',
             'Sign-Off / Disembarked',
+            'Demobilisation Standby (Days)',
             'Returned Home',
-            'Standby Service Days',
+            'Total Standby',
             'Vessel Service Days',
             'Status',
             'Actions',
         ];
 
-        assert.equal(columns.length, 13);
-        assert.ok(columns.includes('Emp No'));
-        assert.ok(columns.includes('Crew Name'));
-        assert.ok(columns.includes('Rank'));
-        assert.ok(columns.includes('Vessel'));
-        assert.ok(columns.includes('Client'));
-        assert.ok(columns.includes('Arrival'));
-        assert.ok(columns.includes('Joined Vessel'));
-        assert.ok(columns.includes('Sign-Off / Disembarked'));
-        assert.ok(columns.includes('Returned Home'));
-        assert.ok(columns.includes('Standby Service Days'));
+        assert.equal(columns.length, 15);
+        assert.equal(
+            columns.indexOf('Arrival') + 1,
+            columns.indexOf('Pre-Joining Standby (Days)'),
+        );
+        assert.equal(
+            columns.indexOf('Pre-Joining Standby (Days)') + 1,
+            columns.indexOf('Joined Vessel'),
+        );
+        assert.equal(
+            columns.indexOf('Sign-Off / Disembarked') + 1,
+            columns.indexOf('Demobilisation Standby (Days)'),
+        );
+        assert.equal(
+            columns.indexOf('Demobilisation Standby (Days)') + 1,
+            columns.indexOf('Returned Home'),
+        );
+        assert.equal(
+            columns.indexOf('Returned Home') + 1,
+            columns.indexOf('Total Standby'),
+        );
         assert.ok(columns.includes('Vessel Service Days'));
         assert.ok(columns.includes('Status'));
         assert.ok(columns.includes('Actions'));
+    });
+
+    it('treats missing standby phases as zero when totaling standby', () => {
+        const totalStandby = (
+            preJoining: number | null,
+            demobilisation: number | null,
+        ): number | null => {
+            if (preJoining === null && demobilisation === null) {
+                return null;
+            }
+
+            return (preJoining ?? 0) + (demobilisation ?? 0);
+        };
+
+        assert.equal(totalStandby(3, 2), 5);
+        assert.equal(totalStandby(3, 0), 3);
+        assert.equal(totalStandby(0, 2), 2);
+        assert.equal(totalStandby(0, 0), 0);
+        assert.equal(totalStandby(1, 1), 2);
+        assert.equal(totalStandby(null, null), null);
     });
 
     it('verifies vessel service period shortcut values', () => {

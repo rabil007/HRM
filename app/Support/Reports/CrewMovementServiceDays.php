@@ -17,7 +17,12 @@ use Illuminate\Support\Collection;
  * company-local date. Each phase span still includes that date, but an
  * aggregate total counts the date once. Priority matches the payroll preview
  * (onsite, then sign-off standby, then sign-on standby). Excluded phases
- * (P0, P1, P6) never take a date from a service category.
+ * (P0, P4 Home / Redeployment) never take a date from a service category.
+ *
+ * Standby is split for Crew Movement History reporting:
+ * - Pre-Joining Standby = sign-on standby dates (P1A Pre-Joining Standby + P1B Training)
+ * - Demobilisation Standby = sign-off standby dates (P3)
+ * - Total Standby = Pre-Joining + Demobilisation (missing bucket = 0)
  *
  * Dates after company-local today are not counted. The payroll preview is a
  * separate calculation and is not clamped here, so a future actual end can
@@ -36,6 +41,8 @@ final class CrewMovementServiceDays
      *     future_actual_only: bool,
      *     has_future_actual: bool,
      *     vessel_service_days: int|null,
+     *     pre_joining_standby_days: int|null,
+     *     demobilisation_standby_days: int|null,
      *     standby_service_days: int|null
      * }
      */
@@ -115,19 +122,20 @@ final class CrewMovementServiceDays
                 'future_actual_only' => false,
                 'has_future_actual' => false,
                 'vessel_service_days' => null,
+                'pre_joining_standby_days' => null,
+                'demobilisation_standby_days' => null,
                 'standby_service_days' => null,
             ];
         }
 
         $vessel = 0;
-        $standby = 0;
+        $preJoining = 0;
+        $demobilisation = 0;
 
         foreach ($allocatedByDate as $allocation) {
             $vessel += $allocation['category'] === CrewTimesheetPayCategory::Onsite ? 1 : 0;
-            $standby += in_array($allocation['category'], [
-                CrewTimesheetPayCategory::SignOnStandby,
-                CrewTimesheetPayCategory::SignOffStandby,
-            ], true) ? 1 : 0;
+            $preJoining += $allocation['category'] === CrewTimesheetPayCategory::SignOnStandby ? 1 : 0;
+            $demobilisation += $allocation['category'] === CrewTimesheetPayCategory::SignOffStandby ? 1 : 0;
         }
 
         return [
@@ -135,7 +143,10 @@ final class CrewMovementServiceDays
             'future_actual_only' => ! $countedADate,
             'has_future_actual' => $hasFutureActual,
             'vessel_service_days' => $vessel,
-            'standby_service_days' => $standby,
+            'pre_joining_standby_days' => $preJoining,
+            'demobilisation_standby_days' => $demobilisation,
+            // Total Standby is whichever standby buckets are present (missing = 0).
+            'standby_service_days' => $preJoining + $demobilisation,
         ];
     }
 

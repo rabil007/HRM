@@ -66,12 +66,15 @@ Crew Movement History uses two different counts. They are not interchangeable.
 
 | Count | Meaning |
 |---|---|
-| Vessel Service Days / Standby Service Days | Inclusive company-local calendar dates. 4 October through 7 October is 4 vessel service days. Same-day service is 1 day. |
+| Vessel Service Days | Inclusive company-local calendar dates on On Vessel. 4 October through 7 October is 4 vessel service days. Same-day service is 1 day. |
+| Pre-Joining Standby (Days) | Inclusive company-local calendar dates allocated to sign-on standby (P1A Pre-Joining Standby + P1B Training) after handoff priority. |
+| Demobilisation Standby (Days) | Inclusive company-local calendar dates allocated to sign-off standby (P3 Demobilisation Standby) after handoff priority. |
+| Total Standby | Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero; both phases are not required. |
 | Phase service days | Inclusive dates touched by that phase code. Repeated occurrences of the same phase do not count a shared date twice. |
 | Elapsed assignment days / elapsed days onboard | Whole calendar days from the start date to the end date, without adding the end date. Same-day elapsed time is 0. Tour of Duty uses this elapsed count and is unchanged. |
 | Payroll calendar-day preview | Inclusive dates with the same handoff priority, without the operational “stop at today” clamp. Contract eligibility is still applied only in payroll. |
 
-A same-day handoff (P2A ending and P4 starting on 4 October, or P4 ending and P5 starting on 7 October) keeps that date on the higher-priority category: vessel, then sign-off standby, then sign-on standby. Summary totals therefore do not add each phase span together. Exact timestamps are kept. A future actual start is labeled `Future actual` and adds no worked days. An active phase includes the company-local today and no later date.
+A same-day handoff (P1A ending and On Vessel starting on 4 October, or On Vessel ending and Demobilisation Standby starting on 7 October) keeps that date on the higher-priority category: vessel, then sign-off standby, then sign-on standby. Summary totals therefore do not add each phase span together. Exact timestamps are kept. A future actual start is labeled `Future actual` and adds no worked days. An active phase includes the company-local today and no later date. A recorded half-day standby counts as 1 day for this report.
 
 ## Repeated phases and training
 
@@ -129,12 +132,14 @@ Crew Movement History separates fast operational history scanning from deep OMS 
 - **Crew Movement History summary (Default Table)** — an operator-friendly assignment and service history structured like an operational Excel `CREW HISTORY` sheet. It answers the primary operational questions at a glance:
   - *Who worked where?* (Employee No, Crew Name, Rank, Vessel, Client)
   - *When did they arrive?* (Arrival — authoritative actual arrival)
-  - *When did they join the vessel?* (Joined Vessel — actual P4 join)
-  - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual P4 end, or `Ongoing` if active)
-  - *When did they return home?* (Returned Home — actual P6 start, or `Redeployed` if transferred directly without returning home)
-  - *How many standby service days?* (Standby Service Days — distinct inclusive calendar dates in sign-on standby and sign-off standby. P2A, training, and legacy P3 are sign-on; P5 is sign-off. A date shared with the vessel counts once, as vessel service.)
-  - *How many vessel service days?* (Vessel Service Days — distinct inclusive P4 calendar dates. 4 October through 7 October is 4 days. This is not elapsed time and not the tour-of-duty “elapsed days onboard” count.)
-  - *What is the current status?* (Assignment status badge, with `On Vessel` for active P4)
+  - *How many pre-joining standby days?* (Pre-Joining Standby (Days) — distinct inclusive calendar dates in sign-on standby after handoff priority. Includes recorded Pre-Joining Standby (P1A) and Training (P1B) dates. Missing phase shows `—` when no service was recorded, otherwise `0 days`. Gaps between arrival and joining never invent standby.)
+  - *When did they join the vessel?* (Joined Vessel — actual On Vessel join)
+  - *When did they sign off / disembark?* (Sign-Off / Disembarked — actual On Vessel end, or `Ongoing` if active)
+  - *How many demobilisation standby days?* (Demobilisation Standby (Days) — distinct inclusive calendar dates in the recorded Demobilisation Standby (P3) phase after handoff priority. Missing phase shows `—` / `0 days`. Vessel and home/redeployment dates are never counted as demobilisation standby.)
+  - *When did they return home?* (Returned Home — actual Home / Redeployment start, or `Redeployed` if transferred directly without returning home)
+  - *How many total standby days?* (Total Standby — Pre-Joining Standby + Demobilisation Standby. Either phase may be absent; missing phases count as zero. Same-day and half-day recorded standby counts as 1 day.)
+  - *How many vessel service days?* (Vessel Service Days — distinct inclusive On Vessel calendar dates. 4 October through 7 October is 4 days. This is not elapsed time and not the tour-of-duty “elapsed days onboard” count.)
+  - *What is the current status?* (Assignment status badge, with `On Vessel` for active On Vessel)
 - **Expanded history** — complete OMS movement/audit record, organized in 9 structured sections:
   1. Assignment Summary
   2. Actual Movement
@@ -176,8 +181,8 @@ Every query is scoped to `current_company_id`. Soft-deleted/voided assignments a
 Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
-  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Join Vessel Date, Sign-Off / Disembarkation Date, Return Home Date, Standby Service Days, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
-  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P6 phase timeline occurrences, training history, accommodation stays, payroll preview days, and corrections.
+  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Pre-Joining Standby (Days), Join Vessel Date, Sign-Off / Disembarkation Date, Demobilisation Standby (Days), Return Home Date, Total Standby, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
+  - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, phase timeline occurrences, training history, accommodation stays, pre-joining / demobilisation / total standby service days, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.
 

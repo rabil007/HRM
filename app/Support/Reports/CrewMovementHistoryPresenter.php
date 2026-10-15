@@ -226,7 +226,21 @@ final class CrewMovementHistoryPresenter
                 'is_redeployed_directly' => $isRedeployedDirectly,
                 'redeployed_at' => $redeployedAt,
             ],
-            // Distinct inclusive standby calendar dates (sign-on + sign-off) after handoff priority.
+            // Distinct inclusive standby calendar dates after handoff priority.
+            // Pre-joining = sign-on (P1A + Training); demobilisation = sign-off (P3).
+            'pre_joining_standby_days' => $serviceDays['pre_joining_standby_days'],
+            'pre_joining_standby_days_label' => self::serviceDaysLabel(
+                $serviceDays['pre_joining_standby_days'],
+                $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
+            ),
+            'demobilisation_standby_days' => $serviceDays['demobilisation_standby_days'],
+            'demobilisation_standby_days_label' => self::serviceDaysLabel(
+                $serviceDays['demobilisation_standby_days'],
+                $serviceDays['future_actual_only'],
+                $serviceDays['has_future_actual'],
+            ),
+            // Total Standby = Pre-Joining + Demobilisation (missing phase = 0).
             'standby_service_days' => $serviceDays['standby_service_days'],
             'standby_service_days_label' => self::serviceDaysLabel(
                 $serviceDays['standby_service_days'],
