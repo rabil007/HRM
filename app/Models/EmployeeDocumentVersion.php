@@ -58,9 +58,9 @@ class EmployeeDocumentVersion extends Model
 
     public function resolvedMimeType(): ?string
     {
-        $mimeType = $this->mime_type;
+        $mimeType = $this->normalizeStoredMimeType($this->mime_type);
 
-        if (is_string($mimeType) && $mimeType !== '') {
+        if ($mimeType !== null) {
             return $mimeType;
         }
 
@@ -89,5 +89,17 @@ class EmployeeDocumentVersion extends Model
         }
 
         return null;
+    }
+
+    private function normalizeStoredMimeType(mixed $mimeType): ?string
+    {
+        if (! is_string($mimeType) || trim($mimeType) === '') {
+            return null;
+        }
+
+        $base = trim(explode(';', $mimeType)[0] ?? '');
+        $normalized = strtolower($base);
+
+        return $normalized === '' ? null : $normalized;
     }
 }

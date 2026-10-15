@@ -1,10 +1,24 @@
+export function normalizeDocumentPreviewMimeType(
+    mimeType: string | null | undefined,
+): string | null {
+    if (typeof mimeType !== 'string' || mimeType.trim() === '') {
+        return null;
+    }
+
+    const base = mimeType.split(';')[0]?.trim().toLowerCase() ?? '';
+
+    return base === '' ? null : base;
+}
+
 export function resolveDocumentPreviewMimeType(
     mimeType: string | null | undefined,
     fileUrl: string,
     originalFilename?: string | null,
 ): string | null {
-    if (mimeType) {
-        return mimeType;
+    const normalizedStoredMime = normalizeDocumentPreviewMimeType(mimeType);
+
+    if (normalizedStoredMime !== null) {
+        return normalizedStoredMime;
     }
 
     const filename = originalFilename?.trim().toLowerCase() ?? '';
@@ -54,22 +68,44 @@ export function resolveDocumentPreviewMimeType(
     return null;
 }
 
+export type DocumentPreviewRenderMode = 'image' | 'pdf' | 'unsupported';
+
+export function resolveDocumentPreviewRenderMode(input: {
+    mime_type?: string | null;
+    file_url: string;
+    original_filename?: string | null;
+    can_preview?: boolean;
+}): DocumentPreviewRenderMode {
+    if (input.can_preview === false) {
+        return 'unsupported';
+    }
+
+    const mimeType = resolveDocumentPreviewMimeType(
+        input.mime_type,
+        input.file_url,
+        input.original_filename,
+    );
+
+    if (mimeType === null) {
+        return 'unsupported';
+    }
+
+    if (mimeType.startsWith('image/')) {
+        return 'image';
+    }
+
+    if (mimeType === 'application/pdf') {
+        return 'pdf';
+    }
+
+    return 'unsupported';
+}
+
 export function documentPreviewIsAvailable(input: {
     mime_type?: string | null;
     file_url: string;
     original_filename?: string | null;
     can_preview?: boolean;
 }): boolean {
-    const mimeType = resolveDocumentPreviewMimeType(
-        input.mime_type,
-        input.file_url,
-        input.original_filename,
-    );
-    const isImage = mimeType?.startsWith('image/') ?? false;
-    const isPdf = mimeType === 'application/pdf';
-
-    return (
-        input.can_preview === true ||
-        (input.can_preview !== false && (isImage || isPdf))
-    );
+    return resolveDocumentPreviewRenderMode(input) !== 'unsupported';
 }

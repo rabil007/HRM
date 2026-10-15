@@ -14,6 +14,48 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
+test('employee document show serializes production-like pdf preview metadata', function () {
+    $user = User::factory()->create();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.download']);
+
+    $path = "employees/{$company->id}/training-certificates/hse-induction.pdf";
+    Storage::disk('local')->put($path, '%PDF-1.4 production-like');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'title' => 'HSE',
+        'file_path' => $path,
+        'original_filename' => 'HSE INDUCTION-ALY ADLY-13.07.2028.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 172712,
+        'checksum' => 'production-like',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.documents.employee.files.show', [$employee, $document]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/show')
+            ->where('document.id', $document->id)
+            ->where('document.title', 'HSE')
+            ->where('document.mime_type', 'application/pdf')
+            ->where('document.can_preview', true)
+            ->where('document.original_filename', 'HSE INDUCTION-ALY ADLY-13.07.2028.pdf')
+            ->where('document.file_url', route('organization.documents.files.preview', $document))
+        );
+
+    $this->get(route('organization.documents.files.preview', $document))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+});
+
 test('employee document resolves preview mime type from filename when mime column is empty', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
@@ -37,6 +79,30 @@ test('employee document resolves preview mime type from filename when mime colum
         ->and($document->can_preview)->toBeTrue()
         ->and($document->toBrowseArray()['mime_type'])->toBe('application/pdf')
         ->and($document->toBrowseArray()['can_preview'])->toBeTrue();
+});
+
+test('employee document normalizes pdf mime types with charset suffixes', function () {
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'title' => 'Charset PDF',
+        'file_path' => "employee-documents/{$company->id}/{$employee->id}/charset.pdf",
+        'original_filename' => 'charset.pdf',
+        'mime_type' => 'Application/PDF; charset=binary',
+        'size_bytes' => 120,
+        'checksum' => 'abc',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    expect($document->resolvedMimeType())->toBe('application/pdf')
+        ->and($document->can_preview)->toBeTrue()
+        ->and($document->toBrowseArray()['mime_type'])->toBe('application/pdf');
 });
 
 test('document AI extraction is forbidden without the use permission', function () {

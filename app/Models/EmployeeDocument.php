@@ -273,9 +273,9 @@ class EmployeeDocument extends Model
 
     public function resolvedMimeType(): ?string
     {
-        $mimeType = $this->mime_type;
+        $mimeType = $this->normalizeStoredMimeType($this->mime_type);
 
-        if (is_string($mimeType) && $mimeType !== '') {
+        if ($mimeType !== null) {
             return $mimeType;
         }
 
@@ -304,6 +304,18 @@ class EmployeeDocument extends Model
         }
 
         return null;
+    }
+
+    private function normalizeStoredMimeType(mixed $mimeType): ?string
+    {
+        if (! is_string($mimeType) || trim($mimeType) === '') {
+            return null;
+        }
+
+        $base = trim(explode(';', $mimeType)[0] ?? '');
+        $normalized = strtolower($base);
+
+        return $normalized === '' ? null : $normalized;
     }
 
     /**
@@ -342,7 +354,7 @@ class EmployeeDocument extends Model
             'uploaded_at' => $this->currentUploadedAt()?->toIso8601String(),
             'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
             'mime_type' => $this->resolvedMimeType(),
-            'can_preview' => $this->can_preview,
+            'can_preview' => (bool) $this->can_preview,
             'status' => $this->status,
             'expiry_date' => $this->expiry_date?->toDateString(),
             'issue_date' => $this->issue_date?->toDateString(),

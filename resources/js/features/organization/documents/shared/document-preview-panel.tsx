@@ -1,8 +1,5 @@
 import type { ReactElement } from 'react';
-import {
-    documentPreviewIsAvailable,
-    resolveDocumentPreviewMimeType,
-} from '@/features/organization/documents/lib/document-preview-mime';
+import { resolveDocumentPreviewRenderMode } from '@/features/organization/documents/lib/document-preview-mime';
 import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
 
 export type DocumentPreviewSource = {
@@ -21,32 +18,24 @@ export function DocumentPreviewPanel({
     document: DocumentPreviewSource;
     className?: string;
 }): ReactElement {
-    const mimeType = resolveDocumentPreviewMimeType(
-        document.mime_type,
-        document.file_url,
-        document.original_filename,
-    );
-    const isImage = mimeType?.startsWith('image/') ?? false;
-    const canPreview = documentPreviewIsAvailable(document);
+    const renderMode = resolveDocumentPreviewRenderMode(document);
 
     return (
         <div
             className={`overflow-hidden rounded-xl border border-border bg-muted/20 ${className}`}
         >
-            {canPreview ? (
-                isImage ? (
-                    <img
-                        src={document.file_url}
-                        alt={document.title ?? 'Document'}
-                        className="h-full w-full object-contain"
-                    />
-                ) : (
-                    <iframe
-                        src={pdfEmbedUrl(document.file_url)}
-                        title={document.title ?? 'Document preview'}
-                        className="h-full w-full"
-                    />
-                )
+            {renderMode === 'image' ? (
+                <img
+                    src={document.file_url}
+                    alt={document.title ?? 'Document'}
+                    className="h-full w-full object-contain"
+                />
+            ) : renderMode === 'pdf' ? (
+                <iframe
+                    src={pdfEmbedUrl(document.file_url)}
+                    title={document.title ?? 'Document preview'}
+                    className="h-full w-full"
+                />
             ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
                     <p>Preview is not available for this file type.</p>

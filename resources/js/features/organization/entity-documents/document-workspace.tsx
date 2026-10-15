@@ -624,6 +624,7 @@ export function DocumentWorkspace({
                               title: preview.title,
                               file_url: preview.preview_url,
                               mime_type: preview.mime_type,
+                              original_filename: preview.original_filename,
                               can_preview: preview.can_preview,
                           }
                         : null
