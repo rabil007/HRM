@@ -262,7 +262,7 @@ it('includes Draft, P0, P2A, and P2B assignments, and excludes On-Vessel, Comple
         'planned_join_at' => $today->addDays(4)->toDateTimeString(),
     ]);
 
-    // 5. Active P4 On Vessel (should NOT appear)
+    // 5. Active P2 On Vessel (should NOT appear)
     $eP4 = Employee::factory()->forCompany($company)->create(['name' => 'P4 Onboard Crew', 'position_id' => $rank->id]);
     CrewAssignment::factory()->forEmployee($eP4)->onVessel()->create([
         'vessel_id' => $vessel->id,

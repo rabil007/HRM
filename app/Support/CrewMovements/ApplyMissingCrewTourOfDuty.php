@@ -77,7 +77,7 @@ final class ApplyMissingCrewTourOfDuty
     }
 
     /**
-     * Apply missing Tour of Duty snapshot to an eligible active P4 assignment.
+     * Apply missing Tour of Duty snapshot to an eligible active P2 assignment.
      */
     public function handle(int $companyId, int $assignmentId, ?int $actorId = null): ?CrewAssignment
     {

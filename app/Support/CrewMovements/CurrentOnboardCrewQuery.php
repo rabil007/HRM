@@ -12,7 +12,7 @@ use App\Support\Employees\EmployeeVisibilityScope;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Authoritative current-onboard (active P4) constraint shared by Current Crew
+ * Authoritative current-onboard (active P2 On Vessel) constraint shared by Current Crew
  * Vessel View, vessel manning actuals, and onboard Excel export.
  */
 final class CurrentOnboardCrewQuery

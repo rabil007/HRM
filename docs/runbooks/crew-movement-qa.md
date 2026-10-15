@@ -239,7 +239,7 @@ Phase 4 migrated/retired legacy Planned CrewAssignments into Crew Planning (incl
 - [ ] A same-day transfer counts one payable onsite day for the employee, not one on each linked assignment
 - [ ] Pre-joining 1–5 October with a 5 October join shows 4 standby service days and leaves hotel days at the inclusive stay length
 - [ ] Demobilisation 10–14 October with a 10 October disembarkation shows 4 sign-off standby days, and 14 October stays standby
-- [ ] Separate Planning bars exist for source and destination; completed source P4 creates sea service
+- [ ] Separate Planning bars exist for source and destination; completed source P2 creates sea service
 - [ ] Crew Assignments shows only the new Active assignment; Movement History shows both
 - [ ] Redeploy from P3/P4 starts only at the chosen phase (P0/P1A/P2); P1 and P3 are not offered; same vessel is allowed; P0 clears planned sign-off and hidden destination fields
 - [ ] P3 Redeploy with open post-sign-off hotel requires Source Hotel Check-out Date and closes the stay atomically with source completion

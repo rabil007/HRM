@@ -566,7 +566,7 @@ export function CrewPlanningContent({
                         emptyDescription={
                             hasActiveQuery
                                 ? 'Try clearing search or filters to widen the roster.'
-                                : 'Onboard by Vessel shows current active P4 crew, not planned joins.'
+                                : 'Onboard by Vessel shows current active P2 crew, not planned joins.'
                         }
                         emptyAction={
                             hasActiveQuery ? (

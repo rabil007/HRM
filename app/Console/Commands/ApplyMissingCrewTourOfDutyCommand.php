@@ -16,7 +16,7 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
                             {--assignment= : Limit repair to a specific Assignment ID}
                             {--dry-run : Perform a dry run without modifying records}';
 
-    protected $description = 'Apply missing Tour of Duty snapshot to active P4 crew assignments whose position has a configured tour';
+    protected $description = 'Apply missing Tour of Duty snapshot to active P2 On Vessel crew assignments whose position has a configured tour';
 
     public function handle(ApplyMissingCrewTourOfDuty $action): int
     {
@@ -81,7 +81,7 @@ class ApplyMissingCrewTourOfDutyCommand extends Command
         }
 
         if ($eligibleRows === []) {
-            $this->info('No eligible active P4 assignments with missing Tour of Duty found.');
+            $this->info('No eligible active P2 assignments with missing Tour of Duty found.');
 
             return self::SUCCESS;
         }

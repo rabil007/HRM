@@ -19,10 +19,10 @@ describe('ActionImpactPreview props shape', () => {
         const props: ActionImpactPreviewProps = {
             title: 'What will happen',
             subject: 'Abdul Hamid',
-            currentState: 'P4 · Sea Eagle',
+            currentState: 'P2 · Sea Eagle',
             destinationState: 'Sea Falcon',
             impacts: [
-                'The current P4 On Vessel phase ends at the selected movement time.',
+                'The current P2 On Vessel phase ends at the selected movement time.',
             ],
             severity: 'high',
             movementTime: '17 Sep 2026 · 11:30',
@@ -48,7 +48,7 @@ describe('ActionImpactPreview props shape', () => {
         const props: ActionImpactPreviewProps = {
             subject: 'Abdul Hamid',
             currentState: 'Sea Falcon',
-            impacts: ['This will start: P4 · On Vessel'],
+            impacts: ['This will start: P2 · On Vessel'],
             compact: true,
             severity: 'normal',
             movementTime: '17 Sep 2026 · 12:00',

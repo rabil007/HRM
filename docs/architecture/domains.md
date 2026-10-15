@@ -631,10 +631,10 @@ Frontend `can` from `CrewAssignmentPagePermissions::for()`.
 
 ### Important workflows
 
-1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P4 crew.
+1. **Current Crew** (`/organization/crew`) — operational Draft/Active assignments; Vessel View lists currently onboard active P2 crew.
 2. **Planning** — optional vacant-slot Gantt workspace; named crew are `CrewAssignment` records (`draft` / `planned` / `active`). Vacant slots may be linked explicitly via `planning_assignment_id`; there is no automatic planning sync.
 3. **Movements** — `CrewMovementService::perform()` in a company-scoped transaction with `lockForUpdate()`.
-4. **Sea service** — completed P4 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
+4. **Sea service** — completed P2 (`actual_start_at` + `actual_end_at`) syncs via `SeaServiceSyncService`.
 5. **Corrections** — request/approve workflow; see [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ---

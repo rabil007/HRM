@@ -59,8 +59,8 @@ class CrewMovementAttentionQuery
             ];
         }
 
-        // P4 On Vessel is expected to remain active for the full Tour of Duty.
-        // The generic stale-phase threshold is meaningless for P4 — attention
+        // P2 On Vessel is expected to remain active for the full Tour of Duty.
+        // The generic stale-phase threshold is meaningless for P2 — attention
         // for an active On Vessel phase is governed exclusively by Tour of Duty
         // conditions (see the dedicated block below).
         if ($current !== null

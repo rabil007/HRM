@@ -273,7 +273,7 @@ Creates:
 - `planned_arrival_at` stores **Arrival Date** (forecast only, `planned_arrival_at <= planned_join_at`)
 - `planned_join_at` stores **Expected Vessel Join** (forecast only)
 
-All normal web assignments start at **P0 Pre-Arrival** unless the optional **Already Arrived** shortcut is used. Browser requests no longer submit, validate, or require `current_stage`. Crafted direct starts at P1A/P1B/P3/P4/P3/P4 without `already_arrived=true` remain rejected. P1 (`TravelIn`) is removed from normal creation and redeployment choices (new P1 assignments are never created via normal web workflows). Join Vessel remains the only way to enter P2. Redeploy supports `[P0, P1A, P2]` only.
+All normal web assignments start at **P0 Pre-Arrival** unless the optional **Already Arrived** shortcut is used. Browser requests no longer submit, validate, or require `current_stage`. Crafted direct starts at P1A/P1B/P2/P3/P4 without `already_arrived=true` remain rejected. Travel In is removed from normal creation and redeployment choices. Join Vessel remains the only way to enter P2. Redeploy supports `[P0, P1A, P2]` only.
 
 Prior phases are **never invented**. A normal start has only P0 in the timeline.
 
@@ -363,7 +363,7 @@ Normal Edit does **not** directly edit:
 - `planned_travel_at`
 - actual disembarkation
 
-Actual movement history remains owned by movement actions and corrections. Movement Correction may still recalculate `planned_signoff_at` reactively when Tour of Duty follows a P4 join date or rank correction. If Expected Vessel Join is submitted and an existing Expected Sign-Off is present, the join date cannot be after that sign-off date. Arrival Date cannot be after Expected Vessel Join.
+Actual movement history remains owned by movement actions and corrections. Movement Correction may still recalculate `planned_signoff_at` reactively when Tour of Duty follows a P2 join date or rank correction. If Expected Vessel Join is submitted and an existing Expected Sign-Off is present, the join date cannot be after that sign-off date. Arrival Date cannot be after Expected Vessel Join.
 
 ### Start Assignment (`approve_mobilisation`)
 
@@ -381,8 +381,8 @@ Record Arrival is the operational entry point from pre-vessel status into locati
 | Current Phase | Behaviour |
 |---------------|-----------|
 | **Active P0 (New Work)** | Advances P0 → P1A Pre-Joining Standby directly. No next-phase selector is required or shown; next phase is forced to P1A. Actual arrival timestamp is recorded as P1A `actual_start_at`. |
-| **Active P1 (Legacy Records)** | Legacy assignments in P1 remain fully supported. Record Arrival advances to **P1A Pre-Joining Standby** only. Actual arrival timestamp is derived from P1 `actual_end_at` or P1A `actual_start_at`. |
-| **Existing P3 (Legacy Records)** | Legacy assignments still in P3 may **Join Vessel → P2**. No normal web workflow creates new P3 assignments. |
+| **Active Travel In leftover (legacy P1)** | Historical leftover Travel In rows, if still present on an un-remapped dataset, remain supported. Record Arrival advances to **P1A Pre-Joining Standby** only. This is not a modern creation path. |
+| **Ready to Join leftover (legacy P3 code)** | Historical leftover Ready to Join rows, if still present on an un-remapped dataset, may **Join Vessel → P2**. This is not modern P3 Demobilisation Standby. No normal web workflow creates Ready to Join. |
 
 ### Actual Arrival Resolution (`CrewArrivalResolver`)
 
@@ -390,10 +390,10 @@ Actual Arrival is **derived entirely from phase actuals**; no separate actual ar
 
 ```text
 Actual Arrival Timestamp =
-  First P1A actual_start_at (preferred)
-  ?? Completed P1 actual_end_at (legacy fallback)
-  ?? null
+  First P1A actual_start_at
 ```
+
+`CrewArrivalResolver` has no Travel In fallback. A remapped historical P2A arrival is already stored as P1A.
 
 ### Active P0 conflict
 
@@ -402,7 +402,7 @@ Actual Arrival Timestamp =
 | Draft P0 | `false` |
 | Active P0 | `true` |
 
-An employee already in Active P0 cannot start another assignment, the same as P1–P6. Transfer Vessel remains the path when the selected employee is already On Vessel on another vessel.
+An employee already in Active P0 cannot start another assignment, the same as any other Active assignment. Transfer Vessel remains the path when the selected employee is already On Vessel on another vessel.
 
 ## Tour of Duty
 
@@ -461,7 +461,7 @@ Ineligible assignments (draft, pre-P2, completed, cancelled, assignments with ex
 ### Planned versus actual
 
 - Planned Sign-Off is an expected date only (`planned_signoff_at` / P2 `planned_end_at`).
-- A generated Planned Sign-Off must **never** complete P4, disembark the employee, close the assignment, create payroll days, or create Sea Service.
+- A generated Planned Sign-Off must **never** complete P2, disembark the employee, close the assignment, create payroll days, or create Sea Service.
 - Actual disembarkation remains a separate `confirm_disembarkation` action.
 
 ### Join Vessel sign-off choices
@@ -483,18 +483,18 @@ If no Tour exists and no Planned Sign-Off is entered (and no explicit manual cho
 When an approved correction changes P2 `actual_start_at` and `planned_signoff_source` is `tour_of_duty`, Planned Sign-Off is recalculated from the **snapshotted** tour days and written to:
 
 1. `crew_assignments.planned_signoff_at`
-2. P4 `crew_assignment_phases.planned_end_at`
+2. P2 `crew_assignment_phases.planned_end_at`
 
 Manual / existing-plan sources are preserved. Pending corrections do not mutate official dates. A failure during approval rolls back assignment, phase, and correction status together. Linked vacant planning slots are **not** auto-synced.
 
 ### Transfer / redeployment (Phase 2C.1)
 
-Direct vessel transfer and direct-P4 redeploy create a **new linked assignment** (`previous_assignment_id`). They never mutate the source assignment into another vessel.
+Direct vessel transfer and direct-P2 redeploy create a **new linked assignment** (`previous_assignment_id`). They never mutate the source assignment into another vessel.
 
-- Source P4 is completed at the actual handoff `occurred_at`; Sea Service syncs from that completed source P4 only.
+- Source P2 is completed at the actual handoff `occurred_at`; Sea Service syncs from that completed source P2 only.
 - Destination starting in active P2 receives a **fresh Tour of Duty snapshot** via `CrewTourOfDutyResolver` + `CrewJoinVesselSignoffApplier` (same path as Join Vessel), based on **destination rank** and the handoff timestamp — not a copy of the source Tour.
 - Pre-P2 redeploy to P0 or P1A does **not** snapshot Tour; Tour is applied later when that assignment performs Join Vessel.
-- Planned Sign-Off remains forecast-only; only actual transfer/redeploy/`occurred_at` completes source P4.
+- Planned Sign-Off remains forecast-only; only actual transfer/redeploy/`occurred_at` completes source P2.
 
 ### Notifications deferred
 
@@ -511,7 +511,7 @@ Email, browser Web Push, in-app notification feeds, escalation, and Announcement
 | `complete_training` | P1B → P1A |
 | `mark_ready` | Legacy only: historical join-standby → Ready to Join (not offered in normal web workflow) |
 | `join_vessel` | P1A or legacy Ready to Join → P2 |
-| `plan_signoff` | P4 plan only (does not disembark) |
+| `plan_signoff` | P2 plan only (does not disembark) |
 | `confirm_disembarkation` | P2 → P3 or P4 |
 | `start_demob_standby` | helper into P3 |
 | `travel_home` | P3 → P4 (default: also closes assignment in the same action) |
@@ -626,7 +626,7 @@ See also [crew-movement-corrections.md](./crew-movement-corrections.md).
 
 ### Transfer Vessel (`transfer_vessel`)
 
-Available from Active P2 On Vessel. Completes the source P4 and assignment at `occurred_at`, syncs sea service for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P2 on the destination vessel. Linked vacant Planning slots are **not** auto-updated. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P3/P4/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
+Available from Active P2 On Vessel. Completes the source P2 and assignment at `occurred_at`, syncs sea service for the source, then creates a linked Active assignment (`previous_assignment_id`, `source = vessel_transfer`) that starts directly in active P2 on the destination vessel. Linked vacant Planning slots are **not** auto-updated. Destination vessel must start blank in the form, must differ from the source, and is required. Destination **Client** defaults from the destination Vessel’s current `client_id` (not the source assignment Client). An explicitly submitted destination Client must match that vessel Client when the vessel is assigned. Rank may still default from the current assignment. No artificial P3/P4/P0–P3 phases are created. The destination receives a fresh Tour of Duty snapshot (destination rank + handoff timestamp) via the same resolver/applier as Join Vessel. The movement controller redirects to the new assignment.
 
 #### Intelligent transfer recommendation
 
@@ -634,7 +634,7 @@ Active On Vessel conflicts are proactively surfaced in the UI and the recorder i
 
 If a recorder selects an employee who is already actually On Vessel (active P2) in the same company, and tries to place them on a different vessel, Crew Operations recommends **Transfer Vessel** instead of creating another assignment or joining vessel on a second record.
 
-The warning identifies the employee, current assignment, current vessel, active P2 state, and when that P4 started. Creating or joining another vessel assignment may produce conflicting operational history.
+The warning identifies the employee, current assignment, current vessel, active P2 state, and when that P2 started. Creating or joining another vessel assignment may produce conflicting operational history.
 
 This appears when:
 
@@ -648,11 +648,11 @@ This appears when:
 On the Start Crew Assignment form (`/organization/crew/create`), selecting an employee immediately displays their tenant-scoped operational status directly within the Employee selection panel (via `CrewAssignmentStatusResolver::forEmployeeIds()`).
 
 Operations immediately sees:
-- **On Vessel (P4)**: High-attention amber warning showing current vessel, assignment number, start time, and days onboard, with transfer recommendation when another vessel is selected.
+- **On Vessel (P2)**: High-attention amber warning showing current vessel, assignment number, start time, and days onboard, with transfer recommendation when another vessel is selected.
 - **Pre-Joining Standby (P1A)**: Informational badge showing assignment number, start time, and days in standby.
-- **Demob Standby (P3)**: Distinct P3 demobilisation standby badge with assignment number and duration.
+- **Demobilisation Standby (P3)**: Distinct P3 demobilisation standby badge with assignment number and duration.
 - **Available / In Home**: Calm status indicating the employee is ready without operational conflict.
-- **Other active phases (P0, P1B, P4, plus legacy Travel In / Ready to Join)**: Accurate current phase status and duration.
+- **Other active phases (P0, P1B, P4, plus leftover Travel In / Ready to Join)**: Accurate current phase status and duration.
 
 Same vessel does not recommend a transfer. A Crew Planning future plan, a completed or cancelled tour, or another company's assignment is not treated as a current vessel transfer. The current assignment is excluded from its own recommendation.
 
@@ -663,8 +663,8 @@ This recommendation is not a new backend hard block. Existing assignment invaria
 A direct handoff is an exact timestamp boundary:
 
 ```text
-HEA KRAKEN P4 ends   26 Aug 16:30
-PLB 648 P4 starts    26 Aug 16:30
+HEA KRAKEN P2 ends   26 Aug 16:30
+PLB 648 P2 starts    26 Aug 16:30
 ```
 
 That is the Transfer Vessel case. Intervals are half-open `[start, end)`: a genuine overlap requires **positive duration on both intervals** and `left.start < right.end` and `right.start < left.end`. Equal start/end at a handoff is valid, not an overlap. Zero-duration intervals (`start == end`) are not treated as positive-duration overlaps. Reversed ranges (`end < start`) remain invalid and are rejected by movement invariants / correction validation, not reinterpreted as non-overlaps.
@@ -707,7 +707,7 @@ P4 Home / Redeployment (Active)
 
 `completion_intent` is server-side (`close` default, `redeploy` to keep open). Planned Travel Home is forecast only and is never used as the actual return-home or `closed_at` timestamp.
 
-Existing Active P2 records are not bulk-closed. They continue to expose **Close Assignment** and **Redeploy**.
+Existing Active P4 records kept open for redeployment are not bulk-closed. They continue to expose **Close Assignment** and **Redeploy**.
 
 ### Redeploy (`redeploy`)
 
@@ -723,7 +723,7 @@ Movement field corrections use a dedicated approval workflow instead of `correct
 
 ## Generic Assignment Editing
 
-Generic Crew Assignment editing is limited to Draft/pre-P2 preparation. Once P4 begins, planned sign-off changes use Plan Sign-Off, historical field changes use Movement Corrections, and actual operational changes use movement actions.
+Generic Crew Assignment editing is limited to Draft/pre-P2 preparation. Once P2 begins, planned sign-off changes use Plan Sign-Off, historical field changes use Movement Corrections, and actual operational changes use movement actions.
 
 ## Mobilisation Readiness (advisory)
 
@@ -998,7 +998,7 @@ Default sort is operational urgency, then nearest Planned Sign-Off (overdue → 
 
 ## Phase 2B.1 — Projected Vessel Manning Engine
 
-Read-only Support query: `CrewProjectedManningQuery`. Derives coverage from existing Crew Assignments, P4 phases, Crew Planning rows, relief links (`relieves_crew_assignment_id`), and company-scoped `VesselManning`. No projection table; no mutations.
+Read-only Support query: `CrewProjectedManningQuery`. Derives coverage from existing Crew Assignments, P2 phases, Crew Planning rows, relief links (`relieves_crew_assignment_id`), and company-scoped `VesselManning`. No projection table; no mutations.
 
 ### Data sources
 
@@ -1020,13 +1020,13 @@ Vacant Planning (`employee_id` null) does not increase headcount. Soft-deleted P
 
 ### Leave / sign-off precedence
 
-1. P4 `actual_end_at`
+1. P2 `actual_end_at`
 2. Assignment `planned_signoff_at`
 3. P2 `planned_end_at`
 4. Planning `planned_leave_date`
 5. Open-ended (remains onboard through the horizon)
 
-Planned Sign-Off is forecast-only; it never completes P4, creates Sea Service, or payroll actuals.
+Planned Sign-Off is forecast-only; it never completes P2, creates Sea Service, or payroll actuals.
 
 ### Same-day ordering
 
@@ -1056,7 +1056,7 @@ Trusted `companyId` is enforced independently on Vessel Manning, assignments, ph
 
 ### Relief
 
-Uses Phase 2A Planning relief links. Late relief → gap between source leave and relief join; early relief → overlap/excess. Historical P3/P4 / cancelled / completed linked relief follow assignment P4 history and status exclusions, not readiness labels alone.
+Uses Phase 2A Planning relief links. Late relief → gap between source leave and relief join; early relief → overlap/excess. Historical P3/P4 / cancelled / completed linked relief follow assignment On Vessel history and status exclusions, not readiness labels alone.
 
 ### Summary overlap
 
@@ -1147,11 +1147,11 @@ Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew 
 
 | Rule | Behaviour |
 |------|-----------|
-| Linked assignment | Destination is a new `CrewAssignment` with `previous_assignment_id`; source vessel/rank/P4 history is preserved |
-| Direct P4 transfer / redeploy | Fresh Tour snapshot via `CrewTourOfDutyResolver` + `CrewJoinVesselSignoffApplier` (destination rank + `occurred_at`) |
-| Pre-P4 redeploy | No Tour snapshot; Join Vessel applies Tour later |
-| Sea Service | Source P4 completion syncs once; destination Sea Service waits until destination P4 completes |
-| Planned vs actual | Only actual `occurred_at` handoff completes source P4 |
+| Linked assignment | Destination is a new `CrewAssignment` with `previous_assignment_id`; source vessel/rank/P2 history is preserved |
+| Direct P2 transfer / redeploy | Fresh Tour snapshot via `CrewTourOfDutyResolver` + `CrewJoinVesselSignoffApplier` (destination rank + `occurred_at`) |
+| Pre-P2 redeploy | No Tour snapshot; Join Vessel applies Tour later |
+| Sea Service | Source P2 completion syncs once; destination Sea Service waits until destination P2 completes |
+| Planned vs actual | Only actual `occurred_at` handoff completes source P2 |
 | Rollback | Tour/sign-off validation runs before source mutation; failures leave source active |
 
 ### Deferred (still later)
@@ -1160,12 +1160,12 @@ Hardens existing `TransferVessel` / `Redeploy` without redesigning Current Crew 
 
 ## Phase 2C.2 — Transfer / Redeploy Tour UI Alignment
 
-Movement dialogs reuse shared Tour / Planned Sign-Off controls (`TourSignoffFields`) for Join Vessel, Transfer Vessel, and Redeploy starting at P4.
+Movement dialogs reuse shared Tour / Planned Sign-Off controls (`TourSignoffFields`) for Join Vessel, Transfer Vessel, and Redeploy starting at P2.
 
 | Surface | Behaviour |
 |---------|-----------|
 | Transfer Vessel | Destination-rank Tour default (`tour_of_duty` when resolved); no `existing_plan` |
-| Redeploy P4 | Same Tour / sign-off controls as Transfer |
+| Redeploy P2 | Same Tour / sign-off controls as Transfer |
 | Redeploy P0 / P1A | Tour fields hidden and excluded from submit; optional forecast sign-off only |
 | Payload | Empty `tour_of_duty_days` omitted; non-manual choices drop stale date/reason |
 
@@ -1245,7 +1245,7 @@ Requires P2 with `actual_start_at` plus assignment vessel/rank/employee. Linked 
 - `CrewAssignmentStatusResolver` maps current phase → operational status.
 - Dashboard counts use latest relevant assignment per employee, plus Tour of Duty sign-off buckets (within 30/14/7 days, due today, overdue, missing tour/sign-off).
 - Onboard manning = active assignment + active P2 on vessel. Planned sign-off does not remove onboard crew.
-- Planned-join manning forecasts (`CrewAssignmentManningQuery`) count active pre-vessel assignments with future `planned_join_at` in P0/P1A/P1B, plus legacy P1/P3 when they still exist. P4/P3/P4 are excluded.
+- Planned-join manning forecasts (`CrewAssignmentManningQuery`) count active pre-vessel assignments with future `planned_join_at` in P0/P1A/P1B, plus leftover Travel In / Ready to Join when they still exist. P2/P3/P4 are excluded.
 - Attention rules live in `CrewMovementAttentionQuery` (stale draft/phase, overdue planned join/sign-off, missing vessel/rank, tour due/overdue/missing).
 
 ## Assignment numbers
@@ -1261,7 +1261,7 @@ Requires P2 with `actual_start_at` plus assignment vessel/rank/employee. Linked 
 
 ## Crew Assignment index Phase Guide
 
-`/organization/crew` exposes a compact **Phase Guide** dialog from the page header. It is educational only: it explains P0–P4 meanings, typical next directions, and common alternative paths (for example P4 Transfer Vessel vs P3/P4 Redeploy). It does **not** change assignment state.
+`/organization/crew` exposes a compact **Phase Guide** dialog from the page header. It is educational only: it explains P0–P4 meanings, typical next directions, and common alternative paths (for example P2 Transfer Vessel vs P3/P4 Redeploy). It does **not** change assignment state.
 
 - Not every assignment uses every phase. Actual movement is determined only by recorded `CrewAssignmentPhase` history.
 - legacy P1 Travel In and P3 Ready to Join remain compatibility phases; the guide calls this out explicitly.
@@ -1305,13 +1305,13 @@ Transfer availability and destination selection are separate concerns:
 - **Can transfer:** employee is active P2 On Vessel, domain rules permit transfer on the current assignment, and the user has movement-perform permission. Movement Guidance shows **Transfer Vessel** even when no destination vessel is selected on the Start form; the existing Transfer Vessel dialog chooses the destination.
 - **Selected destination:** when the Start form targets a different vessel, the sidebar action becomes **Transfer to {vessel}** and prefills the dialog where supported. Submitting Start Assignment still opens the Transfer Vessel intercept instead of creating a second active assignment.
 
-Pre-P4 vessel changes on Create or Edit update the current mobilisation destination; they are **not** vessel transfers.
+Pre-P2 vessel changes on Create or Edit update the current mobilisation destination; they are **not** vessel transfers.
 
 This is powered by `ActiveOnVesselAssignmentFinder` (`form_options.active_on_vessel_by_employee`, keyed by employee ID). `can_transfer` within each entry reflects domain permission on the assignment; movement-perform permission controls whether the action is executable.
 
 ### Edit Assignment workspace
 
-`organization/crew/{assignment}/edit` uses the same two-column workspace pattern as Create. Generic Edit remains available only for Draft and Active phases before P2 (P0–P3). P4/P3/P4 and Completed/Cancelled assignments redirect to Movement Actions.
+`organization/crew/{assignment}/edit` uses the same two-column workspace pattern as Create. Generic Edit remains available only for Draft and Active phases before P2 (P0/P1A/P1B, plus leftover Travel In / Ready to Join). P2/P3/P4 and Completed/Cancelled assignments redirect to Movement Actions.
 
 The edit sidebar answers “what can I safely change on this existing mobilisation?” via `assignment-edit-guidance.ts`: phase-aware copy, safe-to-update fields, destination-change notes (not Transfer Vessel before boarding), linked Planning change summary (Vessel/Rank/Expected Join), and proactive date advisories. Backend validation in `UpdateCrewAssignmentRequest` remains authoritative. Edit form options preserve inactive historical Vessel/Client options when unchanged.
 

@@ -83,12 +83,12 @@ test('report is company scoped and excludes other companies assignments', functi
         );
 });
 
-test('report only shows active P4 onboard crew and excludes completed or non-p4 assignments', function () {
+test('report only shows active P2 onboard crew and excludes completed or non-p2 assignments', function () {
     CarbonImmutable::setTestNow('2026-10-01 10:00:00');
 
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank, 'vessel' => $vessel] = authorizeCrewReliefReport();
 
-    // P4 onboard assignment
+    // P2 onboard assignment
     $onboardAssignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel, [
         'assignment_no' => 'CA-ONBOARD-001',
         'planned_signoff_at' => '2026-10-20 00:00:00',

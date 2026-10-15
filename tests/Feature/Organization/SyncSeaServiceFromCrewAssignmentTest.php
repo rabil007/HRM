@@ -188,7 +188,7 @@ test('sync removes sea service when phase is cancelled', function () {
         ->and(EmployeeSeaService::withTrashed()->where('crew_assignment_phase_id', $phase->id)->count())->toBe(0);
 });
 
-test('sync ignores non-p4 phases', function () {
+test('sync ignores non-p2 phases', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
     $vessel = makeCrewMovementVessel('Phase Types Vessel');
     $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);

@@ -56,7 +56,7 @@ export function PlanningStartActiveAssignmentConflict({
                         </h2>
                         {isOnVessel ? (
                             <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/85">
-                                Active P4 On Vessel
+                                Active P2 On Vessel
                             </p>
                         ) : (
                             <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/85">

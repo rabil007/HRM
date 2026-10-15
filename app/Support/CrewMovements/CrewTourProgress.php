@@ -68,11 +68,11 @@ final class CrewTourProgress
             return $empty;
         }
 
-        $isCompletedP4 = $onVessel->status === CrewPhaseStatus::Completed
+        $isCompletedOnVessel = $onVessel->status === CrewPhaseStatus::Completed
             && $onVessel->actual_end_at !== null;
 
-        // Active P4 uses "now"; completed P4 freezes progress at actual disembarkation.
-        $progressAsOf = $isCompletedP4
+        // Active P2 uses "now"; completed P2 freezes progress at actual disembarkation.
+        $progressAsOf = $isCompletedOnVessel
             ? $onVessel->actual_end_at
             : ($asOf ?? now($timezone));
 
