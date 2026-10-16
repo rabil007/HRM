@@ -2,6 +2,7 @@
 
 namespace App\Support\EmployeeTrainings;
 
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeTraining;
 use Illuminate\Support\Facades\DB;
 
@@ -20,12 +21,29 @@ class DeletesEmployeeTrainingRecord
         DB::transaction(function () use ($training, &$pathsToDelete): void {
             $trainingId = (int) $training->id;
             $companyId = (int) $training->company_id;
+            $documentId = $training->employee_document_id;
 
-            $training->loadMissing('versions');
+            // Lock order: EmployeeDocument → EmployeeTraining when both are involved.
+            if ($documentId !== null) {
+                EmployeeDocument::query()
+                    ->whereKey($documentId)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
+                    ->first();
+            }
 
-            $candidatePaths = $this->certificateStore->resolveCertificatePaths($training);
+            /** @var EmployeeTraining $lockedTraining */
+            $lockedTraining = EmployeeTraining::query()
+                ->whereKey($trainingId)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $this->certificateDocuments->unlinkDocument($training);
+            $lockedTraining->loadMissing('versions');
+
+            $candidatePaths = $this->certificateStore->resolveCertificatePaths($lockedTraining);
+
+            $this->certificateDocuments->unlinkDocument($lockedTraining);
 
             $pathsToDelete = $this->certificateStore->filterDeletableCertificatePaths(
                 $candidatePaths,
@@ -33,7 +51,7 @@ class DeletesEmployeeTrainingRecord
                 $trainingId,
             );
 
-            $training->delete();
+            $lockedTraining->delete();
         });
 
         if ($pathsToDelete === []) {

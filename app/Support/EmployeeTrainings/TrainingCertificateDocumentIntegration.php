@@ -21,6 +21,16 @@ use Throwable;
 
 class TrainingCertificateDocumentIntegration
 {
+    /**
+     * Consistent lock order for certificate mutations that touch both tables:
+     * EmployeeDocument → EmployeeTraining.
+     *
+     * Documents-side update/replace and signing already lock the document first,
+     * then synchronize linked trainings. Training-side link/replace/backfill reuse
+     * follow the same order to avoid AB-BA deadlocks on the same certificate.
+     */
+    public const LOCK_ORDER = 'employee_document_then_employee_training';
+
     public function __construct(
         private StoresEmployeeDocument $documentStore,
         private TrainingCertificateDocumentTypeResolver $documentTypeResolver,
@@ -92,15 +102,15 @@ class TrainingCertificateDocumentIntegration
         TrainingCertificateDocumentPermissions::assertCanUploadOrLink($user);
 
         DB::transaction(function () use ($training, $employee, $document, $companyId, $confirmReplaceLink): void {
-            /** @var EmployeeTraining $lockedTraining */
-            $lockedTraining = EmployeeTraining::query()
-                ->whereKey($training->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
             /** @var EmployeeDocument $lockedDocument */
             $lockedDocument = EmployeeDocument::query()
                 ->whereKey($document->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            /** @var EmployeeTraining $lockedTraining */
+            $lockedTraining = EmployeeTraining::query()
+                ->whereKey($training->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -139,18 +149,18 @@ class TrainingCertificateDocumentIntegration
             ]);
         }
 
-        return DB::transaction(function () use ($training, $employee, $document, $file, $companyId, $userId, $trainingMetadata) {
-            /** @var EmployeeTraining $lockedTraining */
-            $lockedTraining = EmployeeTraining::query()
-                ->whereKey($training->id)
-                ->lockForUpdate()
-                ->firstOrFail();
-
+        $run = function () use ($training, $employee, $document, $file, $companyId, $userId, $trainingMetadata): EmployeeTraining {
             /** @var EmployeeDocument $lockedDocument */
             $lockedDocument = EmployeeDocument::query()
                 ->whereKey($document->id)
                 ->where('company_id', $companyId)
                 ->where('employee_id', $employee->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            /** @var EmployeeTraining $lockedTraining */
+            $lockedTraining = EmployeeTraining::query()
+                ->whereKey($training->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -184,7 +194,11 @@ class TrainingCertificateDocumentIntegration
             $this->applyTrainingMetadata($lockedTraining, $trainingMetadata);
 
             return $lockedTraining->refresh();
-        });
+        };
+
+        return DB::transactionLevel() > 0
+            ? $run()
+            : DB::transaction($run);
     }
 
     /**
@@ -202,64 +216,77 @@ class TrainingCertificateDocumentIntegration
     ): EmployeeTraining {
         TrainingCertificateDocumentPermissions::assertCanReplace(auth()->user());
 
-        return DB::transaction(function () use ($training, $employee, $file, $companyId, $userId, $trainingMetadata) {
-            /** @var EmployeeTraining $locked */
-            $locked = EmployeeTraining::query()
+        $run = function () use ($training, $employee, $file, $companyId, $userId, $trainingMetadata): EmployeeTraining {
+            $fresh = EmployeeTraining::query()
                 ->whereKey($training->id)
-                ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($locked->usesIntegratedCertificateDocument()) {
-                return $this->replaceLinkedCertificate(
-                    $locked,
-                    $employee,
-                    $file,
-                    $companyId,
-                    $userId,
-                    $trainingMetadata,
-                );
+            if (! $fresh->usesIntegratedCertificateDocument()) {
+                $result = $this->migrateLegacyTrainingCertificate($fresh, dryRun: false);
+
+                if (! in_array($result, ['linked', 'reused', 'already_linked'], true)) {
+                    throw ValidationException::withMessages([
+                        'file' => $this->legacyIntegrationFailureMessage($result),
+                    ]);
+                }
+
+                $fresh->refresh();
             }
-
-            $result = $this->migrateLegacyTrainingCertificate($locked, dryRun: false);
-
-            if (! in_array($result, ['linked', 'reused', 'already_linked'], true)) {
-                throw ValidationException::withMessages([
-                    'file' => $this->legacyIntegrationFailureMessage($result),
-                ]);
-            }
-
-            $locked->refresh();
 
             return $this->replaceLinkedCertificate(
-                $locked,
+                $fresh,
                 $employee,
                 $file,
                 $companyId,
                 $userId,
                 $trainingMetadata,
             );
-        });
+        };
+
+        return DB::transactionLevel() > 0
+            ? $run()
+            : DB::transaction($run);
     }
 
     public function syncTrainingDatesToLinkedDocument(EmployeeTraining $training, bool $syncExpiry = true): void
     {
-        $document = $this->resolveLinkedDocument($training);
-
-        if ($document === null) {
+        if ($training->employee_document_id === null) {
             return;
         }
 
-        $updates = [
-            'issue_date' => $training->issue_date?->toDateString(),
-            'title' => $this->documentTitleForTraining($training),
-        ];
+        $run = function () use ($training, $syncExpiry): void {
+            /** @var EmployeeDocument|null $document */
+            $document = EmployeeDocument::query()
+                ->whereKey($training->employee_document_id)
+                ->where('company_id', $training->company_id)
+                ->where('employee_id', $training->employee_id)
+                ->lockForUpdate()
+                ->first();
 
-        if ($syncExpiry) {
-            $updates['expiry_date'] = $training->expiry_date?->toDateString();
-            $updates['status'] = DocumentExpiry::persistedStatus($training->expiry_date?->toDateString());
+            if (! $document instanceof EmployeeDocument) {
+                return;
+            }
+
+            $updates = [
+                'issue_date' => $training->issue_date?->toDateString(),
+                'title' => $this->documentTitleForTraining($training),
+            ];
+
+            if ($syncExpiry) {
+                $updates['expiry_date'] = $training->expiry_date?->toDateString();
+                $updates['status'] = DocumentExpiry::persistedStatus($training->expiry_date?->toDateString());
+            }
+
+            $document->update($updates);
+        };
+
+        if (DB::transactionLevel() > 0) {
+            $run();
+
+            return;
         }
 
-        $document->update($updates);
+        DB::transaction($run);
     }
 
     public function syncLinkedTrainingsFromDocument(EmployeeDocument $document): void
@@ -378,7 +405,47 @@ class TrainingCertificateDocumentIntegration
         }
 
         try {
-            return DB::transaction(function () use ($training): string {
+            $run = function () use ($training): string {
+                if ($training->employee_document_id !== null) {
+                    return 'already_linked';
+                }
+
+                $reassessment = $this->assessLegacyTrainingCertificateMigration($training);
+
+                if (! in_array($reassessment, ['eligible', 'eligible_reuse'], true)) {
+                    return $reassessment;
+                }
+
+                $documentType = $this->documentTypeResolver->resolve();
+                $existingDocument = $this->findCompatibleExistingDocumentForLegacy($training, $documentType->id);
+
+                if ($existingDocument instanceof EmployeeDocument) {
+                    /** @var EmployeeDocument $lockedDocument */
+                    $lockedDocument = EmployeeDocument::query()
+                        ->whereKey($existingDocument->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    /** @var EmployeeTraining $locked */
+                    $locked = EmployeeTraining::query()
+                        ->whereKey($training->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($locked->employee_document_id !== null) {
+                        return 'already_linked';
+                    }
+
+                    $locked->loadMissing(['course:id,name', 'versions']);
+                    $this->assertTrainingVersionsCompatibleWithDocument($locked, $lockedDocument);
+                    $this->reconcileLegacyCertificateHistoryBeforeLink($locked, $lockedDocument);
+                    $lockedDocument->refresh();
+                    $this->assignDocumentToTraining($locked, $lockedDocument);
+                    $this->syncTrainingDatesFromDocument($locked, $lockedDocument);
+
+                    return 'reused';
+                }
+
                 /** @var EmployeeTraining $locked */
                 $locked = EmployeeTraining::query()
                     ->whereKey($training->id)
@@ -389,31 +456,7 @@ class TrainingCertificateDocumentIntegration
                     return 'already_linked';
                 }
 
-                $reassessment = $this->assessLegacyTrainingCertificateMigration($locked);
-
-                if (! in_array($reassessment, ['eligible', 'eligible_reuse'], true)) {
-                    return $reassessment;
-                }
-
                 $locked->loadMissing(['course:id,name', 'versions']);
-
-                $documentType = $this->documentTypeResolver->resolve();
-                $existingDocument = $this->findCompatibleExistingDocumentForLegacy($locked, $documentType->id);
-
-                if ($existingDocument instanceof EmployeeDocument) {
-                    /** @var EmployeeDocument $lockedDocument */
-                    $lockedDocument = EmployeeDocument::query()
-                        ->whereKey($existingDocument->id)
-                        ->lockForUpdate()
-                        ->firstOrFail();
-
-                    $this->reconcileLegacyCertificateHistoryBeforeLink($locked, $lockedDocument);
-                    $lockedDocument->refresh();
-                    $this->assignDocumentToTraining($locked, $lockedDocument);
-                    $this->syncTrainingDatesFromDocument($locked, $lockedDocument);
-
-                    return 'reused';
-                }
 
                 $document = EmployeeDocument::query()->create([
                     'company_id' => $locked->company_id,
@@ -440,7 +483,11 @@ class TrainingCertificateDocumentIntegration
                 $locked->update(['employee_document_id' => $document->id]);
 
                 return 'linked';
-            });
+            };
+
+            return DB::transactionLevel() > 0
+                ? $run()
+                : DB::transaction($run);
         } catch (ValidationException) {
             return 'conflicting_version_history';
         } catch (Throwable) {

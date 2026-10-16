@@ -19,42 +19,57 @@ class DocumentDeletionService
 
     public function delete(EmployeeDocument $document): void
     {
-        $linkedTraining = EmployeeTraining::query()
-            ->where('company_id', $document->company_id)
-            ->where('employee_document_id', $document->id)
-            ->exists();
-
-        abort_if(
-            $linkedTraining,
-            422,
-            'This document is linked to one or more training records. Unlink or delete the training associations first.',
-        );
-
         $this->cancelPendingSignatureRequests->forDocuments(
             (int) $document->company_id,
             [$document->id],
         );
 
-        $document->loadMissing('versions:id,employee_document_id,file_path');
-
-        $paths = $document->versions
-            ->pluck('file_path')
-            ->push($document->file_path)
-            ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
-            ->unique()
-            ->values()
-            ->all();
-
         $companyId = (int) $document->company_id;
         $documentId = (int) $document->id;
+        $paths = [];
 
-        DB::transaction(function () use ($companyId, $document): void {
+        DB::transaction(function () use ($companyId, $document, &$paths): void {
+            /** @var EmployeeDocument $lockedDocument */
+            $lockedDocument = EmployeeDocument::query()
+                ->whereKey($document->id)
+                ->where('company_id', $companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            EmployeeTraining::query()
+                ->where('company_id', $companyId)
+                ->where('employee_document_id', $lockedDocument->id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $linkedTraining = EmployeeTraining::query()
+                ->where('company_id', $companyId)
+                ->where('employee_document_id', $lockedDocument->id)
+                ->exists();
+
+            abort_if(
+                $linkedTraining,
+                422,
+                'This document is linked to one or more training records. Unlink or delete the training associations first.',
+            );
+
+            $lockedDocument->loadMissing('versions:id,employee_document_id,file_path');
+
+            $paths = $lockedDocument->versions
+                ->pluck('file_path')
+                ->push($lockedDocument->file_path)
+                ->filter(fn (mixed $path): bool => is_string($path) && $path !== '')
+                ->unique()
+                ->values()
+                ->all();
+
             DocumentInstance::query()
                 ->where('company_id', $companyId)
-                ->where('employee_document_id', $document->id)
+                ->where('employee_document_id', $lockedDocument->id)
                 ->update(['employee_document_id' => null]);
 
-            $document->delete();
+            $lockedDocument->delete();
         });
 
         foreach ($paths as $path) {

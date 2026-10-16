@@ -8,6 +8,7 @@ use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentVersion;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -28,7 +29,7 @@ class StoresEmployeeDocument
                 : 'uncategorized';
 
             $path = $this->storeFile($prepared->file, $companyId, $employee->id, $folderSegment);
-            $this->registerCreatedPathCompensation($path, $companyId);
+            TransactionScopedPrivateFileCompensation::remember($path, $companyId);
 
             $defaultTitle = $documentType?->title
                 ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
@@ -56,6 +57,7 @@ class StoresEmployeeDocument
             ]);
         } catch (Throwable $exception) {
             if (is_string($path) && $path !== '') {
+                TransactionScopedPrivateFileCompensation::forget($path);
                 EmployeePrivateFile::deleteStored(
                     $path,
                     $companyId,
@@ -102,7 +104,7 @@ class StoresEmployeeDocument
                     : Str::slug((string) ($document->document_type ?? 'document'));
 
                 $path = $this->storeFile($prepared->file, $companyId, $employeeId, $segment);
-                $this->registerCreatedPathCompensation($path, $companyId);
+                TransactionScopedPrivateFileCompensation::remember($path, $companyId);
 
                 $expiryDate = array_key_exists('expiry_date', $data)
                     ? ($data['expiry_date'] ?? null)
@@ -136,21 +138,6 @@ class StoresEmployeeDocument
         } finally {
             $prepared->cleanup();
         }
-    }
-
-    private function registerCreatedPathCompensation(string $path, int $companyId): void
-    {
-        if ($path === '' || DB::transactionLevel() === 0) {
-            return;
-        }
-
-        DB::afterRollBack(function () use ($path, $companyId): void {
-            EmployeePrivateFile::deleteStored(
-                $path,
-                $companyId,
-                EmployeePrivateFileKind::Document,
-            );
-        });
     }
 
     private function storageFolderSegment(DocumentType $documentType): string

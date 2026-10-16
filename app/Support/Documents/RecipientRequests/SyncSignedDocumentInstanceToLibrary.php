@@ -9,6 +9,7 @@ use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
 use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use Illuminate\Http\UploadedFile;
 use Throwable;
@@ -71,6 +72,7 @@ final class SyncSignedDocumentInstanceToLibrary
                 'employee_id' => $employeeDocument->employee_id,
             ],
         );
+        TransactionScopedPrivateFileCompensation::remember($newPath, $companyId);
 
         try {
             $sizeBytes = (int) filesize($tempSignedPdfPath);
@@ -104,6 +106,7 @@ final class SyncSignedDocumentInstanceToLibrary
 
             $this->trainingCertificateDocuments->syncLinkedTrainingsFromDocument($employeeDocument->refresh());
         } catch (Throwable $exception) {
+            TransactionScopedPrivateFileCompensation::forget($newPath);
             EmployeePrivateFile::deleteStored(
                 $newPath,
                 $companyId,

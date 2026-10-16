@@ -2277,6 +2277,267 @@ test('single training certificate upload cleans orphaned files when document ins
         ->and(Storage::disk('local')->allFiles())->toBe($filesBefore);
 });
 
+test('certificate mutations document a consistent employee-document-then-training lock order', function () {
+    expect(TrainingCertificateDocumentIntegration::LOCK_ORDER)
+        ->toBe('employee_document_then_employee_training');
+});
+
+test('mysql concurrent sessions using document-then-training locks complete without deadlock', function () {
+    if (! function_exists('pcntl_fork')) {
+        test()->markTestSkipped('pcntl_fork is required for MySQL concurrency verification.');
+    }
+
+    // phpunit.xml forces sqlite for Pest; probe the Cloud Agent MySQL DSN directly.
+    $host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: '127.0.0.1';
+    $port = $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?: '3306';
+    $database = $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: 'oms_hrm';
+    $user = $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: 'oms';
+    $password = $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: 'oms';
+
+    // Prefer .env values when phpunit overrides DB_* to sqlite.
+    if (($database === ':memory:' || (($_ENV['DB_CONNECTION'] ?? getenv('DB_CONNECTION')) === 'sqlite'))) {
+        $host = '127.0.0.1';
+        $port = '3306';
+        $database = 'oms_hrm';
+        $user = 'oms';
+        $password = 'oms';
+    }
+
+    try {
+        $probe = new PDO(
+            sprintf('mysql:host=%s;port=%s;dbname=%s', $host, $port, $database),
+            $user,
+            $password,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+        );
+        $probe->query('SELECT 1');
+    } catch (Throwable $exception) {
+        test()->markTestSkipped('MySQL unavailable for concurrency verification: '.$exception->getMessage());
+    }
+
+    $suffix = str_replace('.', '_', uniqid('lockord_', true));
+    $documentTable = "tmp_cert_lock_documents_{$suffix}";
+    $trainingTable = "tmp_cert_lock_trainings_{$suffix}";
+
+    $probe->exec("CREATE TABLE `{$documentTable}` (id BIGINT UNSIGNED PRIMARY KEY) ENGINE=InnoDB");
+    $probe->exec("CREATE TABLE `{$trainingTable}` (id BIGINT UNSIGNED PRIMARY KEY, employee_document_id BIGINT UNSIGNED NOT NULL) ENGINE=InnoDB");
+    $probe->exec("INSERT INTO `{$documentTable}` (id) VALUES (1)");
+    $probe->exec("INSERT INTO `{$trainingTable}` (id, employee_document_id) VALUES (1, 1)");
+
+    $dsn = sprintf('mysql:host=%s;port=%s;dbname=%s', $host, $port, $database);
+
+    $runWorker = function (string $workerId) use ($dsn, $user, $password, $documentTable, $trainingTable): void {
+        $pdo = new PDO($dsn, $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec('SET innodb_lock_wait_timeout = 5');
+        $pdo->beginTransaction();
+
+        // Same order as TrainingCertificateDocumentIntegration::LOCK_ORDER.
+        $pdo->query("SELECT id FROM `{$documentTable}` WHERE id = 1 FOR UPDATE")->fetch(PDO::FETCH_ASSOC);
+        usleep(100000);
+        $pdo->query("SELECT id FROM `{$trainingTable}` WHERE id = 1 FOR UPDATE")->fetch(PDO::FETCH_ASSOC);
+        usleep(100000);
+
+        $pdo->commit();
+        file_put_contents(sys_get_temp_dir()."/cert-lock-{$workerId}.ok", 'ok');
+    };
+
+    @unlink(sys_get_temp_dir().'/cert-lock-a.ok');
+    @unlink(sys_get_temp_dir().'/cert-lock-b.ok');
+
+    $pid = pcntl_fork();
+
+    try {
+        if ($pid === -1) {
+            test()->fail('Failed to fork MySQL concurrency worker.');
+        }
+
+        if ($pid === 0) {
+            try {
+                $runWorker('a');
+                exit(0);
+            } catch (Throwable) {
+                exit(1);
+            }
+        }
+
+        usleep(50000);
+        $runWorker('b');
+        pcntl_waitpid($pid, $status);
+
+        expect(pcntl_wexitstatus($status))->toBe(0)
+            ->and(is_file(sys_get_temp_dir().'/cert-lock-a.ok'))->toBeTrue()
+            ->and(is_file(sys_get_temp_dir().'/cert-lock-b.ok'))->toBeTrue();
+    } finally {
+        // Forking invalidates the parent PDO; reconnect for cleanup only.
+        try {
+            $cleanup = new PDO($dsn, $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $cleanup->exec("DROP TABLE IF EXISTS `{$trainingTable}`");
+            $cleanup->exec("DROP TABLE IF EXISTS `{$documentTable}`");
+        } catch (Throwable) {
+            // Best-effort cleanup of throwaway lock-order tables.
+        }
+
+        @unlink(sys_get_temp_dir().'/cert-lock-a.ok');
+        @unlink(sys_get_temp_dir().'/cert-lock-b.ok');
+    }
+});
+
+test('outer rollback after successful legacy integrate and replace cleans the replacement file only', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $originalPath = "employees/{$company->id}/training-certificates/legacy-original.pdf";
+    $historicalPath = "employees/{$company->id}/training-certificates/legacy-historical.pdf";
+    Storage::disk('local')->put($originalPath, 'legacy-original-bytes');
+    Storage::disk('local')->put($historicalPath, 'legacy-historical-bytes');
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => $originalPath,
+        'certificate_original_filename' => 'legacy-original.pdf',
+        'certificate_mime_type' => 'application/pdf',
+        'certificate_size_bytes' => 20,
+        'certificate_checksum' => 'legacy-original-sum',
+        'current_version' => 2,
+        'issue_date' => '2024-01-01',
+        'institute_center' => 'MTC',
+    ]);
+
+    EmployeeTrainingVersion::query()->create([
+        'employee_training_id' => $training->id,
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => $historicalPath,
+        'original_filename' => 'legacy-historical.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 10,
+        'checksum' => 'legacy-historical-sum',
+    ]);
+
+    $replacementPath = null;
+
+    try {
+        DB::transaction(function () use ($training, $employee, $company, $user, &$replacementPath): void {
+            $updated = app(TrainingCertificateDocumentIntegration::class)
+                ->integrateLegacyAndReplaceCertificate(
+                    $training,
+                    $employee,
+                    UploadedFile::fake()->create('outer-rollback-replacement.pdf', 140, 'application/pdf'),
+                    (int) $company->id,
+                    $user->id,
+                    [
+                        'issue_date' => '2024-01-01',
+                        'institute_center' => 'MTC',
+                    ],
+                );
+
+            $replacementPath = $updated->certificate_path;
+
+            expect($replacementPath)->not->toBe($training->certificate_path)
+                ->and(Storage::disk('local')->exists((string) $replacementPath))->toBeTrue();
+
+            throw new RuntimeException('Simulated outer transaction failure after legacy replace');
+        });
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('Simulated outer transaction failure after legacy replace');
+    }
+
+    $training->refresh();
+
+    expect($training->employee_document_id)->toBeNull()
+        ->and($training->certificate_path)->toBe($originalPath)
+        ->and(Storage::disk('local')->exists($originalPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists($historicalPath))->toBeTrue()
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(EmployeeDocumentVersion::query()->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(is_string($replacementPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists((string) $replacementPath))->toBeFalse();
+});
+
+test('outer rollback after successful first certificate attachment cleans only the new file', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'company_id' => $company->id,
+        'course_id' => $course->id,
+        'certificate_path' => null,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+    ]);
+
+    $createdPath = null;
+
+    try {
+        DB::transaction(function () use ($training, $employee, $company, $user, &$createdPath): void {
+            $document = app(TrainingCertificateDocumentIntegration::class)
+                ->attachUploadedCertificate(
+                    $training,
+                    $employee,
+                    UploadedFile::fake()->create('outer-attach.pdf', 110, 'application/pdf'),
+                    (int) $company->id,
+                    $user->id,
+                );
+
+            $createdPath = $document->file_path;
+
+            expect(Storage::disk('local')->exists((string) $createdPath))->toBeTrue();
+
+            throw new RuntimeException('Simulated outer transaction failure after attach');
+        });
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('Simulated outer transaction failure after attach');
+    }
+
+    expect($training->refresh()->employee_document_id)->toBeNull()
+        ->and(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(0)
+        ->and(is_string($createdPath))->toBeTrue()
+        ->and(Storage::disk('local')->exists((string) $createdPath))->toBeFalse();
+});
+
+test('successful certificate replacement commit retains the new file and preserves history', function () {
+    fakeEmployeeFileDisks();
+
+    ['company' => $company, 'employee' => $employee, 'user' => $user, 'course' => $course] = trainingCertificateIntegrationFixtures();
+
+    $this->actingAs($user);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('kept-original.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    $training = EmployeeTraining::query()->where('employee_id', $employee->id)->sole();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
+    $originalPath = $document->file_path;
+
+    $this->post(route('organization.employees.training.replace', [$employee, $training]), [
+        'file' => UploadedFile::fake()->create('kept-replacement.pdf', 120, 'application/pdf'),
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'MTC',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $document->refresh();
+    $training->refresh();
+
+    expect($document->current_version)->toBe(2)
+        ->and($document->file_path)->not->toBe($originalPath)
+        ->and(Storage::disk('local')->exists($document->file_path))->toBeTrue()
+        ->and(Storage::disk('local')->exists($originalPath))->toBeTrue()
+        ->and(EmployeeDocumentVersion::query()->where('employee_document_id', $document->id)->where('file_path', $originalPath)->exists())->toBeTrue()
+        ->and($training->certificate_path)->toBe($document->file_path);
+});
+
 test('backfill dry run is read only for missing inactive and soft deleted document types', function () {
     fakeEmployeeFileDisks();
 

@@ -12,6 +12,7 @@ use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
+use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
 use App\Support\Queue\JobRunRecorder;
 use App\Support\Security\ProductionSecurityDefaults;
 use App\Support\Settings\SettingKey;
@@ -70,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
     {
         ConfiguresBrowsershotEnvironment::apply();
         app(ProductionSecurityDefaults::class)->apply();
+        TransactionScopedPrivateFileCompensation::registerListeners();
         $this->configureDefaults();
         $this->configureUnrestrictedCompanyAccess();
         $this->configureApplicationSettings();
