@@ -5,7 +5,6 @@ namespace App\Support\Auth;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Platform\PlatformAuthorization;
-use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +13,12 @@ use Spatie\Permission\PermissionRegistrar;
 
 final class ImpersonationService
 {
+    /**
+     * Flag indicating an impersonation transition is occurring, to prevent
+     * listeners like RecordUserLastLogin from updating last_login_at or password confirmation.
+     */
+    public static bool $isTransitioning = false;
+
     public function __construct(
         private ResolveCompanyAccess $resolveCompanyAccess,
     ) {}
@@ -51,7 +56,7 @@ final class ImpersonationService
             return false;
         }
 
-        if ($this->isProtectedAccount($target, $companyId)) {
+        if ($this->isProtectedAccount($target, $companyId, $initiator)) {
             return false;
         }
 
@@ -61,7 +66,7 @@ final class ImpersonationService
     /**
      * Whether a target user is a protected privileged account that cannot be impersonated.
      */
-    public function isProtectedAccount(User $target, int $companyId): bool
+    public function isProtectedAccount(User $target, ?int $companyId = null, ?User $initiator = null): bool
     {
         if (PlatformAuthorization::canView($target) || ! empty($target->platform_access)) {
             return true;
@@ -71,12 +76,11 @@ final class ImpersonationService
             return true;
         }
 
-        // Check if user has Owner role in the specified company
+        // 1. Check if target user has Owner role in ANY company
         $hasOwnerRole = DB::table('spatie_model_has_roles')
             ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
             ->where('spatie_model_has_roles.model_type', User::class)
             ->where('spatie_model_has_roles.model_id', $target->id)
-            ->where('spatie_model_has_roles.company_id', $companyId)
             ->where('spatie_roles.name', 'Owner')
             ->exists();
 
@@ -84,19 +88,114 @@ final class ImpersonationService
             return true;
         }
 
-        // Prevent privilege escalation: accounts holding users.impersonate are protected
-        $hasImpersonatePermission = DB::table('spatie_role_has_permissions')
-            ->join('spatie_model_has_roles', function ($join) use ($target, $companyId): void {
+        // 2. Prevent privilege escalation: direct Spatie assignment of users.impersonate in ANY company
+        $hasDirectImpersonate = DB::table('spatie_model_has_permissions')
+            ->join('permissions', 'permissions.id', '=', 'spatie_model_has_permissions.permission_id')
+            ->where('spatie_model_has_permissions.model_type', User::class)
+            ->where('spatie_model_has_permissions.model_id', $target->id)
+            ->where('permissions.name', 'users.impersonate')
+            ->exists();
+
+        if ($hasDirectImpersonate) {
+            return true;
+        }
+
+        // 3. Prevent privilege escalation: role-derived users.impersonate in ANY company
+        $hasRoleImpersonate = DB::table('spatie_role_has_permissions')
+            ->join('spatie_model_has_roles', function ($join) use ($target): void {
                 $join->on('spatie_model_has_roles.role_id', '=', 'spatie_role_has_permissions.role_id')
                     ->where('spatie_model_has_roles.model_type', '=', User::class)
-                    ->where('spatie_model_has_roles.model_id', '=', $target->id)
-                    ->where('spatie_model_has_roles.company_id', '=', $companyId);
+                    ->where('spatie_model_has_roles.model_id', '=', $target->id);
             })
             ->join('permissions', 'permissions.id', '=', 'spatie_role_has_permissions.permission_id')
             ->where('permissions.name', 'users.impersonate')
             ->exists();
 
-        return $hasImpersonatePermission;
+        if ($hasRoleImpersonate) {
+            return true;
+        }
+
+        // 4. Close cross-company privilege escalation:
+        // Inspect target-user administrative authority across all accessible companies.
+        // Prevent an initiator authorized only in Company A from gaining administrative authority in Company B
+        // through a shared target account where the initiator does not hold users.impersonate.
+        if ($initiator !== null) {
+            $administrativePermissions = [
+                'users.impersonate',
+                'roles.create',
+                'roles.update',
+                'roles.delete',
+                'users.create',
+                'users.update',
+                'users.delete',
+            ];
+
+            $targetDirectAdminCompanies = DB::table('spatie_model_has_permissions')
+                ->join('permissions', 'permissions.id', '=', 'spatie_model_has_permissions.permission_id')
+                ->where('spatie_model_has_permissions.model_type', User::class)
+                ->where('spatie_model_has_permissions.model_id', $target->id)
+                ->whereIn('permissions.name', $administrativePermissions)
+                ->pluck('spatie_model_has_permissions.company_id')
+                ->all();
+
+            $targetRoleAdminCompanies = DB::table('spatie_role_has_permissions')
+                ->join('spatie_model_has_roles', function ($join) use ($target): void {
+                    $join->on('spatie_model_has_roles.role_id', '=', 'spatie_role_has_permissions.role_id')
+                        ->where('spatie_model_has_roles.model_type', '=', User::class)
+                        ->where('spatie_model_has_roles.model_id', '=', $target->id);
+                })
+                ->join('permissions', 'permissions.id', '=', 'spatie_role_has_permissions.permission_id')
+                ->whereIn('permissions.name', $administrativePermissions)
+                ->pluck('spatie_model_has_roles.company_id')
+                ->all();
+
+            $targetAdminCompanies = array_unique(array_filter(array_merge($targetDirectAdminCompanies, $targetRoleAdminCompanies)));
+
+            foreach ($targetAdminCompanies as $adminCompanyId) {
+                if (! $this->canManageCompany($initiator, (int) $adminCompanyId)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check whether an initiating user is authorized to manage/impersonate in a company.
+     */
+    private function canManageCompany(User $initiator, int $companyId): bool
+    {
+        if (! $this->resolveCompanyAccess->canAccess($initiator, $companyId)) {
+            return false;
+        }
+
+        if (PlatformAuthorization::canView($initiator) || ! empty($initiator->platform_access)) {
+            return true;
+        }
+
+        $hasDirect = DB::table('spatie_model_has_permissions')
+            ->join('permissions', 'permissions.id', '=', 'spatie_model_has_permissions.permission_id')
+            ->where('spatie_model_has_permissions.model_type', User::class)
+            ->where('spatie_model_has_permissions.model_id', $initiator->id)
+            ->where('spatie_model_has_permissions.company_id', $companyId)
+            ->where('permissions.name', 'users.impersonate')
+            ->exists();
+
+        if ($hasDirect) {
+            return true;
+        }
+
+        return DB::table('spatie_role_has_permissions')
+            ->join('spatie_model_has_roles', function ($join) use ($initiator, $companyId): void {
+                $join->on('spatie_model_has_roles.role_id', '=', 'spatie_role_has_permissions.role_id')
+                    ->where('spatie_model_has_roles.model_type', '=', User::class)
+                    ->where('spatie_model_has_roles.model_id', '=', $initiator->id)
+                    ->where('spatie_model_has_roles.company_id', '=', $companyId);
+            })
+            ->join('permissions', 'permissions.id', '=', 'spatie_role_has_permissions.permission_id')
+            ->where('permissions.name', 'users.impersonate')
+            ->exists();
     }
 
     /**
@@ -226,7 +325,7 @@ final class ImpersonationService
             abort(403, 'Target user does not belong to the active company.');
         }
 
-        if ($this->isProtectedAccount($target, $companyId)) {
+        if ($this->isProtectedAccount($target, $companyId, $initiator)) {
             $this->logDeniedAttempt($request, $initiator, $target, 'Target account is a protected privileged account.');
             abort(403, 'Protected privileged accounts cannot be impersonated.');
         }
@@ -235,28 +334,37 @@ final class ImpersonationService
         $lifetimeMinutes = (int) config('auth.impersonation.lifetime_minutes', 120);
         $expiresAt = now()->addMinutes($lifetimeMinutes)->timestamp;
 
-        $request->session()->put('impersonation', [
-            'original_user_id' => $initiator->id,
-            'original_company_id' => $companyId,
-            'target_user_id' => $target->id,
-            'correlation_id' => $correlationId,
-            'started_at' => now()->timestamp,
-            'expires_at' => $expiresAt,
-        ]);
+        self::$isTransitioning = true;
+        try {
+            $request->session()->put('impersonation', [
+                'original_user_id' => $initiator->id,
+                'original_company_id' => $companyId,
+                'impersonated_company_id' => $companyId,
+                'target_user_id' => $target->id,
+                'correlation_id' => $correlationId,
+                'started_at' => now()->timestamp,
+                'expires_at' => $expiresAt,
+            ]);
 
-        $request->session()->regenerate();
-        Auth::guard('web')->login($target);
-        $request->session()->put([
-            'password_hash_'.Auth::getDefaultDriver() => $target->getAuthPassword(),
-        ]);
+            $request->session()->regenerate();
+            Auth::guard('web')->login($target);
+            $request->session()->put([
+                'password_hash_'.Auth::getDefaultDriver() => $target->getAuthPassword(),
+            ]);
 
-        $request->session()->put('current_company_id', $companyId);
-        $request->attributes->set('current_company_id', $companyId);
-        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+            // Ensure the impersonated session does not inherit initiator's password confirmation
+            $request->session()->forget('auth.password_confirmed_at');
 
-        $target->unsetRelation('roles');
-        $target->unsetRelation('permissions');
+            $request->session()->put('current_company_id', $companyId);
+            $request->attributes->set('current_company_id', $companyId);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+            $target->unsetRelation('roles');
+            $target->unsetRelation('permissions');
+        } finally {
+            self::$isTransitioning = false;
+        }
 
         activity('impersonation')
             ->causedBy($initiator)
@@ -323,32 +431,37 @@ final class ImpersonationService
             ])
             ->log('Stopped impersonating');
 
-        $request->session()->forget('impersonation');
-        $request->session()->regenerate();
+        self::$isTransitioning = true;
+        try {
+            $request->session()->forget('impersonation');
+            $request->session()->regenerate();
 
-        Auth::guard('web')->login($originalUser);
-        $request->session()->put([
-            'password_hash_'.Auth::getDefaultDriver() => $originalUser->getAuthPassword(),
-        ]);
+            Auth::guard('web')->login($originalUser);
+            $request->session()->put([
+                'password_hash_'.Auth::getDefaultDriver() => $originalUser->getAuthPassword(),
+            ]);
 
-        $accessibleIds = $this->resolveCompanyAccess->accessibleCompanyIds($originalUser);
-        $companyToRestore = ($originalCompanyId && in_array($originalCompanyId, $accessibleIds, true))
-            ? $originalCompanyId
-            : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
+            $accessibleIds = $this->resolveCompanyAccess->accessibleCompanyIds($originalUser);
+            $companyToRestore = ($originalCompanyId && in_array($originalCompanyId, $accessibleIds, true))
+                ? $originalCompanyId
+                : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
 
-        if ($companyToRestore !== null) {
-            $request->session()->put('current_company_id', $companyToRestore);
-            $request->attributes->set('current_company_id', $companyToRestore);
-            app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
-        } else {
-            $request->session()->forget('current_company_id');
-            $request->attributes->remove('current_company_id');
-            app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            if ($companyToRestore !== null) {
+                $request->session()->put('current_company_id', $companyToRestore);
+                $request->attributes->set('current_company_id', $companyToRestore);
+                app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
+            } else {
+                $request->session()->forget('current_company_id');
+                $request->attributes->remove('current_company_id');
+                app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            }
+
+            app(PermissionRegistrar::class)->forgetCachedPermissions();
+            $originalUser->unsetRelation('roles');
+            $originalUser->unsetRelation('permissions');
+        } finally {
+            self::$isTransitioning = false;
         }
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-        $originalUser->unsetRelation('roles');
-        $originalUser->unsetRelation('permissions');
 
         return $originalUser;
     }
@@ -386,27 +499,32 @@ final class ImpersonationService
             ->log('Impersonation session expired');
 
         if ($originalUser && UserAccountStatus::allowsAuthentication($originalUser)) {
-            $request->session()->forget('impersonation');
-            $request->session()->regenerate();
-            Auth::guard('web')->login($originalUser);
-            $request->session()->put([
-                'password_hash_'.Auth::getDefaultDriver() => $originalUser->getAuthPassword(),
-            ]);
+            self::$isTransitioning = true;
+            try {
+                $request->session()->forget('impersonation');
+                $request->session()->regenerate();
+                Auth::guard('web')->login($originalUser);
+                $request->session()->put([
+                    'password_hash_'.Auth::getDefaultDriver() => $originalUser->getAuthPassword(),
+                ]);
 
-            $accessibleIds = $this->resolveCompanyAccess->accessibleCompanyIds($originalUser);
-            $companyToRestore = ($originalCompanyId && in_array($originalCompanyId, $accessibleIds, true))
-                ? $originalCompanyId
-                : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
+                $accessibleIds = $this->resolveCompanyAccess->accessibleCompanyIds($originalUser);
+                $companyToRestore = ($originalCompanyId && in_array($originalCompanyId, $accessibleIds, true))
+                    ? $originalCompanyId
+                    : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
 
-            if ($companyToRestore !== null) {
-                $request->session()->put('current_company_id', $companyToRestore);
-                $request->attributes->set('current_company_id', $companyToRestore);
-                app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
+                if ($companyToRestore !== null) {
+                    $request->session()->put('current_company_id', $companyToRestore);
+                    $request->attributes->set('current_company_id', $companyToRestore);
+                    app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
+                }
+
+                app(PermissionRegistrar::class)->forgetCachedPermissions();
+                $originalUser->unsetRelation('roles');
+                $originalUser->unsetRelation('permissions');
+            } finally {
+                self::$isTransitioning = false;
             }
-
-            app(PermissionRegistrar::class)->forgetCachedPermissions();
-            $originalUser->unsetRelation('roles');
-            $originalUser->unsetRelation('permissions');
 
             return $originalUser;
         }
@@ -435,7 +553,7 @@ final class ImpersonationService
     }
 
     /**
-     * Assert initiating user has recent authentication or step-up verification.
+     * Assert initiating user has recent authentication in the current session.
      */
     public function assertRecentAuthentication(Request $request, User $user): void
     {
@@ -443,11 +561,6 @@ final class ImpersonationService
         $timeout = (int) config('auth.password_timeout', 10800);
 
         if (is_numeric($confirmedAt) && (time() - (int) $confirmedAt) < $timeout) {
-            return;
-        }
-
-        $lastLoginAt = $user->last_login_at;
-        if ($lastLoginAt instanceof CarbonInterface && (now()->timestamp - $lastLoginAt->getTimestamp()) < $timeout) {
             return;
         }
 
@@ -460,10 +573,24 @@ final class ImpersonationService
      */
     public function failClosed(Request $request, string $reason): never
     {
+        $sessionData = $request->hasSession() ? $request->session()->get('impersonation') : null;
+        $originalUserId = $sessionData['original_user_id'] ?? null;
+        $targetUserId = $sessionData['target_user_id'] ?? null;
+        $originalCompanyId = $sessionData['original_company_id'] ?? null;
+        $correlationId = $sessionData['correlation_id'] ?? null;
+
+        $originalUser = $originalUserId ? User::find($originalUserId) : null;
+        $currentUser = $request->user();
+
         activity('impersonation')
+            ->causedBy($originalUser ?: $currentUser)
             ->event('terminated')
             ->withProperties([
                 'reason' => $reason,
+                'initiator_id' => $originalUserId,
+                'target_id' => $targetUserId,
+                'company_id' => $originalCompanyId,
+                'correlation_id' => $correlationId,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])

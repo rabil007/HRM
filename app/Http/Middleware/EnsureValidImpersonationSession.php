@@ -70,13 +70,18 @@ class EnsureValidImpersonationSession
         }
 
         if (! $targetUser || ! UserAccountStatus::allowsAuthentication($targetUser)) {
-            dump('TARGET USER IS SUSPENDED - CALLING EXPIRE');
             $this->impersonationService->expire($request);
 
             return redirect()->route('dashboard')->with('error', 'The impersonated user account is no longer active. Returned to your original account.');
         }
 
-        if ($currentCompanyId && ! $this->companyAccess->canAccess($targetUser, $currentCompanyId)) {
+        // Enforce the chosen company boundary
+        $chosenCompanyId = (int) ($sessionData['impersonated_company_id'] ?? $sessionData['original_company_id'] ?? 0);
+        if ($chosenCompanyId && $currentCompanyId && $currentCompanyId !== $chosenCompanyId) {
+            abort(403, 'Operating outside the chosen impersonation company boundary is not allowed.');
+        }
+
+        if ($chosenCompanyId && ! $this->companyAccess->canAccess($targetUser, $chosenCompanyId)) {
             $this->impersonationService->expire($request);
 
             return redirect()->route('dashboard')->with('error', 'The impersonated user no longer has access to this company. Returned to your original account.');
@@ -84,6 +89,22 @@ class EnsureValidImpersonationSession
 
         // 5. Restrict sensitive operations during impersonation
         if ($this->isRestrictedAction($request)) {
+            activity('impersonation')
+                ->causedBy($currentUser)
+                ->event('restricted_action_blocked')
+                ->withProperties([
+                    'initiator_id' => $originalUserId,
+                    'target_id' => $targetUserId,
+                    'company_id' => $currentCompanyId,
+                    'correlation_id' => $sessionData['correlation_id'] ?? null,
+                    'route' => (string) $request->route()?->getName(),
+                    'path' => trim($request->path(), '/'),
+                    'method' => $request->method(),
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ])
+                ->log('Blocked restricted sensitive action during impersonation');
+
             abort(403, 'This sensitive operation cannot be performed while impersonating another user.');
         }
 
@@ -104,8 +125,13 @@ class EnsureValidImpersonationSession
             return false;
         }
 
-        // Block password updates
-        if (str_contains($routeName, 'password.update') || $path === 'settings/security/password' || $path === 'password') {
+        // Block password updates and confirmations
+        if (str_contains($routeName, 'password.update')
+            || in_array($routeName, ['user-password.update', 'password.confirm.store', 'password.update'], true)
+            || str_contains($path, 'password')
+            || $path === 'settings/security/password'
+            || $path === 'settings/password'
+            || $path === 'user/confirm-password') {
             return true;
         }
 
@@ -114,13 +140,35 @@ class EnsureValidImpersonationSession
             return true;
         }
 
-        // Block role & permission administration
-        if (in_array($routeName, ['organization.roles.store', 'organization.roles.update', 'organization.roles.destroy', 'organization.roles.duplicate'], true)) {
+        // Block user identity mutations & administrative management
+        if (in_array($routeName, [
+            'organization.users.store',
+            'organization.users.update',
+            'organization.users.status',
+            'organization.users.destroy',
+            'organization.employees.user.store',
+        ], true)) {
             return true;
         }
 
-        // Block irreversible financial release: payroll approval & mark-paid
-        if (in_array($routeName, ['payroll.approve', 'payroll.mark-paid'], true)) {
+        // Block user company memberships management
+        if (str_starts_with($routeName, 'organization.users.memberships.')) {
+            return true;
+        }
+
+        // Block user security actions (password resets, revoking sessions)
+        if (str_starts_with($routeName, 'organization.users.security.')) {
+            return true;
+        }
+
+        // Block user invitations
+        if (str_starts_with($routeName, 'organization.user-invitations.')) {
+            return true;
+        }
+
+        // Block role & permission administration
+        if (str_starts_with($routeName, 'organization.roles.')
+            || in_array($routeName, ['organization.roles.store', 'organization.roles.update', 'organization.roles.destroy', 'organization.roles.duplicate'], true)) {
             return true;
         }
 
@@ -129,8 +177,16 @@ class EnsureValidImpersonationSession
             return true;
         }
 
-        // Block user deletion or status mutation
-        if (in_array($routeName, ['organization.users.status', 'organization.users.destroy'], true)) {
+        // Block financial release operations (approvals, mark-paid, WPS bank file export)
+        if (in_array($routeName, [
+            'payroll.approve',
+            'payroll.mark-paid',
+            'payroll.wps.export',
+            'payroll.cancel',
+            'payroll.revert-to-draft',
+            'payroll.revert-to-processing',
+            'payroll.revert-to-approved',
+        ], true)) {
             return true;
         }
 

@@ -29,6 +29,8 @@ class ImpersonationController extends Controller
     {
         $original = $service->stop($request);
 
-        return redirect()->route('organization.users')->with('success', "Returned to your account ({$original->name}).");
+        $targetUrl = $original->can('users.view') ? route('organization.users') : route('dashboard');
+
+        return redirect()->to($targetUrl)->with('success', "Returned to your account ({$original->name}).");
     }
 }
