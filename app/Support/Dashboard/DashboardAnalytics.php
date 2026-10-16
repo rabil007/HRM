@@ -29,6 +29,7 @@ use App\Support\Employees\ActiveEmployeeConstraint;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\EmployeeTrainings\TrainingSummaryQuery;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -1226,8 +1227,8 @@ final class DashboardAnalytics
                     'name' => $employee->name,
                     'employee_no' => $employee->employee_no,
                     'hired_at' => $employee->hire_date !== null
-                        ? $employee->hire_date->format('d M Y')
-                        : Carbon::parse($employee->created_at)->format('d M Y'),
+                        ? PlatformDateFormatter::make()->date($employee->hire_date) ?? '—'
+                        : PlatformDateFormatter::make()->date($employee->created_at) ?? '—',
                 ])
                 ->all();
         });

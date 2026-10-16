@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -233,7 +234,7 @@ class EmployeeDocument extends Model
                 'source' => 'Generated from company template',
                 'template_name' => $instance->template_name_snapshot,
                 'template_version' => 'v'.$instance->template_version_number,
-                'generated_at' => $instance->generated_at?->format('d M Y H:i'),
+                'generated_at' => PlatformDateFormatter::make()->dateTime($instance->generated_at, null),
                 'generated_by' => $instance->relationLoaded('generatedBy')
                     ? $instance->generatedBy?->name
                     : ($instance->generated_by ? User::query()->whereKey($instance->generated_by)->value('name') : null),

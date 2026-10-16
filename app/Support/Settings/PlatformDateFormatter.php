@@ -30,6 +30,11 @@ final class PlatformDateFormatter
         private readonly SettingService $settings,
     ) {}
 
+    public static function make(): self
+    {
+        return app(self::class);
+    }
+
     public function format(): string
     {
         $configured = (string) $this->settings->get(

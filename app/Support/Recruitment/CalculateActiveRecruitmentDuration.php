@@ -5,6 +5,7 @@ namespace App\Support\Recruitment;
 use App\Enums\Recruitment\RequirementStatus;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementStatusTransition;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -66,7 +67,7 @@ final class CalculateActiveRecruitmentDuration
 
         return [
             'recruitment_started_at' => $start->toIso8601String(),
-            'recruitment_started_at_formatted' => $start->format('d-m-Y H:i'),
+            'recruitment_started_at_formatted' => PlatformDateFormatter::make()->dateTime($start, null),
             'recruitment_start_source' => $startSource,
             'active_recruitment_seconds' => $activeSeconds,
             'active_recruitment_days' => $activeDays,
@@ -77,7 +78,7 @@ final class CalculateActiveRecruitmentDuration
             'duration_is_estimated' => $timeline['is_estimated'],
             'duration_estimate_note' => $timeline['estimate_note'],
             'approved_at' => $requirement->approved_at?->toIso8601String(),
-            'approved_at_formatted' => $requirement->approved_at?->format('d-m-Y H:i'),
+            'approved_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->approved_at, null),
             'approved_by_name' => $requirement->approver?->name,
         ];
     }
@@ -138,7 +139,7 @@ final class CalculateActiveRecruitmentDuration
             'duration_is_estimated' => false,
             'duration_estimate_note' => null,
             'approved_at' => $requirement->approved_at?->toIso8601String(),
-            'approved_at_formatted' => $requirement->approved_at?->format('d-m-Y H:i'),
+            'approved_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->approved_at, null),
             'approved_by_name' => $requirement->approver?->name,
         ];
     }

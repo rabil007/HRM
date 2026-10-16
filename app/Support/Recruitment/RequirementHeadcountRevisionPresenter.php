@@ -5,6 +5,7 @@ namespace App\Support\Recruitment;
 use App\Enums\Recruitment\RequirementHeadcountRevisionInitiator;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\RecruitmentRequirementHeadcountRevisionLine;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 
 final class RequirementHeadcountRevisionPresenter
@@ -31,8 +32,8 @@ final class RequirementHeadcountRevisionPresenter
             'requested_by_name' => $revision->requestedBy?->name,
             'decided_by' => $revision->decided_by !== null ? (int) $revision->decided_by : null,
             'decided_by_name' => $revision->decidedBy?->name,
-            'requested_at_formatted' => $revision->created_at?->format('d M Y H:i') ?? '—',
-            'decided_at_formatted' => $revision->decided_at?->format('d M Y H:i'),
+            'requested_at_formatted' => PlatformDateFormatter::make()->dateTime($revision->created_at) ?? '—',
+            'decided_at_formatted' => PlatformDateFormatter::make()->dateTime($revision->decided_at, null),
             'lines' => $revision->lines
                 ->map(fn (RecruitmentRequirementHeadcountRevisionLine $line): array => [
                     'id' => (int) $line->id,

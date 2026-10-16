@@ -12,6 +12,7 @@ use App\Models\RecruitmentRequirementDeadlineExtension;
 use App\Models\RecruitmentRequirementHeadcountRevision;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -180,9 +181,9 @@ final class RequirementPresenter
             'assigned_to' => $requirement->assigned_to !== null ? (int) $requirement->assigned_to : null,
             'assigned_recruiter_name' => $requirement->assignedRecruiter?->name,
             'request_received_date' => $requirement->request_received_date?->format('Y-m-d'),
-            'request_received_date_formatted' => $requirement->request_received_date?->format('d-m-Y') ?? '—',
+            'request_received_date_formatted' => PlatformDateFormatter::make()->date($requirement->request_received_date) ?? '—',
             'required_by_date' => $requirement->required_by_date?->format('Y-m-d'),
-            'required_by_date_formatted' => $requirement->required_by_date?->format('d-m-Y') ?? '—',
+            'required_by_date_formatted' => PlatformDateFormatter::make()->date($requirement->required_by_date) ?? '—',
             'deadline_health' => $deadlineHealth?->value,
             'deadline_health_label' => $deadlineHealth?->label(),
             'deadline_health_badge' => $deadlineHealth?->badgeVariant(),
@@ -294,7 +295,7 @@ final class RequirementPresenter
                 'file_size_bytes' => (int) $att->file_size_bytes,
                 'file_size_formatted' => self::formatBytes((int) $att->file_size_bytes),
                 'uploader_name' => $att->uploader?->name,
-                'created_at_formatted' => $att->created_at?->format('d-m-Y H:i') ?? '—',
+                'created_at_formatted' => PlatformDateFormatter::make()->dateTime($att->created_at) ?? '—',
             ];
         })->all();
 
@@ -331,12 +332,12 @@ final class RequirementPresenter
             'notes' => $requirement->notes,
             'cancellation_reason' => $requirement->cancellation_reason,
             'return_reason' => $requirement->return_reason,
-            'opened_at_formatted' => $requirement->opened_at?->format('d-m-Y H:i'),
-            'submitted_at_formatted' => $requirement->submitted_at?->format('d-m-Y H:i'),
-            'returned_at_formatted' => $requirement->returned_at?->format('d-m-Y H:i'),
-            'completed_at_formatted' => $requirement->completed_at?->format('d-m-Y H:i'),
-            'cancelled_at_formatted' => $requirement->cancelled_at?->format('d-m-Y H:i'),
-            'created_at_formatted' => $requirement->created_at?->format('d-m-Y H:i'),
+            'opened_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->opened_at, null),
+            'submitted_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->submitted_at, null),
+            'returned_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->returned_at, null),
+            'completed_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->completed_at, null),
+            'cancelled_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->cancelled_at, null),
+            'created_at_formatted' => PlatformDateFormatter::make()->dateTime($requirement->created_at, null),
             'created_by' => $requirement->created_by !== null ? (int) $requirement->created_by : null,
             'creator_name' => $requirement->creator?->name,
             'updater_name' => $requirement->updater?->name,
