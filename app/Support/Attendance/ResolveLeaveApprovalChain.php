@@ -20,6 +20,8 @@ use RuntimeException;
 
 final class ResolveLeaveApprovalChain
 {
+    public const SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE = 'A different approver is required for this leave request. Please configure an eligible alternative approver in Leave Approval Settings.';
+
     public function __construct(
         private ResolveLeaveApprovalPolicy $resolvePolicy,
         private LeaveApproverEligibility $eligibility,
@@ -61,6 +63,7 @@ final class ResolveLeaveApprovalChain
         $managementChain = ResolveDepartmentManagementChain::forEmployee($employee);
         $requesterId = (int) $employee->id;
         $usedManagerEmployeeIds = [];
+        $usedRequiredApproverEmployeeIds = [];
         $resolved = [];
 
         foreach ($policy->steps as $step) {
@@ -71,6 +74,7 @@ final class ResolveLeaveApprovalChain
                 requesterEmployeeId: $requesterId,
                 managementChain: $managementChain,
                 usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                 settings: $settings,
             );
 
@@ -83,14 +87,22 @@ final class ResolveLeaveApprovalChain
             }
 
             if ((int) $candidate['employee']->id === $requesterId) {
-                if ($step->is_required) {
-                    throw new RuntimeException(sprintf(
-                        'Required approval step "%s" resolved to the requesting employee, which is not allowed.',
-                        $step->approver_type->label(),
-                    ));
+                if (! $step->is_required) {
+                    continue;
                 }
 
-                continue;
+                $candidate = $this->resolveDistinctAlternativeApprover(
+                    companyId: $companyId,
+                    requesterEmployeeId: $requesterId,
+                    managementChain: $managementChain,
+                    usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                    usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
+                    settings: $settings,
+                );
+
+                if ($candidate === null) {
+                    throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                }
             }
 
             if ($step->is_required) {
@@ -113,6 +125,10 @@ final class ResolveLeaveApprovalChain
 
             if ($this->isManagerChainType($step->approver_type)) {
                 $usedManagerEmployeeIds[$employeeId] = true;
+            }
+
+            if ($step->is_required) {
+                $usedRequiredApproverEmployeeIds[$employeeId] = true;
             }
 
             $resolved[] = [
@@ -243,6 +259,7 @@ final class ResolveLeaveApprovalChain
     /**
      * @param  list<array{manager: Employee, manager_user: User|null, source_department: Department, is_direct: bool, hierarchy_order: int}>  $managementChain
      * @param  array<int, true>  $usedManagerEmployeeIds
+     * @param  array<int, true>  $usedRequiredApproverEmployeeIds
      * @return array{employee: Employee, source_department: Department|null}|null
      */
     private function resolveStep(
@@ -251,6 +268,7 @@ final class ResolveLeaveApprovalChain
         int $requesterEmployeeId,
         array $managementChain,
         array &$usedManagerEmployeeIds,
+        array $usedRequiredApproverEmployeeIds,
         CompanyLeaveApprovalSetting $settings,
     ): ?array {
         return match ($step->approver_type) {
@@ -259,6 +277,7 @@ final class ResolveLeaveApprovalChain
                 requesterEmployeeId: $requesterEmployeeId,
                 managementChain: $managementChain,
                 usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                 settings: $settings,
             ),
             LeaveApprovalApproverType::ParentManager => $this->resolveParentManager(
@@ -266,6 +285,7 @@ final class ResolveLeaveApprovalChain
                 requesterEmployeeId: $requesterEmployeeId,
                 managementChain: $managementChain,
                 usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
             ),
             LeaveApprovalApproverType::HrApprover => $this->resolveHrApprover(
                 step: $step,
@@ -282,6 +302,7 @@ final class ResolveLeaveApprovalChain
     /**
      * @param  list<array{manager: Employee, manager_user: User|null, source_department: Department, is_direct: bool, hierarchy_order: int}>  $managementChain
      * @param  array<int, true>  $usedManagerEmployeeIds
+     * @param  array<int, true>  $usedRequiredApproverEmployeeIds
      * @return array{employee: Employee, source_department: Department|null}|null
      */
     private function resolveDepartmentManager(
@@ -289,13 +310,14 @@ final class ResolveLeaveApprovalChain
         int $requesterEmployeeId,
         array $managementChain,
         array $usedManagerEmployeeIds,
+        array $usedRequiredApproverEmployeeIds,
         CompanyLeaveApprovalSetting $settings,
     ): ?array {
         foreach ($managementChain as $entry) {
             $manager = $entry['manager'];
             $managerId = (int) $manager->id;
 
-            if (isset($usedManagerEmployeeIds[$managerId])) {
+            if (isset($usedManagerEmployeeIds[$managerId]) || isset($usedRequiredApproverEmployeeIds[$managerId])) {
                 continue;
             }
 
@@ -319,9 +341,18 @@ final class ResolveLeaveApprovalChain
             return null;
         }
 
-        $fallback = $this->loadCompanyEmployee($companyId, (int) $fallbackId);
+        $fallbackId = (int) $fallbackId;
 
-        if ($fallback === null || (int) $fallback->id === $requesterEmployeeId) {
+        if (
+            $fallbackId === $requesterEmployeeId
+            || isset($usedRequiredApproverEmployeeIds[$fallbackId])
+        ) {
+            return null;
+        }
+
+        $fallback = $this->loadCompanyEmployee($companyId, $fallbackId);
+
+        if ($fallback === null) {
             return null;
         }
 
@@ -334,6 +365,7 @@ final class ResolveLeaveApprovalChain
     /**
      * @param  list<array{manager: Employee, manager_user: User|null, source_department: Department, is_direct: bool, hierarchy_order: int}>  $managementChain
      * @param  array<int, true>  $usedManagerEmployeeIds
+     * @param  array<int, true>  $usedRequiredApproverEmployeeIds
      * @return array{employee: Employee, source_department: Department|null}|null
      */
     private function resolveParentManager(
@@ -341,12 +373,13 @@ final class ResolveLeaveApprovalChain
         int $requesterEmployeeId,
         array $managementChain,
         array $usedManagerEmployeeIds,
+        array $usedRequiredApproverEmployeeIds,
     ): ?array {
         foreach ($managementChain as $entry) {
             $manager = $entry['manager'];
             $managerId = (int) $manager->id;
 
-            if (isset($usedManagerEmployeeIds[$managerId])) {
+            if (isset($usedManagerEmployeeIds[$managerId]) || isset($usedRequiredApproverEmployeeIds[$managerId])) {
                 continue;
             }
 
@@ -421,6 +454,79 @@ final class ResolveLeaveApprovalChain
             ->whereKey($employeeId)
             ->with('user:id,name,email,status')
             ->first();
+    }
+
+    /**
+     * Resolve a distinct actionable substitute when a required step points at the requester
+     * (or would otherwise reuse a required approver already on the chain).
+     *
+     * Precedence follows existing policy architecture:
+     * 1. Remaining eligible managers in the department management hierarchy
+     * 2. Company fallback approver (also used for HR / specific-employee self-requests)
+     *
+     * Never invents approvers from HR/administrator roles alone.
+     *
+     * @param  list<array{manager: Employee, manager_user: User|null, source_department: Department, is_direct: bool, hierarchy_order: int}>  $managementChain
+     * @param  array<int, true>  $usedManagerEmployeeIds
+     * @param  array<int, true>  $usedRequiredApproverEmployeeIds
+     * @return array{employee: Employee, source_department: Department|null}|null
+     */
+    private function resolveDistinctAlternativeApprover(
+        int $companyId,
+        int $requesterEmployeeId,
+        array $managementChain,
+        array $usedManagerEmployeeIds,
+        array $usedRequiredApproverEmployeeIds,
+        CompanyLeaveApprovalSetting $settings,
+    ): ?array {
+        foreach ($managementChain as $entry) {
+            $manager = $entry['manager'];
+            $managerId = (int) $manager->id;
+
+            if ($managerId === $requesterEmployeeId) {
+                continue;
+            }
+
+            if (isset($usedManagerEmployeeIds[$managerId]) || isset($usedRequiredApproverEmployeeIds[$managerId])) {
+                continue;
+            }
+
+            if (! $this->isActionable($manager, $companyId, $requesterEmployeeId)) {
+                continue;
+            }
+
+            return [
+                'employee' => $manager,
+                'source_department' => $entry['source_department'],
+            ];
+        }
+
+        $fallbackId = $settings->fallback_approver_employee_id;
+
+        if ($fallbackId === null) {
+            return null;
+        }
+
+        $fallbackId = (int) $fallbackId;
+
+        if (
+            $fallbackId === $requesterEmployeeId
+            || isset($usedManagerEmployeeIds[$fallbackId])
+            || isset($usedRequiredApproverEmployeeIds[$fallbackId])
+        ) {
+            return null;
+        }
+
+        $fallback = $this->loadCompanyEmployee($companyId, $fallbackId);
+
+        if ($fallback === null || ! $this->isActionable($fallback, $companyId, $requesterEmployeeId)) {
+            return null;
+        }
+
+        return [
+            'employee' => $fallback,
+            'source_department' => null,
+        ];
     }
 
     private function isActionable(Employee $employee, int $companyId, int $requesterEmployeeId): bool
