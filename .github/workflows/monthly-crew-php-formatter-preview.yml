@@ -1,0 +1,26 @@
+name: Monthly Crew PHP Formatter Preview
+on:
+  push:
+    branches:
+      - fix/monthly-crew-contract-compensation-eos
+
+permissions:
+  contents: read
+
+jobs:
+  php-format-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer
+          coverage: none
+      - name: Install locked PHP dependencies for format preview
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+      - name: Preview Pint formatting
+        run: |
+          vendor/bin/pint app/Support/Payroll/Services/CrewPayrollSalarySheetExporter.php
+          php -l app/Support/Payroll/Services/CrewPayrollSalarySheetExporter.php
+          node -e "const fs=require('fs'); const p='app/Support/Payroll/Services/CrewPayrollSalarySheetExporter.php'; console.log('PHP_FORMAT_FILE_B64 '+p+' '+fs.readFileSync(p).toString('base64'));"
