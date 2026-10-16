@@ -47,6 +47,43 @@ test('creating a contract with salary creates version 1 revision', function () {
         ->and($revision->lines)->toHaveCount(3);
 });
 
+test('monthly crew EOS salary revisions retain historically effective non-payable amounts', function () {
+    Carbon::setTestNow('2026-03-15');
+
+    try {
+        ['company' => $company] = makePayrollFixtures();
+        $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+        $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 5000,
+            'housing_allowance' => 1000,
+            'eos_monthly_amount' => 300,
+        ]);
+
+        app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+            'basic_salary' => 5000,
+            'housing_allowance' => 1000,
+            'eos_monthly_amount' => 350,
+        ], '2026-04-01', 'EOS increase');
+
+        $resolver = app(\App\Support\Payroll\ResolveEffectiveContractSalaryComponents::class);
+        $priorComponents = $resolver->handle($contract->fresh(), Carbon::parse('2026-02-01'));
+        $futureComponents = $resolver->handle($contract->fresh(), Carbon::parse('2026-04-01'));
+        $eosAmount = fn ($components) => (float) $components
+            ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision)
+            ->amount;
+
+        expect($eosAmount($priorComponents))->toBe(300.0)
+            ->and($eosAmount($futureComponents))->toBe(350.0)
+            ->and((float) $contract->fresh()->eos_monthly_amount)->toBe(300.0);
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
 test('storing a salary revision for the current month updates contract components immediately', function () {
     Carbon::setTestNow('2026-03-15');
 
