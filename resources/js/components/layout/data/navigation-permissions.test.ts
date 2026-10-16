@@ -289,9 +289,9 @@ describe('Attendance top-nav landing', () => {
     });
 
     it('does not land on the removed overview destination', () => {
-        assert.equal(attendanceHref(['attendance.overview.view']), null);
+        assert.equal(attendanceHref(['employees.view']), null);
         assert.deepEqual(
-            visibleGroupUrls(ATTENDANCE_URLS, ['attendance.overview.view']),
+            visibleGroupUrls(ATTENDANCE_URLS, ['employees.view']),
             [],
         );
         assert.deepEqual(
@@ -565,7 +565,7 @@ describe('Report navigation permissions', () => {
     it('gates Leave Report by reports.leave.view, not attendance permissions', () => {
         assert.equal(
             isSidebarUrlVisible('/organization/reports/leave', [
-                'attendance.overview.view',
+                'attendance.records.view',
             ]),
             false,
         );

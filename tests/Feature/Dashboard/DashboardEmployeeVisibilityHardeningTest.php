@@ -31,7 +31,7 @@ test('dashboard scopes metrics and prevents cache pollution between unrestricted
     grantCompanyPermissions($unrestrictedUser, $company, [
         'employees.view',
         'documents.view',
-        'attendance.overview.view',
+        'attendance.records.view',
         'contracts.view',
         'training.view',
         'bank_accounts.view',
@@ -43,7 +43,7 @@ test('dashboard scopes metrics and prevents cache pollution between unrestricted
     grantCompanyPermissions($restrictedUser, $company, [
         'employees.view',
         'documents.view',
-        'attendance.overview.view',
+        'attendance.records.view',
         'contracts.view',
         'training.view',
         'bank_accounts.view',
@@ -221,7 +221,10 @@ function makeDashboardLeaveVisibilityFixtures(): array
 
     ['user' => $user, 'company' => $company, 'marineDept' => $marineDept, 'officeDept' => $officeDept, 'marineEmployee' => $marineEmployee, 'officeEmployee' => $officeEmployee] = makeEmployeeVisibilityFixtures();
 
-    grantCompanyPermissions($user, $company, ['attendance.overview.view']);
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.leave-requests.view',
+    ]);
 
     $leaveType = LeaveType::query()->create([
         'company_id' => $company->id,
@@ -307,7 +310,8 @@ test('dashboard attendance and leave exclude departments not in Attendance & Lea
     extract($fixtures);
 
     grantCompanyPermissions($user, $company, [
-        'attendance.overview.view',
+        'attendance.records.view',
+        'attendance.leave-requests.view',
         'employees.view',
     ]);
 
@@ -445,7 +449,7 @@ test('department participation mutation invalidates warm user-scoped dashboard c
     grantCompanyPermissions($admin, $company, [
         'departments.view',
         'departments.update',
-        'attendance.overview.view',
+        'attendance.records.view',
         'attendance.leave-requests.view',
         'employees.view',
     ]);

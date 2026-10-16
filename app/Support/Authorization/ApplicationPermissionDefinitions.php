@@ -142,12 +142,6 @@ final class ApplicationPermissionDefinitions
                 'group' => 'Attendance',
             ],
             21 => [
-                'name' => 'attendance.overview.view',
-                'label' => 'View Attendance Overview',
-                'description' => 'Allows the user to view attendance analytics on the company dashboard for the active company.',
-                'group' => 'Attendance',
-            ],
-            22 => [
                 'name' => 'attendance.records.create',
                 'label' => 'Create Attendance Records',
                 'description' => 'Allows the user to add manual attendance entries for employees in the active company.',

@@ -52,7 +52,6 @@ test('attendance overview route is unavailable', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceNavigationFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'attendance.overview.view',
         'attendance.records.view',
     ]);
 

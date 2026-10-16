@@ -341,7 +341,7 @@ test('attendance overview page is removed', function () {
 
     ['company' => $company] = makeActiveOnlyScopeFixtures();
 
-    grantCompanyPermissions($user, $company, ['attendance.overview.view']);
+    grantCompanyPermissions($user, $company, ['attendance.records.view']);
 
     $this->withSession(['current_company_id' => $company->id])
         ->get('/attendance/overview')
