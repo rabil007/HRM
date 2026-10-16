@@ -171,15 +171,26 @@ function formatMoney(value: number | null | undefined): string {
 }
 
 function isDailyCrewContract(row: EmployeeContractDetails): boolean {
-    return row.payroll_category === 'crew' && (row.salary_structure ?? 'daily') !== 'monthly';
+    return (
+        row.payroll_category === 'crew' &&
+        (row.salary_structure ?? 'daily') !== 'monthly'
+    );
 }
 
 function contractTotalSalary(row: EmployeeContractDetails): number {
     const components = isDailyCrewContract(row)
         ? [row.basic_salary, row.supplementary_allowance, row.site_allowance]
-        : [row.basic_salary, row.housing_allowance, row.transport_allowance, row.other_allowances];
+        : [
+              row.basic_salary,
+              row.housing_allowance,
+              row.transport_allowance,
+              row.other_allowances,
+          ];
 
-    return components.reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
+    return components.reduce<number>(
+        (sum, value) => sum + (Number(value) || 0),
+        0,
+    );
 }
 
 function buildContractPayload(
@@ -228,9 +239,11 @@ function buildContractPayload(
                 data.transport_allowance,
             ),
             other_allowances: normalizeDecimalFieldValue(data.other_allowances),
-            eos_monthly_amount: data.payroll_category === 'crew' && data.salary_structure === 'monthly'
-                ? normalizeDecimalFieldValue(data.eos_monthly_amount)
-                : null,
+            eos_monthly_amount:
+                data.payroll_category === 'crew' &&
+                data.salary_structure === 'monthly'
+                    ? normalizeDecimalFieldValue(data.eos_monthly_amount)
+                    : null,
             supplementary_allowance: normalizeDecimalFieldValue(
                 data.supplementary_allowance,
             ),
@@ -364,8 +377,12 @@ export function EmployeeContractTab({
         showField('site_allowance');
     const showNoteSection = showField('note');
     const hasDailyCrewContracts = contracts.some(isDailyCrewContract);
-    const hasMonthlyContracts = contracts.some((row) => !isDailyCrewContract(row));
-    const hasMonthlyCrewContracts = contracts.some((row) => row.payroll_category === 'crew' && !isDailyCrewContract(row));
+    const hasMonthlyContracts = contracts.some(
+        (row) => !isDailyCrewContract(row),
+    );
+    const hasMonthlyCrewContracts = contracts.some(
+        (row) => row.payroll_category === 'crew' && !isDailyCrewContract(row),
+    );
 
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingContract, setEditingContract] =
@@ -427,7 +444,10 @@ export function EmployeeContractTab({
                     row.other_allowances === undefined
                         ? ''
                         : String(row.other_allowances),
-                eos_monthly_amount: row.eos_monthly_amount == null ? '' : String(row.eos_monthly_amount),
+                eos_monthly_amount:
+                    row.eos_monthly_amount == null
+                        ? ''
+                        : String(row.eos_monthly_amount),
                 supplementary_allowance:
                     row.supplementary_allowance === null ||
                     row.supplementary_allowance === undefined
@@ -498,7 +518,9 @@ export function EmployeeContractTab({
                 transferForm.data.other_allowances,
             ),
             eos_monthly_amount: isTransferCrewMonthly
-                ? normalizeDecimalFieldValue(transferForm.data.eos_monthly_amount)
+                ? normalizeDecimalFieldValue(
+                      transferForm.data.eos_monthly_amount,
+                  )
                 : null,
             supplementary_allowance: normalizeDecimalFieldValue(
                 transferForm.data.supplementary_allowance,
@@ -676,7 +698,10 @@ export function EmployeeContractTab({
                     row.other_allowances === undefined
                         ? ''
                         : String(row.other_allowances),
-                eos_monthly_amount: row.eos_monthly_amount == null ? '' : String(row.eos_monthly_amount),
+                eos_monthly_amount:
+                    row.eos_monthly_amount == null
+                        ? ''
+                        : String(row.eos_monthly_amount),
                 supplementary_allowance:
                     row.supplementary_allowance === null ||
                     row.supplementary_allowance === undefined
@@ -854,33 +879,41 @@ export function EmployeeContractTab({
                                     Basic salary
                                 </th>
                             ) : null}
-                            {hasMonthlyContracts && showField('housing_allowance') ? (
+                            {hasMonthlyContracts &&
+                            showField('housing_allowance') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Housing
                                 </th>
                             ) : null}
-                            {hasMonthlyContracts && showField('transport_allowance') ? (
+                            {hasMonthlyContracts &&
+                            showField('transport_allowance') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Transport
                                 </th>
                             ) : null}
-                            {hasMonthlyContracts && showField('other_allowances') ? (
+                            {hasMonthlyContracts &&
+                            showField('other_allowances') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Other allowances
                                 </th>
                             ) : null}
-                            {hasDailyCrewContracts && showField('supplementary_allowance') ? (
+                            {hasDailyCrewContracts &&
+                            showField('supplementary_allowance') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Supplementary
                                 </th>
                             ) : null}
-                            {hasDailyCrewContracts && showField('site_allowance') ? (
+                            {hasDailyCrewContracts &&
+                            showField('site_allowance') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Site allowance
                                 </th>
                             ) : null}
-                            {hasMonthlyCrewContracts && showField('eos_monthly_amount') ? (
-                                <th className={employeeRecordsTableThClass()}>EOS provision</th>
+                            {hasMonthlyCrewContracts &&
+                            showField('eos_monthly_amount') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    EOS provision
+                                </th>
                             ) : null}
                             {showCompensationSection ? (
                                 <th className={employeeRecordsTableThClass()}>
@@ -1004,60 +1037,91 @@ export function EmployeeContractTab({
                                         {formatMoney(row.basic_salary)}
                                     </td>
                                 ) : null}
-                                {hasMonthlyContracts && showField('housing_allowance') ? (
+                                {hasMonthlyContracts &&
+                                showField('housing_allowance') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'text-muted-foreground tabular-nums',
                                         )}
                                     >
-                                        {isDailyCrewContract(row) ? '—' : formatMoney(row.housing_allowance)}
+                                        {isDailyCrewContract(row)
+                                            ? '—'
+                                            : formatMoney(
+                                                  row.housing_allowance,
+                                              )}
                                     </td>
                                 ) : null}
-                                {hasMonthlyContracts && showField('transport_allowance') ? (
+                                {hasMonthlyContracts &&
+                                showField('transport_allowance') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'text-muted-foreground tabular-nums',
                                         )}
                                     >
-                                        {isDailyCrewContract(row) ? '—' : formatMoney(row.transport_allowance)}
+                                        {isDailyCrewContract(row)
+                                            ? '—'
+                                            : formatMoney(
+                                                  row.transport_allowance,
+                                              )}
                                     </td>
                                 ) : null}
-                                {hasMonthlyContracts && showField('other_allowances') ? (
+                                {hasMonthlyContracts &&
+                                showField('other_allowances') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'text-muted-foreground tabular-nums',
                                         )}
                                     >
-                                        {isDailyCrewContract(row) ? '—' : formatMoney(row.other_allowances)}
+                                        {isDailyCrewContract(row)
+                                            ? '—'
+                                            : formatMoney(row.other_allowances)}
                                     </td>
                                 ) : null}
-                                {hasDailyCrewContracts && showField('supplementary_allowance') ? (
+                                {hasDailyCrewContracts &&
+                                showField('supplementary_allowance') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'text-muted-foreground tabular-nums',
                                         )}
                                     >
-                                        {isDailyCrewContract(row) ? formatMoney(row.supplementary_allowance) : '—'}
+                                        {isDailyCrewContract(row)
+                                            ? formatMoney(
+                                                  row.supplementary_allowance,
+                                              )
+                                            : '—'}
                                     </td>
                                 ) : null}
-                                {hasDailyCrewContracts && showField('site_allowance') ? (
+                                {hasDailyCrewContracts &&
+                                showField('site_allowance') ? (
                                     <td
                                         className={cn(
                                             employeeRecordsTableTdClass(),
                                             'text-muted-foreground tabular-nums',
                                         )}
                                     >
-                                        {isDailyCrewContract(row) ? formatMoney(row.site_allowance) : '—'}
+                                        {isDailyCrewContract(row)
+                                            ? formatMoney(row.site_allowance)
+                                            : '—'}
                                     </td>
                                 ) : null}
-                                {hasMonthlyCrewContracts && showField('eos_monthly_amount') ? (
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-muted-foreground tabular-nums')}>
-                                        {row.payroll_category === 'crew' && !isDailyCrewContract(row)
-                                            ? formatMoney(row.eos_monthly_amount) : '—'}
+                                {hasMonthlyCrewContracts &&
+                                showField('eos_monthly_amount') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-muted-foreground tabular-nums',
+                                        )}
+                                    >
+                                        {row.payroll_category === 'crew' &&
+                                        !isDailyCrewContract(row)
+                                            ? formatMoney(
+                                                  row.eos_monthly_amount,
+                                              )
+                                            : '—'}
                                     </td>
                                 ) : null}
                                 {showCompensationSection ? (
@@ -1808,21 +1872,46 @@ export function EmployeeContractTab({
                                         </p>
                                     </ContractFormField>
                                 ) : null}
-                                {isCrewMonthly && showField('eos_monthly_amount') ? (
-                                    <ContractFormField field="eos_monthly_amount" highlightMissing={isMissingRequired('eos_monthly_amount')}>
-                                        <Label htmlFor="contract_eos_monthly_amount" className="text-xs">
-                                            EOS provision (optional, non-payable)
+                                {isCrewMonthly &&
+                                showField('eos_monthly_amount') ? (
+                                    <ContractFormField
+                                        field="eos_monthly_amount"
+                                        highlightMissing={isMissingRequired(
+                                            'eos_monthly_amount',
+                                        )}
+                                    >
+                                        <Label
+                                            htmlFor="contract_eos_monthly_amount"
+                                            className="text-xs"
+                                        >
+                                            EOS provision (optional,
+                                            non-payable)
                                         </Label>
                                         <CurrencyInput
                                             id="contract_eos_monthly_amount"
-                                            value={contractForm.data.eos_monthly_amount}
-                                            onChange={(v) => contractForm.setData('eos_monthly_amount', v)}
+                                            value={
+                                                contractForm.data
+                                                    .eos_monthly_amount
+                                            }
+                                            onChange={(v) =>
+                                                contractForm.setData(
+                                                    'eos_monthly_amount',
+                                                    v,
+                                                )
+                                            }
                                         />
                                         <p className="text-[11px] text-muted-foreground">
-                                            Monthly end-of-service provision, not included in salary or WPS.
+                                            Monthly end-of-service provision,
+                                            not included in salary or WPS.
                                         </p>
-                                        {contractForm.errors.eos_monthly_amount ? (
-                                            <p className="text-xs text-destructive">{contractForm.errors.eos_monthly_amount}</p>
+                                        {contractForm.errors
+                                            .eos_monthly_amount ? (
+                                            <p className="text-xs text-destructive">
+                                                {
+                                                    contractForm.errors
+                                                        .eos_monthly_amount
+                                                }
+                                            </p>
                                         ) : null}
                                     </ContractFormField>
                                 ) : null}
@@ -1936,8 +2025,18 @@ export function EmployeeContractTab({
                             {/* Live total compensation banner */}
                             {(() => {
                                 const fields = isCrewDaily
-                                    ? [contractForm.data.basic_salary, contractForm.data.supplementary_allowance, contractForm.data.site_allowance]
-                                    : [contractForm.data.basic_salary, contractForm.data.housing_allowance, contractForm.data.transport_allowance, contractForm.data.other_allowances];
+                                    ? [
+                                          contractForm.data.basic_salary,
+                                          contractForm.data
+                                              .supplementary_allowance,
+                                          contractForm.data.site_allowance,
+                                      ]
+                                    : [
+                                          contractForm.data.basic_salary,
+                                          contractForm.data.housing_allowance,
+                                          contractForm.data.transport_allowance,
+                                          contractForm.data.other_allowances,
+                                      ];
                                 const hasAnyValue = fields.some(
                                     (f) => f.trim() !== '',
                                 );
@@ -1960,7 +2059,9 @@ export function EmployeeContractTab({
                                 return (
                                     <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5">
                                         <span className="text-xs text-muted-foreground">
-                                            {isCrewDaily ? 'Total daily rate' : 'Total monthly salary'}
+                                            {isCrewDaily
+                                                ? 'Total daily rate'
+                                                : 'Total monthly salary'}
                                         </span>
                                         <span className="font-mono text-sm font-semibold tabular-nums">
                                             AED{' '}
@@ -2441,13 +2542,23 @@ export function EmployeeContractTab({
                             ) : null}
                             {isTransferCrewMonthly ? (
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="transfer_eos_monthly_amount" className="text-xs">
+                                    <Label
+                                        htmlFor="transfer_eos_monthly_amount"
+                                        className="text-xs"
+                                    >
                                         EOS provision (optional, non-payable)
                                     </Label>
                                     <CurrencyInput
                                         id="transfer_eos_monthly_amount"
-                                        value={transferForm.data.eos_monthly_amount}
-                                        onChange={(v) => transferForm.setData('eos_monthly_amount', v)}
+                                        value={
+                                            transferForm.data.eos_monthly_amount
+                                        }
+                                        onChange={(v) =>
+                                            transferForm.setData(
+                                                'eos_monthly_amount',
+                                                v,
+                                            )
+                                        }
                                     />
                                 </div>
                             ) : null}

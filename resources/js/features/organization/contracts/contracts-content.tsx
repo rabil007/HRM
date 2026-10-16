@@ -107,10 +107,13 @@ export function ContractsContent({
     };
 
     const showCrewColumns = activePayrollCategory === 'crew';
-    const showOfficeColumns = activePayrollCategory === 'office' ||
+    const showOfficeColumns =
+        activePayrollCategory === 'office' ||
         (showCrewColumns && activeSalaryStructure === 'monthly');
-    const showDailyCrewColumns = showCrewColumns && activeSalaryStructure === 'daily';
-    const showMonthlyCrewColumns = showCrewColumns && activeSalaryStructure === 'monthly';
+    const showDailyCrewColumns =
+        showCrewColumns && activeSalaryStructure === 'daily';
+    const showMonthlyCrewColumns =
+        showCrewColumns && activeSalaryStructure === 'monthly';
 
     const minWidth = useMemo(() => {
         if (showCrewColumns) {
@@ -368,7 +371,9 @@ export function ContractsContent({
                                     )}
                                     showOfficeColumns={showOfficeColumns}
                                     showCrewColumns={showDailyCrewColumns}
-                                    showMonthlyCrewColumns={showMonthlyCrewColumns}
+                                    showMonthlyCrewColumns={
+                                        showMonthlyCrewColumns
+                                    }
                                     selected={selection.isSelected(contract.id)}
                                     onToggleSelection={() =>
                                         selection.toggle(contract.id)

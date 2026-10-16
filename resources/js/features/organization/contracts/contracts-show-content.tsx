@@ -268,7 +268,11 @@ export function ContractsShowContent({
                             ) : null}
                             <div className="sm:col-span-2">
                                 <DetailField
-                                    label={isCrewDaily ? 'Total daily rate' : 'Total monthly salary'}
+                                    label={
+                                        isCrewDaily
+                                            ? 'Total daily rate'
+                                            : 'Total monthly salary'
+                                    }
                                     value={formatContractMoney(total)}
                                 />
                             </div>
@@ -276,7 +280,9 @@ export function ContractsShowContent({
                                 <div className="sm:col-span-2">
                                     <DetailField
                                         label="EOS provision (non-payable)"
-                                        value={formatContractMoney(contract.eos_monthly_amount)}
+                                        value={formatContractMoney(
+                                            contract.eos_monthly_amount,
+                                        )}
                                     />
                                 </div>
                             ) : null}

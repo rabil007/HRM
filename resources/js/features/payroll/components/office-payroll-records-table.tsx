@@ -109,7 +109,9 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
                     <DataTableHead>Other</DataTableHead>
-                    {isMonthlyCrew ? <DataTableHead>EOS (non-payable)</DataTableHead> : null}
+                    {isMonthlyCrew ? (
+                        <DataTableHead>EOS (non-payable)</DataTableHead>
+                    ) : null}
                     {showSalaryInputsColumn ? (
                         <DataTableHead>Salary inputs</DataTableHead>
                     ) : null}
@@ -212,8 +214,12 @@ export function OfficePayrollRecordsTable({
                             </TableCell>
                             {isMonthlyCrew ? (
                                 <TableCell className={dataTableCellClass()}>
-                                    {record.eos_monthly_provision !== null && record.eos_monthly_provision !== undefined
-                                        ? formatTimesheetAmount(record.eos_monthly_provision) : '—'}
+                                    {record.eos_monthly_provision !== null &&
+                                    record.eos_monthly_provision !== undefined
+                                        ? formatTimesheetAmount(
+                                              record.eos_monthly_provision,
+                                          )
+                                        : '—'}
                                 </TableCell>
                             ) : null}
                             {showSalaryInputsColumn ? (

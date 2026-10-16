@@ -85,11 +85,13 @@ function formatMoney(value: number | string | null | undefined): string {
 }
 
 function revisionTotal(revision: ContractSalaryRevisionItem): number {
-    return revision.lines.filter((line) => line.component_code !== 'EOS_PROVISION').reduce((sum, line) => {
-        const numeric = Number(line.amount);
+    return revision.lines
+        .filter((line) => line.component_code !== 'EOS_PROVISION')
+        .reduce((sum, line) => {
+            const numeric = Number(line.amount);
 
-        return sum + (Number.isNaN(numeric) ? 0 : numeric);
-    }, 0);
+            return sum + (Number.isNaN(numeric) ? 0 : numeric);
+        }, 0);
 }
 
 function currentMonthValue(): string {
@@ -472,20 +474,31 @@ export function EmployeeContractSalaryRevisions({
                             </>
                         ) : null}
 
-                        {contract.payroll_category === 'crew' && contract.salary_structure === 'monthly' ? (
+                        {contract.payroll_category === 'crew' &&
+                        contract.salary_structure === 'monthly' ? (
                             <div className="space-y-1.5 sm:col-span-2">
-                                <Label htmlFor="revision_eos">EOS provision (non-payable, optional)</Label>
+                                <Label htmlFor="revision_eos">
+                                    EOS provision (non-payable, optional)
+                                </Label>
                                 <Input
                                     id="revision_eos"
                                     inputMode="decimal"
                                     value={form.data.eos_monthly_amount}
-                                    onChange={(e) => form.setData('eos_monthly_amount', e.target.value)}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'eos_monthly_amount',
+                                            e.target.value,
+                                        )
+                                    }
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Informational monthly provision; not included in salary or WPS.
+                                    Informational monthly provision; not
+                                    included in salary or WPS.
                                 </p>
                                 {form.errors.eos_monthly_amount ? (
-                                    <p className="text-xs text-destructive">{form.errors.eos_monthly_amount}</p>
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.eos_monthly_amount}
+                                    </p>
                                 ) : null}
                             </div>
                         ) : null}

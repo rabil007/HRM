@@ -182,7 +182,9 @@ export function ContractsTableRow({
                         {formatContractMoney(contract.other_allowances)}
                     </TableCell>
                     {showMonthlyCrewColumns ? (
-                        <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                        <TableCell
+                            className={cn(dataTableCellClass(), 'text-right')}
+                        >
                             {formatContractMoney(contract.eos_monthly_amount)}
                         </TableCell>
                     ) : null}
