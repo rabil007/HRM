@@ -223,7 +223,6 @@ test('contracts import creates new contracts and skips empty rows', function () 
 });
 
 test('contracts import updates existing contracts by employee number', function () {
-    $this->withoutExceptionHandling();
     ['user' => $user, 'company' => $company, 'officeEmployee' => $officeEmployee, 'officeContract' => $officeContract] = makeContractsImportFixtures();
 
     grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);

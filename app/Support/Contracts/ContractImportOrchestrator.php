@@ -194,7 +194,7 @@ final class ContractImportOrchestrator
                 if ($employee !== null && empty($rowErrors)) {
                     $existingContract = $this->resolveExistingContract($employee, $payrollCategory);
                     $desiredStructure = $payrollCategory === PayrollCategory::Office ? 'monthly' : $salaryStructure;
-                    if ($existingContract !== null && $existingContract->resolvedSalaryStructure()->value !== $desiredStructure) {
+                    if ($existingContract !== null && $payrollCategory === PayrollCategory::Crew && $existingContract->resolvedSalaryStructure()->value !== $desiredStructure) {
                         $rowErrors[] = [
                             'row' => $rowNumber,
                             'field' => 'salary_structure',
