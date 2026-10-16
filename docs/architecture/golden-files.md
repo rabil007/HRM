@@ -541,10 +541,35 @@ Most complete bulk workflow: checkbox selection with select-all, sticky toolbar,
 
 ---
 
+## Date / timezone helpers
+
+**Files:**
+
+- `resources/js/features/attendance/leave-requests/components/leave-request-card.tsx` — `useFormatDate()` for platform date-only display
+- `resources/js/components/app-date-field.tsx` — ISO `Y-m-d` input with shared field UX
+- `resources/js/lib/format-date.ts` + `format-date-core.ts` — pure formatters + React hooks
+- `resources/js/lib/company-timezone.ts` — `useCompanyTimezone()` and timezone-aware datetime display
+- `app/Support/Settings/PlatformDateFormatter.php` — backend human dates for Inertia/email/PDF/export
+
+**Why these are good examples**
+
+Leave request UI reads the platform Default Date Format through hooks instead of hardcoding `d-m-Y`. Backend presenters and outbound channels use `PlatformDateFormatter` so Settings changes apply without redeploy hacks. Company timezone stays authoritative for operational “today” and absolute ISO instants.
+
+**What future code should imitate**
+
+- New React screens: `useFormatDate()` / `useFormatDateTime*InTimezone` + `useCompanyTimezone()`
+- New Inertia `*_formatted` props and emails/PDFs/exports: `PlatformDateFormatter::make()`
+- Keep storage/import/API values as ISO `Y-m-d`
+
+Also see: [date-and-timezone.md](./date-and-timezone.md) · `.cursor/rules/date-timezone.mdc`
+
+---
+
 ## Quick reference table
 
 | Category | Golden file |
 |----------|-------------|
+| Date / timezone helpers | `format-date.ts` + `PlatformDateFormatter.php` + leave-request `useFormatDate` |
 | Index page | `features/organization/branches/index.tsx` |
 | Show page | `pages/organization/documents/show.tsx` |
 | Form (sheet) | `features/organization/branches/components/branch-form-sheet.tsx` |
