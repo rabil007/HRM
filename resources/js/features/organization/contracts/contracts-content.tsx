@@ -106,8 +106,11 @@ export function ContractsContent({
         });
     };
 
-    const showOfficeColumns = activePayrollCategory === 'office';
     const showCrewColumns = activePayrollCategory === 'crew';
+    const showOfficeColumns = activePayrollCategory === 'office' ||
+        (showCrewColumns && activeSalaryStructure === 'monthly');
+    const showDailyCrewColumns = showCrewColumns && activeSalaryStructure === 'daily';
+    const showMonthlyCrewColumns = showCrewColumns && activeSalaryStructure === 'monthly';
 
     const minWidth = useMemo(() => {
         if (showCrewColumns) {
@@ -324,12 +327,17 @@ export function ContractsContent({
                                         <DataTableHead className="text-right">
                                             Other allowances
                                         </DataTableHead>
+                                        {showMonthlyCrewColumns ? (
+                                            <DataTableHead className="text-right">
+                                                EOS provision
+                                            </DataTableHead>
+                                        ) : null}
                                         <DataTableHead className="text-right">
                                             Total
                                         </DataTableHead>
                                     </>
                                 ) : null}
-                                {showCrewColumns ? (
+                                {showDailyCrewColumns ? (
                                     <>
                                         <DataTableHead className="text-right">
                                             Supplementary
@@ -359,7 +367,8 @@ export function ContractsContent({
                                         backContext,
                                     )}
                                     showOfficeColumns={showOfficeColumns}
-                                    showCrewColumns={showCrewColumns}
+                                    showCrewColumns={showDailyCrewColumns}
+                                    showMonthlyCrewColumns={showMonthlyCrewColumns}
                                     selected={selection.isSelected(contract.id)}
                                     onToggleSelection={() =>
                                         selection.toggle(contract.id)
