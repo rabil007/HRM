@@ -153,6 +153,7 @@ export function PayrollRecordsBoard({
                     ) : (monthlyRecordsPagination?.total ?? 0) > 0 ? (
                         <>
                             <OfficePayrollRecordsTable
+                                isMonthlyCrew
                                 records={monthlyCrewRecords.map((record) => ({
                                     ...record,
                                     payroll_category: 'office' as const,

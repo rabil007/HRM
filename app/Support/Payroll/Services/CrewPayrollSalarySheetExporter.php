@@ -123,8 +123,78 @@ final class CrewPayrollSalarySheetExporter
         $this->applyMissingHighlights($sheet, $missingCoordinates);
 
         $this->writeMovementDetailsSheet($spreadsheet, $records, $timesheetsByEmployee, $companyId);
+        $this->writeMonthlyCrewCompensationSheet($spreadsheet, $records);
 
         return $this->saveSpreadsheet($spreadsheet, 'crew-payroll-', $period);
+    }
+
+    /**
+     * Monthly Crew earnings are separate from the legacy Daily Crew
+     * salary-sheet column map and reconciliation consumers.
+     *
+     * @param Collection<int, PayrollRecord> $records
+     */
+    private function writeMonthlyCrewCompensationSheet(Spreadsheet $spreadsheet, Collection $records): void
+    {
+        $monthlyRecords = $records->filter(function (PayrollRecord $record): bool {
+            $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+
+            return ($breakdown['salary_structure'] ?? 'daily') === 'monthly';
+        });
+
+        if ($monthlyRecords->isEmpty()) {
+            return;
+        }
+
+        $sheet = $spreadsheet->createSheet();
+        $sheet->setTitle('Monthly Crew');
+        $headers = [
+            'A' => 'EMP. NO.',
+            'B' => 'NAME',
+            'C' => 'BASIC',
+            'D' => 'HOUSING',
+            'E' => 'TRANSPORT',
+            'F' => 'OTHER',
+            'G' => 'GROSS',
+            'H' => 'DEDUCTIONS',
+            'I' => 'NET',
+            'J' => 'EOS PROVISION (NON-PAYABLE)',
+        ];
+        foreach ($headers as $column => $label) {
+            $sheet->setCellValue("{$column}1", $label);
+        }
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $row = 2;
+        foreach ($monthlyRecords as $record) {
+            $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+            $sheet->setCellValue("A{$row}", $record->employee?->employee_no);
+            $sheet->setCellValue("B{$row}", $record->employee?->name);
+            $values = [
+                'C' => $record->basic_salary,
+                'D' => $record->housing_allowance,
+                'E' => $record->transport_allowance,
+                'F' => $record->other_allowances,
+                'G' => $record->gross_salary,
+                'H' => $record->total_deductions,
+                'I' => $record->net_salary,
+                'J' => $breakdown['eos_monthly_provision'] ?? null,
+            ];
+            foreach ($values as $column => $value) {
+                if ($value !== null) {
+                    $sheet->setCellValue("{$column}{$row}", (float) $value);
+                }
+            }
+            $row++;
+        }
+        $lastRow = max(2, $row - 1);
+        $sheet->getStyle("C2:J{$lastRow}")
+            ->getNumberFormat()
+            ->setFormatCode('#,##0.00');
+        $sheet->freezePane('C2');
+        $sheet->setAutoFilter("A1:J{$lastRow}");
+        foreach (range('A', 'J') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
     }
 
     private function writeSummaryRow(Worksheet $sheet): void

@@ -277,6 +277,19 @@
     </table>
     @endif
 
+    @if(($payroll_category ?? '') === 'crew' && ($salary_structure ?? '') === 'monthly' && isset($eos_monthly_provision))
+    <div class="section-header">
+        <table><tr><td>Non-Payable Provision</td></tr></table>
+    </div>
+    <table class="info-table">
+        <tr>
+            <td class="info-label">EOS (End of Service) provision:</td>
+            <td>{{ $eos_monthly_provision }} {{ $currency_code }}</td>
+        </tr>
+    </table>
+    <p style="font-size: 10px; color: #6b7280;">Informational only. Not included in earnings, deductions, net salary, or WPS.</p>
+    @endif
+
     <div class="summary-wrapper">
         <table class="summary-table">
             <tr class="net-row">
