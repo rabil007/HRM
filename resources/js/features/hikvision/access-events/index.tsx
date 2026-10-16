@@ -27,7 +27,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 import type { PaginationMeta } from '@/types/pagination';
@@ -150,6 +154,8 @@ export function HikvisionAccessEventsContent({
     fetchDefaultDate,
     can,
 }: Props) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [fetchDate, setFetchDate] = useState(fetchDefaultDate);
     const list = useServerPaginationFilters({
         url: '/hikvision/access-events',
@@ -370,7 +376,11 @@ export function HikvisionAccessEventsContent({
                     Last fetched:{' '}
                     <span className="font-medium text-foreground">
                         {lastFetchedAt
-                            ? formatDisplayDateTime12h(lastFetchedAt)
+                            ? formatDisplayDateTime12hInTimezone(
+                                  lastFetchedAt,
+                                  companyTimezone,
+                                  dateFormat,
+                              )
                             : 'Never fetched'}
                     </span>
                     {isProcessing ? (
@@ -558,8 +568,10 @@ export function HikvisionAccessEventsContent({
                                     <TableCell
                                         className={dataTableCellPrimaryClass()}
                                     >
-                                        {formatDisplayDateTime12h(
+                                        {formatDisplayDateTime12hInTimezone(
                                             event.occurrence_time,
+                                            companyTimezone,
+                                            dateFormat,
                                         )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>

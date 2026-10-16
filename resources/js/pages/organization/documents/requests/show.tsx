@@ -25,7 +25,11 @@ import type {
 import { WorkflowDecisionButtons } from '@/features/organization/documents/workflow/workflow-decision-dialog';
 import { WorkflowStatusBadge } from '@/features/organization/documents/workflow/workflow-status-badge';
 import { WorkflowTimeline } from '@/features/organization/documents/workflow/workflow-timeline';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import documentRoutes from '@/routes/organization/documents';
 
 type Props = {
@@ -41,6 +45,8 @@ export default function DocumentWorkflowRequestShow({
     recent_activity,
     can_view_audit,
 }: Props): ReactElement {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [cancelOpen, setCancelOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
 
@@ -160,8 +166,10 @@ export default function DocumentWorkflowRequestShow({
                                     </div>
                                     <div>
                                         {request.requested_at
-                                            ? formatDisplayDateTime12h(
+                                            ? formatDisplayDateTime12hInTimezone(
                                                   request.requested_at,
+                                                  companyTimezone,
+                                                  dateFormat,
                                               )
                                             : '—'}
                                     </div>

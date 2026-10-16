@@ -17,7 +17,12 @@ import {
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { LeaveReportApprovalHistoryDialog } from './approval-history-dialog';
 import type { LeaveReportFilters, LeaveReportRow } from './types';
@@ -153,6 +158,8 @@ export function LeaveReportTable({
     filters: LeaveReportFilters;
     onSort: (column: string) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [historyRow, setHistoryRow] = useState<LeaveReportRow | null>(null);
 
     return (
@@ -272,15 +279,21 @@ export function LeaveReportTable({
                                 </button>
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
-                                {formatDisplayDateTime(row.submitted_at)}
+                                {formatDisplayDateTimeInTimezone(
+                                    row.submitted_at,
+                                    companyTimezone,
+                                    dateFormat,
+                                )}
                             </TableCell>
                             <TableCell className={dataTableCellClass()}>
                                 {row.decided_at || row.decided_by ? (
                                     <div className="min-w-0 space-y-0.5">
                                         <span className="block truncate">
                                             {row.decided_at
-                                                ? formatDisplayDateTime(
+                                                ? formatDisplayDateTimeInTimezone(
                                                       row.decided_at,
+                                                      companyTimezone,
+                                                      dateFormat,
                                                   )
                                                 : '—'}
                                         </span>

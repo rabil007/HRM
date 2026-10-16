@@ -46,7 +46,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { edit as hikvisionIntegrationSettings } from '@/routes/integrations/hikvision';
 import type { PaginationMeta } from '@/types/pagination';
@@ -93,6 +97,8 @@ export function HikvisionPersonsContent({
     lastSyncedAt,
     can,
 }: Props) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const list = useServerPaginationFilters({
         url: '/hikvision/persons',
         search: filters.search,
@@ -256,7 +262,11 @@ export function HikvisionPersonsContent({
                     Last synced:{' '}
                     <span className="font-medium text-foreground">
                         {lastSyncedAt
-                            ? formatDisplayDateTime(lastSyncedAt)
+                            ? formatDisplayDateTimeInTimezone(
+                                  lastSyncedAt,
+                                  companyTimezone,
+                                  dateFormat,
+                              )
                             : 'Never synced'}
                     </span>
                 </p>
@@ -507,8 +517,10 @@ export function HikvisionPersonsContent({
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         {person.synced_at
-                                            ? formatDisplayDateTime(
+                                            ? formatDisplayDateTimeInTimezone(
                                                   person.synced_at,
+                                                  companyTimezone,
+                                                  dateFormat,
                                               )
                                             : '—'}
                                     </TableCell>

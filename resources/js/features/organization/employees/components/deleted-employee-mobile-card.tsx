@@ -1,5 +1,9 @@
 import { MobileRecordCard } from '@/components/mobile-record-list';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import type { DeletedEmployee } from '../types';
 
 function formatEmployeeStatus(status: string): string {
@@ -18,6 +22,9 @@ export function DeletedEmployeeMobileCard({
     canRestore: boolean;
     onRestore: (employee: DeletedEmployee) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
+
     return (
         <MobileRecordCard
             title={employee.name}
@@ -27,7 +34,7 @@ export function DeletedEmployeeMobileCard({
                 employee.position?.title ?? null,
                 `Previous status: ${formatEmployeeStatus(employee.status)}`,
                 employee.deleted_at
-                    ? `Deleted ${formatDisplayDateTime(employee.deleted_at)}`
+                    ? `Deleted ${formatDisplayDateTimeInTimezone(employee.deleted_at, companyTimezone, dateFormat)}`
                     : null,
             ]}
             primaryAction={

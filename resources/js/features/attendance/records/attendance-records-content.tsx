@@ -37,7 +37,12 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -94,6 +99,9 @@ export function AttendanceRecordsContent({
         },
         pagination,
     });
+
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
 
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -520,15 +528,19 @@ export function AttendanceRecordsContent({
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >
-                                            {formatDisplayDateTime12h(
+                                            {formatDisplayDateTime12hInTimezone(
                                                 record.clock_in,
+                                                companyTimezone,
+                                                dateFormat,
                                             )}
                                         </TableCell>
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >
-                                            {formatDisplayDateTime12h(
+                                            {formatDisplayDateTime12hInTimezone(
                                                 record.clock_out,
+                                                companyTimezone,
+                                                dateFormat,
                                             )}
                                         </TableCell>
                                         <TableCell

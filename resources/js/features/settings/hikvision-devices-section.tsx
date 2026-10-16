@@ -27,7 +27,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { sync as syncHikvisionDevices } from '@/routes/integrations/hikvision/devices';
 
@@ -75,6 +79,8 @@ export function HikvisionDevicesSection({
     devices,
     isConfigured,
 }: HikvisionDevicesSectionProps) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [syncing, setSyncing] = useState(false);
     const [selectedDevice, setSelectedDevice] =
         useState<HikvisionDevice | null>(null);
@@ -150,7 +156,11 @@ export function HikvisionDevicesSection({
                         Last synced:{' '}
                         <span className="font-medium text-foreground">
                             {devices.last_synced_at
-                                ? formatDisplayDateTime(devices.last_synced_at)
+                                ? formatDisplayDateTimeInTimezone(
+                                      devices.last_synced_at,
+                                      companyTimezone,
+                                      dateFormat,
+                                  )
                                 : 'Never synced'}
                         </span>
                     </p>
@@ -223,8 +233,10 @@ export function HikvisionDevicesSection({
                                         <TableCell
                                             className={dataTableCellClass()}
                                         >
-                                            {formatDisplayDateTime(
+                                            {formatDisplayDateTimeInTimezone(
                                                 device.synced_at,
+                                                companyTimezone,
+                                                dateFormat,
                                             )}
                                         </TableCell>
                                         <TableCell
