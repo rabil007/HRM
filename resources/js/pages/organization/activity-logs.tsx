@@ -47,6 +47,7 @@ type AuditLog = {
     subject_type_label: string;
     description: string | null;
     causer: { id: number; name: string; email: string } | null;
+    impersonator?: { id: number; name: string; email: string } | null;
     old_values: Record<string, unknown> | null;
     new_values: Record<string, unknown> | null;
     module_key: string;
@@ -711,6 +712,17 @@ export default function ActivityLogs({
                                                                         ?.name ??
                                                                         'User'}
                                                                 </p>
+                                                                {log.impersonator ? (
+                                                                    <p className="truncate text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                                                        via{' '}
+                                                                        {
+                                                                            log
+                                                                                .impersonator
+                                                                                .name
+                                                                        }{' '}
+                                                                        (impersonated)
+                                                                    </p>
+                                                                ) : null}
                                                                 <p className="mt-1 truncate text-[9px] text-muted-foreground/40">
                                                                     {log.causer
                                                                         ?.email ??

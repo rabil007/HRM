@@ -114,4 +114,17 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | User Impersonation Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration options for permission-based user impersonation.
+    |
+    */
+
+    'impersonation' => [
+        'lifetime_minutes' => (int) env('AUTH_IMPERSONATION_LIFETIME', 120),
+    ],
+
 ];

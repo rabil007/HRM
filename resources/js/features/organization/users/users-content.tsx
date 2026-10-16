@@ -1,7 +1,8 @@
 import { router, useForm } from '@inertiajs/react';
-import { KeyRound, LogOut, Mail, Plus, Shield } from 'lucide-react';
+import { KeyRound, LogOut, Mail, Plus, Shield, UserCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { start as startImpersonation } from '@/actions/App/Http/Controllers/Organization/ImpersonationController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
     OrganizationDataTable,
@@ -17,6 +18,16 @@ import { ExportMenu } from '@/components/export-menu';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { OrganizationListPageShell } from '@/components/organization-list-page-shell';
 import { Pagination } from '@/components/pagination';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -105,6 +116,7 @@ export function UsersContent({
     const canExport = useHasPermission('users.export');
     const canPasswordReset = useHasPermission('users.password_reset');
     const canRevokeSessions = useHasPermission('users.sessions.revoke');
+    const canImpersonate = useHasPermission('users.impersonate');
 
     const [passwordResetTarget, setPasswordResetTarget] = useState<User | null>(
         null,
@@ -113,6 +125,11 @@ export function UsersContent({
         useState<User | null>(null);
     const [revokeInvitationTarget, setRevokeInvitationTarget] =
         useState<UserInvitation | null>(null);
+    const [impersonateTarget, setImpersonateTarget] = useState<User | null>(
+        null,
+    );
+    const [isStartingImpersonation, setIsStartingImpersonation] =
+        useState(false);
 
     const list = useServerPaginationFilters({
         url: usersIndex.url(),
@@ -442,6 +459,15 @@ export function UsersContent({
                                             ? setRevokeSessionsTarget
                                             : undefined
                                     }
+                                    onImpersonate={
+                                        allowsCapability(
+                                            canImpersonate,
+                                            user,
+                                            'can_impersonate',
+                                        )
+                                            ? setImpersonateTarget
+                                            : undefined
+                                    }
                                 />
                             ))}
                         </div>
@@ -486,9 +512,15 @@ export function UsersContent({
                                             user,
                                             'can_revoke_sessions',
                                         );
+                                    const canImpersonateUser = allowsCapability(
+                                        canImpersonate,
+                                        user,
+                                        'can_impersonate',
+                                    );
                                     const showSecurityActions =
                                         canResetUserPassword ||
-                                        canRevokeUserSessions;
+                                        canRevokeUserSessions ||
+                                        canImpersonateUser;
 
                                     return (
                                         <TableRow
@@ -602,6 +634,26 @@ export function UsersContent({
                                                                 align="end"
                                                                 className="w-48"
                                                             >
+                                                                {canImpersonateUser ? (
+                                                                    <DropdownMenuItem
+                                                                        onClick={(
+                                                                            e,
+                                                                        ) => {
+                                                                            e.stopPropagation();
+                                                                            setImpersonateTarget(
+                                                                                user,
+                                                                            );
+                                                                        }}
+                                                                        className="cursor-pointer"
+                                                                    >
+                                                                        <UserCheck className="mr-2 h-4 w-4" />
+                                                                        <span>
+                                                                            Login
+                                                                            as
+                                                                            User
+                                                                        </span>
+                                                                    </DropdownMenuItem>
+                                                                ) : null}
                                                                 {canResetUserPassword ? (
                                                                     <DropdownMenuItem
                                                                         onClick={(
@@ -798,6 +850,66 @@ export function UsersContent({
                     setRevokeInvitationTarget(null);
                 }}
             />
+
+            <AlertDialog
+                open={impersonateTarget !== null}
+                onOpenChange={(open) => !open && setImpersonateTarget(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>
+                            Login as {impersonateTarget?.name}?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You will temporarily access OMS-HRM using{' '}
+                            {impersonateTarget?.name}&apos;s roles and
+                            permissions. Your original account will be preserved
+                            so you can return at any time.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel asChild>
+                            <Button
+                                variant="ghost"
+                                disabled={isStartingImpersonation}
+                            >
+                                Cancel
+                            </Button>
+                        </AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <Button
+                                disabled={isStartingImpersonation}
+                                onClick={(e) => {
+                                    e.preventDefault();
+
+                                    if (impersonateTarget) {
+                                        setIsStartingImpersonation(true);
+                                        router.post(
+                                            startImpersonation.url({
+                                                user: impersonateTarget.id,
+                                            }),
+                                            {},
+                                            {
+                                                onFinish: () => {
+                                                    setIsStartingImpersonation(
+                                                        false,
+                                                    );
+                                                    setImpersonateTarget(null);
+                                                },
+                                            },
+                                        );
+                                    }
+                                }}
+                            >
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                {isStartingImpersonation
+                                    ? 'Logging in...'
+                                    : `Login as ${impersonateTarget?.name ?? 'User'}`}
+                            </Button>
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </OrganizationListPageShell>
     );
 }

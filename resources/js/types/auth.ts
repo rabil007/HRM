@@ -21,12 +21,29 @@ export type TwoFactorStatus = {
     required_for_privileged_actions: boolean;
 };
 
+export type ImpersonationData = {
+    is_impersonating: boolean;
+    original_user: {
+        id: number;
+        name: string;
+        email: string;
+    };
+    target_user: {
+        id: number;
+        name: string;
+        email: string;
+        role_name?: string | null;
+    };
+    time_remaining_seconds: number;
+};
+
 export type Auth = {
     user: User | null;
     permissions?: string[];
     roles?: string[];
     platform?: PlatformAccess;
     two_factor?: TwoFactorStatus;
+    impersonation?: ImpersonationData | null;
     my_tasks_count?: number;
     leave_approvals_count?: number;
 };

@@ -180,6 +180,7 @@ final class ActivityLogIntelligence
      *     subject_type_label: string,
      *     description: string|null,
      *     causer: array{id: int, name: string, email: string}|null,
+     *     impersonator: array{id: int, name: string, email: string}|null,
      *     old_values: mixed,
      *     new_values: mixed,
      *     module_key: string,
@@ -214,18 +215,21 @@ final class ActivityLogIntelligence
             'subject_type_label' => $subjectTypeLabel,
             'description' => $log->description ?: null,
             'causer' => $presented['causer'],
+            'impersonator' => $presented['impersonator'] ?? null,
             'old_values' => $presented['old_values'],
             'new_values' => $presented['new_values'],
             'module_key' => $module['key'],
             'module_label' => $module['label'],
             'importance' => self::importanceForType($subjectType),
-            'headline' => self::headline(
-                $log,
-                $presented['causer']['name'] ?? 'User',
-                $subjectTypeLabel,
-                $subjectLabel,
-                $changedKeys,
-            ),
+            'headline' => $log->log_name === 'impersonation' && ! empty($log->description)
+                ? (string) $log->description
+                : self::headline(
+                    $log,
+                    $presented['causer']['name'] ?? 'User',
+                    $subjectTypeLabel,
+                    $subjectLabel,
+                    $changedKeys,
+                ),
             'record_url' => self::recordUrl($subject, $viewer, (int) $log->company_id),
             'created_at' => $log->created_at,
         ];
