@@ -210,7 +210,7 @@ test('crew payroll salary sheet export includes salary structure column for mont
     expect($dailySheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
         ->and($dailySheet->getCell('B3')->getValue())->toBeNull()
         ->and($monthlySheet)->not->toBeNull()
-        ->and($monthlySheet->getCell('A2')->getValue())->toBe($employee->employee_no);
+        ->and((string) $monthlySheet->getCell('A2')->getValue())->toBe((string) $employee->employee_no);
 
     @unlink($result['path']);
 });

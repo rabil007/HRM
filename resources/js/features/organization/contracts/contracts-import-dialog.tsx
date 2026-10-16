@@ -543,7 +543,7 @@ export function ContractsImportDialog({
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={payrollCategory === 'crew' && salaryStructure === 'monthly' ? 13 : payrollCategory === 'office' ? 12 : 11}
+                                                    colSpan={payrollCategory === 'crew' && salaryStructure === 'monthly' ? 14 : payrollCategory === 'office' ? 13 : 12}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     {importPreviewEmptyRowsMessage(

@@ -317,7 +317,7 @@ export function ContractsContent({
                                 />
                                 <DataTableHead>Employee</DataTableHead>
                                 <DataTableHead className="text-right">
-                                    Basic rate
+                                    {showMonthlyCrewColumns ? 'Basic monthly salary' : showDailyCrewColumns ? 'Basic daily rate' : 'Basic salary'}
                                 </DataTableHead>
                                 {showOfficeColumns ? (
                                     <>
