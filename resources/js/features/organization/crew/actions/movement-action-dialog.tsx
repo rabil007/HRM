@@ -21,6 +21,8 @@ import {
     SCHEDULE_PERMISSION_MESSAGE,
     formatScheduledMovementExplanation,
     isSchedulableMovementAction,
+    resolveAutomaticSchedulingMode,
+    resolveMovementSubmitLabel,
 } from '@/features/organization/crew/lib/future-actual-movement-dates';
 import {
     confirmDisembarkationOmitsAccommodation,
@@ -206,6 +208,17 @@ function buildInitialForm(
                 ? initialHotelDate
                 : '',
         no_hotel_accommodation: false,
+        check_in_date_auto_synced:
+            action === 'record_arrival' ||
+            action === 'confirm_disembarkation' ||
+            action === 'redeploy',
+        check_out_date_auto_synced:
+            action === 'join_vessel' ||
+            action === 'travel_home' ||
+            action === 'cancel_assignment',
+        source_check_out_date_auto_synced:
+            action === 'redeploy' &&
+            context.post_signoff_accommodation?.status === 'open_hotel',
     };
 
     return action === 'transfer_vessel'
@@ -221,6 +234,8 @@ function ActionForm({
     formOptions,
     firstFieldRef,
     schedulingMode = false,
+    allowsFutureDates = false,
+    preventPastSelection = false,
 }: {
     action: CrewMovementAction;
     form: ReturnType<typeof useForm<CrewMovementActionFormData>>;
@@ -229,6 +244,8 @@ function ActionForm({
     formOptions?: CrewAssignmentFormOptions;
     firstFieldRef: RefObject<HTMLInputElement | HTMLTextAreaElement | null>;
     schedulingMode?: boolean;
+    allowsFutureDates?: boolean;
+    preventPastSelection?: boolean;
 }): ReactElement | null {
     const props = {
         form,
@@ -237,6 +254,8 @@ function ActionForm({
         formOptions,
         firstFieldRef,
         schedulingMode,
+        allowsFutureDates,
+        preventPastSelection,
     };
 
     switch (action) {
@@ -397,9 +416,11 @@ export function MovementActionDialog({
         action !== null &&
         isSchedulableMovementAction(action, resolvedSchedulableActions);
     // UI reflects automatic routing from the selected timestamp (backend re-decides).
-    const schedulingMode =
-        isEditingSchedule ||
-        (selectedIsFuture && actionIsSchedulable && !isEditingSchedule);
+    const schedulingMode = resolveAutomaticSchedulingMode(
+        selectedIsFuture,
+        actionIsSchedulable,
+        isEditingSchedule,
+    );
     const lacksSchedulePermission =
         schedulingMode && !isEditingSchedule && !resolvedCanSchedule;
     const scheduleBlocked =
@@ -443,6 +464,7 @@ export function MovementActionDialog({
                     payload.hotel_id = null;
                     payload.room_type_id = null;
                     payload.check_in_date = '';
+                    payload.check_in_date_auto_synced = false;
                 } else {
                     payload.accommodation_status = 'hotel';
                 }
@@ -462,11 +484,14 @@ export function MovementActionDialog({
                         .room_type_id;
                     delete (payload as { check_in_date?: string })
                         .check_in_date;
+                    delete (payload as { check_in_date_auto_synced?: boolean })
+                        .check_in_date_auto_synced;
                 } else if (payload.no_hotel_accommodation) {
                     payload.accommodation_status = 'no_accommodation';
                     payload.hotel_id = null;
                     payload.room_type_id = null;
                     payload.check_in_date = '';
+                    payload.check_in_date_auto_synced = false;
                 } else {
                     payload.accommodation_status = 'hotel';
                 }
@@ -482,6 +507,8 @@ export function MovementActionDialog({
                 ) {
                     delete (payload as { check_out_date?: string })
                         .check_out_date;
+                    delete (payload as { check_out_date_auto_synced?: boolean })
+                        .check_out_date_auto_synced;
                 }
 
                 delete (payload as { accommodation_status?: string })
@@ -501,6 +528,8 @@ export function MovementActionDialog({
                 ) {
                     delete (payload as { check_out_date?: string })
                         .check_out_date;
+                    delete (payload as { check_out_date_auto_synced?: boolean })
+                        .check_out_date_auto_synced;
                 }
 
                 delete (payload as { accommodation_status?: string })
@@ -522,6 +551,11 @@ export function MovementActionDialog({
                 ) {
                     delete (payload as { source_check_out_date?: string })
                         .source_check_out_date;
+                    delete (
+                        payload as {
+                            source_check_out_date_auto_synced?: boolean;
+                        }
+                    ).source_check_out_date_auto_synced;
                 }
 
                 if (
@@ -534,6 +568,7 @@ export function MovementActionDialog({
                         payload.hotel_id = null;
                         payload.room_type_id = null;
                         payload.check_in_date = '';
+                        payload.check_in_date_auto_synced = false;
                     } else {
                         payload.accommodation_status = 'hotel';
                     }
@@ -545,6 +580,8 @@ export function MovementActionDialog({
                         .room_type_id;
                     delete (payload as { check_in_date?: string })
                         .check_in_date;
+                    delete (payload as { check_in_date_auto_synced?: boolean })
+                        .check_in_date_auto_synced;
                 }
 
                 delete (payload as { check_out_date?: string }).check_out_date;
@@ -578,19 +615,11 @@ export function MovementActionDialog({
             }
 
             if (isEditingSchedule && editingSchedule) {
-                const checkOutAutoSynced =
-                    action === 'join_vessel' &&
-                    Boolean(payload.check_out_date) &&
-                    payload.check_out_date === payload.occurred_at.slice(0, 10);
-                const sourceCheckOutAutoSynced =
-                    action === 'redeploy' &&
-                    Boolean(payload.source_check_out_date) &&
-                    payload.source_check_out_date ===
-                        payload.occurred_at.slice(0, 10);
-
                 return buildScheduledMovementEditPayload(action, payload, {
-                    checkOutDateAutoSynced: checkOutAutoSynced,
-                    sourceCheckOutDateAutoSynced: sourceCheckOutAutoSynced,
+                    checkOutDateAutoSynced: payload.check_out_date_auto_synced,
+                    sourceCheckOutDateAutoSynced:
+                        payload.source_check_out_date_auto_synced,
+                    checkInDateAutoSynced: payload.check_in_date_auto_synced,
                 });
             }
 
@@ -651,15 +680,7 @@ export function MovementActionDialog({
     const timingExplanation = schedulingMode
         ? formatScheduledMovementExplanation(scheduledAtDisplay)
         : RECORD_NOW_EXPLANATION;
-    const submitLabel = ((): string => {
-        if (isEditingSchedule) {
-            return 'Save Changes';
-        }
-
-        if (schedulingMode) {
-            return 'Schedule Movement';
-        }
-
+    const recordLabel = ((): string => {
         if (action === 'travel_home') {
             return form.data.completion_intent === 'redeploy'
                 ? 'Move to Home / Redeployment'
@@ -682,6 +703,11 @@ export function MovementActionDialog({
 
         return config.submitLabel;
     })();
+    const submitLabel = resolveMovementSubmitLabel(
+        schedulingMode,
+        isEditingSchedule,
+        recordLabel,
+    );
     const effectiveConfig = schedulingMode
         ? {
               ...config,
@@ -754,6 +780,10 @@ export function MovementActionDialog({
                             formOptions={formOptions}
                             firstFieldRef={firstFieldRef}
                             schedulingMode={schedulingMode}
+                            allowsFutureDates={
+                                actionIsSchedulable || isEditingSchedule
+                            }
+                            preventPastSelection={isEditingSchedule}
                         />
 
                         {!isEditingSchedule ? (

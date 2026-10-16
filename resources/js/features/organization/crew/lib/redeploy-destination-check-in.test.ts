@@ -3,42 +3,22 @@ import { describe, it } from 'node:test';
 import { resolveDestinationCheckInDateOnP1AEntry } from './redeploy-destination-check-in.ts';
 
 describe('resolveDestinationCheckInDateOnP1AEntry', () => {
-    it('sets check-in to the current redeploy date when empty', () => {
-        assert.deepEqual(
-            resolveDestinationCheckInDateOnP1AEntry({
-                redeployDate: '2026-09-20',
-                currentCheckInDate: '',
-                lastAutoCheckInDate: '2026-09-17',
-                noHotelAccommodation: false,
-            }),
-            {
-                checkInDate: '2026-09-20',
-                lastAutoCheckInDate: '2026-09-20',
-            },
-        );
-    });
-
-    it('updates an untouched auto-derived check-in date', () => {
-        assert.deepEqual(
-            resolveDestinationCheckInDateOnP1AEntry({
-                redeployDate: '2026-09-20',
-                currentCheckInDate: '2026-09-17',
-                lastAutoCheckInDate: '2026-09-17',
-                noHotelAccommodation: false,
-            }),
-            {
-                checkInDate: '2026-09-20',
-                lastAutoCheckInDate: '2026-09-20',
-            },
-        );
-    });
-
-    it('preserves a manually edited check-in date', () => {
+    it('sets check-in to the redeploy date when same-date sync is enabled', () => {
         assert.equal(
             resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
-                currentCheckInDate: '2026-09-21',
-                lastAutoCheckInDate: '2026-09-20',
+                autoSynced: true,
+                noHotelAccommodation: false,
+            }),
+            '2026-09-20',
+        );
+    });
+
+    it('preserves a manual check-in even when it equals the previous movement date', () => {
+        assert.equal(
+            resolveDestinationCheckInDateOnP1AEntry({
+                redeployDate: '2026-09-20',
+                autoSynced: false,
                 noHotelAccommodation: false,
             }),
             null,
@@ -49,8 +29,7 @@ describe('resolveDestinationCheckInDateOnP1AEntry', () => {
         assert.equal(
             resolveDestinationCheckInDateOnP1AEntry({
                 redeployDate: '2026-09-20',
-                currentCheckInDate: '',
-                lastAutoCheckInDate: '2026-09-17',
+                autoSynced: true,
                 noHotelAccommodation: true,
             }),
             null,

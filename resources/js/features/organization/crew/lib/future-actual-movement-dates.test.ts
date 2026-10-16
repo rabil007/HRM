@@ -5,8 +5,10 @@ import {
     SCHEDULE_PERMISSION_MESSAGE,
     formatScheduledMovementExplanation,
     isSchedulableMovementAction,
+    resolveAutomaticSchedulingMode,
     resolveMovementOccurredAtMax,
     resolveMovementOccurredAtMin,
+    resolveMovementSubmitLabel,
     shouldBlockFutureActualMovementDate,
     shouldShowFutureMovementWarning,
 } from './future-actual-movement-dates.ts';
@@ -31,17 +33,57 @@ describe('automatic movement timing helpers', () => {
         assert.equal(shouldBlockFutureActualMovementDate(true), true);
     });
 
-    it('allows future timestamps when the UI is in automatic schedule mode', () => {
+    it('allows future timestamps for a schedulable action before scheduling mode is on', () => {
         assert.equal(
             resolveMovementOccurredAtMax('2026-09-25T12:00', true),
             undefined,
         );
         assert.equal(
-            resolveMovementOccurredAtMin('2026-09-25T12:00', true),
-            '2026-09-25T12:00',
+            resolveMovementOccurredAtMin('2026-09-25T12:00'),
+            undefined,
+        );
+        assert.equal(
+            resolveMovementOccurredAtMin('2026-09-25T12:00', {
+                chronologyMin: '2026-09-20T00:00',
+            }),
+            '2026-09-20T00:00',
         );
         assert.equal(shouldShowFutureMovementWarning(true, true), false);
         assert.equal(shouldBlockFutureActualMovementDate(true, true), false);
+    });
+
+    it('keeps company now as the minimum only while editing an existing schedule', () => {
+        assert.equal(
+            resolveMovementOccurredAtMin('2026-09-25T12:00', {
+                preventPastSelection: true,
+            }),
+            '2026-09-25T12:00',
+        );
+        assert.equal(
+            resolveMovementOccurredAtMin('2026-09-25T12:00', {
+                preventPastSelection: true,
+                chronologyMin: '2026-09-28T00:00',
+            }),
+            '2026-09-28T00:00',
+        );
+    });
+
+    it('uses Schedule Movement only after a future time on a schedulable action', () => {
+        assert.equal(resolveAutomaticSchedulingMode(false, true, false), false);
+        assert.equal(resolveAutomaticSchedulingMode(true, false, false), false);
+        assert.equal(resolveAutomaticSchedulingMode(true, true, false), true);
+        assert.equal(
+            resolveMovementSubmitLabel(false, false, 'Record Movement'),
+            'Record Movement',
+        );
+        assert.equal(
+            resolveMovementSubmitLabel(true, false, 'Record Movement'),
+            'Schedule Movement',
+        );
+        assert.equal(
+            resolveMovementSubmitLabel(true, true, 'Record Movement'),
+            'Save Changes',
+        );
     });
 
     it('classifies schedulable movement actions', () => {

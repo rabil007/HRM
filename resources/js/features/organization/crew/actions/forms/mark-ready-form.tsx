@@ -8,6 +8,8 @@ export function MarkReadyForm({
     context,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     return (
         <div className="space-y-4">
@@ -17,6 +19,8 @@ export function MarkReadyForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

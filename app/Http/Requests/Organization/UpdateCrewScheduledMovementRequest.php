@@ -78,9 +78,9 @@ class UpdateCrewScheduledMovementRequest extends StoreCrewScheduledMovementReque
 
         $scheduledAt = $this->input('scheduled_at');
 
-        // Apply auto-linked hotel checkout synchronization before validating the
+        // Apply auto-linked hotel date synchronization before validating the
         // final payload so quick date-only reschedules (and full edits) keep
-        // check-out chronology aligned with the new scheduled date.
+        // linked check-in and check-out dates aligned with the new scheduled date.
         if (is_string($scheduledAt) && $scheduledAt !== '') {
             $merged = CrewScheduledMovementPayload::syncAutoLinkedDates($merged, $scheduledAt);
         }
@@ -135,6 +135,7 @@ class UpdateCrewScheduledMovementRequest extends StoreCrewScheduledMovementReque
         return [
             'scheduled_at' => $scheduledAt,
             'action_fields' => $actionFields,
+            'check_in_date_auto_synced' => $validated['check_in_date_auto_synced'] ?? ($actionFields['check_in_date_auto_synced'] ?? null),
             'check_out_date_auto_synced' => $validated['check_out_date_auto_synced'] ?? ($actionFields['check_out_date_auto_synced'] ?? null),
             'source_check_out_date_auto_synced' => $validated['source_check_out_date_auto_synced'] ?? ($actionFields['source_check_out_date_auto_synced'] ?? null),
             'remarks' => $validated['remarks'] ?? ($actionFields['remarks'] ?? null),

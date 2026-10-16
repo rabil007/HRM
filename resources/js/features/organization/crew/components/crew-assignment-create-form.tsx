@@ -75,6 +75,7 @@ import {
     resolveCreateEffectiveEmployeeId,
     resolveCreateFooterActions,
 } from '@/features/organization/crew/lib/crew-assignment-create-mode';
+import { applyArrivalDateToAccommodation } from '@/features/organization/crew/lib/pre-join-accommodation';
 import {
     defaultPreJoinAccommodation,
     preJoinAccommodationPayload,
@@ -363,38 +364,50 @@ export function CrewAssignmentCreateForm({
     );
 
     const setAlreadyArrived = (checked: boolean): void => {
-        if (fromNamedPlanning) {
-            form.setData({
-                ...form.data,
-                already_arrived: checked,
-                planned_arrival_at:
+        form.setData((current) => {
+            if (fromNamedPlanning) {
+                const arrival =
                     resolveArrivalAfterAlreadyArrivedToggle({
                         enabling: checked,
-                        currentArrival: form.data.planned_arrival_at,
+                        currentArrival: current.planned_arrival_at,
                         planningPrefillArrival,
-                    }) ?? '',
-            });
+                    }) ?? '';
 
-            return;
-        }
+                return applyArrivalDateToAccommodation(
+                    {
+                        ...current,
+                        already_arrived: checked,
+                    },
+                    arrival,
+                );
+            }
 
-        form.setData({
-            ...form.data,
-            already_arrived: checked,
-            planned_arrival_at:
+            const arrival =
                 resolveArrivalAfterAlreadyArrivedToggle({
                     enabling: checked,
-                    currentArrival: form.data.planned_arrival_at,
+                    currentArrival: current.planned_arrival_at,
                     planningPrefillArrival,
-                }) ?? '',
-            crew: form.data.crew.map((row) => ({
-                ...row,
-                planned_arrival_at: resolveArrivalAfterAlreadyArrivedToggle({
-                    enabling: checked,
-                    currentArrival: row.planned_arrival_at,
-                    planningPrefillArrival,
-                }),
-            })),
+                }) ?? '';
+
+            return {
+                ...applyArrivalDateToAccommodation(
+                    {
+                        ...current,
+                        already_arrived: checked,
+                    },
+                    arrival,
+                ),
+                crew: current.crew.map((row) =>
+                    applyArrivalDateToAccommodation(
+                        row,
+                        resolveArrivalAfterAlreadyArrivedToggle({
+                            enabling: checked,
+                            currentArrival: row.planned_arrival_at,
+                            planningPrefillArrival,
+                        }),
+                    ),
+                ),
+            };
         });
     };
 
@@ -1080,8 +1093,12 @@ export function CrewAssignmentCreateForm({
                                                             undefined,
                                                         );
                                                         form.setData(
-                                                            'planned_arrival_at',
-                                                            e.target.value,
+                                                            (current) =>
+                                                                applyArrivalDateToAccommodation(
+                                                                    current,
+                                                                    e.target
+                                                                        .value,
+                                                                ),
                                                         );
                                                     }}
                                                 />
@@ -1128,7 +1145,15 @@ export function CrewAssignmentCreateForm({
                                                                 form.data
                                                                     .check_in_date ??
                                                                 '',
+                                                            check_in_date_auto_synced:
+                                                                form.data
+                                                                    .check_in_date_auto_synced,
                                                         }}
+                                                        sameDateLabel={
+                                                            arrivalPresentation.useActualArrivalLabel
+                                                                ? 'Use Actual Arrival Date for Hotel Check-In'
+                                                                : 'Use Arrival Date for Hotel Check-In'
+                                                        }
                                                         onChange={(next) =>
                                                             form.setData({
                                                                 ...form.data,

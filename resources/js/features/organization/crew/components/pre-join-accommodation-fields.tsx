@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import InputError from '@/components/input-error';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -10,6 +9,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { LinkedHotelDateField } from '@/features/organization/crew/actions/forms/linked-hotel-date-field';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
 import type { PreJoinAccommodationFields } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type { CrewAssignmentFormOptions } from '@/features/organization/crew/types';
@@ -21,6 +21,7 @@ type PreJoinAccommodationFieldsProps = {
     errors: Record<string, string | undefined>;
     errorPrefix?: string;
     arrivalDate?: string | null;
+    sameDateLabel?: string;
     compact?: boolean;
 };
 
@@ -41,6 +42,7 @@ export function PreJoinAccommodationFields({
     errors,
     errorPrefix,
     arrivalDate,
+    sameDateLabel = 'Use Arrival Date for Hotel Check-In',
     compact = false,
 }: PreJoinAccommodationFieldsProps): ReactElement {
     const noHotelAccommodation =
@@ -50,15 +52,16 @@ export function PreJoinAccommodationFields({
         value.hotel_id,
     );
 
+    const checkInLinked = value.check_in_date_auto_synced !== false;
+
     const setNoHotelAccommodation = (checked: boolean): void => {
         onChange({
             ...value,
             accommodation_status: checked ? 'no_accommodation' : 'hotel',
             hotel_id: checked ? null : value.hotel_id,
             room_type_id: checked ? null : value.room_type_id,
-            check_in_date: checked
-                ? ''
-                : arrivalDate?.slice(0, 10) || value.check_in_date,
+            check_in_date: checked ? '' : arrivalDate?.slice(0, 10) || '',
+            check_in_date_auto_synced: !checked,
         });
     };
 
@@ -168,30 +171,30 @@ export function PreJoinAccommodationFields({
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor={`${errorPrefix ?? 'start'}-check-in`}>
-                            Actual Hotel Check-In Date{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id={`${errorPrefix ?? 'start'}-check-in`}
-                            type="date"
-                            value={value.check_in_date}
-                            onChange={(event) =>
-                                onChange({
-                                    ...value,
-                                    check_in_date: event.target.value,
-                                })
-                            }
-                        />
-                        <InputError
-                            message={fieldError(
-                                errors,
-                                errorPrefix,
-                                'check_in_date',
-                            )}
-                        />
-                    </div>
+                    <LinkedHotelDateField
+                        id={`${errorPrefix ?? 'start'}-check-in`}
+                        label="Hotel Check-In"
+                        checkboxLabel={sameDateLabel}
+                        value={value.check_in_date}
+                        linked={checkInLinked}
+                        error={fieldError(errors, errorPrefix, 'check_in_date')}
+                        onLinkedChange={(linked) =>
+                            onChange({
+                                ...value,
+                                check_in_date_auto_synced: linked,
+                                check_in_date: linked
+                                    ? (arrivalDate?.slice(0, 10) ?? '')
+                                    : value.check_in_date,
+                            })
+                        }
+                        onValueChange={(nextDate) =>
+                            onChange({
+                                ...value,
+                                check_in_date: nextDate,
+                                check_in_date_auto_synced: false,
+                            })
+                        }
+                    />
                 </>
             ) : null}
 

@@ -399,6 +399,7 @@ export type BulkAddCrewRow = {
     hotel_id?: number | null;
     room_type_id?: number | null;
     check_in_date?: string;
+    check_in_date_auto_synced?: boolean;
 };
 
 export interface BulkAddCrewFormData {
@@ -412,6 +413,7 @@ export interface BulkAddCrewFormData {
     hotel_id?: number | null;
     room_type_id?: number | null;
     check_in_date?: string;
+    check_in_date_auto_synced?: boolean;
     crew: BulkAddCrewRow[];
 }
 
@@ -885,6 +887,7 @@ export interface CrewMovementActionFormData {
     check_out_date: string;
     source_check_out_date: string;
     no_hotel_accommodation: boolean;
+    check_in_date_auto_synced?: boolean;
     check_out_date_auto_synced?: boolean;
     source_check_out_date_auto_synced?: boolean;
 }

@@ -13,6 +13,14 @@ The dedicated `POST .../crew/{assignment}/scheduled-movements` endpoint remains 
 
 There is **no manual confirmation mode** for due schedules. Execution is automatic only.
 
+## Operator date entry
+
+Schedulable actions allow a future date in the native calendar before any date is selected. Eligibility comes from the action, not from scheduling mode (that mode only turns on after a future time is chosen). Nonschedulable actions — Plan Sign-Off, Cancel Assignment, Correct Movement, and Void — stay limited to company now. Already Arrived still rejects a future actual arrival.
+
+Hotel check-in and check-out dates default to the company-local calendar date of the movement timestamp. The same-date checkbox is the link. Stored flags are `check_in_date_auto_synced`, `check_out_date_auto_synced`, and `source_check_out_date_auto_synced`. A missing or false flag stays manual, including when the hotel date happens to equal the movement date. Rescheduling moves only dates whose flag is strictly true.
+
+Accommodation on a scheduled movement is an execution instruction. Creating or rescheduling the schedule does not open, check in, or check out a hotel stay and does not change the actual phase. Those records update together only when automatic execution succeeds.
+
 ## Timestamp policy (UTC canonical)
 
 | Field | Storage | Meaning |
