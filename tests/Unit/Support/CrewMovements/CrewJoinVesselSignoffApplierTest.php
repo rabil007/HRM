@@ -34,6 +34,42 @@ it('requires planned_signoff_at when explicit manual_override is chosen', functi
     ))->toThrow(ValidationException::class);
 });
 
+it('stores a join vessel manual date without requiring or fabricating a reason', function () {
+    $applier = new CrewJoinVesselSignoffApplier;
+    $joinAt = CarbonImmutable::parse('2026-08-12 10:00:00', 'Asia/Dubai');
+
+    $result = $applier->apply(
+        makeTourResult(),
+        [
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-10-01',
+        ],
+        null,
+        $joinAt,
+        requireOverrideReason: false,
+    );
+
+    expect($result['planned_signoff_source'])->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($result['planned_signoff_at']?->toDateString())->toBe('2026-10-01')
+        ->and($result['planned_signoff_override_reason'])->toBeNull();
+});
+
+it('rejects a manual date before the join even when a reason is not required', function () {
+    $applier = new CrewJoinVesselSignoffApplier;
+    $joinAt = CarbonImmutable::parse('2026-08-12 10:00:00', 'Asia/Dubai');
+
+    expect(fn () => $applier->apply(
+        makeTourResult(),
+        [
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-08-01',
+        ],
+        null,
+        $joinAt,
+        requireOverrideReason: false,
+    ))->toThrow(ValidationException::class);
+});
+
 it('requires override reason when explicit manual_override includes a date', function () {
     $applier = new CrewJoinVesselSignoffApplier;
     $joinAt = CarbonImmutable::parse('2026-08-12 10:00:00', 'Asia/Dubai');

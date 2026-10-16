@@ -85,7 +85,33 @@ it('preserves existing planned sign-off when chosen', function () {
         ->and($assignment->tour_of_duty_days)->toBe(90);
 });
 
-it('requires a reason for manual planned sign-off override', function () {
+it('accepts a manual planned sign-off date on join vessel without a reason', function () {
+    $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
+        'position_id' => $this->rank->id,
+        'vessel_id' => $this->vessel->id,
+    ], $this->user->id);
+
+    advanceToReadyForTourJoin($this->service, $this->company->id, $assignment->id, $this->user->id);
+
+    $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
+        'occurred_at' => '2026-08-12 10:00:00',
+        'vessel_id' => $this->vessel->id,
+        'position_id' => $this->rank->id,
+        'planned_signoff_choice' => 'manual_override',
+        'planned_signoff_at' => '2026-10-01',
+    ], $this->user->id);
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($assignment->planned_signoff_override_reason)->toBeNull()
+        ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-01')
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and($assignment->currentPhase?->actual_end_at)->toBeNull()
+        ->and($assignment->currentPhase?->planned_end_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-10-01');
+});
+
+it('rejects a join vessel planned sign-off before the actual join date', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
@@ -98,7 +124,7 @@ it('requires a reason for manual planned sign-off override', function () {
         'vessel_id' => $this->vessel->id,
         'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
-        'planned_signoff_at' => '2026-10-01',
+        'planned_signoff_at' => '2026-08-01',
     ], $this->user->id))->toThrow(ValidationException::class);
 });
 

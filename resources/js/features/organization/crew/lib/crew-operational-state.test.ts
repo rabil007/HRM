@@ -19,7 +19,7 @@ describe('crew operational state helpers', () => {
                 status: 'active',
                 status_label: 'Active',
             }),
-            'P1A · Pre-Joining Standby',
+            'Awaiting Vessel Joining',
         );
     });
 

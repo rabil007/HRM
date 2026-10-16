@@ -198,6 +198,261 @@ export function buildPhaseDateLineSummary(
     };
 }
 
+export type OperationalPhaseLine = {
+    label: string;
+    value: string;
+    planned: boolean;
+};
+
+export type OperationalPhaseContext = {
+    isCurrent: boolean;
+    todayIso: string;
+    timeZone?: string | null;
+    plannedArrivalAt?: string | null;
+    plannedJoinAt?: string | null;
+    plannedSignoffAt?: string | null;
+    plannedTravelAt?: string | null;
+    formatDate?: (value: string | null | undefined) => string;
+};
+
+function displayDate(
+    value: string | null | undefined,
+    formatDate: (value: string | null | undefined) => string,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    const formatted = formatDate(value);
+
+    return formatted === '—' ? null : formatted;
+}
+
+function phaseStartLabel(code: string): string {
+    switch (code) {
+        case 'p1a':
+        case 'p1':
+        case 'p2a':
+            return 'Arrived';
+        case 'p1b':
+        case 'p2b':
+            return 'Training Started';
+        case 'p2':
+            return 'Joined Vessel';
+        case 'p3':
+        case 'p5':
+            return 'Disembarked';
+        case 'p4':
+        case 'p6':
+            return 'Returned Home';
+        default:
+            return 'Started';
+    }
+}
+
+/**
+ * One operational timeline: recorded actual movements, plus the relevant
+ * upcoming planned milestone while the phase is still active.
+ * Planned dates are never labeled as actual movements.
+ */
+export function buildOperationalPhaseLines(
+    phase: PhaseTimelineItem,
+    context: OperationalPhaseContext,
+): OperationalPhaseLine[] {
+    const formatDate =
+        context.formatDate ??
+        ((value: string | null | undefined): string =>
+            value ? String(value) : '—');
+    const completed =
+        phase.status === 'completed' || Boolean(phase.actual_end_at);
+    const lines: OperationalPhaseLine[] = [];
+    const actualStart = displayDate(phase.actual_start_at, formatDate);
+    const actualEnd = displayDate(phase.actual_end_at, formatDate);
+
+    if (completed && actualStart) {
+        lines.push({
+            label: 'Actual Movement',
+            value: actualEnd ? `${actualStart} → ${actualEnd}` : actualStart,
+            planned: false,
+        });
+    }
+
+    if (!completed && phase.phase_code === 'p0' && context.isCurrent) {
+        const expected = displayDate(context.plannedArrivalAt, formatDate);
+
+        lines.push(
+            expected
+                ? {
+                      label: 'Expected Arrival',
+                      value: expected,
+                      planned: true,
+                  }
+                : actualStart
+                  ? {
+                        label: 'P0 Started',
+                        value: actualStart,
+                        planned: false,
+                    }
+                  : {
+                        label: 'Expected Arrival',
+                        value: 'Arrival Not Planned',
+                        planned: true,
+                    },
+        );
+    } else if (!completed && actualStart && phase.phase_code !== 'p0') {
+        lines.push({
+            label: phaseStartLabel(phase.phase_code),
+            value: actualStart,
+            planned: false,
+        });
+    }
+
+    if (!completed && phase.phase_code !== 'p0') {
+        lines.push(activeMilestone(phase, context, formatDate));
+    }
+
+    if (!completed) {
+        lines.push({
+            label: 'Status',
+            value: 'Active',
+            planned: false,
+        });
+
+        if (phase.phase_code !== 'p0' && phase.actual_start_at) {
+            const elapsed = formatElapsedDayPhrase(
+                elapsedWholeCalendarDays(
+                    phase.actual_start_at,
+                    context.todayIso,
+                    context.timeZone,
+                ),
+            );
+
+            if (elapsed) {
+                lines.push({
+                    label: 'Elapsed',
+                    value: elapsed,
+                    planned: false,
+                });
+            }
+        }
+    } else {
+        const service = payableServicePhrase(phase);
+
+        if (service) {
+            lines.push({
+                label: 'Service',
+                value: service,
+                planned: false,
+            });
+        } else if (phase.actual_start_at && phase.actual_end_at) {
+            const variance = summarizePhaseVariance(phase, context.timeZone);
+            const span = formatDayCount(variance.actualDurationDays);
+
+            if (variance.actualDurationDays !== null) {
+                lines.push({
+                    label: 'Duration',
+                    value: `${span} calendar span`,
+                    planned: false,
+                });
+            }
+        }
+    }
+
+    return lines;
+}
+
+function activeMilestone(
+    phase: PhaseTimelineItem,
+    context: OperationalPhaseContext,
+    formatDate: (value: string | null | undefined) => string,
+): OperationalPhaseLine {
+    const plannedEnd = displayDate(phase.planned_end_at, formatDate);
+
+    switch (phase.phase_code) {
+        case 'p1a':
+        case 'p1':
+        case 'p2a': {
+            const join = displayDate(context.plannedJoinAt, formatDate);
+
+            return join
+                ? {
+                      label: 'Expected Vessel Join',
+                      value: join,
+                      planned: true,
+                  }
+                : {
+                      label: 'Expected Vessel Join',
+                      value: 'Join Not Planned',
+                      planned: true,
+                  };
+        }
+        case 'p1b':
+        case 'p2b':
+            return plannedEnd
+                ? {
+                      label: 'Expected Training Completion',
+                      value: plannedEnd,
+                      planned: true,
+                  }
+                : {
+                      label: 'Expected Training Completion',
+                      value: 'Training Completion Not Planned',
+                      planned: true,
+                  };
+        case 'p2': {
+            const signoff =
+                displayDate(context.plannedSignoffAt, formatDate) ?? plannedEnd;
+
+            return signoff
+                ? {
+                      label: 'Planned Sign-Off',
+                      value: signoff,
+                      planned: true,
+                  }
+                : {
+                      label: 'Planned Sign-Off',
+                      value: 'Sign-Off Not Planned',
+                      planned: true,
+                  };
+        }
+        case 'p3':
+        case 'p5': {
+            const travel = displayDate(context.plannedTravelAt, formatDate);
+
+            return travel
+                ? {
+                      label: 'Planned Travel Home',
+                      value: travel,
+                      planned: true,
+                  }
+                : {
+                      label: 'Planned Travel Home',
+                      value: 'Travel Home Not Planned',
+                      planned: true,
+                  };
+        }
+        case 'p4':
+        case 'p6':
+            return {
+                label: 'Home / Redeployment',
+                value: 'Awaiting closure',
+                planned: false,
+            };
+        default:
+            return plannedEnd
+                ? {
+                      label: 'Planned End',
+                      value: plannedEnd,
+                      planned: true,
+                  }
+                : {
+                      label: 'Planned End',
+                      value: 'Not Planned',
+                      planned: true,
+                  };
+    }
+}
+
 function payableServicePhrase(phase: PhaseTimelineItem): string | null {
     if (
         phase.allocated_service_days === null ||

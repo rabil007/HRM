@@ -5,10 +5,13 @@ use App\Enums\CrewMobilisationReadinessStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewReliefRisk;
+use App\Enums\CrewReliefStatus;
 use App\Support\CrewMovements\CrewAssignmentRecommendedActionResolver;
 use App\Support\CrewMovements\CrewMobilisationReadinessResult;
 use App\Support\CrewMovements\CrewMovementAvailableActions;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\CrewMovements\CrewReliefReadinessResult;
 
 function recommendedActionForPhase(CrewPhaseCode $phase, CrewAssignmentStatus $status = CrewAssignmentStatus::Active): array
 {
@@ -147,6 +150,74 @@ it('recommends confirm disembarkation for P2 on vessel', function () {
     expect($recommended?->action)->toBe(CrewMovementAction::ConfirmDisembarkation->value)
         ->and($available)->toContain(CrewMovementAction::PlanSignoff->value)
         ->and($available)->not->toContain(CrewMovementAction::CancelAssignment->value);
+});
+
+it('keeps confirm disembarkation primary when relief is not ready', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+        'crew_operations.planning.view',
+    ]);
+    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
+
+    $assignment = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Relief Attention Vessel'),
+    )->load(['currentPhase', 'employee', 'company']);
+
+    $relief = new CrewReliefReadinessResult(
+        status: CrewReliefStatus::NoRelief,
+        risk: CrewReliefRisk::Warning,
+        reliefEmployee: null,
+        reliefPlanningAssignmentId: null,
+        reliefCrewAssignmentId: null,
+        reliefPlannedJoinDate: null,
+        reliefPhase: null,
+        sourcePlannedSignoffDate: '2026-01-06',
+        daysUntilSignoff: 5,
+    );
+
+    $available = CrewMovementAvailableActions::for($assignment);
+    $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
+        $assignment,
+        $available,
+        relief: $relief,
+        user: $fixtures['user'],
+    );
+
+    expect($recommended?->type)->toBe('movement')
+        ->and($recommended?->action)->toBe(CrewMovementAction::ConfirmDisembarkation->value)
+        ->and($available)->toContain(CrewMovementAction::PlanSignoff->value)
+        ->and($available)->toContain(CrewMovementAction::TransferVessel->value);
+});
+
+it('does not recommend disembarkation when the user cannot perform movements', function () {
+    $fixtures = makeCrewAssignmentFixtures();
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.planning.view',
+    ]);
+    $fixtures['user']->update(['current_company_id' => $fixtures['company']->id]);
+
+    $assignment = makeActiveOnVesselAssignment(
+        $fixtures['company'],
+        $fixtures['employee'],
+        $fixtures['rank'],
+        makeCrewMovementVessel('Unauthorized Disembark Vessel'),
+    )->load(['currentPhase', 'employee', 'company']);
+
+    $available = CrewMovementAvailableActions::for($assignment);
+    $recommended = (new CrewAssignmentRecommendedActionResolver)->forAssignment(
+        $assignment,
+        $available,
+        user: $fixtures['user'],
+    );
+
+    expect($available)->toContain(CrewMovementAction::ConfirmDisembarkation->value)
+        ->and($recommended)->toBeNull();
 });
 
 it('recommends travel home for P3 demob standby', function () {

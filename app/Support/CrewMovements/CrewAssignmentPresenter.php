@@ -46,6 +46,9 @@ class CrewAssignmentPresenter
             $relief,
             $user,
         );
+        $warnings = is_array($assignment->attention_warnings)
+            ? $assignment->attention_warnings
+            : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress);
 
         return [
             'id' => $assignment->id,
@@ -87,9 +90,8 @@ class CrewAssignmentPresenter
             'is_editable' => CrewAssignmentEditability::isEditable($assignment),
             ...$tourProgress,
             ...$relief->toArray(),
-            'warnings' => is_array($assignment->attention_warnings)
-                ? $assignment->attention_warnings
-                : CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
+            'warnings' => $warnings,
+            ...CrewOperatorPresentation::forAssignment($assignment, $timezone, $warnings, $readiness, $relief),
             'available_actions' => $availableActions,
             'mobilisation_readiness' => $readiness->applies ? $readiness->toArray(compact: true) : null,
             'recommended_action' => $recommended?->toArray(),
@@ -185,6 +187,8 @@ class CrewAssignmentPresenter
             ->values()
             ->all();
 
+        $detailWarnings = CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress);
+
         return [
             'id' => $assignment->id,
             'assignment_no' => $assignment->assignment_no,
@@ -250,7 +254,8 @@ class CrewAssignmentPresenter
             ...$relief->toArray(),
             'relieves' => $relieves,
             'phase_timeline' => $phaseTimeline,
-            'warnings' => CrewMovementAttentionQuery::forAssignment($assignment, $tourProgress),
+            'warnings' => $detailWarnings,
+            ...CrewOperatorPresentation::forAssignment($assignment, $timezone, $detailWarnings, $readiness, $relief),
             'available_actions' => $availableActions,
             'mobilisation_readiness' => $readiness->applies ? $readiness->toArray() : null,
             'recommended_action' => $recommended?->toArray(),

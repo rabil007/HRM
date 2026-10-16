@@ -85,6 +85,7 @@ export function CrewAssignmentOperationsCenter({
                         status={assignment.status}
                         statusLabel={assignment.status_label}
                         vesselName={assignment.vessel?.name ?? null}
+                        operatorStage={assignment.operator_stage}
                     />
                 ) : null}
 

@@ -8,9 +8,13 @@ import {
     formatOtherValidActionLabel,
     lastOperationalChangeSummary,
     nextNormalActionLabel,
+    operatorStageSecondary,
     otherValidMovementActions,
 } from '@/features/organization/crew/lib/crew-operational-state';
-import type { CrewRecommendedAction } from '@/features/organization/crew/types';
+import type {
+    CrewOperatorStage,
+    CrewRecommendedAction,
+} from '@/features/organization/crew/types';
 
 export function CrewOperationalStatePanel({
     assignment,
@@ -29,12 +33,17 @@ export function CrewOperationalStatePanel({
         status: string;
         status_label: string;
         available_actions?: string[];
+        operator_stage?: CrewOperatorStage | null;
     };
     recommended?: CrewRecommendedAction | null;
     permissions: OperationalStatePermissions;
     showLastChange?: boolean;
     className?: string;
 }): ReactElement {
+    const stageAssignment = {
+        ...assignment,
+        operator_stage: assignment.operator_stage ?? undefined,
+    };
     const otherActions = otherValidMovementActions(
         assignment.available_actions,
         recommended,
@@ -50,11 +59,16 @@ export function CrewOperationalStatePanel({
             <dl className="space-y-3 text-sm">
                 <div>
                     <dt className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        Current state
+                        Current stage
                     </dt>
                     <dd className="mt-1 font-medium text-foreground">
-                        {currentStateLabel(assignment)}
+                        {currentStateLabel(stageAssignment)}
                     </dd>
+                    {operatorStageSecondary(stageAssignment) ? (
+                        <dd className="text-xs text-muted-foreground">
+                            {operatorStageSecondary(stageAssignment)}
+                        </dd>
+                    ) : null}
                 </div>
                 {nextAction ? (
                     <div>

@@ -160,13 +160,20 @@ function QuickDetailContent({
             : null;
     const reliefHref =
         can.view_planning && isOnVessel ? reliefActionHref(assignment) : null;
-    const primaryHref =
-        model.needsDocumentReview && documentsHref ? documentsHref : null;
     const recommendedMovement =
         assignment.recommended_action?.type === 'movement' &&
         assignment.recommended_action.action
             ? (assignment.recommended_action.action as CrewMovementAction)
             : null;
+    const onVesselDisembarkation =
+        isOnVessel &&
+        (recommendedMovement === 'confirm_disembarkation' ||
+            (recommendedMovement === null &&
+                model.movement === 'confirm_disembarkation'));
+    const primaryHref =
+        onVesselDisembarkation || !model.needsDocumentReview
+            ? null
+            : documentsHref;
     const primaryLabel = primaryHref
         ? 'Review documents'
         : assignment.recommended_action?.type === 'relief' &&
@@ -260,7 +267,8 @@ function QuickDetailContent({
                             <span className="mx-1.5" aria-hidden>
                                 ·
                             </span>
-                            {assignment.status_label}
+                            {assignment.operator_stage?.label ??
+                                assignment.status_label}
                         </p>
                     </div>
                 </div>
@@ -286,16 +294,21 @@ function QuickDetailContent({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <div className="grid grid-cols-2 divide-x divide-border/60 border-b border-border/60 bg-muted/15">
                     <div className="flex flex-col gap-2 px-4 py-3">
-                        <Label icon={<Clock3 />}>Current phase</Label>
-                        {phase ? (
+                        <Label icon={<Clock3 />}>Current stage</Label>
+                        <p className="text-sm font-semibold">
+                            {assignment.operator_stage?.label ?? 'Not recorded'}
+                        </p>
+                        {assignment.operator_stage?.secondary ? (
+                            <p className="text-xs text-muted-foreground">
+                                {assignment.operator_stage.secondary}
+                            </p>
+                        ) : phase ? (
                             <CrewPhaseBadge
                                 code={phase.code}
                                 label={phase.label}
                                 status={phase.status}
                             />
-                        ) : (
-                            <span className="text-sm">Not recorded</span>
-                        )}
+                        ) : null}
                         {phaseDescription ? (
                             <p className="text-xs text-muted-foreground">
                                 {phaseDescription}
@@ -312,23 +325,39 @@ function QuickDetailContent({
                     </div>
                     <div className="flex flex-col gap-1.5 px-4 py-3">
                         <Label icon={<CalendarClock />}>
-                            {model.milestone?.label ?? 'Next step'}
+                            {assignment.key_operational_date?.label ??
+                                model.milestone?.label ??
+                                'Key operational date'}
                         </Label>
                         <p className="text-sm font-semibold tabular-nums">
-                            {model.milestone
-                                ? formatDisplayDate(model.milestone.date)
-                                : model.finished
-                                  ? 'Review history'
-                                  : normalizePhaseCodeForDisplay(
-                                          phase?.code,
-                                      ) === 'p3'
-                                    ? 'Travel or redeploy'
+                            {assignment.key_operational_date
+                                ? assignment.key_operational_date.date
+                                    ? formatDisplayDate(
+                                          assignment.key_operational_date.date,
+                                      )
+                                    : 'Not recorded'
+                                : model.milestone
+                                  ? formatDisplayDate(model.milestone.date)
+                                  : model.finished
+                                    ? 'Review history'
                                     : normalizePhaseCodeForDisplay(
                                             phase?.code,
-                                        ) === 'p4'
-                                      ? 'Close or redeploy'
-                                      : 'Review assignment'}
+                                        ) === 'p3'
+                                      ? 'Travel or redeploy'
+                                      : normalizePhaseCodeForDisplay(
+                                              phase?.code,
+                                          ) === 'p4'
+                                        ? 'Close or redeploy'
+                                        : 'Review assignment'}
                         </p>
+                        {assignment.key_operational_date ? (
+                            <span className="text-xs text-muted-foreground">
+                                {assignment.key_operational_date.kind ===
+                                'planned'
+                                    ? 'Planned'
+                                    : 'Actual'}
+                            </span>
+                        ) : null}
                         {model.milestone ? (
                             <span
                                 className={cn(

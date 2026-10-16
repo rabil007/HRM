@@ -133,6 +133,25 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
     detail: string;
     tone: SummaryTone;
 } {
+    if (assignment.key_operational_date) {
+        const keyDate = assignment.key_operational_date;
+        const missing = keyDate.date == null;
+
+        return {
+            label: keyDate.label,
+            value: missing
+                ? keyDate.label === 'Planned Sign-Off'
+                    ? 'Sign-Off Not Planned'
+                    : 'Not recorded'
+                : formatDisplayDate(keyDate.date),
+            detail:
+                keyDate.kind === 'planned'
+                    ? 'Planned date. This is not an actual movement.'
+                    : 'Recorded operational date.',
+            tone: missing ? 'warning' : 'neutral',
+        };
+    }
+
     if (assignment.current_phase?.code === 'p2') {
         const days = assignment.days_until_signoff;
 

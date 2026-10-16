@@ -588,7 +588,7 @@ export function CurrentCrewContent({
 
                     <div className={DESKTOP_OPERATIONAL_TABLE_CLASS}>
                         <OrganizationDataTable
-                            minWidth="min-w-[1360px]"
+                            minWidth="min-w-[1280px]"
                             tableClassName="table-fixed"
                         >
                             <TableHeader>
@@ -604,28 +604,22 @@ export function CurrentCrewContent({
                                             onToggle={selection.toggleAll}
                                         />
                                     ) : null}
-                                    <DataTableHead className="w-[150px]">
-                                        Assignment
-                                    </DataTableHead>
                                     <DataTableHead className="w-[260px]">
-                                        Employee
+                                        Assignment / Employee
                                     </DataTableHead>
                                     <DataTableHead className="w-[160px]">
                                         Vessel
                                     </DataTableHead>
                                     <DataTableHead className="w-[200px]">
-                                        Current Phase
-                                    </DataTableHead>
-                                    <DataTableHead className="w-[140px]">
-                                        Plan Dates
+                                        Current Stage
                                     </DataTableHead>
                                     <DataTableHead className="w-[180px]">
-                                        Relief
+                                        Key Operational Date
                                     </DataTableHead>
-                                    <DataTableHead className="w-[130px]">
-                                        Status
+                                    <DataTableHead className="w-[180px]">
+                                        Attention
                                     </DataTableHead>
-                                    <DataTableHead className="w-[160px]">
+                                    <DataTableHead className="w-[220px]">
                                         Actions
                                     </DataTableHead>
                                 </DataTableHeaderRow>

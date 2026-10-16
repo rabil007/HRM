@@ -45,19 +45,74 @@ export function otherValidMovementActions(
     return permitted.filter((action) => !excluded.has(action));
 }
 
+const ACTIVE_STAGE_LABELS: Record<string, string> = {
+    p0: 'Awaiting Arrival',
+    p1a: 'Awaiting Vessel Joining',
+    p1b: 'In Training',
+    p2: 'On Vessel',
+    p3: 'Awaiting Home / Redeployment',
+    p4: 'Home / Awaiting Closure',
+};
+
+export function operatorStageLabel(
+    assignment: Pick<
+        CrewAssignmentListItem,
+        'current_phase' | 'status' | 'status_label' | 'operator_stage'
+    >,
+): string {
+    if (assignment.operator_stage?.label) {
+        return assignment.operator_stage.label;
+    }
+
+    if (assignment.status === 'draft') {
+        return 'Not Started';
+    }
+
+    if (assignment.status === 'completed') {
+        return 'Completed';
+    }
+
+    if (assignment.status === 'cancelled') {
+        return 'Cancelled';
+    }
+
+    const code = assignment.current_phase?.code?.toLowerCase();
+
+    if (code && ACTIVE_STAGE_LABELS[code]) {
+        return ACTIVE_STAGE_LABELS[code];
+    }
+
+    return (
+        assignment.current_phase?.label ??
+        assignment.status_label ??
+        assignment.status
+    );
+}
+
+export function operatorStageSecondary(
+    assignment: Pick<
+        CrewAssignmentListItem,
+        'current_phase' | 'status' | 'operator_stage'
+    >,
+): string | null {
+    if (assignment.operator_stage) {
+        return assignment.operator_stage.secondary;
+    }
+
+    if (assignment.status !== 'active' || !assignment.current_phase) {
+        return null;
+    }
+
+    return `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`;
+}
+
 export function currentStateLabel(
     assignment: Pick<
         CrewAssignmentListItem,
-        'current_phase' | 'status' | 'status_label'
+        'current_phase' | 'status' | 'status_label' | 'operator_stage'
     >,
 ): string {
-    if (assignment.current_phase) {
-        const code = assignment.current_phase.code.toUpperCase();
-
-        return `${code} · ${assignment.current_phase.label}`;
-    }
-
-    return assignment.status_label ?? assignment.status;
+    return operatorStageLabel(assignment);
 }
 
 export function nextNormalActionLabel(

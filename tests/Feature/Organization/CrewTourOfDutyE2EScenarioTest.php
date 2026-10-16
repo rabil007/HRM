@@ -7,7 +7,6 @@ use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Support\CrewMovements\CrewMovementService;
-use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->fixtures = makeCrewAssignmentFixtures();
@@ -88,7 +87,7 @@ it('keeps existing planning leave when existing_plan is chosen', function () {
         ->and($assignment->tour_of_duty_days)->toBe(90);
 });
 
-it('stores manual override with required reason', function () {
+it('stores a join vessel manual override without fabricating a reason', function () {
     $assignment = $this->service->createDraft($this->company->id, $this->employee->id, [
         'position_id' => $this->rank->id,
         'vessel_id' => $this->vessel->id,
@@ -98,27 +97,18 @@ it('stores manual override with required reason', function () {
 
     advanceToReadyForE2ETour($this->service, $this->company->id, $assignment->id, $this->user->id);
 
-    expect(fn () => $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
-        'occurred_at' => '2026-08-12 10:00:00',
-        'vessel_id' => $this->vessel->id,
-        'position_id' => $this->rank->id,
-        'planned_signoff_choice' => 'manual_override',
-        'planned_signoff_at' => '2026-09-30',
-    ], $this->user->id))->toThrow(ValidationException::class);
-
     $this->service->perform($this->company->id, $assignment->id, CrewMovementAction::JoinVessel, [
         'occurred_at' => '2026-08-12 10:00:00',
         'vessel_id' => $this->vessel->id,
         'position_id' => $this->rank->id,
         'planned_signoff_choice' => 'manual_override',
         'planned_signoff_at' => '2026-09-30',
-        'planned_signoff_override_reason' => 'Client requested earlier relief',
     ], $this->user->id);
 
     $assignment->refresh();
 
     expect($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
-        ->and($assignment->planned_signoff_override_reason)->toBe('Client requested earlier relief')
+        ->and($assignment->planned_signoff_override_reason)->toBeNull()
         ->and($assignment->planned_signoff_at?->timezone($this->company->timezone)->toDateString())->toBe('2026-09-30')
         ->and($assignment->tour_of_duty_days)->toBe(90);
 });

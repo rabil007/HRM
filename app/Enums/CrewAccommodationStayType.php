@@ -10,8 +10,8 @@ enum CrewAccommodationStayType: string
     public function label(): string
     {
         return match ($this) {
-            self::PreJoin => 'Pre-Join',
-            self::PostSignoff => 'Post-Sign-Off',
+            self::PreJoin => 'Pre-Joining Standby',
+            self::PostSignoff => 'Demobilisation Standby',
         };
     }
 

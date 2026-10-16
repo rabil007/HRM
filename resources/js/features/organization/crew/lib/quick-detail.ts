@@ -25,7 +25,7 @@ export type QuickDetailIssue = Pick<
 const NEXT_MOVEMENT: Record<string, CrewMovementAction> = {
     p1: 'record_arrival',
     p1b: 'complete_training',
-    p2: 'plan_signoff',
+    p2: 'confirm_disembarkation',
     p3: 'travel_home',
     p4: 'close_assignment',
     // Exclusive legacy codes (pre-normalize fallback only)
@@ -76,7 +76,7 @@ const MOVEMENT_GUIDANCE: Record<string, string> = {
     p1: 'Legacy Travel In assignment. Record arrival to move the crew member into Pre-Joining Standby.',
     p1a: 'Crew member is on pre-joining standby. Send to training if required, or record Join Vessel when they actually board.',
     p1b: 'Record completion once the course is finished.',
-    p2: 'Review the sign-off plan and relief arrangements.',
+    p2: 'Confirm disembarkation when the crew member actually leaves the vessel. Plan Sign-Off and Plan Relief stay optional.',
     p3: 'Confirm travel home or use another movement to redeploy.',
     p4: 'Review the record before closing this cycle or redeploying.',
     p2a: 'Legacy P2A code — treat as pre-joining standby before joining the vessel.',
@@ -156,7 +156,7 @@ export function crewQuickDetailModel(
 ) {
     const phase = assignment.current_phase?.code;
     const normalizedPhase = normalizePhaseCodeForDisplay(phase) ?? phase;
-    const finished = ['closed', 'cancelled', 'voided'].includes(
+    const finished = ['closed', 'completed', 'cancelled', 'voided'].includes(
         assignment.status,
     );
     const timezone =
@@ -254,7 +254,7 @@ export function crewQuickDetailModel(
         : needsDocumentReview
           ? 'Review outstanding document checks. These are advisory; permitted movements remain available.'
           : needsRelief
-            ? 'Review relief coverage before confirming the planned sign-off.'
+            ? 'Relief is not assigned or not ready. Plan Relief is optional and does not block disembarkation.'
             : (MOVEMENT_GUIDANCE[guidanceKey] ??
               MOVEMENT_GUIDANCE[phase ?? ''] ??
               'Open the full assignment to review the current movement.');

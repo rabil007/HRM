@@ -8,7 +8,6 @@ import type {
     CrewAssignmentPagePermissions,
     PhaseTimelineItem,
 } from '../types.ts';
-import type { PhaseTimelineDisplayMode } from './phase-timeline-math.ts';
 
 function phase(overrides: Partial<PhaseTimelineItem> = {}): PhaseTimelineItem {
     return {
@@ -126,7 +125,6 @@ function countOccurrences(haystack: string, needle: string): number {
 async function renderTimeline(
     detail: CrewAssignmentDetail,
     options?: {
-        initialDisplayMode?: PhaseTimelineDisplayMode;
         can?: Pick<
             CrewAssignmentPagePermissions,
             | 'view_corrections'
@@ -158,7 +156,6 @@ async function renderTimeline(
                 correctablePhaseIds: new Set<number>([11]),
                 onCorrect: () => undefined,
                 onCancelPending: () => undefined,
-                initialDisplayMode: options?.initialDisplayMode,
             }),
         );
     } finally {
@@ -167,15 +164,54 @@ async function renderTimeline(
 }
 
 describe('CrewAssignmentPhaseTimeline render', () => {
-    it('defaults to Plan vs Actual controls and shows phase timeline', async () => {
-        const html = await renderTimeline(assignment());
+    it('shows one actual-movement timeline without display-mode tabs', async () => {
+        const html = await renderTimeline(
+            assignment({
+                planned_signoff_at: '2026-10-25',
+                current_phase: {
+                    id: 10,
+                    code: 'p2',
+                    label: 'On Vessel',
+                },
+                phase_timeline: [
+                    phase({
+                        phase_code: 'p2',
+                        phase_label: 'On Vessel',
+                        actual_start_at: '2026-10-10',
+                        planned_end_at: null,
+                    }),
+                ],
+            }),
+        );
 
         assert.ok(html.includes('Phase Timeline'));
-        assert.ok(html.includes('Plan vs Actual'));
-        assert.ok(html.includes('Actual Only'));
-        assert.ok(html.includes('Planned Only'));
+        assert.ok(!html.includes('Plan vs Actual'));
+        assert.ok(!html.includes('Actual Only'));
+        assert.ok(!html.includes('Planned Only'));
         assert.ok(html.includes('On Vessel'));
-        assert.ok(html.includes('aria-selected="true"'));
+        assert.ok(html.includes('Joined Vessel:'));
+        assert.ok(html.includes('Planned Sign-Off:'));
+        assert.ok(html.includes('25-10-2026'));
+        assert.ok(!html.includes('aria-selected="true"'));
+    });
+
+    it('does not invent a planned sign-off on an active on-vessel phase', async () => {
+        const html = await renderTimeline(
+            assignment({
+                current_phase: { id: 10, code: 'p2', label: 'On Vessel' },
+                phase_timeline: [
+                    phase({
+                        phase_code: 'p2',
+                        phase_label: 'On Vessel',
+                        actual_start_at: '2026-10-10',
+                        planned_end_at: null,
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Sign-Off Not Planned'));
+        assert.ok(!html.includes('Actual Movement:'));
     });
 
     it('renders expected arrival for active current P0 with assignment forecast', async () => {
@@ -192,33 +228,14 @@ describe('CrewAssignmentPhaseTimeline render', () => {
         assert.ok(!html.includes('Phase details'));
     });
 
-    it('shows active current P0 once in Planned Only without actual lines', async () => {
-        const html = await renderTimeline(activeCurrentP0Assignment(), {
-            initialDisplayMode: 'planned_only',
-        });
-
-        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
-        assert.ok(html.includes('Expected Arrival:'));
-        assert.ok(!html.includes('Actual:'));
-    });
-
-    it('shows active current P0 once in Actual Only without duplicate waiting copy', async () => {
-        const html = await renderTimeline(activeCurrentP0Assignment(), {
-            initialDisplayMode: 'actual_only',
-        });
-
-        assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
-        assert.ok(!html.includes('Expected Arrival:'));
-        assert.ok(!html.includes('Actual:'));
-    });
-
-    it('preserves planned-not-recorded fallback when forecast is missing', async () => {
+    it('shows the recorded P0 start when expected arrival is missing', async () => {
         const html = await renderTimeline(
             activeCurrentP0Assignment({ planned_arrival_at: null }),
         );
 
-        assert.ok(html.includes('Not recorded'));
-        assert.ok(html.includes('variance unavailable (no planned dates)'));
+        assert.ok(html.includes('P0 Started:'));
+        assert.ok(html.includes('14-10-2026'));
+        assert.ok(!html.includes('variance unavailable (no planned dates)'));
         assert.equal(countOccurrences(html, 'Waiting for crew arrival'), 1);
     });
 
