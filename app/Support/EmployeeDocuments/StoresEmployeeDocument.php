@@ -7,9 +7,12 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentVersion;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class StoresEmployeeDocument
 {
@@ -18,6 +21,7 @@ class StoresEmployeeDocument
     public function create(Employee $employee, ?DocumentType $documentType, UploadedFile $file, array $data, int $companyId, ?int $userId): EmployeeDocument
     {
         $prepared = $this->optimizer->prepare($file);
+        $path = null;
 
         try {
             $folderSegment = $documentType !== null
@@ -25,6 +29,7 @@ class StoresEmployeeDocument
                 : 'uncategorized';
 
             $path = $this->storeFile($prepared->file, $companyId, $employee->id, $folderSegment);
+            TransactionScopedPrivateFileCompensation::remember($path, $companyId);
 
             $defaultTitle = $documentType?->title
                 ?? pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
@@ -50,6 +55,17 @@ class StoresEmployeeDocument
                 'status' => DocumentExpiry::persistedStatus($data['expiry_date'] ?? null),
                 'uploaded_by' => $userId,
             ]);
+        } catch (Throwable $exception) {
+            if (is_string($path) && $path !== '') {
+                TransactionScopedPrivateFileCompensation::forget($path);
+                EmployeePrivateFile::deleteStored(
+                    $path,
+                    $companyId,
+                    EmployeePrivateFileKind::Document,
+                );
+            }
+
+            throw $exception;
         } finally {
             $prepared->cleanup();
         }
@@ -65,7 +81,7 @@ class StoresEmployeeDocument
         $prepared = $this->optimizer->prepare($file);
 
         try {
-            return DB::transaction(function () use ($document, $prepared, $file, $companyId, $employeeId, $actorUserId, $data) {
+            $run = function () use ($document, $prepared, $file, $companyId, $employeeId, $actorUserId, $data): EmployeeDocument {
                 EmployeeDocumentVersion::query()->create([
                     'employee_document_id' => $document->id,
                     'company_id' => $document->company_id,
@@ -88,6 +104,7 @@ class StoresEmployeeDocument
                     : Str::slug((string) ($document->document_type ?? 'document'));
 
                 $path = $this->storeFile($prepared->file, $companyId, $employeeId, $segment);
+                TransactionScopedPrivateFileCompensation::remember($path, $companyId);
 
                 $expiryDate = array_key_exists('expiry_date', $data)
                     ? ($data['expiry_date'] ?? null)
@@ -113,7 +130,11 @@ class StoresEmployeeDocument
                 ]);
 
                 return $document->refresh();
-            });
+            };
+
+            return DB::transactionLevel() > 0
+                ? $run()
+                : DB::transaction($run);
         } finally {
             $prepared->cleanup();
         }

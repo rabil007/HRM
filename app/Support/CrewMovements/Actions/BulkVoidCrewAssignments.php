@@ -6,23 +6,21 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
-use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
-use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
+use App\Support\EmployeeTrainings\DeletesEmployeeTrainingRecord;
+use App\Support\EmployeeTrainings\TrainingCertificateLockOrder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\PermissionRegistrar;
-use Throwable;
 
 final class BulkVoidCrewAssignments
 {
     public function __construct(
         private readonly CrewAssignmentVoidGuard $guard,
-        private readonly StoresEmployeeTrainingCertificate $certificateStore,
+        private readonly DeletesEmployeeTrainingRecord $trainingRecordDeletion,
         private readonly CleanupDraftTimesheetForVoid $cleanupDraftTimesheet,
         private readonly CleanupAccommodationForVoid $cleanupAccommodation,
     ) {}
@@ -167,15 +165,13 @@ final class BulkVoidCrewAssignments
                 }
 
                 $trainingDeletedCounts = [];
-                $certificatePathsToDelete = [];
                 if ($deleteTraining && $phaseIds !== []) {
-                    $trainings = EmployeeTraining::query()
-                        ->where('company_id', $companyId)
-                        ->whereIn('source_crew_assignment_phase_id', $phaseIds)
-                        ->with('versions')
-                        ->orderBy('id')
-                        ->lockForUpdate()
-                        ->get();
+                    // Document → Training lock order before DeletesEmployeeTrainingRecord.
+                    $trainings = TrainingCertificateLockOrder::lockDocumentsThenTrainingsForSourcePhases(
+                        $companyId,
+                        $phaseIds,
+                        with: ['versions'],
+                    );
 
                     foreach ($trainings as $training) {
                         $aId = $phaseToAssignment[(int) $training->source_crew_assignment_phase_id] ?? null;
@@ -183,28 +179,8 @@ final class BulkVoidCrewAssignments
                             $trainingDeletedCounts[$aId] = ($trainingDeletedCounts[$aId] ?? 0) + 1;
                         }
 
-                        $paths = $this->certificateStore->resolveCertificatePaths($training);
-                        if ($paths !== []) {
-                            $certificatePathsToDelete = array_merge($certificatePathsToDelete, $paths);
-                        }
-
-                        $training->delete();
+                        $this->trainingRecordDeletion->delete($training);
                     }
-                }
-
-                if ($certificatePathsToDelete !== []) {
-                    $pathsToClean = array_values(array_unique($certificatePathsToDelete));
-                    DB::afterCommit(function () use ($pathsToClean, $companyId): void {
-                        try {
-                            $this->certificateStore->deletePaths($pathsToClean, $companyId);
-                        } catch (Throwable $exception) {
-                            Log::warning('Bulk void post-commit certificate cleanup failed.', [
-                                'company_id' => $companyId,
-                                'error' => $exception->getMessage(),
-                            ]);
-                            report($exception);
-                        }
-                    });
                 }
 
                 $isBulk = $assignments->count() > 1;

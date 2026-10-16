@@ -9,7 +9,7 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\PayrollRecord;
-use App\Support\EmployeeTrainings\StoresEmployeeTrainingCertificate;
+use App\Support\EmployeeTrainings\DeletesEmployeeTrainingRecord;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 class OrganizationBulkRecordController extends Controller
 {
     public function __construct(
-        private readonly StoresEmployeeTrainingCertificate $certificateStore,
+        private readonly DeletesEmployeeTrainingRecord $trainingRecordDeletion,
     ) {}
 
     public function destroySeaServices(BulkDestroyOrganizationRecordsRequest $request): RedirectResponse
@@ -41,8 +41,7 @@ class OrganizationBulkRecordController extends Controller
         $records = $this->companyRecords($request, EmployeeTraining::class);
 
         foreach ($records as $training) {
-            $this->certificateStore->deleteForTraining($training);
-            $training->delete();
+            $this->trainingRecordDeletion->delete($training);
         }
 
         return $this->success($records->count(), 'training record');

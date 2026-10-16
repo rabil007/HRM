@@ -37,6 +37,8 @@ export type DocumentBrowseItem = {
     expiry_status: DocumentExpiryStatus | null;
     remaining_days: number | null;
     expiry_label: string;
+    linked_to_training?: boolean;
+    linked_training_course_name?: string | null;
 };
 
 export type DocumentProfileItem = DocumentBrowseItem & {
