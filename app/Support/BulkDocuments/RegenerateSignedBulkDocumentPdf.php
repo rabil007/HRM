@@ -6,6 +6,7 @@ use App\Enums\BulkDocumentSignatureRequestStatus;
 use App\Models\BulkDocumentSignatureRequest;
 use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Throwable;
@@ -37,7 +38,7 @@ final class RegenerateSignedBulkDocumentPdf
         }
 
         $employeeName = (string) ($request->employee?->name ?? 'unknown');
-        $signedDate = $request->signed_at?->format('d M Y') ?? now()->format('d M Y');
+        $signedDate = PlatformDateFormatter::make()->date($request->signed_at ?? now()) ?? '';
 
         try {
             $pdf = $this->stamper->handle($request, [

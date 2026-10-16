@@ -7,6 +7,7 @@ use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementStatusTransition;
 use App\Models\User;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -80,7 +81,7 @@ final class RequirementWorkflowTimelinePresenter
                     'key' => 'ownership_transferred',
                     'label' => 'Ownership transferred',
                     'occurred_at' => $occurredAt->toIso8601String(),
-                    'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
+                    'occurred_at_formatted' => PlatformDateFormatter::make()->dateTime($occurredAt, null),
                     'actor_name' => $transition->performer?->name,
                     'reason' => $transferReason,
                     'previous_recruiter_name' => $previousRecruiterId !== null
@@ -117,7 +118,7 @@ final class RequirementWorkflowTimelinePresenter
                     'key' => 'recruiter_reassigned',
                     'label' => 'Recruiter reassigned',
                     'occurred_at' => $occurredAt->toIso8601String(),
-                    'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
+                    'occurred_at_formatted' => PlatformDateFormatter::make()->dateTime($occurredAt, null),
                     'actor_name' => $transition->performer?->name,
                     'reason' => filled($transition->reason) ? (string) $transition->reason : null,
                     'previous_recruiter_name' => $previousId !== null
@@ -148,7 +149,7 @@ final class RequirementWorkflowTimelinePresenter
                 'key' => self::eventKey($from, $to),
                 'label' => $label,
                 'occurred_at' => $occurredAt->toIso8601String(),
-                'occurred_at_formatted' => $occurredAt->format('d-m-Y H:i'),
+                'occurred_at_formatted' => PlatformDateFormatter::make()->dateTime($occurredAt, null),
                 'actor_name' => $transition->performer?->name,
                 'reason' => filled($transition->reason) ? (string) $transition->reason : null,
                 'previous_recruiter_name' => null,
@@ -173,7 +174,7 @@ final class RequirementWorkflowTimelinePresenter
                 'key' => 'draft_created',
                 'label' => 'Draft created',
                 'occurred_at' => $createdAt->toIso8601String(),
-                'occurred_at_formatted' => $createdAt->format('d-m-Y H:i'),
+                'occurred_at_formatted' => PlatformDateFormatter::make()->dateTime($createdAt, null),
                 'actor_name' => $requirement->creator?->name,
                 'reason' => null,
                 'previous_recruiter_name' => null,

@@ -14,6 +14,7 @@ use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Recruitment\Candidates\CandidateOfferDateValidation;
 use App\Support\Recruitment\Candidates\CandidateWorkflowAuthorization;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -279,7 +280,7 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
 
                 $scheduledInTz = CarbonImmutable::instance($candidate->interview_scheduled_at)
                     ->setTimezone($companyTimezone);
-                $formattedTime = $scheduledInTz->format('d M Y H:i');
+                $formattedTime = PlatformDateFormatter::make()->dateTime($scheduledInTz) ?? '—';
 
                 $title = match ($locked->milestone) {
                     'day_of' => "Interview Today: {$candidate->name}",
@@ -339,7 +340,7 @@ class DeliverCandidateInternalReminderJob implements ShouldQueue
                     return;
                 }
 
-                $expectedDate = $candidate->expected_joining_date->format('d M Y');
+                $expectedDate = PlatformDateFormatter::make()->date($candidate->expected_joining_date) ?? '—';
 
                 if ($locked->schedule_type === CandidateReminderScheduleType::OverdueJoining->value) {
                     $daysOverdue = 1;

@@ -14,6 +14,7 @@ use App\Support\Recruitment\ComposeRequirementLifecycleMail;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
 use App\Support\Recruitment\RequirementNotificationRecipients;
 use App\Support\Recruitment\RequirementPresenter;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
@@ -619,7 +620,7 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
         ];
         $details[] = [
             'label' => 'Target Date',
-            'value' => $requirement->required_by_date?->format('d-m-Y') ?? '—',
+            'value' => PlatformDateFormatter::make()->date($requirement->required_by_date) ?? '—',
         ];
         $details[] = [
             'label' => 'Priority',
@@ -651,13 +652,13 @@ class DeliverRequirementLifecycleEmailJob implements ShouldQueue
     {
         $raw = $this->payload['event_occurred_at'] ?? null;
         if (! is_string($raw) || $raw === '') {
-            return now()->format('d-m-Y H:i');
+            return PlatformDateFormatter::make()->dateTime(now()) ?? '—';
         }
 
         try {
-            return Carbon::parse($raw)->format('d-m-Y H:i');
+            return PlatformDateFormatter::make()->dateTime(Carbon::parse($raw)) ?? '—';
         } catch (Throwable) {
-            return now()->format('d-m-Y H:i');
+            return PlatformDateFormatter::make()->dateTime(now()) ?? '—';
         }
     }
 

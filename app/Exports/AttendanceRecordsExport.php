@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\AttendanceRecord;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -53,7 +54,7 @@ class AttendanceRecordsExport implements FromCollection, WithHeadings, WithMappi
         return [
             $record->employee?->employee_no,
             $record->employee?->name,
-            $record->date?->timezone($timezone)->format('d-m-Y'),
+            PlatformDateFormatter::make()->date($record->date?->timezone($timezone), null),
             $this->formatDateTime($record->clock_in, $timezone),
             $this->formatDateTime($record->clock_out, $timezone),
             $record->hours_worked,
@@ -71,8 +72,10 @@ class AttendanceRecordsExport implements FromCollection, WithHeadings, WithMappi
             return null;
         }
 
-        return Carbon::parse($value)
-            ->timezone($timezone)
-            ->format('d-m-Y g:i A');
+        return PlatformDateFormatter::make()->dateTime(
+            Carbon::parse($value)->timezone($timezone),
+            null,
+            twelveHour: true,
+        );
     }
 }

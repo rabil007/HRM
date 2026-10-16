@@ -11,6 +11,7 @@ use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Reports\LeaveReportFilters;
 use App\Support\Reports\LeaveReportQuery;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -174,9 +175,11 @@ test('leave report returns the required approval chain progress and reassignment
     $mapped = collect($export->query()->get())->map(fn ($row) => $export->map($row));
     $flat = $mapped->flatten()->implode(' | ');
 
+    $dates = PlatformDateFormatter::make();
+
     expect($export->headings())->toContain('Approval Chain', 'Reassignment Summary')
-        ->and($flat)->toContain('Department Manager — Mohamed — Approved — 20 Sep 2026 10:30')
-        ->and($flat)->toContain('Step 2: Rima → Sara on 21 Sep 2026')
+        ->and($flat)->toContain('Department Manager — Mohamed — Approved — '.$dates->dateTime(CarbonImmutable::parse('2026-09-20 10:30:00', 'Asia/Dubai')))
+        ->and($flat)->toContain('Step 2: Rima → Sara on '.$dates->date(CarbonImmutable::parse('2026-09-21 09:15:00', 'Asia/Dubai')))
         ->and($flat)->not->toContain('SECRET-REASON')
         ->and($flat)->not->toContain('PRIVATE-COMMENT')
         ->and($flat)->not->toContain('PRIVATE-LEAVE-REASON');

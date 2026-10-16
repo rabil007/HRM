@@ -4,6 +4,7 @@ namespace App\Support\Documents;
 
 use App\Models\Employee;
 use App\Support\Departments\ResolveDepartmentEffectiveManager;
+use App\Support\Settings\PlatformDateFormatter;
 
 final class DocumentTemplateMergeFields
 {
@@ -121,7 +122,7 @@ final class DocumentTemplateMergeFields
                 'key' => '{{today}}',
                 'label' => "Today's Date",
                 'category' => 'System',
-                'sample' => now()->format('d M Y'),
+                'sample' => PlatformDateFormatter::make()->date(now()) ?? '',
             ],
             [
                 'key' => '{{current_year}}',
@@ -185,7 +186,7 @@ final class DocumentTemplateMergeFields
         $firstName = (string) ($employee->first_name ?: explode(' ', $fullName)[0] ?: '');
         $lastName = (string) ($employee->last_name ?: (str_contains($fullName, ' ') ? substr($fullName, strpos($fullName, ' ') + 1) : ''));
 
-        $joiningDate = $employee->hire_date ? $employee->hire_date->format('d M Y') : '';
+        $joiningDate = PlatformDateFormatter::make()->date($employee->hire_date, '') ?? '';
         $manager = ResolveDepartmentEffectiveManager::managerForEmployee($employee);
 
         return [
@@ -206,7 +207,7 @@ final class DocumentTemplateMergeFields
             '{{company_name}}' => (string) ($employee->company?->name ?? ''),
             '{{department_name}}' => (string) ($employee->department?->name ?? ''),
             '{{branch_name}}' => (string) ($employee->branch?->name ?? ''),
-            '{{today}}' => now()->format('d M Y'),
+            '{{today}}' => PlatformDateFormatter::make()->date(now()) ?? '',
             '{{current_year}}' => now()->format('Y'),
         ];
     }

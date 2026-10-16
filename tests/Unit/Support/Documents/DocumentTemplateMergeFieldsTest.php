@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\Position;
 use App\Support\Documents\DocumentTemplateMergeFields;
+use App\Support\Settings\PlatformDateFormatter;
 
 function createMergeFieldsTestCompany(string $name = 'Test Co'): Company
 {
@@ -98,7 +99,7 @@ test('sample values maps valid keys to sample strings', function () {
 
     expect($samples['{{company_name}}'])->toBe('Acme Marine');
     expect($samples['{{employee_name}}'])->toBe('Jane Smith');
-    expect($samples['{{today}}'])->toBe(now()->format('d M Y'));
+    expect($samples['{{today}}'])->toBe(PlatformDateFormatter::make()->date(now()));
 });
 
 test('values for employee maps employee attributes to placeholders', function () {
@@ -140,7 +141,7 @@ test('values for employee maps employee attributes to placeholders', function ()
     expect($values['{{nationality}}'])->toBe('Philippines');
     expect($values['{{emirates_id}}'])->toBe('784-2000-1234567-1');
     expect($values)->not->toHaveKey('{{passport_number}}');
-    expect($values['{{joining_date}}'])->toBe('10 May 2023');
+    expect($values['{{joining_date}}'])->toBe(PlatformDateFormatter::make()->date('2023-05-10', ''));
     expect($values['{{manager_name}}'])->toBe('');
 });
 

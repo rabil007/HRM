@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Models\CrewAssignment;
 use App\Support\Reports\CrewMovementHistoryPresenter;
 use App\Support\Reports\CrewMovementHistoryQuery;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -183,7 +184,7 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
         }
 
         try {
-            return CarbonImmutable::parse($date)->format('d M Y');
+            return PlatformDateFormatter::make()->date(CarbonImmutable::parse($date)) ?? '—';
         } catch (\Throwable) {
             return $date;
         }
@@ -695,7 +696,11 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
 
     private function date(?string $date): string
     {
-        return $date === null || $date === '' ? 'Not recorded' : CarbonImmutable::parse($date)->format('d M Y');
+        if ($date === null || $date === '') {
+            return 'Not recorded';
+        }
+
+        return PlatformDateFormatter::make()->date(CarbonImmutable::parse($date)) ?? 'Not recorded';
     }
 
     private function dateTime(?string $dateTime): string
@@ -707,10 +712,10 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
         $parsed = CarbonImmutable::parse($dateTime);
 
         if ($parsed->format('H:i:s') === '00:00:00' && ! str_contains($dateTime, ' ')) {
-            return $parsed->format('d M Y');
+            return PlatformDateFormatter::make()->date($parsed) ?? 'Not recorded';
         }
 
-        return $parsed->format('d M Y h:i A');
+        return PlatformDateFormatter::make()->dateTime($parsed, null, twelveHour: true) ?? 'Not recorded';
     }
 }
 

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Support\EmployeeDocuments\DocumentExpiry;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -49,11 +50,17 @@ class DocumentRequirementsExport implements FromQuery, ShouldAutoSize, WithHeadi
     {
         $status = ucfirst((string) ($row->compliance_status ?? ''));
         $expiryDate = $row->expiry_date ?? null;
-        $expiryFormatted = $expiryDate ? Carbon::parse($expiryDate)->format('d-m-Y') : '';
+        $expiryFormatted = $expiryDate
+            ? (PlatformDateFormatter::make()->date(Carbon::parse($expiryDate), '') ?? '')
+            : '';
         $issueDate = $row->issue_date ?? null;
-        $issueFormatted = $issueDate ? Carbon::parse($issueDate)->format('d-m-Y') : '';
+        $issueFormatted = $issueDate
+            ? (PlatformDateFormatter::make()->date(Carbon::parse($issueDate), '') ?? '')
+            : '';
         $uploadedAt = $row->uploaded_at ?? null;
-        $uploadedFormatted = $uploadedAt ? Carbon::parse($uploadedAt)->format('d-m-Y H:i') : '';
+        $uploadedFormatted = $uploadedAt
+            ? (PlatformDateFormatter::make()->dateTime(Carbon::parse($uploadedAt), '') ?? '')
+            : '';
 
         $expiryLabel = ($row->compliance_status ?? '') === 'missing'
             ? 'Missing'
