@@ -17,6 +17,7 @@ use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
+use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
 use Database\Seeders\EmailTemplatesSeeder;
@@ -577,25 +578,28 @@ test('manager plus hr policy preserves distinct required steps when hr submits o
         ->and($leaveRequest->approvals->every(fn ($step) => (bool) $step->is_required))->toBeTrue();
 });
 
-test('hr self-request prefers unused parent manager before company fallback', function () {
+test('hr then department manager self-request preserves natural manager via fallback', function (
+    LeaveApprovalMode $mode,
+) {
     ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
-    $managed = makeManagedDepartment($company, withParent: true);
+    $managed = makeManagedDepartment($company);
 
     ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
-        'name' => 'Rima Hierarchy',
-        'work_email' => 'rima-hierarchy@example.com',
+        'name' => 'Rima',
+        'work_email' => 'rima-hr-first@example.com',
         'department_id' => $managed['department']->id,
     ]);
-    ['employee' => $fallback] = makeActionableApprover($company, [
-        'name' => 'Secondary Fallback',
-        'work_email' => 'secondary-fallback@example.com',
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Sara',
+        'work_email' => 'sara-hr-first@example.com',
     ]);
     configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
 
+    // Policy order HR → Department Manager must not steal Adam for the HR step.
     ensureDefaultLeaveApprovalPolicy($company, [
-        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
         ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
-    ]);
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ], $mode);
 
     $leaveType = LeaveType::factory()->for($company)->create([
         'status' => 'active',
@@ -610,17 +614,202 @@ test('hr self-request prefers unused parent manager before company fallback', fu
             'leave_type_id' => $leaveType->id,
             'start_date' => '2026-06-10',
             'end_date' => '2026-06-11',
-            'reason' => 'Prefer hierarchy',
+            'reason' => 'Preserve natural manager',
         ],
         notify: false,
     );
 
-    expect($leaveRequest->approvals)->toHaveCount(2)
-        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_employee_id)->toBe($managed['manager']->id)
-        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_employee_id)->toBe($managed['parentManager']->id)
+    expect($leaveRequest->approvalMode())->toBe($mode)
+        ->and($leaveRequest->approvals)->toHaveCount(2)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_type)->toBe(LeaveApprovalApproverType::HrApprover)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_employee_id)->toBe($fallback->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_user_id)->toBe($fallbackUser->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_type)->toBe(LeaveApprovalApproverType::DepartmentManager)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_employee_id)->toBe($managed['manager']->id)
         ->and($leaveRequest->approvals->pluck('approver_employee_id'))->not->toContain($hr->id)
-        ->and($leaveRequest->approvals->pluck('approver_employee_id'))->not->toContain($fallback->id)
         ->and($hrUser)->not->toBeNull();
+})->with([
+    'all_required' => [LeaveApprovalMode::AllRequired],
+    'any_required' => [LeaveApprovalMode::AnyRequired],
+]);
+
+test('shared linked user identity cannot be used as an alternative approver', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+
+    ['employee' => $requester, 'user' => $sharedUser] = makeActionableApprover($company, [
+        'name' => 'Requester Identity',
+        'work_email' => 'requester-identity@example.com',
+        'department_id' => $managed['department']->id,
+    ]);
+
+    // Second employee record linked to the same user, configured as HR Approver.
+    $aliasHr = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'user_id' => $sharedUser->id,
+        'name' => 'Alias HR Profile',
+        'work_email' => 'alias-hr@example.com',
+        'department_id' => $managed['department']->id,
+    ]);
+
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Safe Fallback',
+        'work_email' => 'safe-fallback-identity@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $aliasHr, $fallback);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $requester->id, 2026);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $requester->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+            'reason' => 'Shared user identity',
+        ],
+        notify: false,
+    );
+
+    expect($leaveRequest->approvals)->toHaveCount(1)
+        ->and($leaveRequest->approvals->first()->approver_employee_id)->toBe($fallback->id)
+        ->and($leaveRequest->approvals->first()->approver_user_id)->toBe($fallbackUser->id)
+        ->and($leaveRequest->approvals->first()->approver_employee_id)->not->toBe($aliasHr->id)
+        ->and($leaveRequest->approvals->first()->approver_user_id)->not->toBe($sharedUser->id);
+
+    $this->actingAs($sharedUser);
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
+        ->assertForbidden();
+});
+
+test('workflow invariant rejects malformed snapshot where approver shares requester user', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+
+    ['employee' => $employee, 'user' => $user] = makeActionableApprover($company, [
+        'name' => 'Invariant Requester',
+        'work_email' => 'invariant-requester@example.com',
+        'department_id' => $managed['department']->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    $leaveRequest = createLeaveRequestRecord([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-11',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    LeaveRequestApproval::factory()->create([
+        'company_id' => $company->id,
+        'leave_request_id' => $leaveRequest->id,
+        'sequence' => 1,
+        'approver_type' => LeaveApprovalApproverType::HrApprover,
+        'approver_employee_id' => $managed['manager']->id,
+        'approver_user_id' => $user->id,
+        'status' => LeaveRequestApprovalStatus::Pending,
+        'is_required' => true,
+    ]);
+
+    expect(fn () => app(AssertLeaveApprovalWorkflowInvariant::class)->forPendingRequest(
+        $leaveRequest->fresh(),
+        $leaveRequest->fresh()->approvals,
+        $managed['managerUser'],
+    ))->toThrow(ValidationException::class);
+});
+
+test('manager and hr resolving to the same person keep both required steps via fallback', function (
+    LeaveApprovalMode $mode,
+) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+
+    // Department manager is also configured as the default HR approver.
+    configureCompanyLeaveApprovalSettings($company, $managed['manager'], null);
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Distinct Collapse Fallback',
+        'work_email' => 'collapse-fallback@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $managed['manager'], $fallback);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ], $mode);
+
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-12',
+            'reason' => 'Do not collapse required steps',
+        ],
+        notify: false,
+    );
+
+    expect($leaveRequest->approvalMode())->toBe($mode)
+        ->and($leaveRequest->approvals)->toHaveCount(2)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_employee_id)->toBe($managed['manager']->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_employee_id)->toBe($fallback->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_user_id)->toBe($fallbackUser->id)
+        ->and($leaveRequest->approvals->pluck('approver_employee_id')->unique()->count())->toBe(2)
+        ->and($leaveRequest->approvals->pluck('approver_user_id')->unique()->count())->toBe(2);
+})->with([
+    'all_required' => [LeaveApprovalMode::AllRequired],
+    'any_required' => [LeaveApprovalMode::AnyRequired],
+]);
+
+test('manager and hr same person without alternative fails instead of collapsing', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    configureCompanyLeaveApprovalSettings($company, $managed['manager'], null);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    try {
+        app(SubmitLeaveRequestWithApprovals::class)->handle(
+            companyId: (int) $company->id,
+            attributes: [
+                'employee_id' => $employee->id,
+                'leave_type_id' => $leaveType->id,
+                'start_date' => '2026-06-10',
+                'end_date' => '2026-06-11',
+                'reason' => 'Collapse forbidden',
+            ],
+            notify: false,
+        );
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        expect($exception->errors()['leave_request'][0] ?? null)
+            ->toBe(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+    }
+
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
 });
 
 /**

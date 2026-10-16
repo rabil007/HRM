@@ -365,8 +365,8 @@ export default function LeaveApprovalSettings({
                                 ))}
                             </AppSelect>
                             <ApproverFieldHelp
-                                description="Used when a Leave Approval Policy requires a Department Manager but no valid manager exists in the employee's department management chain. Also used as an exceptional alternative when a required HR Approver or Specific Employee step resolves to the requesting employee (self-approval is never allowed). The substitute must be a different actionable approver and cannot reuse someone already assigned to another required step on the same request."
-                                example="Example: If Rima is the Default HR Approver and submits her own leave, this employee can approve instead of Rima. If an employee's department has no valid manager, this employee can also fill the Department Manager step."
+                                description="Used when a Leave Approval Policy requires a Department Manager but no valid manager exists in the employee's department management chain. Also used first as the exceptional alternative when a required HR Approver or Specific Employee step resolves to the requesting employee (or shares their linked user), so natural department managers stay available for later manager steps. The substitute must be a different actionable approver/user and cannot reuse someone already assigned to another required step."
+                                example="Example: Policy ordered HR → Department Manager, Rima as HR, Adam as manager, Sara as this fallback: Rima's self-request resolves to Sara then Adam. If an employee's department has no valid manager, Sara can also fill the Department Manager step."
                                 resolution={
                                     <>
                                         <p>
@@ -378,9 +378,8 @@ export default function LeaveApprovalSettings({
                                             HR Approver
                                         </p>
                                         <p>
-                                            Required step resolves to requester
-                                            → department hierarchy, then this
-                                            fallback
+                                            HR / Specific self-conflict → this
+                                            fallback first, then hierarchy
                                         </p>
                                         <p>
                                             Parent Manager (non-self) → no

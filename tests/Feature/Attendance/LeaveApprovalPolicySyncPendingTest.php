@@ -11,6 +11,7 @@ use App\Models\LeaveApprovalPolicy;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -824,4 +825,92 @@ test('new leave submission and approval still work after sync feature', function
         ->assertRedirect();
 
     expect($leaveRequest->fresh()->status)->toBe('approved');
+});
+
+test('sync rebuild preserves natural department manager when hr self-request uses fallback', function () {
+    $fixtures = makeLeaveApprovalPolicySyncFixtures();
+    [
+        'user' => $user,
+        'company' => $company,
+        'policy' => $policy,
+        'manager' => $manager,
+        'employee' => $employee,
+    ] = $fixtures;
+
+    ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
+        'name' => 'Rima Sync HR',
+        'work_email' => 'rima-sync-hr@example.com',
+        'department_id' => $employee->department_id,
+    ]);
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Sara Sync Fallback',
+        'work_email' => 'sara-sync-fallback@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
+
+    // Grant HR create on a dedicated role so the shared test-role is not wiped.
+    grantCompanyPermissions($hrUser, $company, [
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ], 'hr-self-sync-role');
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.view',
+        'attendance.leave-approval-policies.update',
+    ]);
+
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $hr->id, 2026);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $fixtures['leaveType']->id,
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-02',
+            'reason' => 'Sync self-leave',
+        ],
+        notify: false,
+    );
+
+    expect($leaveRequest->approvals)->toHaveCount(1);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->put(route('attendance.leave-approval-policies.update', $policy), [
+            'name' => $policy->name,
+            'description' => $policy->description,
+            'is_default' => true,
+            'status' => 'active',
+            'steps' => [
+                [
+                    'approver_type' => LeaveApprovalApproverType::HrApprover->value,
+                    'approver_employee_id' => null,
+                    'is_required' => true,
+                ],
+                [
+                    'approver_type' => LeaveApprovalApproverType::DepartmentManager->value,
+                    'approver_employee_id' => null,
+                    'is_required' => true,
+                ],
+            ],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('attendance.leave-approval-policies.sync-pending', $policy))
+        ->assertRedirect(route('attendance.leave-approval-policies.index'))
+        ->assertSessionHas('success');
+
+    $approvals = $leaveRequest->fresh()->approvals()->orderBy('sequence')->get();
+
+    expect($approvals)->toHaveCount(2)
+        ->and($approvals[0]->approver_type)->toBe(LeaveApprovalApproverType::HrApprover)
+        ->and((int) $approvals[0]->approver_employee_id)->toBe((int) $fallback->id)
+        ->and((int) $approvals[0]->approver_user_id)->toBe((int) $fallbackUser->id)
+        ->and($approvals[1]->approver_type)->toBe(LeaveApprovalApproverType::DepartmentManager)
+        ->and((int) $approvals[1]->approver_employee_id)->toBe((int) $manager->id)
+        ->and($approvals->pluck('approver_employee_id'))->not->toContain($hr->id);
 });
