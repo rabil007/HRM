@@ -56,6 +56,7 @@ Keep month-only chrome (`F Y`, chart `M j`) and protocol/filename formats (e.g. 
 - Changing storage, import templates, re-importable export date columns, or `<input type="date">` values to platform display format
 - Formatting absolute ISO expiry/datetimes with date-only helpers that take the UTC calendar prefix (use company-timezone local date first)
 - Rewiring crew movement wall-clock, payroll period boundaries, or leave rollover year logic for display-only consistency
+- Passing Eloquent `date` casts into Inertia/JSON without `toDateString()` (Carbon midnight in `Asia/Dubai` serializes as the previous UTC day; frontend date helpers then display the wrong calendar date)
 
 ## Examples
 
