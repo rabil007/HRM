@@ -47,7 +47,7 @@ final class EmployeeDetailResource
             'employee_no' => $employee->employee_no,
             'name' => $employee->name,
             'image' => $employee->image,
-            'date_of_birth' => $employee->date_of_birth?->toDateString(),
+            'date_of_birth' => $employee->date_of_birth,
             'hire_date' => $employee->hire_date?->toDateString(),
             'place_of_birth' => $employee->place_of_birth,
             'gender' => $employee->gender,
