@@ -5,8 +5,8 @@ import {
     isIsoDateString,
     SUPPORTED_DATE_FORMATS,
     syncPlatformDateFormatCache,
-    type PlatformDateFormat,
 } from './format-date-core.ts';
+import type { PlatformDateFormat } from './format-date-core.ts';
 
 export {
     DEFAULT_DATE_FORMAT,
@@ -14,8 +14,8 @@ export {
     isIsoDateString,
     SUPPORTED_DATE_FORMATS,
     syncPlatformDateFormatCache,
-    type PlatformDateFormat,
 };
+export type { PlatformDateFormat };
 
 export function useDateFormat(overrideFormat?: string | null): string {
     const page = usePage();

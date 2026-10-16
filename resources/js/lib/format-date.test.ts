@@ -143,7 +143,10 @@ describe('format-date utility', () => {
             // Construct from local parts to avoid TZ flakiness in assertion of date portion
             const local = new Date(2026, 4, 21, 14, 5, 0);
             const resultYmd = formatDisplayDateTime(local.toString(), 'Y-m-d');
-            const resultDmy = formatDisplayDateTime12h(local.toString(), 'd/m/Y');
+            const resultDmy = formatDisplayDateTime12h(
+                local.toString(),
+                'd/m/Y',
+            );
 
             assert.match(resultYmd, /^2026-05-21 \d{2}:\d{2}$/);
             assert.match(resultDmy, /^21\/05\/2026 \d{1,2}:\d{2} (AM|PM)$/);

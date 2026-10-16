@@ -205,7 +205,7 @@ test('export no longer adds legacy travel in columns for modern phase rows', fun
 
     $mapped = $detailsSheet->map($assignment);
     expect($mapped[0])->toBe('CA-EXPORT-LEGACY')
-        ->and(collect($mapped)->filter(fn ($value) => is_string($value) && str_contains($value, 'Jan 2026'))->isNotEmpty())->toBeTrue();
+        ->and(collect($mapped)->filter(fn ($value) => is_string($value) && str_contains($value, '2026-01-'))->isNotEmpty())->toBeTrue();
 });
 
 test('export maps rich training phase timeline accommodation and redeployment values', function () {
@@ -418,15 +418,15 @@ test('export accurately maps returned home vs home redeploy vs redeployed semant
     $summaryRet = array_combine($summaryHeadings, $summarySheet->map($retHomeModel));
     $detailsRet = array_combine($detailsHeadings, $detailsSheet->map($retHomeModel));
 
-    expect($summaryRet['Return Home Date'])->toBe('02 Oct 2026')
-        ->and($detailsRet['Actual Return Home Date/Time'])->toContain('02 Oct 2026');
+    expect($summaryRet['Return Home Date'])->toBe('2026-10-02')
+        ->and($detailsRet['Actual Return Home Date/Time'])->toContain('2026-10-02');
 
     // Verify 2: Direct P4 -> P6
     $dirP6Model = $query->exportQuery()->whereKey($directP6Assignment->id)->firstOrFail();
     $summaryDir = array_combine($summaryHeadings, $summarySheet->map($dirP6Model));
     $detailsDir = array_combine($detailsHeadings, $detailsSheet->map($dirP6Model));
 
-    expect($summaryDir['Return Home Date'])->toBe('Home / Redeploy: 01 Oct 2026')
+    expect($summaryDir['Return Home Date'])->toBe('Home / Redeploy: 2026-10-01')
         ->and($detailsDir['Actual Return Home Date/Time'])->toBe('Not recorded');
 });
 
@@ -554,8 +554,8 @@ test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to
 
     expect($presenter1['home_redeploy']['outcome'])->toBe('home_redeploy')
         ->and($presenter1['home_redeploy']['from'])->toBe('2026-06-30')
-        ->and($xlsxRow1['Return Home Date'])->toBe('Home / Redeploy: 30 Jun 2026')
-        ->and($csvRow1['Return Home Date'])->toBe('Home / Redeploy: 30 Jun 2026');
+        ->and($xlsxRow1['Return Home Date'])->toBe('Home / Redeploy: 2026-06-30')
+        ->and($csvRow1['Return Home Date'])->toBe('Home / Redeploy: 2026-06-30');
 
     // 2. Verify P4 -> P6 -> Redeploy
     $model2 = $query->exportQuery()->whereKey($p4p6RedeployAssignment->id)->firstOrFail();
@@ -565,8 +565,8 @@ test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to
 
     expect($presenter2['home_redeploy']['outcome'])->toBe('redeployed')
         ->and($presenter2['home_redeploy']['redeployed_at'])->toBe('2026-07-25 09:00:00')
-        ->and($xlsxRow2['Return Home Date'])->toBe('Redeployed: 25 Jul 2026')
-        ->and($csvRow2['Return Home Date'])->toBe('Redeployed: 25 Jul 2026');
+        ->and($xlsxRow2['Return Home Date'])->toBe('Redeployed: 2026-07-25')
+        ->and($csvRow2['Return Home Date'])->toBe('Redeployed: 2026-07-25');
 
     // 3. Verify P5 -> P6 -> later Redeploy
     $model3 = $query->exportQuery()->whereKey($p5p6RedeployAssignment->id)->firstOrFail();
@@ -576,8 +576,8 @@ test('crew history export agrees with web presenter across p4 to p6, p4 to p6 to
 
     expect($presenter3['home_redeploy']['outcome'])->toBe('returned_home')
         ->and($presenter3['home_redeploy']['actual_return_home_at'])->toBe('2026-08-22 12:00:00')
-        ->and($xlsxRow3['Return Home Date'])->toBe('22 Aug 2026')
-        ->and($csvRow3['Return Home Date'])->toBe('22 Aug 2026');
+        ->and($xlsxRow3['Return Home Date'])->toBe('2026-08-22')
+        ->and($csvRow3['Return Home Date'])->toBe('2026-08-22');
 });
 
 test('web summary and excel csv exports share allocated vessel and standby service days', function () {

@@ -14,6 +14,7 @@ use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\Queue\JobRunRecorder;
 use App\Support\Security\ProductionSecurityDefaults;
+use App\Support\Settings\PlatformDateFormatter;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -61,6 +62,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(DocumentAiExtractor::class, DocumentAiProviderExtractor::class);
         $this->app->singleton(RendersSalaryDeclarationPdf::class, SalaryDeclarationPdfRenderer::class);
+        // Keep request-scoped settings/format caches warm across presenters and exports.
+        $this->app->singleton(SettingService::class);
+        $this->app->singleton(PlatformDateFormatter::class);
     }
 
     /**

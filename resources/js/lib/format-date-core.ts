@@ -18,7 +18,9 @@ export const DEFAULT_DATE_FORMAT: PlatformDateFormat = 'd-m-Y';
  */
 let platformDateFormatCache: string | null = null;
 
-export function syncPlatformDateFormatCache(format: string | null | undefined): void {
+export function syncPlatformDateFormatCache(
+    format: string | null | undefined,
+): void {
     if (typeof format === 'string' && format.trim() !== '') {
         platformDateFormatCache = format.trim();
     }
