@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Auth\ImpersonationService;
 use App\Support\Companies\ResolveCompanyAccess;
 use Closure;
 use Illuminate\Http\Request;
@@ -10,9 +11,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class SetCurrentCompany
 {
+    private ImpersonationService $impersonationService;
+
     public function __construct(
         private ResolveCompanyAccess $companyAccess,
-    ) {}
+        ?ImpersonationService $impersonationService = null,
+    ) {
+        $this->impersonationService = $impersonationService ?? app(ImpersonationService::class);
+    }
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -23,6 +29,20 @@ class SetCurrentCompany
         }
 
         $accessibleCompanyIds = $this->companyAccess->accessibleCompanyIds($user);
+
+        if ($this->impersonationService->isImpersonating($request)) {
+            $sessionData = $request->session()->get('impersonation');
+            $chosenCompanyId = (int) ($sessionData['impersonated_company_id'] ?? $sessionData['original_company_id'] ?? 0);
+
+            if ($chosenCompanyId > 0 && in_array($chosenCompanyId, $accessibleCompanyIds, true)) {
+                $request->session()->put('current_company_id', $chosenCompanyId);
+                $request->attributes->set('current_company_id', $chosenCompanyId);
+                app(PermissionRegistrar::class)->setPermissionsTeamId($chosenCompanyId);
+
+                return $next($request);
+            }
+        }
+
         $currentCompanyId = $request->session()->get('current_company_id');
 
         if ($currentCompanyId !== null && in_array((int) $currentCompanyId, $accessibleCompanyIds, true)) {

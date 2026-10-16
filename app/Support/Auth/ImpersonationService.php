@@ -307,9 +307,6 @@ final class ImpersonationService
             abort(403, 'You do not have permission to impersonate users.');
         }
 
-        PrivilegedTwoFactorPolicy::assertSatisfied($initiator);
-        $this->assertRecentAuthentication($request, $initiator);
-
         if ($target->id === $initiator->id) {
             $this->logDeniedAttempt($request, $initiator, $target, 'Cannot impersonate self.');
             abort(403, 'Cannot impersonate yourself.');
@@ -329,6 +326,9 @@ final class ImpersonationService
             $this->logDeniedAttempt($request, $initiator, $target, 'Target account is a protected privileged account.');
             abort(403, 'Protected privileged accounts cannot be impersonated.');
         }
+
+        PrivilegedTwoFactorPolicy::assertSatisfied($initiator);
+        $this->assertRecentAuthentication($request, $initiator);
 
         $correlationId = (string) Str::uuid();
         $lifetimeMinutes = (int) config('auth.impersonation.lifetime_minutes', 120);
@@ -553,14 +553,22 @@ final class ImpersonationService
     }
 
     /**
-     * Assert initiating user has recent authentication in the current session.
+     * Check whether initiating user has recent authentication in the current session.
      */
-    public function assertRecentAuthentication(Request $request, User $user): void
+    public function hasRecentAuthentication(Request $request): bool
     {
         $confirmedAt = $request->session()->get('auth.password_confirmed_at');
         $timeout = (int) config('auth.password_timeout', 10800);
 
-        if (is_numeric($confirmedAt) && (time() - (int) $confirmedAt) < $timeout) {
+        return is_numeric($confirmedAt) && (time() - (int) $confirmedAt) < $timeout;
+    }
+
+    /**
+     * Assert initiating user has recent authentication in the current session.
+     */
+    public function assertRecentAuthentication(Request $request, User $user): void
+    {
+        if ($this->hasRecentAuthentication($request)) {
             return;
         }
 

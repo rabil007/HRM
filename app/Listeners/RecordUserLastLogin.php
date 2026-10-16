@@ -25,6 +25,10 @@ class RecordUserLastLogin
             RememberSession::forget();
         }
 
+        if (request()->hasSession()) {
+            request()->session()->put('auth.password_confirmed_at', now()->timestamp);
+        }
+
         $event->user->forceFill([
             'last_login_at' => now(),
         ])->save();
