@@ -15,6 +15,7 @@ use App\Models\PayrollRecord;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -773,16 +774,17 @@ final class BuildCrewPayrollGenerationPreview
     {
         $fromDate = CarbonImmutable::parse($from);
         $toDate = CarbonImmutable::parse($to);
+        $dates = PlatformDateFormatter::make();
 
         if ($from === $to) {
-            return $fromDate->format('j M Y');
+            return $dates->date($fromDate) ?? '—';
         }
 
-        if ($fromDate->year === $toDate->year && $fromDate->month === $toDate->month) {
-            return sprintf('%s–%s', $fromDate->format('j'), $toDate->format('j M Y'));
-        }
-
-        return sprintf('%s – %s', $fromDate->format('j M Y'), $toDate->format('j M Y'));
+        return sprintf(
+            '%s – %s',
+            $dates->date($fromDate) ?? '—',
+            $dates->date($toDate) ?? '—',
+        );
     }
 
     private function actionForCode(string $code): ?string

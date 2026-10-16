@@ -351,8 +351,8 @@ test('correction_requested activity shows phase label and field changes in human
     expect($presented)->not->toBeNull()
         ->and(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
         ->and(data_get($presented, 'new_values.Actual Start'))->toContain('→')
-        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('07-06-2026')
-        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('21-06-2026')
+        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('2026-06-07')
+        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('2026-06-21')
         ->and(data_get($presented, 'new_values.Reason'))->toBe('ADS')
         ->and(data_get($presented, 'old_values'))->toBeNull();
 });
@@ -450,8 +450,8 @@ test('correction_approved activity shows applied field changes and decision note
         ->first();
 
     expect(data_get($presented, 'new_values.Phase'))->toBe('P2 · On Vessel')
-        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('07-06-2026')
-        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('21-06-2026')
+        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('2026-06-07')
+        ->and(data_get($presented, 'new_values.Actual Start'))->toContain('2026-06-21')
         ->and(data_get($presented, 'new_values.Decision Note'))->toBe('DAFCSDF')
         ->and(data_get($presented, 'old_values'))->toBeNull();
 });
@@ -584,8 +584,8 @@ test('correction activity with actual_end_at shows end date change', function ()
         ->map(fn (Activity $a): array => ActivityChangePresenter::toRecentActivityArray($a))
         ->first();
 
-    expect(data_get($presented, 'new_values.Actual End'))->toContain('30-06-2026')
-        ->and(data_get($presented, 'new_values.Actual End'))->toContain('05-07-2026');
+    expect(data_get($presented, 'new_values.Actual End'))->toContain('2026-06-30')
+        ->and(data_get($presented, 'new_values.Actual End'))->toContain('2026-07-05');
 });
 
 test('correction activity with remarks field shows remarks change', function () {
@@ -839,7 +839,7 @@ test('standard created and updated activities are unaffected by correction prese
         ->and(data_get($created, 'new_values.course_id'))->toBe('Fire Safety');
 });
 
-test('correction activity dates are reformatted to d-m-Y H:i style', function () {
+test('correction activity dates are reformatted using platform date format', function () {
     ['user' => $user, 'company' => $company, 'assignment' => $assignment, 'phase' => $phase] = makeOnVesselCorrectionFixtures();
 
     $correction = CrewMovementCorrection::factory()->create([
@@ -879,9 +879,9 @@ test('correction activity dates are reformatted to d-m-Y H:i style', function ()
 
     $actualStart = data_get($presented, 'new_values.Actual Start');
 
-    // Must use d-m-Y H:i format (not Y-m-d)
+    // Platform default date format is Y-m-d; time stays H:i.
     expect($actualStart)
-        ->toMatch('/^\d{2}-\d{2}-\d{4} \d{2}:\d{2} → \d{2}-\d{2}-\d{4} \d{2}:\d{2}$/')
-        ->toContain('07-06-2026 11:17')
-        ->toContain('21-06-2026 09:30');
+        ->toMatch('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} → \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/')
+        ->toContain('2026-06-07 11:17')
+        ->toContain('2026-06-21 09:30');
 });

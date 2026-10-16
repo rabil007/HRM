@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -182,7 +183,7 @@ final class ActiveOnVesselAssignmentFinder
                 ? $start->timezone($timezone)->toIso8601String()
                 : null,
             'actual_start_display' => $start instanceof CarbonInterface
-                ? $start->timezone($timezone)->format('j M Y H:i')
+                ? PlatformDateFormatter::make()->dateTime($start->timezone($timezone), null)
                 : null,
             'status' => $assignment->status->value,
         ];

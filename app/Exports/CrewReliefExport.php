@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -65,13 +66,13 @@ final class CrewReliefExport implements FromCollection, WithHeadings, WithMappin
             $row['position']['name'] ?? '—',
             $row['vessel']['name'] ?? '—',
             $row['client']['name'] ?? '—',
-            $row['joined_date'] ?? '—',
+            PlatformDateFormatter::make()->date($row['joined_date'] ?? null) ?? '—',
             $row['days_onboard'] ?? 0,
-            $row['planned_signoff_at'] ?? '—',
+            PlatformDateFormatter::make()->date($row['planned_signoff_at'] ?? null) ?? '—',
             $row['days_to_signoff_label'] ?? '—',
             $reliefName,
             $row['relief_status'] ?? '—',
-            $row['relief_planned_join'] ?? '—',
+            PlatformDateFormatter::make()->date($row['relief_planned_join'] ?? null) ?? '—',
             $row['readiness_label'] ?? '—',
             $nextAssignment !== null ? $nextAssignment['assignment_no'] : 'None',
             $row['attention']['badge'] ?? '—',

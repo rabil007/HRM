@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Company;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -71,7 +72,7 @@ class CompaniesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $company->wps_agent_code,
             $company->wps_mol_uid,
             $company->status,
-            optional($company->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($company->created_at, '') ?? '',
         ];
     }
 }

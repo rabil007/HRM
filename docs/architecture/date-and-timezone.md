@@ -34,10 +34,21 @@ Shared wiring: `SharedSettingsPresenter`, `CompanyTimezone` (PHP), `useCompanyTi
 | Company “today” / business boundaries | `App\Support\Settings\CompanyTimezone` |
 | Storage / import / API / validation | ISO `Y-m-d` (and normal Carbon casting) |
 
+## Coverage
+
+Human-facing dates should go through the helpers above, including:
+
+- Inertia UI + `*_formatted` presenter props
+- Excel/CSV exports under `app/Exports/` and payroll salary-sheet export
+- Emails, PDFs, payslips, salary certificates, CVs
+- Flash messages and activity/correction display strings
+
+Keep month-only chrome (`F Y`, chart `M j`) and protocol/filename formats (e.g. WPS `dmY`) as-is unless product asks otherwise.
+
 ## Anti-patterns
 
 - Hardcoded `d-m-Y`, `d M Y`, or `toLocaleDateString()` for operational calendar dates
-- Bare `formatDisplayDate(value)` in React components without going through `useFormatDate` / explicit format
+- Bare `formatDisplayDate(value)` in React components without going through `useFormatDate` / explicit format (layout cache sync is a fallback for non-React `.ts` helpers)
 - Browser-local `formatDisplayDateTime` for company attendance, leave, or activity ISO instants
 - Forcing platform timezone onto companies that already set `companies.timezone`
 - Changing storage, import templates, or `<input type="date">` values to platform display format

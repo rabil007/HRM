@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\EmployeeContract;
 use App\Support\Contracts\ContractSalaryTotals;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -71,8 +72,8 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $contract->employee?->position?->title,
             $contract->companyVisaType?->name,
             $contract->labor_contract_id,
-            optional($contract->start_date)->toDateString(),
-            optional($contract->end_date)->toDateString(),
+            PlatformDateFormatter::make()->date($contract->start_date, '') ?? '',
+            PlatformDateFormatter::make()->date($contract->end_date, '') ?? '',
             $contract->basic_salary,
         ];
 

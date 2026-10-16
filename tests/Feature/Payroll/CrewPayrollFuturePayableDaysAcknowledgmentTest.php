@@ -704,8 +704,8 @@ test('legacy flat movement entirely after payroll period blocks preview and gene
         ->and($preview->readyCount)->toBe(0)
         ->and($preview->blockingCount)->toBe(1)
         ->and($preview->blockingIssues[0]['code'])->toBe('legacy_movement_outside_payroll_period')
-        ->and($preview->blockingIssues[0]['message'])->toContain("{$employee->name}'s Onsite dates (01 Nov – 06 Nov 2026)")
-        ->and($preview->blockingIssues[0]['message'])->toContain('01 Oct – 30 Oct 2026')
+        ->and($preview->blockingIssues[0]['message'])->toContain("{$employee->name}'s Onsite dates (2026-11-01 – 2026-11-06)")
+        ->and($preview->blockingIssues[0]['message'])->toContain('2026-10-01 – 2026-10-30')
         ->and($preview->requiresFutureDaysAcknowledgment)->toBeFalse();
 
     $this->actingAs($user)
@@ -760,7 +760,7 @@ test('legacy flat movement partially extending past payroll period end is blocke
 
     expect($preview->canGenerate)->toBeFalse()
         ->and($preview->blockingIssues[0]['code'])->toBe('legacy_movement_outside_payroll_period')
-        ->and($preview->blockingIssues[0]['message'])->toContain('25 Oct – 05 Nov 2026');
+        ->and($preview->blockingIssues[0]['message'])->toContain('2026-10-25 – 2026-11-05');
 
     expect(fn () => app(GenerateCrewPayroll::class)->handle($period, [], $user, true))
         ->toThrow(ValidationException::class);

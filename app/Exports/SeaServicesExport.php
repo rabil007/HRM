@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\EmployeeSeaService;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -49,8 +50,8 @@ class SeaServicesExport implements FromCollection, WithHeadings, WithMapping, Wi
             $seaService->vesselType?->name,
             $seaService->position?->title,
             $seaService->client?->name,
-            optional($seaService->start_date)->toDateString(),
-            optional($seaService->end_date)->toDateString(),
+            PlatformDateFormatter::make()->date($seaService->start_date, '') ?? '',
+            PlatformDateFormatter::make()->date($seaService->end_date, '') ?? '',
             $seaService->total_months,
             $seaService->total_days,
             $seaService->crew_assignment_phase_id ? 'Yes' : 'No',

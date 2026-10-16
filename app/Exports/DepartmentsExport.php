@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Department;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -50,7 +51,7 @@ class DepartmentsExport implements FromQuery, WithHeadings, WithMapping, WithStr
             $department->name,
             $department->code,
             $department->status,
-            optional($department->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($department->created_at, '') ?? '',
         ];
     }
 }

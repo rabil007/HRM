@@ -7,6 +7,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 
@@ -224,7 +225,13 @@ final class ValidateCrewTimesheetOperationalIntegrity
 
     private function formatInclusiveDateRange(CarbonInterface $from, CarbonInterface $to): string
     {
-        return sprintf('%s – %s', $from->format('d M'), $to->format('d M Y'));
+        $dates = PlatformDateFormatter::make();
+
+        return sprintf(
+            '%s – %s',
+            $dates->date($from) ?? '—',
+            $dates->date($to) ?? '—',
+        );
     }
 
     private function validateMovements(

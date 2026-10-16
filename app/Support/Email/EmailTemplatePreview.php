@@ -342,7 +342,7 @@ final class EmailTemplatePreview
             '{{inviter_name}}' => 'Jordan Admin',
             '{{brand_name}}' => $organizationName,
             '{{accept_url}}' => url('/invitations/accept?token=preview-token'),
-            '{{expires_at}}' => now()->addDays(7)->format('M j, Y'),
+            '{{expires_at}}' => $dates->date(now()->addDays(7)) ?? '—',
             '{{role_name}}' => 'Manager',
             '{{recipient_name}}' => 'Jane Smith',
             '{{document_title}}' => 'Employment Contract',

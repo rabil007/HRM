@@ -18,6 +18,7 @@ use App\Support\CrewOperations\QueueCrewOperationalAlertEmails;
 use App\Support\CrewOperations\ResolveCrewOperationalAlertUrl;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -260,7 +261,7 @@ class DeliverCrewOperationalAlertEmailJob implements ShouldBeUnique, ShouldQueue
         }
 
         $timezone = CompanyTimezone::forCompany($company);
-        $generatedAt = now($timezone)->format('d M Y H:i');
+        $generatedAt = PlatformDateFormatter::make()->dateTime(now($timezone)) ?? '—';
         $primaryUrl = $resolveUrl->forUser($user, $validDeliveries->first()->alert);
 
         $placeholders = [

@@ -8,6 +8,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Services\Settings\SettingService;
 use App\Support\Employees\SummarizeSeaServiceExperience;
+use App\Support\Settings\PlatformDateFormatter;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -165,7 +166,7 @@ final class OffshoreCvData
             return '';
         }
 
-        return CarbonImmutable::parse($date)->format('d/m/Y');
+        return PlatformDateFormatter::make()->date(CarbonImmutable::parse($date), '') ?? '';
     }
 
     private static function resolvePortraitSrc(Employee $employee): ?string

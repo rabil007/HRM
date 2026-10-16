@@ -16,6 +16,7 @@ use App\Support\Documents\RecipientRequests\Delivery\QueueDocumentRecipientReque
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestLinkService;
 use App\Support\Documents\Signing\DocumentSigningInternalSignerEligibility;
 use App\Support\Email\EmailTemplateBodyRenderer;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -289,7 +290,10 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             '{{document_type}}' => (string) ($document?->document_type ?? $document?->type ?? ''),
             '{{action_label}}' => (string) ($request->action?->label() ?? 'Review document'),
             '{{action_url}}' => $actionUrl,
-            '{{expires_at}}' => $request->expires_at?->timezone(config('app.timezone'))->format('d M Y, H:i') ?? '',
+            '{{expires_at}}' => PlatformDateFormatter::make()->dateTime(
+                $request->expires_at?->timezone(config('app.timezone')),
+                '',
+            ) ?? '',
             '{{step_label}}' => $stepLabel,
             '{{days_remaining}}' => $request->expires_at !== null
                 ? (string) max(0, (int) floor((float) now()->diffInDays($request->expires_at, false)))

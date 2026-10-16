@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\User;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -42,8 +43,8 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
             $user->name,
             $user->email,
             $user->status,
-            optional($user->last_login_at)->toDateTimeString(),
-            optional($user->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($user->last_login_at, '') ?? '',
+            PlatformDateFormatter::make()->dateTime($user->created_at, '') ?? '',
         ];
     }
 }

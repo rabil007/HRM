@@ -4,6 +4,7 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\HistoricalCrewImportBatch;
 use App\Models\HistoricalCrewImportRow;
+use App\Support\Settings\PlatformDateFormatter;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -108,7 +109,7 @@ final class HistoricalCrewImportResultExporter
         }
 
         $lastMovement = $resolved['event_at'] !== null
-            ? $resolved['event_label'].' — '.$resolved['event_at']->format('d M Y')
+            ? $resolved['event_label'].' — '.(PlatformDateFormatter::make()->date($resolved['event_at']) ?? '—')
             : $resolved['event_label'];
 
         return [$lastMovement, $resolved['inferred_label']];
