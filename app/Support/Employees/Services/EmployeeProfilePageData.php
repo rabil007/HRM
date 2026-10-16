@@ -469,6 +469,7 @@ final class EmployeeProfilePageData
             ->where('employee_id', $employeeId)
             ->with(['documentType:id,title', 'uploader:id,name'])
             ->withCount('versions')
+            ->withExists('employeeTrainings')
             ->latest('id')
             ->get()
             ->map(fn (EmployeeDocument $doc) => EmployeeDocumentResource::toArray($doc))

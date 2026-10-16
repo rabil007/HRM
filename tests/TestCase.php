@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Fortify\Features;
 
@@ -19,6 +20,7 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
+        TransactionScopedPrivateFileCompensation::flushAll();
         $this->withoutVite();
     }
 

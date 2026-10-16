@@ -393,7 +393,16 @@ export function EmployeeTrainingTab({
                                                 canUpdate
                                             }
                                             onLink={() => setLinkTraining(row)}
+                                            showUpload={
+                                                canManageCertificateDocuments &&
+                                                canUpdate &&
+                                                !row.certificate_url
+                                            }
+                                            onUpload={() =>
+                                                openReplaceDialog(row)
+                                            }
                                             showReplace={
+                                                canManageCertificateDocuments &&
                                                 canUpdate &&
                                                 !!row.certificate_url
                                             }

@@ -130,7 +130,17 @@ export function TrainingTableRow({
                     onEdit={onEdit ? () => onEdit(training) : undefined}
                     showLink={canManageCertificateDocuments && canUpdate}
                     onLink={onLink ? () => onLink(training) : undefined}
-                    showReplace={canUpdate && !!training.certificate_url}
+                    showUpload={
+                        canManageCertificateDocuments &&
+                        canUpdate &&
+                        !training.certificate_url
+                    }
+                    onUpload={onReplace ? () => onReplace(training) : undefined}
+                    showReplace={
+                        canManageCertificateDocuments &&
+                        canUpdate &&
+                        !!training.certificate_url
+                    }
                     onReplace={
                         onReplace ? () => onReplace(training) : undefined
                     }

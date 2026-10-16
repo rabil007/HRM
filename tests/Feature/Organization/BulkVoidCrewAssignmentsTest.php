@@ -8,6 +8,7 @@ use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
@@ -17,7 +18,10 @@ use App\Models\User;
 use App\Support\CrewMovements\Actions\BulkVoidCrewAssignments;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\CrewMovements\CrewMovementService;
+use App\Support\EmployeeDocuments\TrainingCertificateDocumentTypeResolver;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
+use App\Support\EmployeeTrainings\TrainingCertificateLockOrder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -382,6 +386,54 @@ test('training cleanup handles optional deletion and removes certificates while 
         ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($versionFilePath2))->toBeFalse();
 });
 
+test('crew void training cleanup preserves document-owned certificate files', function () {
+    Storage::fake(EmployeePrivateFile::DISK);
+
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures([
+        'training.delete',
+        'documents.upload',
+        'documents.view',
+    ]);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, ['position_id' => $rank->id], $user->id);
+
+    $type = app(TrainingCertificateDocumentTypeResolver::class)->resolve();
+    $filePath = "employee-documents/{$company->id}/{$employee->id}/type-{$type->id}/backfilled.pdf";
+    Storage::disk(EmployeePrivateFile::DISK)->put($filePath, 'document owned certificate');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $type->id,
+        'type' => 'other',
+        'document_type' => (string) $type->id,
+        'title' => 'Backfilled Cert',
+        'file_path' => $filePath,
+        'original_filename' => 'backfilled.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 24,
+        'checksum' => 'doc-owned',
+        'current_version' => 1,
+        'status' => 'valid',
+    ]);
+
+    $training = EmployeeTraining::factory()->forEmployee($employee)->create([
+        'source_crew_assignment_phase_id' => $assignment->currentPhase->id,
+        'employee_document_id' => $document->id,
+        'certificate_path' => $filePath,
+        'current_version' => 1,
+    ]);
+
+    postBulkVoidViaHttp($user, [$assignment->id], 'Void integrated training', deleteTraining: true)
+        ->assertRedirect(route('organization.crew-assignments.index'))
+        ->assertSessionHas('success');
+
+    expect(EmployeeTraining::withTrashed()->find($training->id)->trashed())->toBeTrue()
+        ->and(EmployeeDocument::query()->whereKey($document->id)->exists())->toBeTrue()
+        ->and(Storage::disk(EmployeePrivateFile::DISK)->exists($filePath))->toBeTrue()
+        ->and($document->refresh()->file_path)->toBe($filePath);
+});
+
 test('user without training.delete cannot request training cleanup', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeBulkVoidFixtures();
     $service = app(CrewMovementService::class);
@@ -648,6 +700,203 @@ test('batch blocker resolution executes in constant queries and eliminates N+1 o
 
     foreach ($assignments as $a) {
         expect($results)->toHaveKey($a->id);
+    }
+});
+
+test('mysql bulk-void document-then-training locks do not deadlock against document sync locks', function () {
+    if (! function_exists('pcntl_fork')) {
+        test()->markTestSkipped('pcntl_fork is required for MySQL application-flow concurrency verification.');
+    }
+
+    $host = '127.0.0.1';
+    $port = '3306';
+    $database = 'oms_hrm';
+    $user = 'oms';
+    $password = 'oms';
+
+    try {
+        $probe = new PDO(
+            sprintf('mysql:host=%s;port=%s;dbname=%s', $host, $port, $database),
+            $user,
+            $password,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+        );
+        $probe->query('SELECT 1');
+    } catch (Throwable $exception) {
+        test()->markTestSkipped('MySQL unavailable for bulk-void concurrency verification: '.$exception->getMessage());
+    }
+
+    // Use isolated throwaway rows on MySQL via a dedicated connection name.
+    config([
+        'database.connections.mysql_lock_flow' => [
+            'driver' => 'mysql',
+            'host' => $host,
+            'port' => $port,
+            'database' => $database,
+            'username' => $user,
+            'password' => $password,
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+    ]);
+
+    $connection = 'mysql_lock_flow';
+    $suffix = str_replace('.', '', uniqid('', true));
+
+    $companyId = (int) DB::connection($connection)->table('companies')->insertGetId([
+        'name' => "Lock Flow Co {$suffix}",
+        'slug' => 'lock-flow-'.$suffix,
+        'working_days' => json_encode([1, 2, 3, 4, 5]),
+        'country_id' => DB::connection($connection)->table('countries')->orderBy('id')->value('id') ?? 1,
+        'currency_id' => DB::connection($connection)->table('currencies')->orderBy('id')->value('id') ?? 1,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $employeeId = (int) DB::connection($connection)->table('employees')->insertGetId([
+        'company_id' => $companyId,
+        'employee_no' => 'LF'.$suffix,
+        'name' => 'Lock Flow Employee',
+        'status' => 'active',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $documentTypeId = (int) (DB::connection($connection)->table('document_types')
+        ->where('title', 'Training Certificate')
+        ->value('id') ?? DB::connection($connection)->table('document_types')->insertGetId([
+            'title' => 'Training Certificate',
+            'is_active' => 1,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]));
+
+    $documentId = (int) DB::connection($connection)->table('employee_documents')->insertGetId([
+        'company_id' => $companyId,
+        'employee_id' => $employeeId,
+        'document_type_id' => $documentTypeId,
+        'type' => 'other',
+        'document_type' => (string) $documentTypeId,
+        'title' => 'Lock Flow Cert',
+        'file_path' => "employee-documents/{$companyId}/{$employeeId}/type-{$documentTypeId}/lock-flow.pdf",
+        'original_filename' => 'lock-flow.pdf',
+        'mime_type' => 'application/pdf',
+        'size_bytes' => 10,
+        'checksum' => 'lock-flow',
+        'current_version' => 1,
+        'status' => 'valid',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $trainingId = (int) DB::connection($connection)->table('employee_trainings')->insertGetId([
+        'company_id' => $companyId,
+        'employee_id' => $employeeId,
+        'employee_document_id' => $documentId,
+        'certificate_path' => "employee-documents/{$companyId}/{$employeeId}/type-{$documentTypeId}/lock-flow.pdf",
+        'current_version' => 1,
+        'sort_order' => 0,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $okA = sys_get_temp_dir().'/bulk-void-lock-a.ok';
+    $okB = sys_get_temp_dir().'/bulk-void-lock-b.ok';
+    @unlink($okA);
+    @unlink($okB);
+
+    $pid = pcntl_fork();
+
+    try {
+        if ($pid === -1) {
+            test()->fail('Failed to fork bulk-void concurrency worker.');
+        }
+
+        if ($pid === 0) {
+            try {
+                // Worker A: actual BulkVoid helper — Document → Training — then unlink.
+                DB::purge($connection);
+                config(['database.default' => $connection]);
+                DB::reconnect($connection);
+                DB::connection($connection)->getPdo()->exec('SET innodb_lock_wait_timeout = 5');
+                DB::transaction(function () use ($companyId, $trainingId): void {
+                    $trainings = TrainingCertificateLockOrder::lockDocumentsThenTrainings(
+                        $companyId,
+                        [$trainingId],
+                    );
+
+                    foreach ($trainings as $training) {
+                        app(TrainingCertificateDocumentIntegration::class)
+                            ->unlinkDocument($training);
+                    }
+
+                    usleep(150000);
+                });
+                file_put_contents($okA, 'ok');
+                exit(0);
+            } catch (Throwable) {
+                exit(1);
+            }
+        }
+
+        usleep(50000);
+
+        // Worker B: Documents-side sync order used by replace — lock document then linked trainings.
+        $previousDefault = config('database.default');
+        config(['database.default' => $connection]);
+        DB::purge($connection);
+        DB::reconnect($connection);
+        DB::connection($connection)->getPdo()->exec('SET innodb_lock_wait_timeout = 5');
+        try {
+            DB::transaction(function () use ($companyId, $documentId): void {
+                $document = EmployeeDocument::query()
+                    ->whereKey($documentId)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                usleep(100000);
+
+                app(TrainingCertificateDocumentIntegration::class)
+                    ->syncLinkedTrainingsFromDocument($document);
+
+                usleep(100000);
+            });
+            file_put_contents($okB, 'ok');
+        } finally {
+            config(['database.default' => $previousDefault]);
+            DB::purge($connection);
+        }
+
+        pcntl_waitpid($pid, $status);
+
+        expect(pcntl_wexitstatus($status))->toBe(0)
+            ->and(is_file($okA))->toBeTrue()
+            ->and(is_file($okB))->toBeTrue();
+    } finally {
+        try {
+            $cleanup = new PDO(
+                sprintf('mysql:host=%s;port=%s;dbname=%s', $host, $port, $database),
+                $user,
+                $password,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+            );
+            $cleanup->exec("DELETE FROM employee_trainings WHERE id = {$trainingId}");
+            $cleanup->exec("DELETE FROM employee_documents WHERE id = {$documentId}");
+            $cleanup->exec("DELETE FROM employees WHERE id = {$employeeId}");
+            $cleanup->exec("DELETE FROM companies WHERE id = {$companyId}");
+        } catch (Throwable) {
+            // Best-effort cleanup of throwaway lock-flow rows.
+        }
+
+        @unlink($okA);
+        @unlink($okB);
     }
 });
 

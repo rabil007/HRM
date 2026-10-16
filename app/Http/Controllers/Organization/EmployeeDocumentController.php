@@ -23,6 +23,7 @@ use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -127,6 +128,7 @@ class EmployeeDocumentController extends Controller
         UpdateEmployeeDocumentRequest $request,
         Employee $employee,
         EmployeeDocument $document,
+        TrainingCertificateDocumentIntegration $trainingCertificateDocuments,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -134,43 +136,54 @@ class EmployeeDocumentController extends Controller
 
         $validated = $request->validated();
 
-        $expiryDate = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'expiry_date')
-            ? ($validated['expiry_date'] ?? null)
-            : $document->expiry_date?->toDateString();
+        DB::transaction(function () use ($validated, $document, $trainingCertificateDocuments): void {
+            /** @var EmployeeDocument $lockedDocument */
+            $lockedDocument = EmployeeDocument::query()
+                ->whereKey($document->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $updates = [
-            'title' => EmployeeProfileTemplateRequestRules::persistedValue($validated, 'title', $document->title),
-            'document_number' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_number')
-                ? ($validated['document_number'] ?? null)
-                : $document->document_number,
-            'issue_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'issue_date')
-                ? ($validated['issue_date'] ?? null)
-                : $document->issue_date?->toDateString(),
-            'expiry_date' => $expiryDate,
-            'notes' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'notes')
-                ? ($validated['notes'] ?? null)
-                : $document->notes,
-            'status' => DocumentExpiry::persistedStatus($expiryDate),
-        ];
+            $expiryDate = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'expiry_date')
+                ? ($validated['expiry_date'] ?? null)
+                : $lockedDocument->expiry_date?->toDateString();
 
-        if (EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_type_id')) {
-            $documentType = DocumentType::query()
-                ->whereKey($validated['document_type_id'])
-                ->where('is_active', true)
-                ->first();
+            $updates = [
+                'title' => EmployeeProfileTemplateRequestRules::persistedValue($validated, 'title', $lockedDocument->title),
+                'document_number' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_number')
+                    ? ($validated['document_number'] ?? null)
+                    : $lockedDocument->document_number,
+                'issue_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'issue_date')
+                    ? ($validated['issue_date'] ?? null)
+                    : $lockedDocument->issue_date?->toDateString(),
+                'expiry_date' => $expiryDate,
+                'notes' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'notes')
+                    ? ($validated['notes'] ?? null)
+                    : $lockedDocument->notes,
+                'status' => DocumentExpiry::persistedStatus($expiryDate),
+            ];
 
-            if (! $documentType instanceof DocumentType) {
-                throw ValidationException::withMessages([
-                    'document_type_id' => 'The selected document type is invalid.',
-                ]);
+            if (EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_type_id')) {
+                $documentType = DocumentType::query()
+                    ->whereKey($validated['document_type_id'])
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $documentType instanceof DocumentType) {
+                    throw ValidationException::withMessages([
+                        'document_type_id' => 'The selected document type is invalid.',
+                    ]);
+                }
+
+                $trainingCertificateDocuments
+                    ->assertDocumentTypeChangeAllowed($lockedDocument, (int) $documentType->id);
+
+                $updates['document_type_id'] = $documentType->id;
+                $updates['document_type'] = (string) $documentType->id;
             }
 
-            $updates['document_type_id'] = $documentType->id;
-            $updates['document_type'] = (string) $documentType->id;
-        }
-
-        $document->update($updates);
-        app(TrainingCertificateDocumentIntegration::class)->syncLinkedTrainingsFromDocument($document->refresh());
+            $lockedDocument->update($updates);
+            $trainingCertificateDocuments->syncLinkedTrainingsFromDocument($lockedDocument->refresh());
+        });
 
         return back()->with('success', 'Document updated.');
     }
@@ -186,16 +199,31 @@ class EmployeeDocumentController extends Controller
 
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 403, $request->user(), allowSelf: false);
 
-        $store->replace(
+        DB::transaction(function () use (
+            $request,
+            $employee,
             $document,
-            $request->file('file'),
+            $store,
+            $trainingCertificateDocuments,
             $companyId,
-            $employee->id,
-            $request->user()?->id,
-            $request->validated()
-        );
+        ): void {
+            /** @var EmployeeDocument $lockedDocument */
+            $lockedDocument = EmployeeDocument::query()
+                ->whereKey($document->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $trainingCertificateDocuments->syncLinkedTrainingsFromDocument($document->refresh());
+            $replaced = $store->replace(
+                $lockedDocument,
+                $request->file('file'),
+                $companyId,
+                $employee->id,
+                $request->user()?->id,
+                $request->validated()
+            );
+
+            $trainingCertificateDocuments->syncLinkedTrainingsFromDocument($replaced->refresh());
+        });
 
         return back()->with('success', 'Document file replaced.');
     }

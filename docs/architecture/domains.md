@@ -221,7 +221,7 @@ Examples (full list in seeder):
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
 | Contracts / bank / training | `contracts.*`, `bank_accounts.*`, `training.*` |
 | Crew | `crew_operations.overview.view`, `crew_operations.vessels.*`, `crew_operations.vessel_manning.*`, `crew_operations.planning.*`, `crew_operations.assignments.*` |
-| Attendance / leave | `attendance.overview.view`, `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.*` |
+| Attendance / leave | `attendance.records.*`, `attendance.types.*`, `attendance.leave-requests.*` (incl. `view_all`), `attendance.leave-approval-policies.*`, `attendance.leave-approval-settings.*` |
 | Payroll | `payroll.overview.view`, `payroll.periods.*`, `payroll.crew_timesheets.*`, `payroll.salary_inputs.*`, `payroll.records.view`, payslip and WPS actions |
 | Bulk documents | `bulk_documents.view`, `.generate`, `.delete`, `.email` |
 | Hikvision | `hikvision.persons.*`, `hikvision.devices.*`, `hikvision.events.*`, `hikvision.webhook.manage` |
@@ -886,8 +886,7 @@ Also seed email templates when deploying notification changes: `php artisan db:s
 
 ### Permissions involved
 
-- `attendance.overview.view` (dashboard attendance analytics; dedicated Overview page removed)
-- `attendance.records.view|create|update|delete|manage`
+- `attendance.records.view|create|update|delete|manage` (dashboard attendance analytics uses `attendance.records.view`)
 
 `attendance.records.manage` is same-company HR/admin attendance. Without it, create/update/delete apply only to the user's linked Employee in the **active** company. `employee_id` from the client is not authorization. Cross-company employees are 404. Hikvision sync is separate ingestion.
 

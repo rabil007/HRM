@@ -47,11 +47,11 @@ final class DashboardComposer
             $props['document_health'] = $docs['document_health'];
         }
 
-        if ($user->can('attendance.overview.view')) {
+        if ($user->can('attendance.records.view')) {
             $props['attendance_analytics'] = $this->analytics->attendanceSummary($companyId, $user);
         }
 
-        if ($user->can('attendance.leave-requests.view') || $user->can('attendance.overview.view')) {
+        if ($user->can('attendance.leave-requests.view')) {
             $props['leave_summary'] = $this->analytics->leaveSummary($companyId, $user);
         }
 

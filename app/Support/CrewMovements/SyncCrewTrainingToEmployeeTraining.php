@@ -9,6 +9,7 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\EmployeeTraining;
 use App\Support\CrewOperations\CrewOperationsSettings;
+use App\Support\EmployeeTrainings\TrainingCertificateDocumentIntegration;
 use App\Support\Settings\CompanyTimezone;
 use Carbon\Carbon;
 use InvalidArgumentException;
@@ -21,6 +22,10 @@ use InvalidArgumentException;
  */
 final class SyncCrewTrainingToEmployeeTraining
 {
+    public function __construct(
+        private TrainingCertificateDocumentIntegration $certificateDocuments,
+    ) {}
+
     public function isEnabled(int $companyId): bool
     {
         return CrewOperationsSettings::syncTrainingToEmployeeTrainingEnabled($companyId);
@@ -79,8 +84,13 @@ final class SyncCrewTrainingToEmployeeTraining
 
         if ($existing !== null) {
             $existing->update($syncOwnedAttributes);
+            $fresh = $existing->fresh();
 
-            return $existing->fresh();
+            if ($fresh !== null) {
+                $this->certificateDocuments->syncTrainingDatesToLinkedDocument($fresh, syncExpiry: false);
+            }
+
+            return $fresh;
         }
 
         $maxSort = EmployeeTraining::query()

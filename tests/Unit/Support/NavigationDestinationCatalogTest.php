@@ -183,7 +183,7 @@ test('report destination keys remain gated by report permissions not module perm
     ['company' => $company] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'attendance.overview.view',
+        'attendance.records.view',
         'crew_operations.overview.view',
     ]);
 

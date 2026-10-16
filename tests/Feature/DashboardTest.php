@@ -86,11 +86,11 @@ test('documents.view permission does not expose workforce or attendance data', f
         );
 });
 
-test('attendance.overview.view permission does not expose workforce or document data', function () {
+test('attendance.records.view permission does not expose workforce or document data', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['attendance.overview.view']);
+    grantCompanyPermissions($user, $company, ['attendance.records.view']);
 
     $this->actingAs($user)
         ->withSession(['current_company_id' => $company->id])
@@ -184,7 +184,7 @@ test('dashboard attendance analytics only includes linked company employees', fu
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['attendance.overview.view']);
+    grantCompanyPermissions($user, $company, ['attendance.records.view']);
 
     createAttendanceLeaveEmployee($company, [
         'employee_no' => 'EMP0099',
@@ -265,7 +265,7 @@ test('distinct attendance counts for present and check-in metrics', function () 
     Carbon::setTestNow('2026-06-15 12:00:00', 'Asia/Dubai');
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['attendance.overview.view']);
+    grantCompanyPermissions($user, $company, ['attendance.records.view']);
 
     $employee2 = createAttendanceLeaveEmployee($company, [
         'status' => 'active',
@@ -379,7 +379,7 @@ test('dashboard composes every module section and attention item links for a ful
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'documents.view',
-        'attendance.overview.view',
+        'attendance.records.view',
         'attendance.leave-requests.view',
         'attendance.leave-requests.approve',
         'contracts.view',

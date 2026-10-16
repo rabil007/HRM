@@ -22,9 +22,12 @@ class BackfillTrainingCertificateDocumentsCommand extends Command
         'missing_current_file',
         'missing_historical_version',
         'duplicate_conflicting_reference',
+        'ambiguous_existing_document',
         'conflicting_version_history',
         'would_link',
+        'would_reuse',
         'linked',
+        'reused',
         'failed',
         'skipped',
     ];

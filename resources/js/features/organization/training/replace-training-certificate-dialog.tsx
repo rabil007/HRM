@@ -157,7 +157,11 @@ export function ReplaceTrainingCertificateDialog({
                         fileLabel={replaceForm.data.file?.name ?? null}
                     />
                     <DialogHeader>
-                        <DialogTitle>Replace Training Certificate</DialogTitle>
+                        <DialogTitle>
+                            {training?.certificate_url
+                                ? 'Replace Training Certificate'
+                                : 'Upload Training Certificate'}
+                        </DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                         <p className="text-sm text-muted-foreground">

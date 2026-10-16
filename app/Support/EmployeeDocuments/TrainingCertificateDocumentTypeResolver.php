@@ -20,6 +20,14 @@ class TrainingCertificateDocumentTypeResolver
         return $existing instanceof DocumentType ? $existing : null;
     }
 
+    /**
+     * Read-only lookup for assessment / dry-run. Never creates, restores, or activates.
+     */
+    public function findExistingForAssessment(): ?DocumentType
+    {
+        return $this->findExisting();
+    }
+
     public function resolve(): DocumentType
     {
         return Cache::lock('document-type:training-certificate', 10)->block(5, function (): DocumentType {

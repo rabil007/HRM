@@ -14,8 +14,8 @@ The operational dashboard is the main landing page at `/dashboard`. It provides 
   - `attention_items`: Permission-aware alert items for items needing action.
   - `employee_analytics` & `organization_snapshot`: Requires `employees.view`.
   - `document_compliance` & `document_health`: Requires `documents.view`.
-  - `attendance_analytics`: Requires `attendance.overview.view`.
-  - `leave_summary`: Requires `attendance.leave-requests.view` or `attendance.overview.view`.
+  - `attendance_analytics`: Requires `attendance.records.view`.
+  - `leave_summary`: Requires `attendance.leave-requests.view`.
   - `contracts_summary`: Requires `contracts.view`.
   - `training_summary`: Requires `training.view`.
   - `bank_accounts_summary`: Requires `bank_accounts.view`.
