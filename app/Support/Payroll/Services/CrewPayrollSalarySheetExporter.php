@@ -132,7 +132,7 @@ final class CrewPayrollSalarySheetExporter
      * Monthly Crew earnings are separate from the legacy Daily Crew
      * salary-sheet column map and reconciliation consumers.
      *
-     * @param Collection<int, PayrollRecord> $records
+     * @param  Collection<int, PayrollRecord>  $records
      */
     private function writeMonthlyCrewCompensationSheet(Spreadsheet $spreadsheet, Collection $records): void
     {

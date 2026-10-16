@@ -187,6 +187,7 @@ export function ContractsImportDialog({
             const formData = new FormData();
             formData.append('file', selected);
             formData.append('payroll_category', category);
+
             if (category === 'crew') {
                 formData.append('salary_structure', salaryStructure);
             }
@@ -272,6 +273,7 @@ export function ContractsImportDialog({
         setFile(null);
         setPreview(null);
         setMessage(null);
+
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -291,6 +293,7 @@ export function ContractsImportDialog({
         const formData = new FormData();
         formData.append('file', file);
         formData.append('payroll_category', payrollCategory);
+
         if (payrollCategory === 'crew') {
             formData.append('salary_structure', salaryStructure);
         }
