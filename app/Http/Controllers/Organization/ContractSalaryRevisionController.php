@@ -118,6 +118,7 @@ class ContractSalaryRevisionController extends Controller
             'housing_allowance' => $validated['housing_allowance'] ?? null,
             'transport_allowance' => $validated['transport_allowance'] ?? null,
             'other_allowances' => $validated['other_allowances'] ?? null,
+            'eos_monthly_amount' => $validated['eos_monthly_amount'] ?? null,
             'supplementary_allowance' => $validated['supplementary_allowance'] ?? null,
             'site_allowance' => $validated['site_allowance'] ?? null,
         ];

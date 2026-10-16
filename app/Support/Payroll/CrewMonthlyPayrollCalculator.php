@@ -44,6 +44,7 @@ final class CrewMonthlyPayrollCalculator
         $monthlyHousing = $this->activeAmount($components, SalaryComponentCode::Housing) ?? 0.0;
         $monthlyTransport = $this->activeAmount($components, SalaryComponentCode::Transport) ?? 0.0;
         $monthlyOther = $this->activeAmount($components, SalaryComponentCode::Other) ?? 0.0;
+        $monthlyEosProvision = $this->activeAmount($components, SalaryComponentCode::EosProvision);
 
         $unpaidLeaveDays = (float) ($timesheet->unpaid_leave_days ?? 0);
 
@@ -102,6 +103,8 @@ final class CrewMonthlyPayrollCalculator
             'overtime_hours' => 0.0,
             'calculation_breakdown' => [
                 'salary_structure' => 'monthly',
+                // Reference only: EOS is never regular payable earnings.
+                'eos_monthly_provision' => $monthlyEosProvision,
                 'unpaid_leave_days' => $unpaidLeaveDays,
                 'working_days' => $workingDays,
                 'present_days' => $presentDays,
@@ -112,6 +115,7 @@ final class CrewMonthlyPayrollCalculator
                     'housing_monthly' => $monthlyHousing,
                     'transport_monthly' => $monthlyTransport,
                     'other_monthly' => $monthlyOther,
+                    'eos_monthly_provision' => $monthlyEosProvision,
                     'daily_rate' => round($dailyRate, 2),
                 ],
                 'lines' => [

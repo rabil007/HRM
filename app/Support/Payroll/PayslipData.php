@@ -181,6 +181,13 @@ final class PayslipData
                     ];
                 }
 
+                if ((float) ($breakdown['eos_monthly_provision'] ?? 0) > 0) {
+                    $crewSummary[] = [
+                        'label' => 'EOS provision (non-payable)',
+                        'value' => self::formatAmount($breakdown['eos_monthly_provision']),
+                    ];
+                }
+
                 return array_merge($base, [
                     'salary_structure' => 'monthly',
                     'earnings' => self::monthlyCrewEarnings($record, $salaryInputLines, $unpaidLeaveDays),

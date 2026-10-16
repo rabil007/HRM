@@ -40,6 +40,7 @@ class StoreContractSalaryRevisionRequest extends FormRequest
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'eos_monthly_amount' => ['nullable', 'numeric', 'min:0'],
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
         ];
@@ -57,6 +58,13 @@ class StoreContractSalaryRevisionRequest extends FormRequest
 
             $this->validateUniqueMonth($validator, $contract);
             $this->validatePositiveAmounts($validator, $contract);
+
+            if ($this->filled('eos_monthly_amount') && ! (
+                $contract->payroll_category === PayrollCategory::Crew
+                && $contract->resolvedSalaryStructure() === ContractSalaryStructure::Monthly
+            )) {
+                $validator->errors()->add('eos_monthly_amount', 'EOS is only available for Monthly Crew contracts.');
+            }
         });
     }
 
