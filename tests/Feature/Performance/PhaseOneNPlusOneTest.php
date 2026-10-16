@@ -16,6 +16,7 @@ use App\Support\Employees\EmployeeCrewStatusFilter;
 use App\Support\Employees\EmployeeExportFieldResolver;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -136,6 +137,9 @@ test('role mappings use eager loaded permissions', function () {
         Role::query()->where('company_id', $company->id)->with('permissions:id,name'),
     );
     $loadedRoles = $export->query()->get();
+
+    // Warm singleton settings/format caches so map() only uses eager-loaded relations.
+    PlatformDateFormatter::make()->date(now());
 
     DB::flushQueryLog();
     DB::enableQueryLog();

@@ -614,7 +614,7 @@ test('result workbook reports Sign-On Standby as last movement for open P2A', fu
     expect($lastMovementIndex)->not->toBeFalse()
         ->and($inferredIndex)->not->toBeFalse()
         ->and((string) $data[$lastMovementIndex])->toContain('Sign-On Standby')
-        ->and((string) $data[$lastMovementIndex])->toContain('03 Sep')
+        ->and((string) $data[$lastMovementIndex])->toContain('2024-09-03')
         ->and((string) $data[$inferredIndex])->toBe('Pre-Joining Standby');
 });
 
@@ -846,7 +846,7 @@ test('result workbook stays Sign-On Standby after later live join vessel', funct
     $inferredIdx = array_search('Inferred State', $header, true);
 
     expect((string) $data[$lastIdx])->toContain('Sign-On Standby')
-        ->and((string) $data[$lastIdx])->toContain('10 Sep')
+        ->and((string) $data[$lastIdx])->toContain('2024-09-10')
         ->and((string) $data[$inferredIdx])->toBe('Pre-Joining Standby');
 
     Carbon::setTestNow();
