@@ -77,6 +77,7 @@ final class CrewPayableDateOwnership
      *     sign_on_standby_days: int|null,
      *     sign_off_standby_days: int|null,
      *     allocated_days_by_phase: array<int, int>,
+     *     allocated_dates_by_phase: array<int, list<string>>,
      *     countable_phase_ids: array<int, true>,
      *     future_only_phase_ids: array<int, true>,
      *     dates_by_category: array<string, list<string>>
@@ -190,6 +191,8 @@ final class CrewPayableDateOwnership
 
         $winners = self::allocate($intervals, $resolver);
         $allocatedDaysByPhase = [];
+        /** @var array<int, list<string>> $allocatedDatesByPhase */
+        $allocatedDatesByPhase = [];
         $datesByCategory = [
             CrewTimesheetPayCategory::SignOnStandby->value => [],
             CrewTimesheetPayCategory::Onsite->value => [],
@@ -205,6 +208,8 @@ final class CrewPayableDateOwnership
             }
 
             $allocatedDaysByPhase[$winner['phase_id']] = ($allocatedDaysByPhase[$winner['phase_id']] ?? 0) + 1;
+            // Read-only view of the winner already chosen above. It does not change priority.
+            $allocatedDatesByPhase[$winner['phase_id']][] = $winner['date'];
             $category = $winner['category']->value;
 
             if (array_key_exists($category, $datesByCategory)) {
@@ -225,6 +230,11 @@ final class CrewPayableDateOwnership
             $datesByCategory[$category] = $dates;
         }
 
+        foreach ($allocatedDatesByPhase as $phaseId => $dates) {
+            sort($dates);
+            $allocatedDatesByPhase[$phaseId] = $dates;
+        }
+
         if (! $recorded) {
             return [
                 'recorded' => false,
@@ -235,6 +245,7 @@ final class CrewPayableDateOwnership
                 'sign_on_standby_days' => null,
                 'sign_off_standby_days' => null,
                 'allocated_days_by_phase' => [],
+                'allocated_dates_by_phase' => [],
                 'countable_phase_ids' => [],
                 'future_only_phase_ids' => [],
                 'dates_by_category' => [
@@ -254,6 +265,7 @@ final class CrewPayableDateOwnership
             'sign_on_standby_days' => $signOn,
             'sign_off_standby_days' => $signOff,
             'allocated_days_by_phase' => $allocatedDaysByPhase,
+            'allocated_dates_by_phase' => $allocatedDatesByPhase,
             'countable_phase_ids' => $countablePhaseIds,
             'future_only_phase_ids' => $futureOnlyPhaseIds,
             'dates_by_category' => $datesByCategory,

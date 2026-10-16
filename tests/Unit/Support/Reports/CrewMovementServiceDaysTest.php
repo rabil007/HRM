@@ -4,6 +4,8 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
+use App\Support\Reports\CrewMovementHistoryPayrollDays;
 use App\Support\Reports\CrewMovementServiceDays;
 use Carbon\CarbonImmutable;
 
@@ -591,3 +593,77 @@ test('standby breakdown sums pre-joining and demobilisation independently', func
         ['pre_joining' => 3, 'demobilisation' => 0, 'total' => 3],
     ],
 ]);
+
+test('allocated dates by phase follow existing winners without changing service totals', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+
+    $preJoin = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-03 08:00:00',
+        'actual_end_at' => '2026-10-07 08:00:00',
+    ]);
+    $vessel = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-07 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-14 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 4,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-14 12:00:00',
+        'actual_end_at' => '2026-10-14 18:00:00',
+    ]);
+
+    $phases = $assignment->phases()->get();
+    $today = CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai');
+    $summary = CrewMovementServiceDays::summarize($phases, 'Asia/Dubai', $today, (int) $employee->id, (int) $assignment->company_id, (int) $assignment->id);
+    $analysis = CrewPayableDateOwnership::analyze($phases, 'Asia/Dubai', $today, true, (int) $employee->id, (int) $assignment->company_id, (int) $assignment->id);
+    $payroll = CrewMovementHistoryPayrollDays::summarize($phases, 'Asia/Dubai', $today, (int) $employee->id, (int) $assignment->company_id, (int) $assignment->id);
+
+    expect($analysis['allocated_dates_by_phase'][$preJoin->id])->toBe([
+        '2026-10-03',
+        '2026-10-04',
+        '2026-10-05',
+        '2026-10-06',
+    ])
+        ->and($analysis['allocated_dates_by_phase'][$vessel->id])->toBe([
+            '2026-10-07',
+            '2026-10-08',
+            '2026-10-09',
+            '2026-10-10',
+        ])
+        ->and($analysis['allocated_dates_by_phase'][$demob->id])->toBe([
+            '2026-10-11',
+            '2026-10-12',
+            '2026-10-13',
+            '2026-10-14',
+        ])
+        ->and($analysis['allocated_days_by_phase'][$preJoin->id])->toBe(4)
+        ->and($analysis['allocated_days_by_phase'][$vessel->id])->toBe(4)
+        ->and($analysis['allocated_days_by_phase'][$demob->id])->toBe(4)
+        ->and($summary['pre_joining_standby_days'])->toBe(4)
+        ->and($summary['demobilisation_standby_days'])->toBe(4)
+        ->and($summary['vessel_service_days'])->toBe(4)
+        ->and($summary['standby_service_days'])->toBe(8)
+        ->and($payroll['sign_on_standby']['total_days'])->toBe(4)
+        ->and($payroll['onsite']['total_days'])->toBe(4)
+        ->and($payroll['sign_off_standby']['total_days'])->toBe(4)
+        ->and($payroll['total_days'])->toBe(12)
+        ->and($preJoin->fresh()->actual_end_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-07 08:00:00');
+
+    CarbonImmutable::setTestNow();
+});

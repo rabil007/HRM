@@ -141,13 +141,22 @@ export type PayrollDaySummary = {
 };
 
 export type StandbyWindowPeriod = {
+    phase_id?: number;
     phase_code: string;
     phase_label: string;
+    /** First allocated service date for this contiguous range. */
     from: string | null;
+    /** Last allocated service date for this contiguous range. */
     to: string | null;
     to_label: string | null;
+    /** Active phase whose allocated dates stop at company-local today. */
+    ongoing?: boolean;
     status: string | null;
     allocated_days: number | null;
+    /** Recorded phase start. Kept separate from the allocated service range. */
+    movement_from?: string | null;
+    /** Recorded phase end. Kept separate from the allocated service range. */
+    movement_to?: string | null;
 };
 
 export type StandbyWindow = {

@@ -220,13 +220,7 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
         $period = $periods[0];
 
         if ($edge === 'to') {
-            $label = $period['to_label'] ?? null;
-
-            if ($label === 'Ongoing') {
-                return 'Ongoing';
-            }
-
-            return is_string($label) && $label !== '' ? $this->date($label) : '—';
+            return $this->standbyToValue($period);
         }
 
         $from = $period['from'] ?? null;
@@ -246,19 +240,54 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
         }
 
         return collect($periods)
-            ->map(function (array $period): string {
-                $from = is_string($period['from'] ?? null) && $period['from'] !== ''
-                    ? $this->date($period['from'])
-                    : '—';
-                $toLabel = $period['to_label'] ?? null;
-                $to = $toLabel === 'Ongoing'
-                    ? 'Ongoing'
-                    : (is_string($toLabel) && $toLabel !== '' ? $this->date($toLabel) : '—');
-                $phase = trim((string) ($period['phase_label'] ?? ''));
-
-                return trim($phase.' '.$from.' to '.$to);
-            })
+            ->map(fn (array $period): string => $this->standbyPeriodLabel($period))
             ->implode('; ');
+    }
+
+    /**
+     * @param  array<string, mixed>  $period
+     */
+    private function standbyToValue(array $period): string
+    {
+        $to = $period['to'] ?? null;
+        $ongoing = ($period['ongoing'] ?? false) === true;
+
+        if (is_string($to) && $to !== '') {
+            $formatted = $this->date($to);
+
+            return $ongoing ? $formatted.' (ongoing)' : $formatted;
+        }
+
+        $label = $period['to_label'] ?? null;
+
+        if ($label === 'Ongoing' || $ongoing) {
+            return 'Ongoing';
+        }
+
+        return is_string($label) && $label !== '' ? $this->date($label) : '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $period
+     */
+    private function standbyPeriodLabel(array $period): string
+    {
+        $phase = trim((string) ($period['phase_label'] ?? ''));
+        $from = $period['from'] ?? null;
+        $to = $period['to'] ?? null;
+        $hasRange = is_string($from) && $from !== '' && is_string($to) && $to !== '';
+
+        if (! $hasRange) {
+            $suffix = ($period['ongoing'] ?? false) === true
+                ? 'ongoing, no allocated service dates'
+                : 'no allocated service dates';
+
+            return trim($phase.' '.$suffix);
+        }
+
+        $label = $phase.' '.$this->date($from).' to '.$this->standbyToValue($period);
+
+        return trim($label);
     }
 }
 
@@ -552,16 +581,10 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
         $period = $periods[0];
 
         if ($edge === 'to') {
-            $label = $period['to_label'] ?? null;
-
-            if ($label === 'Ongoing') {
-                return 'Ongoing';
-            }
-
-            return is_string($label) && $label !== '' ? $this->date($label) : '—';
+            return $this->standbyToValue($period);
         }
 
-        $from = $period['from'] ?? null;
+        $from = $period['from'] ?? $period['start'] ?? null;
 
         return is_string($from) && $from !== '' ? $this->date($from) : '—';
     }
@@ -578,20 +601,70 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
         }
 
         return collect($periods)
-            ->map(function (array $period): string {
-                $from = isset($period['from']) && is_string($period['from']) && $period['from'] !== ''
-                    ? $this->date($period['from'])
-                    : (isset($period['start']) && is_string($period['start']) ? $this->date($period['start']) : '—');
-                $toLabel = $period['to_label'] ?? $period['end'] ?? null;
-                $ongoing = ($period['status'] ?? null) === 'active' && ($period['end'] ?? $period['to'] ?? null) === null;
-                $to = $toLabel === 'Ongoing' || $ongoing
-                    ? 'Ongoing'
-                    : (is_string($toLabel) && $toLabel !== '' ? $this->date($toLabel) : '—');
-                $phase = trim((string) ($period['phase_label'] ?? ''));
-
-                return trim($phase.' '.$from.' to '.$to);
-            })
+            ->map(fn (array $period): string => $this->standbyPeriodLabel($period))
             ->implode('; ');
+    }
+
+    /**
+     * @param  array<string, mixed>  $period
+     */
+    private function standbyToValue(array $period): string
+    {
+        if (! array_key_exists('to', $period) && array_key_exists('end', $period)) {
+            $end = $period['end'] ?? null;
+            $ongoing = ($period['status'] ?? null) === 'active' && ($end === null || $end === '');
+
+            if ($ongoing) {
+                return 'Ongoing';
+            }
+
+            return is_string($end) && $end !== '' ? $this->date($end) : '—';
+        }
+
+        $to = $period['to'] ?? null;
+        $ongoing = ($period['ongoing'] ?? false) === true;
+
+        if (is_string($to) && $to !== '') {
+            $formatted = $this->date($to);
+
+            return $ongoing ? $formatted.' (ongoing)' : $formatted;
+        }
+
+        if ($ongoing || ($period['to_label'] ?? null) === 'Ongoing') {
+            return 'Ongoing';
+        }
+
+        $label = $period['to_label'] ?? null;
+
+        return is_string($label) && $label !== '' ? $this->date($label) : '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $period
+     */
+    private function standbyPeriodLabel(array $period): string
+    {
+        $phase = trim((string) ($period['phase_label'] ?? ''));
+        $from = $period['from'] ?? null;
+        $to = $period['to'] ?? null;
+        $hasRange = is_string($from) && $from !== '' && is_string($to) && $to !== '';
+
+        if (! $hasRange && ! array_key_exists('from', $period) && array_key_exists('start', $period)) {
+            $start = $period['start'] ?? null;
+            $fromLabel = is_string($start) && $start !== '' ? $this->date($start) : '—';
+
+            return trim($phase.' '.$fromLabel.' to '.$this->standbyToValue($period));
+        }
+
+        if (! $hasRange) {
+            $suffix = ($period['ongoing'] ?? false) === true
+                ? 'ongoing, no allocated service dates'
+                : 'no allocated service dates';
+
+            return trim($phase.' '.$suffix);
+        }
+
+        return trim($phase.' '.$this->date($from).' to '.$this->standbyToValue($period));
     }
 
     private function periods(array $periods): string
