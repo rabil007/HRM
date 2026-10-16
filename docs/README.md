@@ -71,6 +71,7 @@ Use [architecture/golden-files.md](./architecture/golden-files.md) when you need
 | Hikvision integration | [hikvision-integration.md](./hikvision-integration.md) |
 | AI providers and AI features | [ai-settings.md](./ai-settings.md) |
 | Settings without a dedicated guide | [architecture/context-map.md](./architecture/context-map.md), then `routes/settings.php` and the relevant current Settings code |
+| Date format / timezone display / localization for UI, email, PDF, export | [architecture/date-and-timezone.md](./architecture/date-and-timezone.md) and `.cursor/rules/date-timezone.mdc` |
 | Global Search | [global-search.md](./global-search.md) |
 | Navigation favorites | [navigation-favorites.md](./navigation-favorites.md) |
 | Recently viewed records | [recent-items.md](./recent-items.md) |

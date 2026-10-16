@@ -5,6 +5,7 @@ namespace App\Support\Activity;
 use App\Enums\CrewPhaseCode;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
@@ -272,7 +273,7 @@ final class CrewCorrectionActivityPresenter
     }
 
     /**
-     * Re-format stored snapshot display dates from `Y-m-d H:i` to `d-m-Y H:i`.
+     * Re-format stored snapshot display dates from `Y-m-d H:i` via PlatformDateFormatter.
      * Non-date strings are returned unchanged.
      */
     private static function reformatDate(string $display): string
@@ -283,7 +284,9 @@ final class CrewCorrectionActivityPresenter
         }
 
         try {
-            return Carbon::createFromFormat('Y-m-d H:i', substr($display, 0, 16))?->format('d-m-Y H:i') ?? $display;
+            $parsed = Carbon::createFromFormat('Y-m-d H:i', substr($display, 0, 16));
+
+            return PlatformDateFormatter::make()->dateTime($parsed) ?? $display;
         } catch (\Throwable) {
             return $display;
         }

@@ -1,4 +1,5 @@
 import { ApplicationBrandingSync } from '@/components/application-branding-sync';
+import { PlatformDateFormatSync } from '@/components/platform-date-format-sync';
 import AuthLayoutTemplate from '@/layouts/auth/auth-split-layout';
 
 export default function AuthLayout({
@@ -13,6 +14,7 @@ export default function AuthLayout({
     return (
         <AuthLayoutTemplate title={title} description={description}>
             <ApplicationBrandingSync />
+            <PlatformDateFormatSync />
             {children}
         </AuthLayoutTemplate>
     );

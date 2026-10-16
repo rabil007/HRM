@@ -27,8 +27,10 @@ import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import {
     formatActivityFieldLabel,
-    formatDisplayDate,
+    formatDisplayDateTimeInTimezone,
     formatDisplayValue,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
@@ -205,6 +207,8 @@ export default function ActivityLogs({
     });
 
     const [openId, setOpenId] = useState<number | null>(null);
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
 
     const list = useServerPaginationFilters({
         url: '/organization/activity-logs',
@@ -724,8 +728,10 @@ export default function ActivityLogs({
 
                                                         <div className="flex items-center justify-end gap-3 lg:col-span-2">
                                                             <span className="font-mono text-[10px] whitespace-nowrap text-muted-foreground/40">
-                                                                {formatDisplayDate(
+                                                                {formatDisplayDateTimeInTimezone(
                                                                     log.created_at,
+                                                                    companyTimezone,
+                                                                    dateFormat,
                                                                 )}
                                                             </span>
                                                             {isOpen ? (

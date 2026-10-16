@@ -8,7 +8,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
-import { formatDisplayDate } from '@/lib/format-date';
+import { useFormatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 function toDateInputValue(date: Date): string {
@@ -45,6 +45,7 @@ export function DateRangeFilter({
     const [open, setOpen] = useState(false);
     const [draftFrom, setDraftFrom] = useState(from);
     const [draftTo, setDraftTo] = useState(to);
+    const formatDate = useFormatDate();
 
     const handleOpenChange = (nextOpen: boolean) => {
         setOpen(nextOpen);
@@ -59,19 +60,19 @@ export function DateRangeFilter({
 
     const triggerLabel = useMemo(() => {
         if (from && to) {
-            return `${formatDisplayDate(from)} → ${formatDisplayDate(to)}`;
+            return `${formatDate(from)} → ${formatDate(to)}`;
         }
 
         if (from) {
-            return `From ${formatDisplayDate(from)}`;
+            return `From ${formatDate(from)}`;
         }
 
         if (to) {
-            return `Until ${formatDisplayDate(to)}`;
+            return `Until ${formatDate(to)}`;
         }
 
         return label;
-    }, [from, label, to]);
+    }, [formatDate, from, label, to]);
 
     const applyPreset = (
         preset: 'this_month' | 'last_30_days' | 'this_year',

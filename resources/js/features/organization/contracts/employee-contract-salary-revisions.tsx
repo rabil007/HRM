@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { actions } from '@/lib/design-system';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
+import { formatEffectiveMonth } from './format-effective-month';
 
 export type ContractSalaryRevisionItem = {
     id: number;
@@ -103,23 +104,6 @@ function toMonthInputValue(isoDate: string | null): string {
     }
 
     return isoDate.slice(0, 7);
-}
-
-function formatEffectiveMonth(isoDate: string | null): string {
-    if (!isoDate) {
-        return '—';
-    }
-
-    const date = new Date(`${isoDate.slice(0, 10)}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return isoDate;
-    }
-
-    return date.toLocaleDateString(undefined, {
-        month: 'short',
-        year: 'numeric',
-    });
 }
 
 function toMonthStartDate(monthValue: string): string {

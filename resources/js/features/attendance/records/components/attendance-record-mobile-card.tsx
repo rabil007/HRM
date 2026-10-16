@@ -2,7 +2,12 @@ import { MobileRecordCard } from '@/components/mobile-record-list';
 import type { MobileRecordOverflowAction } from '@/components/mobile-record-list';
 import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { attendanceRecordMobileCardModel } from '@/features/attendance/records/lib/attendance-record-mobile-card';
-import { formatDisplayDate, formatDisplayTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import type { AttendanceRecord, AttendanceRecordPermissions } from '../types';
 
 export function AttendanceRecordMobileCard({
@@ -16,7 +21,12 @@ export function AttendanceRecordMobileCard({
     onEdit: (record: AttendanceRecord) => void;
     onDelete: (record: AttendanceRecord) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const model = attendanceRecordMobileCardModel(record, can);
+
+    const formatClock = (value: string | null | undefined) =>
+        formatDisplayDateTime12hInTimezone(value, companyTimezone, dateFormat);
     const overflowActions: MobileRecordOverflowAction[] = [];
 
     if (model.showDelete) {
@@ -38,7 +48,7 @@ export function AttendanceRecordMobileCard({
             subtitle={model.subtitle ? formatDisplayDate(model.subtitle) : null}
             meta={[
                 record.clock_in || record.clock_out
-                    ? `${formatDisplayTime12h(record.clock_in)} – ${formatDisplayTime12h(record.clock_out)}`
+                    ? `${formatClock(record.clock_in)} – ${formatClock(record.clock_out)}`
                     : null,
                 record.hours_worked !== null && record.hours_worked !== ''
                     ? `${record.hours_worked} hrs`

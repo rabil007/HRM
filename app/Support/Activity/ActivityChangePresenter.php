@@ -29,6 +29,7 @@ use App\Models\VesselType;
 use App\Models\VisaType;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -134,7 +135,7 @@ final class ActivityChangePresenter
             $start = $subject->start_date;
 
             return $start
-                ? 'Contract '.$start->format('d-m-Y')
+                ? 'Contract '.(PlatformDateFormatter::make()->date($start) ?? '—')
                 : 'Contract #'.$subject->id;
         }
 
@@ -515,7 +516,7 @@ final class ActivityChangePresenter
                         $start = $contract->start_date;
 
                         return $start
-                            ? 'Contract '.$start->format('d-m-Y')
+                            ? 'Contract '.(PlatformDateFormatter::make()->date($start) ?? '—')
                             : 'Contract #'.$contract->id;
                     },
                 ],

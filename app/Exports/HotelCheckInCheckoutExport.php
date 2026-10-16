@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\CrewAccommodationStay;
 use App\Support\Reports\HotelCheckInCheckoutPresenter;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -78,8 +79,10 @@ final class HotelCheckInCheckoutExport implements FromQuery, WithHeadings, WithM
             $item['room_type']['name'],
             $item['stay_type_label'],
             $item['accommodation_status_label'],
-            $item['check_in_date'],
-            $item['check_out_date'] ?? 'Open',
+            PlatformDateFormatter::make()->date($item['check_in_date'], '') ?? '',
+            $item['check_out_date'] !== null
+                ? (PlatformDateFormatter::make()->date($item['check_out_date'], '') ?? '')
+                : 'Open',
             $item['stay_status_label'],
             $item['stay_days_invalid']
                 ? $item['stay_days_label']

@@ -24,7 +24,11 @@ import {
 import { DeletedEmployeeMobileCard } from '@/features/organization/employees/components/deleted-employee-mobile-card';
 import { EmployeeRestoreDialog } from '@/features/organization/employees/components/employee-restore-dialog';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import {
     DESKTOP_OPERATIONAL_TABLE_CLASS,
     MOBILE_OPERATIONAL_LIST_CLASS,
@@ -53,6 +57,8 @@ export function DeletedEmployeesContent({
     search: string;
     can: EmployeePageCan;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const list = useServerPaginationFilters({
         url: deletedEmployeesIndex.url(),
         search: initialSearch,
@@ -227,8 +233,10 @@ export function DeletedEmployeesContent({
                                                 className={dataTableCellClass()}
                                             >
                                                 {employee.deleted_at
-                                                    ? formatDisplayDateTime(
+                                                    ? formatDisplayDateTimeInTimezone(
                                                           employee.deleted_at,
+                                                          companyTimezone,
+                                                          dateFormat,
                                                       )
                                                     : '—'}
                                             </TableCell>

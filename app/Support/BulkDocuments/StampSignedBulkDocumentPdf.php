@@ -6,6 +6,7 @@ use App\Models\BulkDocumentSignatureRequest;
 use App\Models\Employee;
 use App\Support\EmployeeFiles\EmployeePrivateFile;
 use App\Support\EmployeeFiles\EmployeePrivateFileKind;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
 use setasign\Fpdi\FpdiException;
@@ -42,7 +43,7 @@ final class StampSignedBulkDocumentPdf
         }
 
         [$signatureBinary, $imageType] = $this->decodeSignatureImage($data['signature_data']);
-        $signedDate ??= now()->format('d M Y');
+        $signedDate ??= PlatformDateFormatter::make()->date(now()) ?? '';
 
         if (! $forceTemplateRender && $this->canStampOntoSourcePdf($request)) {
             try {

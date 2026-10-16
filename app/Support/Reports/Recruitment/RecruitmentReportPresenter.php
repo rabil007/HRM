@@ -6,6 +6,7 @@ use App\Enums\Recruitment\CandidateStage;
 use App\Models\RecruitmentCandidate;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 
 final class RecruitmentReportPresenter
@@ -98,6 +99,9 @@ final class RecruitmentReportPresenter
             }
         }
 
-        return $value->copy()->timezone($timezone)->format('d M Y H:i');
+        return PlatformDateFormatter::make()->dateTime(
+            $value->copy()->timezone($timezone),
+            null,
+        );
     }
 }

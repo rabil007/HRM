@@ -125,7 +125,7 @@ test('interview scheduled at normalizes from company timezone to UTC storage and
 
     // Verify presenter converts it back to company timezone (2026-10-20 23:30) for display
     $presented = CandidatePresenter::toShowArray($candidate, $this->user, 'America/New_York');
-    expect($presented['interview_scheduled_at'])->toBe('20 Oct 2026 23:30');
+    expect($presented['interview_scheduled_at'])->toBe('2026-10-20 23:30');
 });
 
 test('offer sent_at, accepted_at, and actual joining timestamps round-trip across midnight and DST boundaries', function (): void {

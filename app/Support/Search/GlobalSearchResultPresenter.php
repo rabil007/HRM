@@ -9,6 +9,7 @@ use App\Models\EmployeeDocument;
 use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\Vessel;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 
 final class GlobalSearchResultPresenter
@@ -142,8 +143,8 @@ final class GlobalSearchResultPresenter
     {
         return $periods->map(function (PayrollPeriod $period): array {
             $range = $this->join([
-                $period->start_date?->format('d M Y'),
-                $period->end_date?->format('d M Y'),
+                PlatformDateFormatter::make()->date($period->start_date, null),
+                PlatformDateFormatter::make()->date($period->end_date, null),
             ], ' – ');
 
             return [
@@ -177,6 +178,6 @@ final class GlobalSearchResultPresenter
             return null;
         }
 
-        return 'Expires '.$expiry->format('d M Y');
+        return 'Expires '.(PlatformDateFormatter::make()->date($expiry) ?? '—');
     }
 }

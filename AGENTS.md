@@ -12,7 +12,8 @@ PHP 8.4 · Laravel 13 · Fortify 1 · Spatie Permission/Activity Log · Pest 4 �
 2. Read `docs/README.md` and select only the matching domain guide.
 3. Inspect current routes/permissions, models, Support/Services, one or two sibling implementations, and the smallest relevant tests.
 4. Use `docs/architecture/golden-files.md` when a preferred implementation example is needed.
-5. Broaden context only when the task crosses domains or current evidence requires it.
+5. For date/timezone display (UI, email, PDF, export), follow `docs/architecture/date-and-timezone.md` and `.cursor/rules/date-timezone.mdc` (`useFormatDate` / `PlatformDateFormatter` / `useCompanyTimezone`).
+6. Broaden context only when the task crosses domains or current evidence requires it.
 
 Current code, routes, migrations, tests, and `PermissionsSeeder` override stale documentation. Do not scan unrelated OMS-HRM modules for a narrow task.
 

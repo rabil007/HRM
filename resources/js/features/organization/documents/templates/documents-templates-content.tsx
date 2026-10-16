@@ -35,6 +35,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { firstValidationError } from '@/lib/first-validation-error';
+import { useFormatDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { generate as documentsGenerate } from '@/routes/organization/documents';
@@ -56,24 +57,6 @@ import type {
     TemplateVersionSummary,
 } from './types';
 
-function formatDate(isoString: string | null): string {
-    if (!isoString) {
-        return '—';
-    }
-
-    try {
-        const date = new Date(isoString);
-
-        return date.toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
-    } catch {
-        return '—';
-    }
-}
-
 export function DocumentsTemplatesContent({
     customTemplates,
     systemTemplates,
@@ -83,6 +66,7 @@ export function DocumentsTemplatesContent({
     systemTemplates: SystemTemplate[];
     can: TemplatesPermissions;
 }) {
+    const formatDate = useFormatDate();
     // Dialog state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [deletingTemplate, setDeletingTemplate] =

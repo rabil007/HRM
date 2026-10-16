@@ -10,6 +10,7 @@ use App\Support\Settings\CompanyCurrency;
 use App\Support\Settings\CompanyDocumentSettingResolver;
 use App\Support\Settings\CompanyDocumentType;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
@@ -73,7 +74,7 @@ final class SalaryCertificateData
             'signatory_name' => $documentSettings['signatory_name'],
             'signatory_title' => $documentSettings['signatory_title'],
             'footer_text' => $documentSettings['footer_text'],
-            'issued_on' => $issuedOn->format('M d, Y'),
+            'issued_on' => PlatformDateFormatter::make()->date($issuedOn) ?? '—',
             'company_name' => $companyName,
             'employment_basis' => 'Full-Time',
             'employee_name' => strtoupper((string) $employee->name),
@@ -81,7 +82,9 @@ final class SalaryCertificateData
             'passport_number' => (string) ($employee->passport_number ?? ''),
             'nationality' => (string) ($employee->nationalityRef?->name ?? ''),
             'designation' => (string) ($employee->position?->title ?? ''),
-            'start_date' => $startDate ? CarbonImmutable::parse($startDate)->format('M d, Y') : '',
+            'start_date' => $startDate
+                ? (PlatformDateFormatter::make()->date(CarbonImmutable::parse($startDate), '') ?? '')
+                : '',
             'basic_salary' => $basicSalary,
             'total_salary' => $totalSalary,
             'currency_code' => $currencyCode,

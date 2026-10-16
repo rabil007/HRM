@@ -167,6 +167,22 @@ describe('company-timezone helper', () => {
             );
         });
 
+        it('maps public expiry ISO instants to the company calendar day', () => {
+            // 2026-10-16T22:30:00Z → 17 Oct in Asia/Dubai, 16 Oct in UTC, 16 Oct evening in New York (EDT).
+            assert.equal(
+                toCompanyDateLocal('2026-10-16T22:30:00Z', 'Asia/Dubai'),
+                '2026-10-17',
+            );
+            assert.equal(
+                toCompanyDateLocal('2026-10-16T22:30:00Z', 'UTC'),
+                '2026-10-16',
+            );
+            assert.equal(
+                toCompanyDateLocal('2026-10-16T22:30:00Z', 'America/New_York'),
+                '2026-10-16',
+            );
+        });
+
         it('schedules the next company-local midnight without treating today as an end date', () => {
             // 17 Sep 23:55 Dubai → next midnight is ~5 minutes away
             const delay = msUntilNextCompanyMidnight(

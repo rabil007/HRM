@@ -54,6 +54,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { SalarySheetPayslipDialog } from '@/features/payroll/overview/salary-sheet-payslip-dialog';
+import { useFormatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as payrollIndex } from '@/routes/payroll';
 import { index as recordsIndex } from '@/routes/payroll/records';
@@ -169,6 +170,7 @@ export function PayrollOverviewContent({
     can,
 }: PayrollOverviewProps): ReactElement {
     const { settings } = usePage().props;
+    const formatDate = useFormatDate();
     const currency =
         settings.company?.currency?.code || settings.currency || 'AED';
     const [salarySheetDialogOpen, setSalarySheetDialogOpen] = useState(false);
@@ -197,12 +199,9 @@ export function PayrollOverviewContent({
     const tooltipNumber = (value: unknown): number =>
         typeof value === 'number' ? value : 0;
 
-    const today = new Date().toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const today = formatDate(todayIso);
 
     const hasUrgentItems = summary.processing_periods > 0;
     const hasTrendData = summary.monthly_trend.some((m) => m.total > 0);

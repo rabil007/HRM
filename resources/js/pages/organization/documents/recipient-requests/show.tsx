@@ -17,7 +17,8 @@ import type {
     RecipientRequestPermissions,
     RecipientRequestStatus,
 } from '@/features/organization/documents/workflow/types';
-import { formatDisplayDate } from '@/lib/format-date';
+import { toCompanyDateLocal, useCompanyTimezone } from '@/lib/company-timezone';
+import { useFormatDate } from '@/lib/format-date';
 import documentRoutes from '@/routes/organization/documents';
 
 type RecipientRequestDetail = {
@@ -88,6 +89,16 @@ export default function RecipientRequestShow({
     recent_activity,
     can_view_audit,
 }: Props): ReactElement {
+    const formatDate = useFormatDate();
+    const companyTimezone = useCompanyTimezone();
+    const formatInstantDate = (value: string | null | undefined): string => {
+        if (!value) {
+            return '—';
+        }
+
+        return formatDate(toCompanyDateLocal(value, companyTimezone) || null);
+    };
+
     return (
         <>
             <Head title={`${recipient_request.action_label} request`} />
@@ -234,8 +245,8 @@ export default function RecipientRequestShow({
                                 </span>
                                 <span>
                                     {recipient_request.status === 'expired'
-                                        ? `Expired ${formatDisplayDate(recipient_request.expires_at)}`
-                                        : formatDisplayDate(
+                                        ? `Expired ${formatInstantDate(recipient_request.expires_at)}`
+                                        : formatInstantDate(
                                               recipient_request.expires_at,
                                           )}
                                 </span>
@@ -262,7 +273,7 @@ export default function RecipientRequestShow({
                                         <span>
                                             {recipient_request.reminder_summary
                                                 .next_reminder_at
-                                                ? formatDisplayDate(
+                                                ? formatInstantDate(
                                                       recipient_request
                                                           .reminder_summary
                                                           .next_reminder_at,
@@ -292,7 +303,7 @@ export default function RecipientRequestShow({
                                                 Last sent
                                             </span>
                                             <span>
-                                                {formatDisplayDate(
+                                                {formatInstantDate(
                                                     recipient_request
                                                         .email_delivery
                                                         .last_sent_at,
@@ -347,7 +358,7 @@ export default function RecipientRequestShow({
                                     Requested
                                 </span>
                                 <span>
-                                    {formatDisplayDate(
+                                    {formatInstantDate(
                                         recipient_request.requested_at,
                                     )}
                                 </span>
@@ -358,7 +369,7 @@ export default function RecipientRequestShow({
                                         Completed
                                     </span>
                                     <span>
-                                        {formatDisplayDate(
+                                        {formatInstantDate(
                                             recipient_request.completed_at,
                                         )}
                                     </span>
@@ -388,7 +399,7 @@ export default function RecipientRequestShow({
                                         ) : null}
                                     </div>
                                     <span className="text-muted-foreground">
-                                        {formatDisplayDate(item.occurred_at)}
+                                        {formatInstantDate(item.occurred_at)}
                                     </span>
                                 </div>
                             ))}

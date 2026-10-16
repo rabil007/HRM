@@ -15,7 +15,9 @@ use App\Models\Project;
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
 use App\Models\User;
+use App\Services\Settings\SettingService;
 use App\Support\Recruitment\RequirementLifecycleEmailPayload;
+use App\Support\Settings\SettingKey;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -288,6 +290,35 @@ test('requirement show page exposes day-based duration props and fill permission
             ->where('requirement.active_recruitment_seconds', fn ($seconds) => is_int($seconds) && $seconds >= 2 * 86400)
             ->has('requirement.active_recruitment_days')
             ->has('requirement.required_by_date_formatted')
+        );
+});
+
+test('requirement show page formats required_by_date using platform date format setting', function () {
+    $settings = app(SettingService::class);
+    $req = createPresentationRequirement($this, [
+        'required_by_date' => '2026-05-21',
+    ]);
+
+    $settings->set(SettingKey::DateFormat, 'Y-m-d');
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/show')
+            ->where('requirement.required_by_date_formatted', '2026-05-21')
+        );
+
+    $settings->set(SettingKey::DateFormat, 'd/m/Y');
+
+    $this->actingAs($this->recruiter)
+        ->withSession(['current_company_id' => $this->company->id])
+        ->get("/organization/recruitment/requirements/{$req->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/recruitment/requirements/show')
+            ->where('requirement.required_by_date_formatted', '21/05/2026')
         );
 });
 

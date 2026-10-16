@@ -25,7 +25,11 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { sends as bulkEmailBatchSends } from '@/routes/organization/documents/bulk/email-batches';
@@ -98,6 +102,8 @@ export function BulkEmailBatchSendsSheet({
     batchId: number | null;
     onOpenChange: (open: boolean) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const open = batchId !== null;
     const [batch, setBatch] = useState<BulkEmailBatchDetail | null>(null);
     const [sends, setSends] = useState<BulkEmailBatchSend[]>([]);
@@ -196,7 +202,11 @@ export function BulkEmailBatchSendsSheet({
 
                             {batch.created_at ? (
                                 <p className="text-xs text-muted-foreground/80">
-                                    {formatDisplayDateTime12h(batch.created_at)}
+                                    {formatDisplayDateTime12hInTimezone(
+                                        batch.created_at,
+                                        companyTimezone,
+                                        dateFormat,
+                                    )}
                                     {batch.triggered_by
                                         ? ` · ${batch.triggered_by}`
                                         : ''}
@@ -306,8 +316,10 @@ export function BulkEmailBatchSendsSheet({
                                                     )}
                                                 >
                                                     {send.sent_at
-                                                        ? formatDisplayDateTime12h(
+                                                        ? formatDisplayDateTime12hInTimezone(
                                                               send.sent_at,
+                                                              companyTimezone,
+                                                              dateFormat,
                                                           )
                                                         : '—'}
                                                 </TableCell>

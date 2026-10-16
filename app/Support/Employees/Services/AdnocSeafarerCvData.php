@@ -11,6 +11,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Services\Settings\SettingService;
 use App\Support\Employees\SummarizeSeaServiceExperience;
+use App\Support\Settings\PlatformDateFormatter;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -109,7 +110,9 @@ final class AdnocSeafarerCvData
             'agency_name' => strtoupper((string) ($company?->name ?? '')),
             'position_applied' => strtoupper($rankApplied),
             'full_name' => strtoupper((string) $employee->name),
-            'dob_age' => $dob ? $dob->format('d/m/Y').'  '.$dob->age : '',
+            'dob_age' => $dob
+                ? (PlatformDateFormatter::make()->date($dob, '') ?? '').'  '.$dob->age
+                : '',
             'religion' => strtoupper((string) ($employee->religionRef?->name ?? '')),
             'nationality' => strtoupper((string) ($employee->nationalityRef?->name ?? '')),
             'passport_number' => strtoupper((string) ($employee->passport_number ?? $passportDoc?->document_number ?? '')),
@@ -234,7 +237,10 @@ final class AdnocSeafarerCvData
             'experience_offshore_years' => self::yearsFromSeaServices($seaServices),
             'experience_dp_hours' => '',
             'references' => [],
-            'declaration_date' => now()->timezone(config('app.timezone'))->format('d-m-Y'),
+            'declaration_date' => PlatformDateFormatter::make()->date(
+                now()->timezone(config('app.timezone')),
+                '',
+            ) ?? '',
             'generated_at' => now(),
         ];
     }
@@ -571,7 +577,7 @@ final class AdnocSeafarerCvData
             return '';
         }
 
-        return CarbonImmutable::parse($date)->format('d/m/Y');
+        return PlatformDateFormatter::make()->date(CarbonImmutable::parse($date), '') ?? '';
     }
 
     private static function formatEmergency(?string $contact, ?string $phone): string

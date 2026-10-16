@@ -109,7 +109,7 @@ test('authenticated users can open printable salary certificate', function () {
         ->assertSee('TB0906104', false)
         ->assertSee('Macau', false)
         ->assertSee('Deck Officer', false)
-        ->assertSee('Feb 02, 2026', false)
+        ->assertSee('2026-02-02', false)
         ->assertSee('50.00 SCP', false)
         ->assertSee('Overseas Marine Services Sole Proprietorship LLC', false)
         ->assertSee('hr@overseas-ms.com', false)

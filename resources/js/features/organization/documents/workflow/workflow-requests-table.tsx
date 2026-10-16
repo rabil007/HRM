@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/table';
 import type { WorkflowRequestListItem } from '@/features/organization/documents/workflow/types';
 import { WorkflowStatusBadge } from '@/features/organization/documents/workflow/workflow-status-badge';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
 
@@ -45,6 +49,9 @@ export function WorkflowRequestsTable({
     requests: WorkflowRequestListItem[];
     emptyAction?: ReactNode;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
+
     if (requests.length === 0) {
         return (
             <EmptyState
@@ -149,8 +156,10 @@ export function WorkflowRequestsTable({
                                 {/* Requested at */}
                                 <TableCell className="text-sm text-muted-foreground">
                                     {request.requested_at
-                                        ? formatDisplayDateTime12h(
+                                        ? formatDisplayDateTime12hInTimezone(
                                               request.requested_at,
+                                              companyTimezone,
+                                              dateFormat,
                                           )
                                         : '—'}
                                 </TableCell>

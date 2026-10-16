@@ -41,7 +41,7 @@ final class EmployeeListResource
             'nearest_airport' => $employee->nearest_airport,
             'emergency_contact' => $employee->emergency_contact,
             'emergency_phone' => $employee->emergency_phone,
-            'date_of_birth' => $employee->date_of_birth,
+            'date_of_birth' => $employee->date_of_birth?->toDateString(),
             'hire_date' => $employee->hire_date?->toDateString(),
             'place_of_birth' => $employee->place_of_birth,
             'gender_id' => $employee->gender_id,

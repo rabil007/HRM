@@ -9,6 +9,7 @@ use App\Models\LeaveRequestApproval;
 use App\Models\LeaveRequestApprovalReassignment;
 use App\Models\User;
 use App\Support\Companies\ResolveCompanyAccess;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -379,11 +380,11 @@ final class LeaveReportApprovalHistory
 
     private static function displayDateTime(string $value): string
     {
-        return CarbonImmutable::parse($value)->format('d M Y H:i');
+        return PlatformDateFormatter::make()->dateTime(CarbonImmutable::parse($value), null) ?? '—';
     }
 
     private static function displayDate(string $value): string
     {
-        return CarbonImmutable::parse($value)->format('d M Y');
+        return PlatformDateFormatter::make()->date(CarbonImmutable::parse($value)) ?? '—';
     }
 }

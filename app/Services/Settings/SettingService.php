@@ -22,9 +22,6 @@ class SettingService
 
     private ?bool $ready = null;
 
-    /** @var array<string, string|null>|null */
-    private ?array $resolvedSettings = null;
-
     public function isReady(): bool
     {
         if ($this->ready !== null) {
@@ -58,15 +55,13 @@ class SettingService
     /** @return array<string, string|null> */
     public function all(): array
     {
-        if ($this->resolvedSettings !== null) {
-            return $this->resolvedSettings;
-        }
-
         if (! $this->isReady()) {
-            return $this->resolvedSettings = SettingKey::defaults();
+            return SettingKey::defaults();
         }
 
-        return $this->resolvedSettings = Cache::rememberForever(self::CACHE_KEY, function (): array {
+        // Read through Laravel Cache only — no process-local copy — so queue workers
+        // and Octane workers see updates after Cache::forget from any process.
+        return Cache::rememberForever(self::CACHE_KEY, function (): array {
             $stored = AppSetting::query()
                 ->get(['key', 'value'])
                 ->pluck('value', 'key')
@@ -90,7 +85,6 @@ class SettingService
     {
         Cache::forget(self::CACHE_KEY);
         $this->ready = null;
-        $this->resolvedSettings = null;
     }
 
     public function appName(): string

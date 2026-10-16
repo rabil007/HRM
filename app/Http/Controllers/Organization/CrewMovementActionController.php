@@ -11,6 +11,7 @@ use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewMovementService;
 use App\Support\CrewMovements\Scheduling\ResolveCrewMovementTiming;
 use App\Support\CrewMovements\Scheduling\ScheduleCrewMovement;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
@@ -66,7 +67,10 @@ class CrewMovementActionController extends Controller
                 ->with('success', sprintf(
                     '%s scheduled for %s.',
                     $schedule->movement_action->label(),
-                    $schedule->scheduled_at?->timezone($schedule->scheduled_timezone)->format('d M Y H:i'),
+                    PlatformDateFormatter::make()->dateTime(
+                        $schedule->scheduled_at?->timezone($schedule->scheduled_timezone),
+                        null,
+                    ),
                 ));
         }
 

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\EmployeeBankAccount;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -55,7 +56,7 @@ class BankAccountsExport implements FromQuery, WithHeadings, WithMapping, WithSt
             $account->account_name,
             $account->employee?->salary_payment_method?->label() ?? 'Bank transfer',
             $account->is_primary ? 'Primary' : 'Secondary',
-            optional($account->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($account->created_at, '') ?? '',
         ];
     }
 }

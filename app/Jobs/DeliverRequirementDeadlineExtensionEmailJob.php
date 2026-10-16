@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Recruitment\ComposeRequirementLifecycleMail;
 use App\Support\Recruitment\RequirementDeadlineExtensionEmailPayload;
 use App\Support\Recruitment\RequirementNotificationRecipients;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -267,7 +268,7 @@ class DeliverRequirementDeadlineExtensionEmailJob implements ShouldQueue
         }
 
         try {
-            return Carbon::parse($date)->format('d M Y');
+            return PlatformDateFormatter::make()->date(Carbon::parse($date)) ?? '—';
         } catch (Throwable) {
             return $date;
         }

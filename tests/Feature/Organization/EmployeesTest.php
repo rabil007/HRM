@@ -666,6 +666,55 @@ test('employee can be created and updated with hire_date on the employee record'
     expect($employee->fresh()->hire_date?->toDateString())->toBe('2024-05-20');
 });
 
+test('employee date_of_birth is serialized as a calendar date string on index and show', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'DOB',
+        'name' => 'Dobland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DOB',
+        'name' => 'Dob Currency',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Dob Co',
+        'slug' => 'dob-co-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'date_of_birth' => '1992-08-29',
+        ]);
+
+    $this->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.0.id', $employee->id)
+            ->where('employees.0.date_of_birth', '1992-08-29'));
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.date_of_birth', '1992-08-29'));
+});
+
 test('employee can be created with company_visa_type_id and profile update preserves sponsor', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

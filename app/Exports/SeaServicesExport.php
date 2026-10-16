@@ -49,8 +49,9 @@ class SeaServicesExport implements FromCollection, WithHeadings, WithMapping, Wi
             $seaService->vesselType?->name,
             $seaService->position?->title,
             $seaService->client?->name,
-            optional($seaService->start_date)->toDateString(),
-            optional($seaService->end_date)->toDateString(),
+            // ISO Y-m-d — re-importable via SeaServicesImport / FlexibleCsvDateParser.
+            $seaService->start_date?->toDateString(),
+            $seaService->end_date?->toDateString(),
             $seaService->total_months,
             $seaService->total_days,
             $seaService->crew_assignment_phase_id ? 'Yes' : 'No',

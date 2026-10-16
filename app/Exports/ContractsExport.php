@@ -71,8 +71,9 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $contract->employee?->position?->title,
             $contract->companyVisaType?->name,
             $contract->labor_contract_id,
-            optional($contract->start_date)->toDateString(),
-            optional($contract->end_date)->toDateString(),
+            // ISO Y-m-d — re-importable via ContractsImport.
+            $contract->start_date?->toDateString(),
+            $contract->end_date?->toDateString(),
             $contract->basic_salary,
         ];
 

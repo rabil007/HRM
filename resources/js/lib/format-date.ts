@@ -1,77 +1,21 @@
 import { usePage } from '@inertiajs/react';
+import {
+    DEFAULT_DATE_FORMAT,
+    formatDisplayDate,
+    isIsoDateString,
+    SUPPORTED_DATE_FORMATS,
+    syncPlatformDateFormatCache,
+} from './format-date-core.ts';
+import type { PlatformDateFormat } from './format-date-core.ts';
 
-const ISO_DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/;
-
-export const SUPPORTED_DATE_FORMATS = [
-    'Y-m-d',
-    'd/m/Y',
-    'm/d/Y',
-    'd-m-Y',
-    'M d, Y',
-] as const;
-
-export type PlatformDateFormat = (typeof SUPPORTED_DATE_FORMATS)[number];
-
-export const DEFAULT_DATE_FORMAT: PlatformDateFormat = 'd-m-Y';
-
-const SHORT_MONTH_NAMES: Record<string, string> = {
-    '01': 'Jan',
-    '02': 'Feb',
-    '03': 'Mar',
-    '04': 'Apr',
-    '05': 'May',
-    '06': 'Jun',
-    '07': 'Jul',
-    '08': 'Aug',
-    '09': 'Sep',
-    '10': 'Oct',
-    '11': 'Nov',
-    '12': 'Dec',
+export {
+    DEFAULT_DATE_FORMAT,
+    formatDisplayDate,
+    isIsoDateString,
+    SUPPORTED_DATE_FORMATS,
+    syncPlatformDateFormatCache,
 };
-
-export function isIsoDateString(value: string): boolean {
-    return ISO_DATE_PREFIX.test(value.trim());
-}
-
-export function formatDisplayDate(
-    value: string | null | undefined,
-    format?: string | null,
-): string {
-    if (value === null || value === undefined) {
-        return '—';
-    }
-
-    const trimmed = value.trim();
-
-    if (trimmed === '') {
-        return '—';
-    }
-
-    const match = ISO_DATE_PREFIX.exec(trimmed);
-
-    if (!match) {
-        return trimmed;
-    }
-
-    const [, year, month, day] = match;
-
-    switch (format) {
-        case 'Y-m-d':
-            return `${year}-${month}-${day}`;
-        case 'd/m/Y':
-            return `${day}/${month}/${year}`;
-        case 'm/d/Y':
-            return `${month}/${day}/${year}`;
-        case 'M d, Y': {
-            const monthName = SHORT_MONTH_NAMES[month] ?? month;
-
-            return `${monthName} ${day}, ${year}`;
-        }
-        case 'd-m-Y':
-        default:
-            return `${day}-${month}-${year}`;
-    }
-}
+export type { PlatformDateFormat };
 
 export function useDateFormat(overrideFormat?: string | null): string {
     const page = usePage();
@@ -81,7 +25,10 @@ export function useDateFormat(overrideFormat?: string | null): string {
         typeof overrideFormat === 'string' &&
         overrideFormat.trim() !== ''
     ) {
-        return overrideFormat.trim();
+        const trimmed = overrideFormat.trim();
+        syncPlatformDateFormatCache(trimmed);
+
+        return trimmed;
     }
 
     const settings = page?.props?.settings as
@@ -93,8 +40,10 @@ export function useDateFormat(overrideFormat?: string | null): string {
 
     const platformFormat = settings?.platform?.default_date_format;
     const flatFormat = settings?.date_format;
+    const resolved = platformFormat || flatFormat || DEFAULT_DATE_FORMAT;
+    syncPlatformDateFormatCache(resolved);
 
-    return platformFormat || flatFormat || DEFAULT_DATE_FORMAT;
+    return resolved;
 }
 
 export function useFormatDate(
@@ -106,8 +55,27 @@ export function useFormatDate(
         formatDisplayDate(value, dateFormat);
 }
 
+function format12HourClockFromParts(hours24: number, minutes: string): string {
+    const period = hours24 >= 12 ? 'PM' : 'AM';
+    let hours = hours24 % 12;
+
+    if (hours === 0) {
+        hours = 12;
+    }
+
+    return `${hours}:${minutes} ${period}`;
+}
+
+function format12HourClock(parsed: Date): string {
+    return format12HourClockFromParts(
+        parsed.getHours(),
+        String(parsed.getMinutes()).padStart(2, '0'),
+    );
+}
+
 export function formatDisplayDateTime(
     value: string | null | undefined,
+    format?: string | null,
 ): string {
     if (value === null || value === undefined || value === '') {
         return '—';
@@ -119,18 +87,17 @@ export function formatDisplayDateTime(
         return value.trim();
     }
 
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const year = parsed.getFullYear();
+    const isoDate = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
     const hours = String(parsed.getHours()).padStart(2, '0');
     const minutes = String(parsed.getMinutes()).padStart(2, '0');
 
-    return `${day}-${month}-${year} ${hours}:${minutes}`;
+    return `${formatDisplayDate(isoDate, format)} ${hours}:${minutes}`;
 }
 
 export function formatDisplayDateTimeInTimezone(
     value: string | null | undefined,
     timeZone: string,
+    format?: string | null,
 ): string {
     if (value === null || value === undefined || value === '') {
         return '—';
@@ -155,20 +122,9 @@ export function formatDisplayDateTimeInTimezone(
     const get = (type: Intl.DateTimeFormatPartTypes): string =>
         parts.find((part) => part.type === type)?.value ?? '';
 
-    return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}`;
-}
+    const isoDate = `${get('year')}-${get('month')}-${get('day')}`;
 
-function format12HourClock(parsed: Date): string {
-    const minutes = String(parsed.getMinutes()).padStart(2, '0');
-    let hours = parsed.getHours();
-    const period = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-
-    if (hours === 0) {
-        hours = 12;
-    }
-
-    return `${hours}:${minutes} ${period}`;
+    return `${formatDisplayDate(isoDate, format)} ${get('hour')}:${get('minute')}`;
 }
 
 export function formatDisplayTime12h(value: string | null | undefined): string {
@@ -187,6 +143,7 @@ export function formatDisplayTime12h(value: string | null | undefined): string {
 
 export function formatDisplayDateTime12h(
     value: string | null | undefined,
+    format?: string | null,
 ): string {
     if (value === null || value === undefined || value === '') {
         return '—';
@@ -198,11 +155,27 @@ export function formatDisplayDateTime12h(
         return value.trim();
     }
 
-    const day = String(parsed.getDate()).padStart(2, '0');
-    const month = String(parsed.getMonth() + 1).padStart(2, '0');
-    const year = parsed.getFullYear();
+    const isoDate = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
 
-    return `${day}-${month}-${year} ${format12HourClock(parsed)}`;
+    return `${formatDisplayDate(isoDate, format)} ${format12HourClock(parsed)}`;
+}
+
+export function useFormatDateTime(
+    overrideFormat?: string | null,
+): (value: string | null | undefined) => string {
+    const dateFormat = useDateFormat(overrideFormat);
+
+    return (value: string | null | undefined) =>
+        formatDisplayDateTime(value, dateFormat);
+}
+
+export function useFormatDateTime12h(
+    overrideFormat?: string | null,
+): (value: string | null | undefined) => string {
+    const dateFormat = useDateFormat(overrideFormat);
+
+    return (value: string | null | undefined) =>
+        formatDisplayDateTime12h(value, dateFormat);
 }
 
 export function formatDisplayValue(

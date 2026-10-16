@@ -6,7 +6,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import type { LeaveReportRow } from './types';
 
 export function LeaveReportApprovalHistoryDialog({
@@ -18,6 +22,8 @@ export function LeaveReportApprovalHistoryDialog({
     open: boolean;
     onOpenChange: (open: boolean) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const chain = row?.approval_chain ?? [];
     const reassignments = row?.reassignments ?? [];
 
@@ -48,7 +54,7 @@ export function LeaveReportApprovalHistoryDialog({
                                 <p className="text-muted-foreground">
                                     {step.status_label}
                                     {step.acted_at
-                                        ? ` · ${formatDisplayDateTime(step.acted_at)}`
+                                        ? ` · ${formatDisplayDateTimeInTimezone(step.acted_at, companyTimezone, dateFormat)}`
                                         : ''}
                                 </p>
                             </li>
@@ -78,8 +84,10 @@ export function LeaveReportApprovalHistoryDialog({
                                 <p>
                                     Date:{' '}
                                     {item.reassigned_at
-                                        ? formatDisplayDateTime(
+                                        ? formatDisplayDateTimeInTimezone(
                                               item.reassigned_at,
+                                              companyTimezone,
+                                              dateFormat,
                                           )
                                         : '—'}
                                 </p>

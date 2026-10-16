@@ -11,6 +11,7 @@ use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Support\Hikvision\HikvisionFetchOrigin;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -171,7 +172,9 @@ class HikvisionAccessEventController extends Controller
             HikvisionFetchOrigin::Manual,
         );
 
-        $label = $date->isToday() ? 'today' : $date->format('d-m-Y');
+        $label = $date->isToday()
+            ? 'today'
+            : (PlatformDateFormatter::make()->date($date) ?? '—');
 
         return back()->with('success', "Fetch started for {$label}. Records will update automatically when complete.");
     }

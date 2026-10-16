@@ -387,7 +387,7 @@ test('crew payslip presentation lines include detail and blade renders it', func
     $earning = collect($data['earnings'])->firstWhere('label', 'Prior-period onsite pay');
 
     expect($earning)->not->toBeNull()
-        ->and($earning['detail'] ?? null)->toContain('28 Jun 2026')
+        ->and($earning['detail'] ?? null)->toContain('2026-06-28')
         ->and($earning['detail'] ?? null)->toContain('2 days')
         ->and($earning['detail'] ?? null)->toContain('basic 100.00')
         ->and($earning['detail'] ?? null)->toContain('site 50.00')
@@ -398,7 +398,7 @@ test('crew payslip presentation lines include detail and blade renders it', func
     expect($html)
         ->toContain('Prior-period onsite pay')
         ->toContain('line-detail')
-        ->toContain('28 Jun 2026');
+        ->toContain('2026-06-28');
 });
 
 test('crew payslip combines sign-on and sign-off standby into total standby pay', function () {

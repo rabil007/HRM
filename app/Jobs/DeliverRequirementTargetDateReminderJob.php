@@ -16,6 +16,7 @@ use App\Support\Recruitment\RequirementPresenter;
 use App\Support\Recruitment\RequirementTargetDateReminderDeliveryKey;
 use App\Support\Recruitment\RequirementTargetDateReminderRecipients;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -258,7 +259,7 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
             requirementUrl: $requirementUrl,
             daysLabel: $daysLabel,
             statusNote: $statusNote,
-            targetDateFormatted: $targetLocal->format('d M Y'),
+            targetDateFormatted: PlatformDateFormatter::make()->date($targetLocal) ?? '—',
             heading: $milestone->heading(),
             milestoneLabel: $milestoneLabel,
         );
@@ -509,7 +510,7 @@ class DeliverRequirementTargetDateReminderJob implements ShouldQueue
         ];
         $details[] = [
             'label' => 'Target Date',
-            'value' => $requirement->required_by_date?->format('d-m-Y') ?? '—',
+            'value' => PlatformDateFormatter::make()->date($requirement->required_by_date) ?? '—',
         ];
         $details[] = [
             'label' => 'Deadline',

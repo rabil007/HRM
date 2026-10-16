@@ -15,6 +15,7 @@ use App\Support\CrewMovements\SeaServiceSyncService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\MasterData\ClientAssignmentRules;
 use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 
 final class HistoricalCrewAssignmentValidator
@@ -267,13 +268,14 @@ final class HistoricalCrewAssignmentValidator
                     $noConflict = false;
                     $conflictingAssignment = $existing;
                     $overlapStart = $newStart->gt($existingStart) ? $newStart : $existingStart;
+                    $dates = PlatformDateFormatter::make();
                     $overlapEndLabel = $newEnd !== null && $existingEnd !== null
-                        ? ($newEnd->lt($existingEnd) ? $newEnd : $existingEnd)->copy()->timezone($timezone)->format('d M Y')
+                        ? ($dates->date(($newEnd->lt($existingEnd) ? $newEnd : $existingEnd)->copy()->timezone($timezone)) ?? '—')
                         : 'Current';
                     $conflictMessage = sprintf(
                         'Overlaps %s (%s -> %s)',
                         $existing->assignment_no,
-                        $overlapStart->copy()->timezone($timezone)->format('d M Y'),
+                        $dates->date($overlapStart->copy()->timezone($timezone)) ?? '—',
                         $overlapEndLabel,
                     );
                     $errors['overlap'] = $conflictMessage;
@@ -388,6 +390,8 @@ final class HistoricalCrewAssignmentValidator
         $knownPeriods = [];
         $accommodationSummary = [];
 
+        $dates = PlatformDateFormatter::make();
+
         if ($reconstruction !== null) {
             $inferred = $reconstruction['inferred_state'];
             $last = $reconstruction['last_movement'];
@@ -396,24 +400,24 @@ final class HistoricalCrewAssignmentValidator
                 'label' => $inferred['label'],
                 'event_key' => $inferred['event_key'],
                 'event_label' => $inferred['event_label'],
-                'event_at' => $inferred['event_at']->copy()->timezone($timezone)->format('d M Y'),
+                'event_at' => $dates->date($inferred['event_at']->copy()->timezone($timezone), null),
                 'assignment_status' => $reconstruction['assignment_status']->value,
                 'is_open' => $reconstruction['is_open'],
             ];
             $lastMovement = [
                 'event_key' => $last['event_key'],
                 'event_label' => $last['event_label'],
-                'event_at' => $last['event_at']->copy()->timezone($timezone)->format('d M Y'),
-                'display' => $last['event_label'].' — '.$last['event_at']->copy()->timezone($timezone)->format('d M Y'),
+                'event_at' => $dates->date($last['event_at']->copy()->timezone($timezone), null),
+                'display' => $last['event_label'].' — '.($dates->date($last['event_at']->copy()->timezone($timezone)) ?? '—'),
             ];
             $knownPeriods = $reconstruction['known_periods'];
         }
 
         $summary = [
-            'onsite_from' => $data->onsiteFrom?->copy()->timezone($timezone)->format('d M Y'),
-            'onsite_to' => $data->onsiteTo?->copy()->timezone($timezone)->format('d M Y'),
-            'joined_vessel_at' => $data->onsiteFrom?->copy()->timezone($timezone)->format('d M Y'),
-            'disembarked_at' => $data->onsiteTo?->copy()->timezone($timezone)->format('d M Y'),
+            'onsite_from' => $dates->date($data->onsiteFrom?->copy()->timezone($timezone), null),
+            'onsite_to' => $dates->date($data->onsiteTo?->copy()->timezone($timezone), null),
+            'joined_vessel_at' => $dates->date($data->onsiteFrom?->copy()->timezone($timezone), null),
+            'disembarked_at' => $dates->date($data->onsiteTo?->copy()->timezone($timezone), null),
             'sea_service_days' => $data->hasCompletedSeaServicePeriod() ? $seaDuration['days'] : null,
             'remarks' => $data->remarks,
             'assignment_status' => $reconstruction['assignment_status']->value ?? null,
@@ -446,9 +450,9 @@ final class HistoricalCrewAssignmentValidator
                 $timeline[] = [
                     'phase_code' => $phase['phase_code']->value,
                     'phase_label' => $phase['phase_code']->label(),
-                    'start' => $phaseStart->format('d M Y'),
-                    'end' => $phaseEnd?->format('d M Y'),
-                    'end_display' => $phaseEnd !== null ? $phaseEnd->format('d M Y') : 'Current',
+                    'start' => $dates->date($phaseStart) ?? '—',
+                    'end' => $dates->date($phaseEnd, null),
+                    'end_display' => $phaseEnd !== null ? ($dates->date($phaseEnd) ?? '—') : 'Current',
                     'is_open' => $phase['actual_end_at'] === null,
                     'duration_days' => $duration,
                     'allocated_service_days' => $presented['allocated_service_days'],

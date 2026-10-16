@@ -1,0 +1,36 @@
+---
+description: Platform date format and company timezone display — useFormatDate, PlatformDateFormatter, useCompanyTimezone
+globs: resources/js/**/*.{ts,tsx},app/**/*.php
+alwaysApply: false
+---
+
+# Date format and timezone
+
+Platform **Default Date Format** and the company → platform timezone hierarchy must stay authoritative for display. Do not invent new formatters or hardcode `d-m-Y` / `d M Y` / `toLocaleDateString` for calendar dates.
+
+Full guide: [docs/architecture/date-and-timezone.md](../../docs/architecture/date-and-timezone.md)
+
+## Frontend (React)
+
+- **Date-only display:** `useFormatDate()` / `useDateFormat()` from `@/lib/format-date`. Never call bare `formatDisplayDate(value)` without a format in components.
+- **Pure helpers:** `formatDisplayDate(value, format?)` stays pure (no `usePage`). Pass format from the hook, or rely on the layout-synced module cache only when a non-React `.ts` module cannot accept a format argument.
+- **Absolute ISO datetimes on org screens:** `useCompanyTimezone()` + `formatDisplayDateTimeInTimezone` / `formatDisplayDateTime12hInTimezone` (date portion uses platform format). Do not use browser-local `formatDisplayDateTime` for company data.
+- **Crew wall-clock / movement timestamps:** keep existing company-timezone helpers (`toCompanyDateTimeLocal`, movement parsing). Do not double-convert.
+- **Month headers** like “October 2026” may stay locale month-year chrome; full calendar dates must use platform format.
+- **Storage / `<input type="date">` / ISO props:** keep `Y-m-d`. Prefer `AppDateField` when the screen already uses it; do not mass-replace native date inputs unless the task asks.
+
+## Backend (PHP)
+
+- **Human dates** for Inertia `*_formatted` props, emails, PDFs, report-only exports: `PlatformDateFormatter::make()->date()` / `dateTime()`.
+- **Re-importable export date columns** (employees, sea services, trainings, contracts): keep ISO `Y-m-d` so export→import cannot corrupt ambiguous `05/06/2026` values.
+- **No new hardcoded** `->format('d-m-Y')` or `->format('d M Y')` for display.
+- **Storage, imports, APIs, validation:** keep ISO `Y-m-d` / Carbon; do not parse platform display formats as input.
+- **Business “today”, payroll periods, leave year, crew movement clocks:** `CompanyTimezone` (company first, platform fallback). Never force platform timezone onto companies that already have `companies.timezone`.
+- **Absolute ISO expiry/datetimes on UI:** convert to company-local calendar day (`toCompanyDateLocal` / company TZ) before platform date formatting; do not take the UTC `YYYY-MM-DD` prefix.
+
+## Anti-patterns
+
+- `toLocaleDateString()` for operational calendar dates
+- Bare `formatDisplayDate(iso)` in React components (skips settings unless cache was synced)
+- Browser-local datetime for attendance/leave/activity ISO instants
+- Rewiring crew wall-clock, payroll boundaries, or leave rollover to “browser local” or “platform timezone only”

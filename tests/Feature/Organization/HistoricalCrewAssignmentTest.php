@@ -585,10 +585,10 @@ test('preview response matches the canonical contract exactly', function () {
         expect($data['vessel'])->toHaveKeys(['id', 'name']);
         expect($data['position'])->toHaveKeys(['id', 'name']);
         expect($data['summary'])->toMatchArray([
-            'onsite_from' => '15 Jan 2024',
-            'onsite_to' => '20 Jul 2024',
-            'joined_vessel_at' => '15 Jan 2024',
-            'disembarked_at' => '20 Jul 2024',
+            'onsite_from' => '2024-01-15',
+            'onsite_to' => '2024-07-20',
+            'joined_vessel_at' => '2024-01-15',
+            'disembarked_at' => '2024-07-20',
             'sea_service_days' => 188,
             'remarks' => 'Inspection crew',
             'assignment_status' => 'active',
@@ -601,9 +601,9 @@ test('preview response matches the canonical contract exactly', function () {
         expect($data['timeline'][0])->toEqual([
             'phase_code' => 'p2',
             'phase_label' => 'On Vessel',
-            'start' => '15 Jan 2024',
-            'end' => '20 Jul 2024',
-            'end_display' => '20 Jul 2024',
+            'start' => '2024-01-15',
+            'end' => '2024-07-20',
+            'end_display' => '2024-07-20',
             'is_open' => false,
             'duration_days' => 188,
             'allocated_service_days' => 188,
@@ -613,7 +613,7 @@ test('preview response matches the canonical contract exactly', function () {
         expect($data['timeline'][1])->toEqual([
             'phase_code' => 'p3',
             'phase_label' => 'Demobilisation Standby',
-            'start' => '20 Jul 2024',
+            'start' => '2024-07-20',
             'end' => null,
             'end_display' => 'Current',
             'is_open' => true,

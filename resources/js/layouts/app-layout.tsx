@@ -11,6 +11,7 @@ import { getTopNavLinks } from '@/components/layout/data/top-nav-data';
 import { Header } from '@/components/layout/header';
 import { TopNav } from '@/components/layout/top-nav';
 import { NavigationFavoriteToggle } from '@/components/navigation-favorite-toggle';
+import { PlatformDateFormatSync } from '@/components/platform-date-format-sync';
 import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Search } from '@/components/search';
 import { ThemeSwitch } from '@/components/theme-switch';
@@ -38,6 +39,7 @@ export default function AppLayout({
                 {/* Must live inside Inertia's page tree — usePage fails in withApp siblings. */}
                 <AppRefreshSync versionUrl={appVersion.url()} />
                 <ApplicationBrandingSync />
+                <PlatformDateFormatSync />
                 <Header>
                     {breadcrumbs.length > 0 && (
                         <div className="mr-4 hidden md:block">
