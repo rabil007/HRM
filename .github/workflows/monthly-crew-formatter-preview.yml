@@ -1,0 +1,28 @@
+name: Monthly Crew Formatter Preview (Temporary)
+on:
+  push:
+    branches:
+      - fix/monthly-crew-contract-compensation-eos
+permissions:
+  contents: read
+jobs:
+  format-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install frontend dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Format only the two failing files and verify TypeScript
+        run: |
+          node_modules/.bin/prettier --write resources/js/features/organization/contracts/contracts-content.tsx resources/js/features/organization/contracts/contracts-import-dialog.tsx
+          npm run types:check
+          node - <<'NODE'
+          const fs = require('fs');
+          for (const file of ["resources/js/features/organization/contracts/contracts-content.tsx","resources/js/features/organization/contracts/contracts-import-dialog.tsx"]) {
+            console.log('FORMAT_FILE_B64 ' + file + ' ' + fs.readFileSync(file).toString('base64'));
+          }
+          NODE
