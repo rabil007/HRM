@@ -36,6 +36,7 @@ import {
     normalizePhaseCodeForDisplay,
     normalProgressStepState,
 } from '@/features/organization/crew/lib/crew-phase-visibility';
+import { keyOperationalDateKindLabel } from '@/features/organization/crew/lib/operator-presentation';
 import {
     crewQuickDetailModel,
     relativePlanDate,
@@ -352,10 +353,9 @@ function QuickDetailContent({
                         </p>
                         {assignment.key_operational_date ? (
                             <span className="text-xs text-muted-foreground">
-                                {assignment.key_operational_date.kind ===
-                                'planned'
-                                    ? 'Planned'
-                                    : 'Actual'}
+                                {keyOperationalDateKindLabel(
+                                    assignment.key_operational_date.kind,
+                                )}
                             </span>
                         ) : null}
                         {model.milestone ? (

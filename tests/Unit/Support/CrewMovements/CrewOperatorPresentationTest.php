@@ -226,3 +226,105 @@ it('keeps clear document checks advisory and names missing configuration', funct
         ->and($unconfiguredAttention['label'])->toBe('No Checks Configured')
         ->and($unconfiguredAttention['tone'])->toBe('info');
 });
+
+it('labels a sign-off due today separately from overdue and due soon', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    operatorPhase($assignment, CrewPhaseCode::OnVessel, [
+        'actual_start_at' => CarbonImmutable::parse('2026-10-01 08:00:00', 'Asia/Dubai'),
+    ]);
+
+    $overdue = operatorPresentation($assignment, [[
+        'code' => 'tour_overdue',
+        'severity' => 'critical',
+        'label' => 'Tour Overdue',
+        'message' => 'Tour of Duty overdue by 2 day(s)',
+        'date' => '2026-10-14',
+    ]])['operator_attention'];
+
+    $dueToday = operatorPresentation($assignment, [[
+        'code' => 'tour_due_today',
+        'severity' => 'critical',
+        'label' => 'Tour Due Today',
+        'message' => 'Planned Sign-Off is due today',
+        'date' => '2026-10-16',
+    ]])['operator_attention'];
+
+    $dueSoon = operatorPresentation($assignment, [[
+        'code' => 'tour_due_within_7_days',
+        'severity' => 'critical',
+        'label' => 'Tour Due Soon',
+        'message' => 'Planned Sign-Off in 4 day(s)',
+        'date' => '2026-10-20',
+    ]])['operator_attention'];
+
+    $plannedOverdue = operatorPresentation($assignment, [[
+        'code' => 'planned_signoff_overdue',
+        'severity' => 'critical',
+        'label' => 'Planned sign-off overdue',
+        'message' => 'The planned sign-off date has passed.',
+        'date' => '2026-10-10',
+    ]])['operator_attention'];
+
+    expect($overdue['label'])->toBe('Sign-Off Overdue')
+        ->and($overdue['tone'])->toBe('critical')
+        ->and($overdue['items'][0]['code'])->toBe('tour_overdue')
+        ->and($dueToday['label'])->toBe('Sign-Off Due Today')
+        ->and($dueToday['label'])->not->toBe('Sign-Off Overdue')
+        ->and($dueToday['tone'])->toBe('warning')
+        ->and($dueToday['items'][0]['code'])->toBe('tour_due_today')
+        ->and($dueSoon['label'])->toBe('Sign-Off Due Soon')
+        ->and($dueSoon['items'][0]['code'])->toBe('tour_due_within_7_days')
+        ->and($plannedOverdue['label'])->toBe('Sign-Off Overdue')
+        ->and($plannedOverdue['items'][0]['code'])->toBe('planned_signoff_overdue');
+});
+
+it('classifies draft arrival as planned and the creation date as recorded', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $withArrival = CrewAssignment::factory()->forEmployee($employee)->draft()->create([
+        'planned_arrival_at' => CarbonImmutable::parse('2026-10-20 08:00:00', 'Asia/Dubai'),
+        'created_at' => CarbonImmutable::parse('2026-10-16 09:00:00', 'Asia/Dubai'),
+    ]);
+    $withoutArrival = CrewAssignment::factory()->forEmployee($employee)->draft()->create([
+        'planned_arrival_at' => null,
+        'created_at' => CarbonImmutable::parse('2026-10-16 09:00:00', 'Asia/Dubai'),
+    ]);
+
+    $planned = operatorPresentation($withArrival);
+    $recorded = operatorPresentation($withoutArrival);
+
+    expect($planned['operator_stage']['label'])->toBe('Not Started')
+        ->and($planned['key_operational_date'])->toBe([
+            'label' => 'Expected Arrival',
+            'date' => '2026-10-20',
+            'kind' => 'planned',
+        ])
+        ->and($recorded['key_operational_date'])->toBe([
+            'label' => 'Created',
+            'date' => '2026-10-16',
+            'kind' => 'recorded',
+        ])
+        ->and($recorded['key_operational_date']['kind'])->not->toBe('actual');
+});
+
+it('keeps completed movement and closure dates as actual movements', function () {
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $completed = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'created_at' => CarbonImmutable::parse('2026-09-01 09:00:00', 'Asia/Dubai'),
+        'closed_at' => CarbonImmutable::parse('2026-10-16 08:00:00', 'Asia/Dubai'),
+    ]);
+    operatorPhase($completed, CrewPhaseCode::OnVessel, [
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => CarbonImmutable::parse('2026-10-05 08:00:00', 'Asia/Dubai'),
+        'actual_end_at' => CarbonImmutable::parse('2026-10-10 08:00:00', 'Asia/Dubai'),
+    ]);
+
+    $date = operatorPresentation($completed)['key_operational_date'];
+
+    expect($date['label'])->toBe('Assignment Completed')
+        ->and($date['date'])->toBe('2026-10-16')
+        ->and($date['kind'])->toBe('actual');
+});

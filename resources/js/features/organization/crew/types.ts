@@ -350,7 +350,7 @@ export interface CrewOperatorStage {
 export interface CrewKeyOperationalDate {
     label: string;
     date: string | null;
-    kind: 'planned' | 'actual' | string;
+    kind: 'planned' | 'actual' | 'recorded';
 }
 
 export interface CrewOperatorAttentionItem {

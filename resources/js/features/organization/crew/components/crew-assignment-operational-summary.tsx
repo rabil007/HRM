@@ -7,6 +7,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { buildAssignmentLifecycleLabels } from '@/features/organization/crew/lib/assignment-lifecycle-display';
+import { keyOperationalDateDetail } from '@/features/organization/crew/lib/operator-presentation';
 import type {
     CorrectionsSummary,
     CrewAssignmentDetail,
@@ -144,10 +145,7 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
                     ? 'Sign-Off Not Planned'
                     : 'Not recorded'
                 : formatDisplayDate(keyDate.date),
-            detail:
-                keyDate.kind === 'planned'
-                    ? 'Planned date. This is not an actual movement.'
-                    : 'Recorded operational date.',
+            detail: keyOperationalDateDetail(keyDate.kind),
             tone: missing ? 'warning' : 'neutral',
         };
     }

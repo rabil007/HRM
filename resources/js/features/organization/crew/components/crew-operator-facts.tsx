@@ -1,5 +1,9 @@
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import {
+    keyOperationalDateKindLabel,
+    operatorAttentionBadgeVariant,
+} from '@/features/organization/crew/lib/operator-presentation';
 import type {
     CrewKeyOperationalDate,
     CrewOperatorAttention,
@@ -44,7 +48,7 @@ export function CrewKeyOperationalDateFact({
             <p className="text-[11px] text-muted-foreground">
                 {value.label}
                 <span className="ml-1 tracking-wide uppercase">
-                    {value.kind === 'planned' ? '· Planned' : '· Actual'}
+                    {`· ${keyOperationalDateKindLabel(value.kind)}`}
                 </span>
             </p>
             <p
@@ -65,6 +69,9 @@ export function CrewOperatorAttentionFact({
     attention: CrewOperatorAttention;
 }): ReactElement {
     const clear = attention.tone === 'clear' || attention.items.length === 0;
+    const variant = clear
+        ? 'outline'
+        : operatorAttentionBadgeVariant(attention.tone);
     const title = attention.items
         .map((item) => `${item.label}: ${item.detail}`)
         .join('\n');
@@ -72,13 +79,7 @@ export function CrewOperatorAttentionFact({
     return (
         <div className="flex flex-wrap items-center gap-1.5" title={title}>
             <Badge
-                variant={
-                    attention.tone === 'critical'
-                        ? 'destructive'
-                        : clear
-                          ? 'outline'
-                          : 'warning'
-                }
+                variant={variant}
                 className={cn(clear && 'text-muted-foreground')}
             >
                 {attention.label}

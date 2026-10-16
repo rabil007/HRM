@@ -79,11 +79,15 @@ final class CrewOperatorPresentation
 
         if ($status === CrewAssignmentStatus::Draft) {
             return self::dated(
-                'Planned Arrival',
+                'Expected Arrival',
                 self::date($assignment->planned_arrival_at, $timezone),
                 'planned',
-            ) ?? self::dated('Created', self::date($assignment->created_at, $timezone), 'actual')
-                ?? self::missing('Created');
+            ) ?? self::dated('Created', self::date($assignment->created_at, $timezone), 'recorded')
+                ?? [
+                    'label' => 'Created',
+                    'date' => null,
+                    'kind' => 'recorded',
+                ];
         }
 
         if ($status === CrewAssignmentStatus::Completed) {
@@ -213,7 +217,8 @@ final class CrewOperatorPresentation
         $phase = $assignment->currentPhase?->phase_code;
 
         return match ($code) {
-            'planned_signoff_overdue', 'tour_overdue', 'tour_due_today' => self::item($code, 'Sign-Off Overdue', $detail, 10, 'critical'),
+            'planned_signoff_overdue', 'tour_overdue' => self::item($code, 'Sign-Off Overdue', $detail, 10, 'critical'),
+            'tour_due_today' => self::item($code, 'Sign-Off Due Today', $detail, 15, 'warning'),
             'tour_due_within_7_days', 'tour_due_within_14_days' => self::item($code, 'Sign-Off Due Soon', $detail, 40, $tone),
             'missing_planned_signoff' => self::item($code, 'Sign-Off Not Planned', $detail, 60, 'warning'),
             'planned_join_overdue' => self::item($code, 'Join Overdue', $detail, 30, 'critical'),

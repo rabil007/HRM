@@ -208,12 +208,45 @@ export type OperationalPhaseContext = {
     isCurrent: boolean;
     todayIso: string;
     timeZone?: string | null;
+    assignmentStatus?: string | null;
     plannedArrivalAt?: string | null;
     plannedJoinAt?: string | null;
     plannedSignoffAt?: string | null;
     plannedTravelAt?: string | null;
     formatDate?: (value: string | null | undefined) => string;
 };
+
+/**
+ * Operational status for one timeline row.
+ * A null actual end never makes a phase Active. Draft and planned rows stay
+ * Not Started or Planned until the phase itself is active.
+ */
+function operationalPhaseStatus(
+    phase: PhaseTimelineItem,
+    assignmentStatus?: string | null,
+): string | null {
+    if (phase.status === 'completed' || phase.actual_end_at) {
+        return null;
+    }
+
+    if (phase.status === 'cancelled' || assignmentStatus === 'cancelled') {
+        return 'Cancelled';
+    }
+
+    if (assignmentStatus === 'draft') {
+        return 'Not Started';
+    }
+
+    if (assignmentStatus === 'completed') {
+        return 'Completed';
+    }
+
+    if (phase.status === 'active') {
+        return 'Active';
+    }
+
+    return 'Planned';
+}
 
 function displayDate(
     value: string | null | undefined,
@@ -265,6 +298,11 @@ export function buildOperationalPhaseLines(
             value ? String(value) : '—');
     const completed =
         phase.status === 'completed' || Boolean(phase.actual_end_at);
+    const operationalStatus = operationalPhaseStatus(
+        phase,
+        context.assignmentStatus,
+    );
+    const operationallyActive = operationalStatus === 'Active';
     const lines: OperationalPhaseLine[] = [];
     const actualStart = displayDate(phase.actual_start_at, formatDate);
     const actualEnd = displayDate(phase.actual_end_at, formatDate);
@@ -277,7 +315,12 @@ export function buildOperationalPhaseLines(
         });
     }
 
-    if (!completed && phase.phase_code === 'p0' && context.isCurrent) {
+    if (
+        !completed &&
+        operationalStatus !== 'Cancelled' &&
+        phase.phase_code === 'p0' &&
+        context.isCurrent
+    ) {
         const expected = displayDate(context.plannedArrivalAt, formatDate);
 
         lines.push(
@@ -287,7 +330,7 @@ export function buildOperationalPhaseLines(
                       value: expected,
                       planned: true,
                   }
-                : actualStart
+                : operationallyActive && actualStart
                   ? {
                         label: 'P0 Started',
                         value: actualStart,
@@ -299,7 +342,11 @@ export function buildOperationalPhaseLines(
                         planned: true,
                     },
         );
-    } else if (!completed && actualStart && phase.phase_code !== 'p0') {
+    } else if (
+        operationallyActive &&
+        actualStart &&
+        phase.phase_code !== 'p0'
+    ) {
         lines.push({
             label: phaseStartLabel(phase.phase_code),
             value: actualStart,
@@ -307,18 +354,29 @@ export function buildOperationalPhaseLines(
         });
     }
 
-    if (!completed && phase.phase_code !== 'p0') {
+    if (
+        !completed &&
+        operationalStatus !== 'Cancelled' &&
+        (operationallyActive || operationalStatus === 'Planned') &&
+        phase.phase_code !== 'p0'
+    ) {
         lines.push(activeMilestone(phase, context, formatDate));
     }
 
-    if (!completed) {
+    if (operationalStatus) {
         lines.push({
             label: 'Status',
-            value: 'Active',
+            value: operationalStatus,
             planned: false,
         });
+    }
 
-        if (phase.phase_code !== 'p0' && phase.actual_start_at) {
+    if (!completed) {
+        if (
+            operationallyActive &&
+            phase.phase_code !== 'p0' &&
+            phase.actual_start_at
+        ) {
             const elapsed = formatElapsedDayPhrase(
                 elapsedWholeCalendarDays(
                     phase.actual_start_at,

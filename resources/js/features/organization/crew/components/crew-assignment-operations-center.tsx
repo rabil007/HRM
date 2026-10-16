@@ -86,6 +86,14 @@ export function CrewAssignmentOperationsCenter({
                         statusLabel={assignment.status_label}
                         vesselName={assignment.vessel?.name ?? null}
                         operatorStage={assignment.operator_stage}
+                        reliefAction={
+                            reliefHref
+                                ? {
+                                      href: reliefHref,
+                                      label: reliefActionLabel,
+                                  }
+                                : null
+                        }
                     />
                 ) : null}
 

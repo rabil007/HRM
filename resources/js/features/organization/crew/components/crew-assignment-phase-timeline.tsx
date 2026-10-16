@@ -140,6 +140,7 @@ function PhaseDateLines({
     today,
     timeZone,
     isCurrent,
+    assignmentStatus,
     plannedArrivalAt,
     plannedJoinAt,
     plannedSignoffAt,
@@ -149,6 +150,7 @@ function PhaseDateLines({
     today: string;
     timeZone?: string | null;
     isCurrent: boolean;
+    assignmentStatus?: string | null;
     plannedArrivalAt?: string | null;
     plannedJoinAt?: string | null;
     plannedSignoffAt?: string | null;
@@ -158,6 +160,7 @@ function PhaseDateLines({
         isCurrent,
         todayIso: today,
         timeZone,
+        assignmentStatus,
         plannedArrivalAt,
         plannedJoinAt,
         plannedSignoffAt,
@@ -202,6 +205,7 @@ function PhaseTimelineRow({
     isCurrent,
     today,
     timeZone,
+    assignmentStatus,
     can,
     employeeId,
     correctablePhaseIds,
@@ -218,6 +222,7 @@ function PhaseTimelineRow({
     isCurrent: boolean;
     today: string;
     timeZone?: string | null;
+    assignmentStatus?: string | null;
     p0ExpectedArrivalContext: P0ExpectedArrivalContext;
     plannedArrivalAt?: string | null;
     plannedJoinAt?: string | null;
@@ -345,6 +350,7 @@ function PhaseTimelineRow({
                     today={today}
                     timeZone={timeZone}
                     isCurrent={isCurrent}
+                    assignmentStatus={assignmentStatus}
                     plannedArrivalAt={plannedArrivalAt}
                     plannedJoinAt={plannedJoinAt}
                     plannedSignoffAt={plannedSignoffAt}
@@ -454,6 +460,7 @@ export function CrewAssignmentPhaseTimeline({
                                     isCurrent={isCurrent}
                                     today={today}
                                     timeZone={timeZone}
+                                    assignmentStatus={assignment.status}
                                     can={can}
                                     employeeId={assignment.employee?.id}
                                     correctablePhaseIds={correctablePhaseIds}

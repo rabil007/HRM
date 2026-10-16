@@ -433,4 +433,39 @@ describe('CrewAssignmentPhaseTimeline render', () => {
         assert.ok(!html.includes('[object Object]'));
         assert.ok(!html.includes('payload'));
     });
+
+    it('does not mark a draft planned P0 as operationally active', async () => {
+        const html = await renderTimeline(
+            assignment({
+                status: 'draft',
+                status_label: 'Draft',
+                planned_arrival_at: '2026-10-20',
+                current_phase: {
+                    id: 11,
+                    code: 'p0',
+                    label: 'Pre-Arrival',
+                },
+                phase_timeline: [
+                    phase({
+                        id: 11,
+                        phase_code: 'p0',
+                        phase_label: 'Pre-Arrival',
+                        status: 'planned',
+                        status_label: 'Planned',
+                        planned_start_at: '2026-10-20',
+                        planned_end_at: null,
+                        actual_start_at: null,
+                        actual_end_at: null,
+                    }),
+                ],
+            }),
+        );
+
+        assert.ok(html.includes('Expected Arrival:'));
+        assert.ok(html.includes('20-10-2026'));
+        assert.ok(html.includes('Status:'));
+        assert.ok(html.includes('Not Started'));
+        assert.ok(!html.includes('>Active<'));
+        assert.ok(!html.includes('Elapsed:'));
+    });
 });
