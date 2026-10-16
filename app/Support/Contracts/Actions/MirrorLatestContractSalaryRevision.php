@@ -50,6 +50,7 @@ final class MirrorLatestContractSalaryRevision
             'housing_allowance',
             'transport_allowance',
             'other_allowances',
+            'eos_monthly_amount',
             'supplementary_allowance',
             'site_allowance',
         ] as $column) {

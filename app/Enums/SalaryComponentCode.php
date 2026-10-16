@@ -13,11 +13,13 @@ enum SalaryComponentCode: string
     case SiteAllowance = 'SITE_ALLOWANCE';
     case SupplementaryAllowance = 'SUPPLEMENTARY_ALLOWANCE';
     case OtRate = 'OT_RATE';
+    case EosProvision = 'EOS_PROVISION';
 
     public function label(): string
     {
         return match ($this) {
             self::Basic => 'Basic salary',
+            self::EosProvision => 'EOS provision (non-payable)',
             self::Housing => 'Housing allowance',
             self::Transport => 'Transport allowance',
             self::Other => 'Other allowances',
@@ -45,7 +47,7 @@ enum SalaryComponentCode: string
                 self::Basic => $structure === ContractSalaryStructure::Monthly
                     ? SalaryComponentRateType::Monthly
                     : SalaryComponentRateType::Daily,
-                self::Housing, self::Transport, self::Other => SalaryComponentRateType::Monthly,
+                self::Housing, self::Transport, self::Other, self::EosProvision => SalaryComponentRateType::Monthly,
                 self::StandbyRate, self::OnsiteRate, self::SiteAllowance, self::SupplementaryAllowance => SalaryComponentRateType::Daily,
                 self::OtRate => SalaryComponentRateType::Hourly,
             };
@@ -53,7 +55,7 @@ enum SalaryComponentCode: string
 
         return match ($this) {
             self::Basic => SalaryComponentRateType::Monthly,
-            self::Housing, self::Transport, self::Other => SalaryComponentRateType::Monthly,
+            self::Housing, self::Transport, self::Other, self::EosProvision => SalaryComponentRateType::Monthly,
             self::StandbyRate, self::OnsiteRate, self::SiteAllowance, self::SupplementaryAllowance => SalaryComponentRateType::Daily,
             self::OtRate => SalaryComponentRateType::Hourly,
         };
