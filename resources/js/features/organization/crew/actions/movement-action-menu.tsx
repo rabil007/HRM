@@ -8,6 +8,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementAction,
@@ -33,6 +34,7 @@ export function MovementActionMenu({
     size?: 'default' | 'sm';
     triggerLabel?: string;
     excludeActions?: string[];
+    /** Optional recommended action — emphasized in the menu, not split out as a separate button. */
     highlightedAction?: CrewMovementAction | null;
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
@@ -40,14 +42,10 @@ export function MovementActionMenu({
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const menuActions = availableActions.filter(
-        (action) =>
-            !excludeActions.includes(action) && action !== highlightedAction,
+        (action) => !excludeActions.includes(action),
     );
-    const showHighlight =
-        highlightedAction !== null &&
-        availableActions.includes(highlightedAction);
 
-    if (menuActions.length === 0 && !showHighlight) {
+    if (menuActions.length === 0) {
         return null;
     }
 
@@ -68,60 +66,53 @@ export function MovementActionMenu({
 
     return (
         <>
-            {showHighlight && highlightedAction ? (
-                <Button
-                    type="button"
-                    size={isCompact ? 'sm' : 'default'}
-                    className={isCompact ? 'h-8 px-2.5 text-xs' : undefined}
-                    onClick={() => openAction(highlightedAction)}
-                >
-                    {CREW_MOVEMENT_ACTION_LABELS[highlightedAction] ??
-                        highlightedAction}
-                </Button>
-            ) : null}
-            {menuActions.length > 0 ? (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        {isCompact ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
-                                title={triggerLabel}
-                                aria-label={triggerLabel}
-                            >
-                                <ArrowRightLeft className="size-4" />
-                            </Button>
-                        ) : (
-                            <Button type="button" variant="outline">
-                                {triggerLabel}
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        )}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                        {menuActions.map((actionValue) => {
-                            const action = actionValue as CrewMovementAction;
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    {isCompact ? (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                            title={triggerLabel}
+                            aria-label={triggerLabel}
+                        >
+                            <ArrowRightLeft className="size-4" />
+                        </Button>
+                    ) : (
+                        <Button type="button" variant="outline">
+                            {triggerLabel}
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                    {menuActions.map((actionValue) => {
+                        const action = actionValue as CrewMovementAction;
+                        const isRecommended = action === highlightedAction;
 
-                            return (
-                                <DropdownMenuItem
-                                    key={action}
-                                    variant={
-                                        action === 'cancel_assignment'
-                                            ? 'destructive'
-                                            : 'default'
-                                    }
-                                    onClick={() => openAction(action)}
-                                >
-                                    {CREW_MOVEMENT_ACTION_LABELS[action] ??
-                                        action}
-                                </DropdownMenuItem>
-                            );
-                        })}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            ) : null}
+                        return (
+                            <DropdownMenuItem
+                                key={action}
+                                variant={
+                                    action === 'cancel_assignment'
+                                        ? 'destructive'
+                                        : 'default'
+                                }
+                                className={cn(isRecommended && 'font-medium')}
+                                onClick={() => openAction(action)}
+                            >
+                                {CREW_MOVEMENT_ACTION_LABELS[action] ?? action}
+                                {isRecommended ? (
+                                    <span className="ml-auto text-xs font-normal text-muted-foreground">
+                                        Next
+                                    </span>
+                                ) : null}
+                            </DropdownMenuItem>
+                        );
+                    })}
+                </DropdownMenuContent>
+            </DropdownMenu>
 
             <MovementActionDialog
                 open={dialogOpen}
