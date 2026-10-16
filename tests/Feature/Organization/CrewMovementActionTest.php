@@ -4,6 +4,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
+use App\Enums\CrewPlannedSignoffSource;
 use App\Models\Company;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
@@ -444,6 +445,143 @@ test('record arrival on legacy p1 transitions to join standby only', function ()
 
     $assignment->refresh()->load('currentPhase');
     expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby);
+});
+
+test('join vessel http accepts a manual planned sign-off without an override reason', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Join Without Reason', $company);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+    ], $user->id);
+    $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-08-01 08:00:00',
+    ], $user->id);
+    $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-08-05 10:00:00',
+        'next_phase' => 'p1a',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'occurred_at' => '2026-08-12 10:00:00',
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-10-01',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionDoesntHaveErrors();
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($assignment->planned_signoff_override_reason)->toBeNull()
+        ->and($assignment->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-01')
+        ->and($assignment->currentPhase?->planned_end_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-01');
+});
+
+test('join vessel http stores an omitted-choice planned sign-off date without a reason', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Join Legacy Date', $company);
+    $service = app(CrewMovementService::class);
+    $assignment = $service->createDraft($company->id, $employee->id, [
+        'position_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+    ], $user->id);
+    $service->perform($company->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2026-08-01 08:00:00',
+    ], $user->id);
+    $service->perform($company->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2026-08-05 10:00:00',
+        'next_phase' => 'p1a',
+    ], $user->id);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'occurred_at' => '2026-08-12 10:00:00',
+            'vessel_id' => $vessel->id,
+            'position_id' => $rank->id,
+            'planned_signoff_at' => '2026-10-01',
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionDoesntHaveErrors();
+
+    $assignment->refresh();
+
+    expect($assignment->planned_signoff_source)->toBe(CrewPlannedSignoffSource::ManualOverride)
+        ->and($assignment->planned_signoff_override_reason)->toBeNull()
+        ->and($assignment->planned_signoff_at?->timezone($company->timezone)->toDateString())->toBe('2026-10-01');
+});
+
+test('transfer vessel http still requires a reason for another planned sign-off date', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $sourceVessel = makeCrewMovementVessel('Transfer Reason Source', $company);
+    $destinationVessel = makeCrewMovementVessel('Transfer Reason Destination', $company);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $sourceVessel);
+    $beforeCount = CrewAssignment::query()->where('company_id', $company->id)->count();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::TransferVessel->value,
+            'occurred_at' => '2026-06-01 08:00:00',
+            'vessel_id' => $destinationVessel->id,
+            'position_id' => $rank->id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-08-01',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('planned_signoff_override_reason');
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->vessel_id)->toBe($sourceVessel->id)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount);
+});
+
+test('on-vessel redeploy http still requires a reason for another planned sign-off date', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewMovementActionFixtures();
+    $vessel = makeCrewMovementVessel('Redeploy Reason Source', $company);
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $service = app(CrewMovementService::class);
+    $service->perform($company->id, $assignment->id, CrewMovementAction::ConfirmDisembarkation, [
+        'occurred_at' => '2026-02-01 08:00:00',
+        'next_phase' => 'p3',
+    ], $user->id);
+    $destinationVessel = makeCrewMovementVessel('Redeploy Reason Destination', $company);
+    $beforeCount = CrewAssignment::query()->where('company_id', $company->id)->count();
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.crew-assignments.show', $assignment))
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::Redeploy->value,
+            'occurred_at' => '2026-02-02 08:00:00',
+            'starting_phase' => CrewPhaseCode::OnVessel->value,
+            'vessel_id' => $destinationVessel->id,
+            'position_id' => $rank->id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2026-03-01',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('planned_signoff_override_reason');
+
+    $assignment->refresh()->load('currentPhase');
+
+    expect($assignment->status)->toBe(CrewAssignmentStatus::Active)
+        ->and($assignment->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and(CrewAssignment::query()->where('company_id', $company->id)->count())->toBe($beforeCount);
 });
 
 test('record arrival on legacy p1 rejects crafted ready to join destination', function () {

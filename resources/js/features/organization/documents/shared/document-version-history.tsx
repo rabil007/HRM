@@ -2,7 +2,12 @@ import { Download, ExternalLink } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatDisplayDate } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    toCompanyDateLocal,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 
 export type DocumentVersionItem = {
@@ -44,6 +49,9 @@ export function DocumentVersionHistory({
     showDownload?: boolean;
     emptyMessage?: string;
 }): ReactElement {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
+
     if (versions.length === 0) {
         return (
             <p className="py-8 text-center text-sm text-muted-foreground">
@@ -91,7 +99,15 @@ export function DocumentVersionHistory({
                         <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
                             <span>{mimeLabel(version.mime_type)}</span>
                             <span>
-                                {formatDisplayDate(version.uploaded_at)}
+                                {version.uploaded_at
+                                    ? formatDisplayDate(
+                                          toCompanyDateLocal(
+                                              version.uploaded_at,
+                                              companyTimezone,
+                                          ),
+                                          dateFormat,
+                                      )
+                                    : '—'}
                             </span>
                         </div>
 

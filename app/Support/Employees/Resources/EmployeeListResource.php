@@ -71,8 +71,8 @@ final class EmployeeListResource
             ] : null,
             'status' => $employee->status,
             'iban' => $employee->primaryBankAccount?->iban,
-            'start_date' => $employee->currentContract?->start_date,
-            'end_date' => $employee->currentContract?->end_date,
+            'start_date' => $employee->currentContract?->start_date?->toDateString(),
+            'end_date' => $employee->currentContract?->end_date?->toDateString(),
             'labor_contract_id' => $employee->currentContract?->labor_contract_id,
             'created_at' => $employee->created_at,
         ];

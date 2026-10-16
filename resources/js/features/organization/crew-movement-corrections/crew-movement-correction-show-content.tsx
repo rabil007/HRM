@@ -6,7 +6,7 @@ import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CrewMetadataField } from '@/features/organization/crew/components/crew-metadata-field';
-import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
+import { useCompanyTimezone, useDateFormat } from '@/lib/format-date';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import { index as correctionsIndex } from '@/routes/organization/crew-movement-corrections';
 import { CorrectionValuesTable } from './components/correction-values-table';
@@ -14,11 +14,17 @@ import { CrewMovementCorrectionAgeBadge } from './components/crew-movement-corre
 import type { CorrectionDecisionMode } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionDecisionDialog } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionStatusBadge } from './components/crew-movement-correction-status-badge';
+import {
+    formatCorrectionRequestedDate,
+    formatCorrectionTimestamp,
+} from './lib/correction-timestamp-display';
 import type { CrewMovementCorrectionShowProps } from './types';
 
 export function CrewMovementCorrectionShowContent({
     correction,
 }: CrewMovementCorrectionShowProps): ReactElement {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [decisionMode, setDecisionMode] =
         useState<CorrectionDecisionMode | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -181,8 +187,10 @@ export function CrewMovementCorrectionShowContent({
                                         Requested
                                     </span>
                                     <span>
-                                        {formatDisplayDate(
+                                        {formatCorrectionRequestedDate(
                                             correction.requested_at,
+                                            companyTimezone,
+                                            dateFormat,
                                         )}
                                     </span>
                                 </div>
@@ -271,8 +279,10 @@ export function CrewMovementCorrectionShowContent({
                             />
                             <CrewMetadataField
                                 label="Requested at"
-                                value={formatDisplayDateTime12h(
+                                value={formatCorrectionTimestamp(
                                     correction.requested_at,
+                                    companyTimezone,
+                                    dateFormat,
                                 )}
                             />
                             <CrewMetadataField
@@ -281,8 +291,10 @@ export function CrewMovementCorrectionShowContent({
                             />
                             <CrewMetadataField
                                 label="Decided at"
-                                value={formatDisplayDateTime12h(
+                                value={formatCorrectionTimestamp(
                                     correction.decided_at,
+                                    companyTimezone,
+                                    dateFormat,
                                 )}
                             />
                         </CardContent>

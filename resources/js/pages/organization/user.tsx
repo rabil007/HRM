@@ -25,10 +25,14 @@ import type {
 } from '@/features/organization/users/types';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import {
+    formatCompanyDateFromTimestamp,
     formatDisplayDate,
-    formatDisplayDateTime,
+    formatDisplayDateTimeInTimezone,
     formatDisplayValue,
     formatActivityFieldLabel,
+    toCompanyDateLocal,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -143,6 +147,8 @@ export default function UserDetails({
     employees_for_linking: EmployeeForLinking[];
     can_view_audit: boolean;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [open, setOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
         Record<number, boolean>
@@ -312,14 +318,26 @@ export default function UserDetails({
                             <InfoRow
                                 icon={Clock}
                                 label="Last login"
-                                value={formatDisplayDateTime(
+                                value={formatDisplayDateTimeInTimezone(
                                     user.last_login_at,
+                                    companyTimezone,
+                                    dateFormat,
                                 )}
                             />
                             <InfoRow
                                 icon={CalendarClock}
                                 label="Created"
-                                value={formatDisplayDate(user.created_at)}
+                                value={
+                                    user.created_at
+                                        ? formatDisplayDate(
+                                              toCompanyDateLocal(
+                                                  user.created_at,
+                                                  companyTimezone,
+                                              ),
+                                              dateFormat,
+                                          )
+                                        : '—'
+                                }
                             />
                         </CardContent>
                     </Card>
@@ -361,8 +379,10 @@ export default function UserDetails({
                                                 Last seen
                                             </p>
                                             <p className="text-xs font-semibold text-foreground/80">
-                                                {formatDisplayDateTime(
+                                                {formatDisplayDateTimeInTimezone(
                                                     user.last_login_at,
+                                                    companyTimezone,
+                                                    dateFormat,
                                                 )}
                                             </p>
                                         </div>
@@ -553,8 +573,10 @@ export default function UserDetails({
 
                                                     {/* Timestamp */}
                                                     <div className="mt-0.5 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground/40">
-                                                        {formatDisplayDate(
+                                                        {formatCompanyDateFromTimestamp(
                                                             a.created_at,
+                                                            companyTimezone,
+                                                            dateFormat,
                                                         )}
                                                     </div>
                                                 </div>

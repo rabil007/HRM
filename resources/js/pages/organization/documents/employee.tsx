@@ -65,6 +65,7 @@ import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/docum
 import { resolveDefaultWhatsAppTemplate } from '@/features/organization/documents/whatsapp-template/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
+import { useCompanyTimezone, useDateFormat } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { UploadDocumentDialog } from '@/pages/organization/_components/documents/upload-dialog';
@@ -114,6 +115,8 @@ export default function EmployeeDocumentsBrowse({
         company_switcher_companies?: Array<{ id: number; name: string }>;
         current_company_id?: number | null;
     };
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
 
     const organizationName =
         company_switcher_companies?.find(
@@ -171,8 +174,11 @@ export default function EmployeeDocumentsBrowse({
     const filteredDocuments = useMemo(() => {
         const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
 
-        return filterDocuments(byExpiry, fileSearch);
-    }, [allDocuments, expiryFilter, fileSearch]);
+        return filterDocuments(byExpiry, fileSearch, {
+            timeZone: companyTimezone,
+            dateFormat,
+        });
+    }, [allDocuments, expiryFilter, fileSearch, companyTimezone, dateFormat]);
 
     const visibleDocumentIds = useMemo(
         () => filteredDocuments.map((document) => document.id),

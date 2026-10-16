@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CrewEmployeeIdentity } from '@/features/organization/crew/components/crew-employee-identity';
 import type { CurrentCrewHomeRow } from '@/features/organization/crew/types';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -25,6 +29,8 @@ function availabilityBadgeClass(
 }
 
 export function CrewHomeMobileCard({ row }: { row: CurrentCrewHomeRow }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const assignmentHref =
         row.latest_assignment && row.can.view_assignment
             ? showAssignment.url(row.latest_assignment.id)
@@ -52,7 +58,11 @@ export function CrewHomeMobileCard({ row }: { row: CurrentCrewHomeRow }) {
                         <p className="text-muted-foreground">Home since</p>
                         <p className="font-medium">
                             {row.home_since
-                                ? formatDisplayDateTime(row.home_since)
+                                ? formatDisplayDateTimeInTimezone(
+                                      row.home_since,
+                                      companyTimezone,
+                                      dateFormat,
+                                  )
                                 : '—'}
                         </p>
                     </div>
