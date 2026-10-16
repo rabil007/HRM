@@ -217,6 +217,21 @@ final class CrewAccommodationService
         array $payload,
         CarbonInterface $occurredAt,
     ): void {
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $joinLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+        // Always validate already-closed pre-join stays against the actual join
+        // boundary. Scheduled dates are not used here — only the executed occurredAt.
+        $this->assertClosedHotelStaysWithinBoundary(
+            assignment: $assignment,
+            stayType: CrewAccommodationStayType::PreJoin,
+            maximumLocalDate: $joinLocalDate,
+            checkOutAfterMaxDateMessage: 'An existing pre-join hotel stay checks out after the actual vessel join date. Correct the accommodation record before joining.',
+            checkOutAfterMaxDateCode: 'check_out_after_join',
+            checkInAfterMaxDateMessage: 'An existing pre-join hotel stay checks in after the actual vessel join date. Correct the accommodation record before joining.',
+            checkInAfterMaxDateCode: 'check_in_after_join',
+        );
+
         $openStays = $this->openPreJoinHotelStays($assignment);
 
         if ($openStays->count() > 1) {
@@ -232,9 +247,7 @@ final class CrewAccommodationService
             return;
         }
 
-        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
         $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
-        $joinLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
 
         if ($checkOutDate === null) {
             throw CrewMovementException::make(
@@ -809,15 +822,26 @@ final class CrewAccommodationService
                     $stay->loadMissing(['hotel', 'roomType']);
                 }
 
-                $hotelName = ($stay->hotel !== null && (! isset($stay->hotel->company_id) || (int) $stay->hotel->company_id === $companyId))
-                    ? $stay->hotel->name
-                    : null;
+                $hotelResolved = $stay->hotel !== null
+                    && (! isset($stay->hotel->company_id) || (int) $stay->hotel->company_id === $companyId);
+                $hotelName = $hotelResolved ? $stay->hotel->name : null;
+                $hotelIsActive = $hotelResolved ? (bool) $stay->hotel->is_active : false;
+                $hotelDisplay = match (true) {
+                    $hotelResolved && is_string($hotelName) && $hotelName !== '' && $hotelIsActive => $hotelName,
+                    $hotelResolved && is_string($hotelName) && $hotelName !== '' => $hotelName.' (inactive)',
+                    $stay->hotel_id !== null => 'Unavailable',
+                    default => 'Hotel',
+                };
 
                 $roomTypeResolved = $stay->roomType !== null
                     && (! isset($stay->roomType->company_id) || (int) $stay->roomType->company_id === $companyId);
                 $roomTypeName = $roomTypeResolved ? $stay->roomType->name : null;
+                $roomTypeIsActive = $roomTypeResolved ? (bool) $stay->roomType->is_active : false;
+                $roomTypeLegacy = $roomTypeResolved && $stay->roomType->hotel_id === null;
                 $roomTypeDisplay = match (true) {
-                    $roomTypeResolved && is_string($roomTypeName) && $roomTypeName !== '' => $roomTypeName,
+                    $roomTypeResolved && is_string($roomTypeName) && $roomTypeName !== '' && $roomTypeIsActive && ! $roomTypeLegacy => $roomTypeName,
+                    $roomTypeResolved && is_string($roomTypeName) && $roomTypeName !== '' && $roomTypeLegacy => $roomTypeName.' (legacy)',
+                    $roomTypeResolved && is_string($roomTypeName) && $roomTypeName !== '' => $roomTypeName.' (inactive)',
                     $stay->room_type_id !== null => 'Unavailable',
                     default => 'Not specified',
                 };
@@ -847,9 +871,15 @@ final class CrewAccommodationService
                     'accommodation_status_label' => $stay->accommodation_status->label(),
                     'hotel_id' => $stay->hotel_id !== null ? (int) $stay->hotel_id : null,
                     'hotel_name' => $hotelName,
+                    'hotel_display' => $hotelDisplay,
+                    'hotel_is_active' => $hotelIsActive,
+                    'hotel_unresolved' => $stay->hotel_id !== null && ! $hotelResolved,
                     'room_type_id' => $stay->room_type_id !== null ? (int) $stay->room_type_id : null,
                     'room_type_name' => $roomTypeName,
                     'room_type_display' => $roomTypeDisplay,
+                    'room_type_is_active' => $roomTypeIsActive,
+                    'room_type_unresolved' => $stay->room_type_id !== null && ! $roomTypeResolved,
+                    'room_type_legacy' => $roomTypeLegacy,
                     'check_in_date' => $stay->check_in_date?->toDateString(),
                     'check_out_date' => $stay->check_out_date?->toDateString(),
                     'is_open' => $isOpenHotel,
@@ -857,6 +887,7 @@ final class CrewAccommodationService
                     'stay_days_label' => $stayDays['label'],
                     'stay_days_invalid' => $stayDays['invalid'],
                     'updated_at' => $stay->updated_at?->toISOString(),
+                    'edit_version' => (int) ($stay->edit_version ?? 0),
                 ];
             })
             ->values()
@@ -1101,6 +1132,27 @@ SQL;
         string $checkOutAfterMaxDateMessage,
         string $checkOutAfterMaxDateCode,
     ): void {
+        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
+        $maximumLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
+
+        // Always validate already-closed post-signoff stays against the actual
+        // Home/Redeployment (or redeploy) boundary from executed occurredAt.
+        $this->assertClosedHotelStaysWithinBoundary(
+            assignment: $assignment,
+            stayType: CrewAccommodationStayType::PostSignoff,
+            maximumLocalDate: $maximumLocalDate,
+            checkOutAfterMaxDateMessage: str_contains(strtolower($checkOutAfterMaxDateMessage), 'redeploy')
+                ? 'An existing demobilisation hotel stay checks out after the redeployment date. Correct the accommodation record before continuing.'
+                : 'An existing demobilisation hotel stay checks out after the actual Home/Redeployment date. Correct the accommodation record before continuing.',
+            checkOutAfterMaxDateCode: $checkOutAfterMaxDateCode,
+            checkInAfterMaxDateMessage: str_contains(strtolower($checkOutAfterMaxDateMessage), 'redeploy')
+                ? 'An existing demobilisation hotel stay checks in after the redeployment date. Correct the accommodation record before continuing.'
+                : 'An existing demobilisation hotel stay checks in after the actual Home/Redeployment date. Correct the accommodation record before continuing.',
+            checkInAfterMaxDateCode: str_contains(strtolower($checkOutAfterMaxDateMessage), 'redeploy')
+                ? 'check_in_after_redeploy'
+                : 'check_in_after_return_home',
+        );
+
         $openStays = $this->openPostSignoffHotelStays($assignment);
 
         if ($openStays->count() > 1) {
@@ -1116,9 +1168,7 @@ SQL;
             return;
         }
 
-        $timezone = CompanyTimezone::forCompanyId((int) $assignment->company_id);
         $checkOutDate = $this->parseDate($payload['check_out_date'] ?? null, $timezone);
-        $maximumLocalDate = $occurredAt->copy()->timezone($timezone)->startOfDay();
 
         if ($checkOutDate === null) {
             throw CrewMovementException::make(
@@ -1140,5 +1190,64 @@ SQL;
                 $checkOutAfterMaxDateCode,
             );
         }
+    }
+
+    /**
+     * Reject closed hotel stays whose check-in or check-out extends beyond an
+     * actual movement boundary that is about to execute. Open stays are handled
+     * separately by the checkout payload validators.
+     */
+    private function assertClosedHotelStaysWithinBoundary(
+        CrewAssignment $assignment,
+        CrewAccommodationStayType $stayType,
+        CarbonInterface $maximumLocalDate,
+        string $checkOutAfterMaxDateMessage,
+        string $checkOutAfterMaxDateCode,
+        string $checkInAfterMaxDateMessage,
+        string $checkInAfterMaxDateCode,
+    ): void {
+        $closedStays = $this->closedHotelStays($assignment, $stayType);
+
+        foreach ($closedStays as $stay) {
+            if ($stay->check_in_date !== null && $stay->check_in_date->gt($maximumLocalDate)) {
+                throw CrewMovementException::make(
+                    $checkInAfterMaxDateMessage,
+                    $checkInAfterMaxDateCode,
+                );
+            }
+
+            if ($stay->check_out_date !== null && $stay->check_out_date->gt($maximumLocalDate)) {
+                throw CrewMovementException::make(
+                    $checkOutAfterMaxDateMessage,
+                    $checkOutAfterMaxDateCode,
+                );
+            }
+        }
+    }
+
+    /**
+     * @return Collection<int, CrewAccommodationStay>
+     */
+    private function closedHotelStays(
+        CrewAssignment $assignment,
+        CrewAccommodationStayType $stayType,
+    ): Collection {
+        if ($assignment->relationLoaded('accommodationStays')) {
+            return $assignment->accommodationStays
+                ->filter(fn (CrewAccommodationStay $stay): bool => $stay->stay_type === $stayType
+                    && $stay->accommodation_status === CrewAccommodationStatus::Hotel
+                    && $stay->check_out_date !== null)
+                ->sortBy('id')
+                ->values();
+        }
+
+        return CrewAccommodationStay::query()
+            ->where('company_id', $assignment->company_id)
+            ->where('crew_assignment_id', $assignment->id)
+            ->where('stay_type', $stayType)
+            ->where('accommodation_status', CrewAccommodationStatus::Hotel)
+            ->whereNotNull('check_out_date')
+            ->orderBy('id')
+            ->get();
     }
 }

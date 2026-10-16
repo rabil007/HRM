@@ -33,7 +33,7 @@ final class UpdateCrewAccommodationStay
      *     check_in_date: string,
      *     check_out_date?: string|null,
      *     reason: string,
-     *     expected_updated_at?: string|null
+     *     expected_edit_version: int
      * }  $payload
      */
     public function handle(
@@ -80,7 +80,7 @@ final class UpdateCrewAccommodationStay
                 ]);
             }
 
-            $this->assertNotStale($lockedStay, $payload['expected_updated_at'] ?? null);
+            $this->assertExpectedEditVersion($lockedStay, $payload['expected_edit_version'] ?? null);
 
             $timezone = CompanyTimezone::forCompanyId($companyId);
             $hotelId = (int) $payload['hotel_id'];
@@ -102,7 +102,10 @@ final class UpdateCrewAccommodationStay
                 'check_out_date' => $lockedStay->check_out_date?->toDateString(),
                 'stay_type' => $lockedStay->stay_type->value,
                 'accommodation_status' => $lockedStay->accommodation_status->value,
+                'edit_version' => (int) $lockedStay->edit_version,
             ];
+
+            $nextVersion = (int) $lockedStay->edit_version + 1;
 
             $updated = [
                 'hotel_id' => $hotelId,
@@ -111,6 +114,7 @@ final class UpdateCrewAccommodationStay
                 'check_out_date' => $checkOutDate?->toDateString(),
                 'stay_type' => $lockedStay->stay_type->value,
                 'accommodation_status' => $lockedStay->accommodation_status->value,
+                'edit_version' => $nextVersion,
             ];
 
             $lockedStay->activityLogContext = [
@@ -129,6 +133,7 @@ final class UpdateCrewAccommodationStay
                 'check_in_date' => $checkInDate,
                 'check_out_date' => $checkOutDate,
                 'updated_by' => $actor->id,
+                'edit_version' => $nextVersion,
             ]);
 
             $lockedStay->save();
@@ -155,22 +160,17 @@ final class UpdateCrewAccommodationStay
         });
     }
 
-    private function assertNotStale(CrewAccommodationStay $stay, mixed $expectedUpdatedAt): void
+    private function assertExpectedEditVersion(CrewAccommodationStay $stay, mixed $expectedEditVersion): void
     {
-        if ($expectedUpdatedAt === null || $expectedUpdatedAt === '') {
-            return;
-        }
-
-        $expected = Carbon::parse((string) $expectedUpdatedAt);
-        $current = $stay->updated_at;
-
-        if ($current === null) {
-            return;
-        }
-
-        if (! $current->equalTo($expected)) {
+        if ($expectedEditVersion === null || $expectedEditVersion === '') {
             throw ValidationException::withMessages([
-                'expected_updated_at' => 'This accommodation record was changed by someone else. Refresh and try again.',
+                'expected_edit_version' => 'This accommodation record version is missing. Refresh and try again.',
+            ]);
+        }
+
+        if ((int) $expectedEditVersion !== (int) $stay->edit_version) {
+            throw ValidationException::withMessages([
+                'expected_edit_version' => 'This accommodation record was changed by someone else. Refresh and try again.',
             ]);
         }
     }

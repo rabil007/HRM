@@ -41,6 +41,7 @@ class CrewAccommodationStay extends Model
         'started_from_phase_id',
         'created_by',
         'updated_by',
+        'edit_version',
     ];
 
     protected static function booted(): void
@@ -99,6 +100,7 @@ class CrewAccommodationStay extends Model
             'started_from_phase_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
+            'edit_version' => 'integer',
             'stay_type' => CrewAccommodationStayType::class,
             'accommodation_status' => CrewAccommodationStatus::class,
             'check_in_date' => 'date',

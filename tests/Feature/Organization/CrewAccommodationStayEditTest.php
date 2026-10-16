@@ -3,6 +3,7 @@
 use App\Enums\CrewAccommodationStatus;
 use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
+use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Models\Company;
@@ -20,6 +21,14 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
 require_once __DIR__.'/../../Support/privileged-two-factor.php';
+
+beforeEach(function (): void {
+    freezeCrewMovementTestClock();
+});
+
+afterEach(function (): void {
+    restoreCrewMovementTestClock();
+});
 
 /**
  * @return array{
@@ -131,6 +140,17 @@ function accommodationEditUrl(CrewAssignment $assignment, CrewAccommodationStay 
     ]);
 }
 
+/**
+ * @param  array<string, mixed>  $payload
+ * @return array<string, mixed>
+ */
+function accommodationEditPayload(CrewAccommodationStay $stay, array $payload): array
+{
+    return array_merge([
+        'expected_edit_version' => (int) $stay->edit_version,
+    ], $payload);
+}
+
 test('override permission with privileged 2fa can edit accommodation stay', function () {
     $f = makeAccommodationEditFixtures();
     $otherHotel = Hotel::factory()->create([
@@ -156,7 +176,7 @@ test('override permission with privileged 2fa can edit accommodation stay', func
             'check_in_date' => '2026-10-04',
             'check_out_date' => '2026-10-07',
             'reason' => 'Corrected hotel booking reference',
-            'expected_updated_at' => $f['stay']->updated_at?->toISOString(),
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ]);
 
     $response->assertRedirect(route('organization.crew-assignments.show', $f['assignment']));
@@ -204,6 +224,7 @@ test('user without corrections.override cannot edit accommodation stay', functio
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Unauthorized attempt',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertForbidden();
 
@@ -228,6 +249,7 @@ test('privileged 2fa is enforced for accommodation stay edits', function () {
                 'check_in_date' => '2026-10-04',
                 'check_out_date' => '2026-10-07',
                 'reason' => 'Needs 2FA',
+                'expected_edit_version' => (int) $f['stay']->edit_version,
             ])
             ->assertRedirect(route('security.edit'));
 
@@ -266,6 +288,7 @@ test('cross-company accommodation stay ids are rejected', function () {
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Cross company',
+            'expected_edit_version' => (int) $otherStay->edit_version,
         ])
         ->assertNotFound();
 });
@@ -297,6 +320,7 @@ test('stay belonging to another assignment is rejected', function () {
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-05',
             'reason' => 'Wrong assignment',
+            'expected_edit_version' => (int) $otherStay->edit_version,
         ])
         ->assertNotFound();
 });
@@ -342,6 +366,7 @@ test('employee visibility scope blocks editing hidden office employee accommodat
             'check_in_date' => '2026-01-01',
             'check_out_date' => '2026-01-03',
             'reason' => 'Hidden employee',
+            'expected_edit_version' => (int) $stay->edit_version,
         ])
         ->assertNotFound();
 });
@@ -357,6 +382,7 @@ test('optional room type can be cleared and missing room type displays not speci
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Room type was never confirmed',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertRedirect();
 
@@ -412,6 +438,7 @@ test('wrong-hotel room type is rejected', function () {
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Wrong hotel room',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertRedirect()
         ->assertSessionHasErrors('room_type_id');
@@ -434,6 +461,7 @@ test('inactive newly selected hotel and room type are rejected', function () {
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Inactive hotel',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('hotel_id');
 
@@ -452,6 +480,7 @@ test('inactive newly selected hotel and room type are rejected', function () {
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Inactive room',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('room_type_id');
 });
@@ -468,6 +497,7 @@ test('pre-join check-in before actual arrival is rejected', function () {
             'check_in_date' => '2026-10-02',
             'check_out_date' => '2026-10-07',
             'reason' => 'Too early',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('check_in_date');
 });
@@ -484,6 +514,7 @@ test('pre-join checkout after actual joining is rejected while same-day joining 
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-08',
             'reason' => 'After join',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('check_out_date');
 
@@ -495,6 +526,7 @@ test('pre-join checkout after actual joining is rejected while same-day joining 
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Same-day join checkout',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -512,6 +544,7 @@ test('open pre-join stay cannot be reopened after joining has occurred', functio
             'check_in_date' => '2026-10-03',
             'check_out_date' => null,
             'reason' => 'Reopen after join',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('check_out_date');
 });
@@ -527,6 +560,7 @@ test('valid open accommodation remains supported before joining', function () {
             'check_in_date' => '2026-10-04',
             'check_out_date' => null,
             'reason' => 'Still waiting to join',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -580,6 +614,7 @@ test('demobilisation stay validates disembarkation and home boundaries', functio
             'check_in_date' => '2026-10-14',
             'check_out_date' => '2026-10-16',
             'reason' => 'Before disembarkation',
+            'expected_edit_version' => (int) $postStay->edit_version,
         ])
         ->assertSessionHasErrors('check_in_date');
 
@@ -591,6 +626,7 @@ test('demobilisation stay validates disembarkation and home boundaries', functio
             'check_in_date' => '2026-10-15',
             'check_out_date' => '2026-10-17',
             'reason' => 'After home',
+            'expected_edit_version' => (int) $postStay->edit_version,
         ])
         ->assertSessionHasErrors('check_out_date');
 
@@ -601,6 +637,7 @@ test('demobilisation stay validates disembarkation and home boundaries', functio
             'check_in_date' => '2026-10-15',
             'check_out_date' => '2026-10-16',
             'reason' => 'Valid demob stay',
+            'expected_edit_version' => (int) $postStay->edit_version,
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -617,6 +654,7 @@ test('checkout before check-in and overlapping stays are rejected', function () 
             'check_in_date' => '2026-10-05',
             'check_out_date' => '2026-10-04',
             'reason' => 'Reversed dates',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('check_out_date');
 
@@ -639,6 +677,7 @@ test('checkout before check-in and overlapping stays are rejected', function () 
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-06',
             'reason' => 'Overlap',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('check_in_date');
 });
@@ -656,6 +695,7 @@ test('edit reason is required and failed validation leaves records unchanged', f
             'check_in_date' => '2026-10-04',
             'check_out_date' => '2026-10-07',
             'reason' => '',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertSessionHasErrors('reason');
 
@@ -671,15 +711,65 @@ test('stale concurrent update is rejected', function () {
     $this->actingAs($f['user'])
         ->withSession(['current_company_id' => $f['company']->id])
         ->from(route('organization.crew-assignments.show', $f['assignment']))
-        ->put(accommodationEditUrl($f['assignment'], $f['stay']), [
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), accommodationEditPayload($f['stay'], [
             'hotel_id' => $f['hotel']->id,
             'room_type_id' => $f['roomType']->id,
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Stale payload',
-            'expected_updated_at' => now()->subHour()->toISOString(),
+            'expected_edit_version' => (int) $f['stay']->edit_version + 5,
+        ]))
+        ->assertSessionHasErrors('expected_edit_version');
+});
+
+test('missing edit version is rejected', function () {
+    $f = makeAccommodationEditFixtures();
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-07',
+            'reason' => 'Missing version',
         ])
-        ->assertSessionHasErrors('expected_updated_at');
+        ->assertSessionHasErrors('expected_edit_version');
+});
+
+test('competing updates within the same second reject the stale version', function () {
+    $f = makeAccommodationEditFixtures();
+    $version = (int) $f['stay']->edit_version;
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), accommodationEditPayload($f['stay'], [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-07',
+            'reason' => 'First writer',
+            'expected_edit_version' => $version,
+        ]))
+        ->assertRedirect();
+
+    expect((int) $f['stay']->fresh()->edit_version)->toBe($version + 1);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-04',
+            'check_out_date' => '2026-10-07',
+            'reason' => 'Second writer same second',
+            'expected_edit_version' => $version,
+        ])
+        ->assertSessionHasErrors('expected_edit_version');
+
+    expect($f['stay']->fresh()->check_in_date?->toDateString())->toBe('2026-10-03');
 });
 
 test('assignment show includes hotel and room type ids and edit permission flag', function () {
@@ -710,11 +800,214 @@ test('inclusive hotel days remain five for third through seventh october stay', 
             'check_in_date' => '2026-10-03',
             'check_out_date' => '2026-10-07',
             'reason' => 'Confirm inclusive days',
+            'expected_edit_version' => (int) $f['stay']->edit_version,
         ])
         ->assertRedirect();
 
     $summary = app(CrewAccommodationService::class)->assignmentAccommodationSummary($f['assignment']->fresh());
     $item = collect($summary)->firstWhere('id', $f['stay']->id);
 
-    expect($item['stay_days'])->toBe(5);
+    expect($item['stay_days'])->toBe(5)
+        ->and($item['edit_version'])->toBe((int) $f['stay']->fresh()->edit_version);
+});
+
+test('join vessel rejects closed pre-join stay that extends beyond the actual join date', function () {
+    $f = makeAccommodationEditFixtures(withJoin: false);
+
+    // Keep the crew on Pre-Joining Standby with an already-closed hotel stay that
+    // extends beyond the join date that is about to execute.
+    $f['onVessel']->delete();
+    $f['joinStandby']->update([
+        'status' => CrewPhaseStatus::Active,
+        'actual_end_at' => null,
+    ]);
+    $f['assignment']->update(['current_phase_id' => $f['joinStandby']->id]);
+    $f['stay']->update([
+        'check_in_date' => '2026-10-03',
+        'check_out_date' => '2026-10-10',
+    ]);
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'occurred_at' => '2026-10-07 10:00:00',
+            'vessel_id' => $f['assignment']->vessel_id,
+            'position_id' => $f['assignment']->position_id,
+            'check_out_date' => '2026-10-07',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+
+    $f['assignment']->refresh()->load('currentPhase');
+    expect($f['assignment']->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($f['stay']->fresh()->check_out_date?->toDateString())->toBe('2026-10-10');
+});
+
+test('travel home rejects closed demobilisation stay that extends beyond the actual home date', function () {
+    $f = makeAccommodationEditFixtures();
+    $f['onVessel']->update([
+        'status' => CrewPhaseStatus::Completed,
+        'actual_end_at' => '2026-10-15 12:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::query()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-15 12:00:00',
+    ]);
+    $f['assignment']->update(['current_phase_id' => $demob->id]);
+
+    $postStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'hotel_id' => $f['hotel']->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-15',
+        'check_out_date' => '2026-10-20',
+        'started_from_phase_id' => $demob->id,
+    ]);
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::TravelHome->value,
+            'occurred_at' => '2026-10-16 18:00:00',
+            'check_out_date' => '2026-10-16',
+            'completion_intent' => 'close',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+
+    expect($postStay->fresh()->check_out_date?->toDateString())->toBe('2026-10-20')
+        ->and($f['assignment']->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby);
+});
+
+test('pre-arrival p0 activation is not treated as actual arrival for check-in bounds', function () {
+    $f = makeAccommodationEditFixtures(withJoin: false);
+
+    $preArrival = CrewAssignmentPhase::query()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'phase_code' => CrewPhaseCode::PreArrival,
+        'sequence' => 0,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-03 08:00:00',
+    ]);
+
+    // No P1A arrival yet: P0 must not invent an arrival lower bound.
+    $f['joinStandby']->update(['actual_start_at' => null, 'actual_end_at' => null]);
+    $f['stay']->update([
+        'started_from_phase_id' => $preArrival->id,
+        'check_in_date' => '2026-09-28',
+        'check_out_date' => null,
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']->fresh()), accommodationEditPayload($f['stay']->fresh(), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-09-28',
+            'check_out_date' => null,
+            'reason' => 'Historical stay before P0 without P1A arrival',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // Once authoritative P1A arrival exists, it becomes the lower bound (not P0).
+    $f['joinStandby']->update(['actual_start_at' => '2026-10-03 08:00:00']);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']->fresh()), accommodationEditPayload($f['stay']->fresh(), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-02',
+            'check_out_date' => null,
+            'reason' => 'Before P1A arrival',
+        ]))
+        ->assertSessionHasErrors('check_in_date');
+});
+
+test('same-day hotel transfer boundary is allowed while interior overlaps are rejected', function () {
+    $f = makeAccommodationEditFixtures(withJoin: false);
+
+    $transferStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'hotel_id' => $f['hotel']->id,
+        'stay_type' => CrewAccommodationStayType::PreJoin,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-05',
+        'check_out_date' => '2026-10-06',
+        'started_from_phase_id' => $f['joinStandby']->id,
+    ]);
+
+    // Shared boundary day (checkout 05, next check-in 05) is a legitimate transfer.
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), accommodationEditPayload($f['stay'], [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-05',
+            'reason' => 'Same-day hotel transfer boundary',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($f['stay']->fresh()->check_out_date?->toDateString())->toBe('2026-10-05')
+        ->and($transferStay->fresh()->check_in_date?->toDateString())->toBe('2026-10-05');
+
+    // Interior overlap remains invalid.
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']->fresh()), accommodationEditPayload($f['stay']->fresh(), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-06',
+            'reason' => 'Interior overlap',
+        ]))
+        ->assertSessionHasErrors('check_in_date');
+});
+
+test('summary preserves inactive and unresolved hotel and room type selections for edit', function () {
+    $f = makeAccommodationEditFixtures();
+    $f['hotel']->update(['is_active' => false]);
+    $f['roomType']->update(['is_active' => false]);
+
+    $summary = app(CrewAccommodationService::class)->assignmentAccommodationSummary($f['assignment']->fresh());
+    $item = collect($summary)->firstWhere('id', $f['stay']->id);
+
+    expect($item['hotel_id'])->toBe($f['hotel']->id)
+        ->and($item['hotel_is_active'])->toBeFalse()
+        ->and($item['hotel_display'])->toContain('(inactive)')
+        ->and($item['room_type_id'])->toBe($f['roomType']->id)
+        ->and($item['room_type_is_active'])->toBeFalse()
+        ->and($item['room_type_display'])->toContain('(inactive)')
+        ->and($item['room_type_display'])->not->toBe('Not specified');
 });

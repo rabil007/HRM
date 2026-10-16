@@ -87,10 +87,44 @@ describe('CrewAssignmentAccommodationCard', () => {
         });
 
         assert.ok(html.includes('Room Type'));
+        assert.ok(html.includes('Hotel'));
         assert.ok(html.includes('Not specified'));
         assert.ok(html.includes('Unavailable'));
         assert.ok(html.includes('data-slot="accommodation-edit-button"'));
         assert.ok(html.includes('Hotel 1'));
+    });
+
+    it('shows inactive hotel and room type labels instead of Not specified', async () => {
+        const html = await withViteModule(async (load) => {
+            const { CrewAssignmentAccommodationCard } = await load(
+                './resources/js/features/organization/crew/components/crew-assignment-accommodation-card.tsx',
+            );
+
+            return renderToString(
+                React.createElement(
+                    CrewAssignmentAccommodationCard as React.ComponentType<{
+                        items: CrewAccommodationSummaryItem[];
+                        defaultOpen?: boolean;
+                    }>,
+                    {
+                        items: [
+                            hotelStay({
+                                hotel_display: 'Hotel 1 (inactive)',
+                                hotel_is_active: false,
+                                room_type_id: 2,
+                                room_type_display: 'Single Room (inactive)',
+                                room_type_is_active: false,
+                            }),
+                        ],
+                        defaultOpen: true,
+                    },
+                ),
+            );
+        });
+
+        assert.ok(html.includes('Hotel 1 (inactive)'));
+        assert.ok(html.includes('Single Room (inactive)'));
+        assert.equal(html.includes('Not specified'), false);
     });
 
     it('hides Edit when override permission is absent', async () => {

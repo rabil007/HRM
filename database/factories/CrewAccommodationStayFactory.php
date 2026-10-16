@@ -44,6 +44,7 @@ class CrewAccommodationStayFactory extends Factory
             'started_from_phase_id' => null,
             'created_by' => null,
             'updated_by' => null,
+            'edit_version' => 0,
         ];
     }
 

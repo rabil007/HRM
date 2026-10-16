@@ -169,8 +169,10 @@ Privileged operators may edit existing hotel `CrewAccommodationStay` rows from t
 - Permission: `crew_operations.corrections.override` + `privileged.2fa` (same as direct movement override)
 - Route: `PUT organization/crew/{assignment}/accommodation-stays/{stay}`
 - Action: `UpdateCrewAccommodationStay` (reason required; audited; no `CrewMovementCorrection` row)
+- Concurrency: mandatory `expected_edit_version` optimistic lock (`edit_version` increments on each successful edit)
 - Scope: hotel stays only (no conversion to/from `no_accommodation`, no deletion)
-- Validation: hotel/room-type tenancy, calendar dates, actual movement bounds, reopen rules, and non-overlapping hotel intervals
+- Validation: hotel/room-type tenancy, calendar dates, actual movement bounds (P1A arrival only — never P0), reopen rules, and hotel-interval overlap (same-day transfer boundary allowed)
+- Movement execution: join vessel / travel home / redeploy also reject **already-closed** stays that extend beyond the executed actual boundary (scheduled dates alone are not actuals)
 - Side effects: accommodation data and audit only — phases, scheduling, payroll, and sea-service are unchanged
 
 ## Non-goals

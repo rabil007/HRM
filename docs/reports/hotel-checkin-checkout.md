@@ -105,9 +105,9 @@ Whitelisted sort fields:
 
 ## Editing accommodation records
 
-Hotel stays can be corrected from **Crew Assignment detail → Accommodation Records** by users with `crew_operations.corrections.override` and satisfied privileged 2FA. Edits update only `CrewAccommodationStay` fields (hotel, optional room type, check-in/out, reason). They do not create a `CrewMovementCorrection`, do not change phases/movements/payroll/sea-service, and do not execute scheduled movements. Validation reuses accommodation integrity plus actual movement-date bounds (arrival/join for pre-join; disembarkation/home for demobilisation). See [crew-movement-corrections.md](../architecture/crew-movement-corrections.md#accommodation-record-edits).
+Hotel stays can be corrected from **Crew Assignment detail → Accommodation Records** by users with `crew_operations.corrections.override` and satisfied privileged 2FA. Edits update only `CrewAccommodationStay` fields (hotel, optional room type, check-in/out, reason) and increment `edit_version`. They do not create a `CrewMovementCorrection`, do not change phases/movements/payroll/sea-service, and do not execute scheduled movements. Validation reuses accommodation integrity plus actual movement-date bounds (P1A arrival/join for pre-join; disembarkation/home for demobilisation). Later join/home/redeploy execution also blocks when an already-closed stay extends beyond the executed actual date. See [crew-movement-corrections.md](../architecture/crew-movement-corrections.md#accommodation-record-edits).
 
-Assignment cards always show Room Type for hotel records: the resolved name, `Not specified` when `room_type_id` is null, or `Unavailable` when a stored ID cannot be resolved.
+Assignment cards always show Hotel and Room Type for hotel records: the resolved name (with inactive/legacy markers when needed), `Not specified` when `room_type_id` is null, or `Unavailable` when a stored ID cannot be resolved. The Edit Sheet preserves historical inactive/unresolved selections instead of presenting them as blank.
 
 ## Export
 

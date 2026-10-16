@@ -46,6 +46,22 @@ function roomTypeLabel(item: CrewAccommodationSummaryItem): string {
     return 'Not specified';
 }
 
+function hotelLabel(item: CrewAccommodationSummaryItem): string {
+    if (item.hotel_display) {
+        return item.hotel_display;
+    }
+
+    if (item.hotel_name) {
+        return item.hotel_name;
+    }
+
+    if (item.hotel_id != null) {
+        return 'Unavailable';
+    }
+
+    return 'Hotel';
+}
+
 export function CrewAssignmentAccommodationCard({
     items,
     defaultOpen,
@@ -123,7 +139,7 @@ export function CrewAssignmentAccommodationCard({
                                         Hotel
                                     </span>
                                     <div className="font-medium">
-                                        {item.hotel_name ?? 'Hotel'}
+                                        {hotelLabel(item)}
                                     </div>
                                 </div>
                                 <div>

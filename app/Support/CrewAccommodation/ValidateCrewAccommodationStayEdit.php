@@ -128,17 +128,27 @@ final class ValidateCrewAccommodationStayEdit
     ): ?CarbonInterface {
         $startedFrom = $this->phaseById($assignment, $stay->started_from_phase_id);
 
+        // Only P1A JoinStandby is authoritative employee arrival. P0 Pre-Arrival
+        // activation must never be treated as arrival.
         if (
             $startedFrom !== null
-            && in_array($startedFrom->phase_code, [CrewPhaseCode::JoinStandby, CrewPhaseCode::PreArrival], true)
+            && $startedFrom->phase_code === CrewPhaseCode::JoinStandby
             && $startedFrom->actual_start_at !== null
         ) {
             return $startedFrom->actual_start_at->copy()->timezone($timezone)->startOfDay();
         }
 
+        // Prefer the first authoritative P1A arrival on the assignment.
         $arrival = CrewArrivalResolver::timestamp($assignment);
 
-        return $arrival?->copy()->timezone($timezone)->startOfDay();
+        if ($arrival !== null) {
+            return $arrival->copy()->timezone($timezone)->startOfDay();
+        }
+
+        // Historical / incomplete timelines with no recorded P1A arrival have no
+        // lower check-in bound from movement dates. Callers must not invent one
+        // from planned dates or P0 activation.
+        return null;
     }
 
     private function resolvePreJoinVesselJoin(
@@ -262,8 +272,11 @@ final class ValidateCrewAccommodationStayEdit
     }
 
     /**
-     * Calendar-day hotel intervals may share a boundary day (checkout == next check-in).
-     * Open stays are treated as unbounded on the open side.
+     * Inclusive hotel-day counting (checkout − check-in + 1) still allows a
+     * same-day hotel transfer: checkout on day D and next check-in on day D is
+     * a shared boundary, not an interior overlap. Interior positive overlaps
+     * (for example 1–5 overlapping 4–7) remain invalid. Open stays are
+     * unbounded on the open side.
      */
     private function hotelIntervalsOverlap(
         CarbonInterface $leftIn,
@@ -276,6 +289,7 @@ final class ValidateCrewAccommodationStayEdit
         $leftOutDay = $leftOut?->copy()->startOfDay();
         $rightOutDay = $rightOut?->copy()->startOfDay();
 
+        // Half-open comparison on checkout day: shared boundary day is allowed.
         $leftEndsAfterRightStarts = $leftOutDay === null || $rightStart->lt($leftOutDay);
         $rightEndsAfterLeftStarts = $rightOutDay === null || $leftStart->lt($rightOutDay);
 

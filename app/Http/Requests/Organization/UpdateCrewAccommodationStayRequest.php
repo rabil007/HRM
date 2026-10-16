@@ -22,7 +22,7 @@ class UpdateCrewAccommodationStayRequest extends FormRequest
             'check_in_date' => ['required', 'date'],
             'check_out_date' => ['nullable', 'date'],
             'reason' => ['required', 'string', 'max:5000'],
-            'expected_updated_at' => ['nullable', 'date'],
+            'expected_edit_version' => ['required', 'integer', 'min:0'],
         ];
     }
 
@@ -35,6 +35,7 @@ class UpdateCrewAccommodationStayRequest extends FormRequest
             'hotel_id.required' => 'Hotel is required.',
             'check_in_date.required' => 'Check-in date is required.',
             'reason.required' => 'A reason for the edit is required.',
+            'expected_edit_version.required' => 'This accommodation record version is missing. Refresh and try again.',
         ];
     }
 

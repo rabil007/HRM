@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Pencil } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import { AppDateField } from '@/components/app-date-field';
 import InputError from '@/components/input-error';
@@ -35,7 +35,14 @@ export type CrewAccommodationStayEditForm = {
     check_in_date: string;
     check_out_date: string;
     reason: string;
-    expected_updated_at: string | null;
+    expected_edit_version: number | null;
+};
+
+type SelectOption = {
+    id: number;
+    name: string;
+    hotel_id?: number | null;
+    historical?: boolean;
 };
 
 function emptyForm(): CrewAccommodationStayEditForm {
@@ -45,7 +52,7 @@ function emptyForm(): CrewAccommodationStayEditForm {
         check_in_date: '',
         check_out_date: '',
         reason: '',
-        expected_updated_at: null,
+        expected_edit_version: null,
     };
 }
 
@@ -58,8 +65,75 @@ function formFromStay(
         check_in_date: stay.check_in_date ?? '',
         check_out_date: stay.check_out_date ?? '',
         reason: '',
-        expected_updated_at: stay.updated_at ?? null,
+        expected_edit_version: stay.edit_version ?? 0,
     };
+}
+
+function hotelOptionsForStay(
+    stay: CrewAccommodationSummaryItem | null,
+    formOptions?: CrewAssignmentFormOptions,
+): SelectOption[] {
+    const active = (formOptions?.hotels ?? []).map((hotel) => ({
+        id: hotel.id,
+        name: hotel.name,
+        historical: false,
+    }));
+
+    if (stay?.hotel_id == null) {
+        return active;
+    }
+
+    if (active.some((hotel) => hotel.id === stay.hotel_id)) {
+        return active;
+    }
+
+    return [
+        {
+            id: stay.hotel_id,
+            name: stay.hotel_display ?? stay.hotel_name ?? 'Unavailable',
+            historical: true,
+        },
+        ...active,
+    ];
+}
+
+function roomTypeOptionsForStay(
+    stay: CrewAccommodationSummaryItem | null,
+    hotelId: number | null,
+    formOptions?: CrewAssignmentFormOptions,
+): SelectOption[] {
+    const active = roomTypesForHotel(formOptions?.room_types, hotelId).map(
+        (roomType) => ({
+            id: roomType.id,
+            name: roomType.name,
+            hotel_id: roomType.hotel_id,
+            historical: false,
+        }),
+    );
+
+    if (
+        stay == null ||
+        stay.room_type_id == null ||
+        hotelId == null ||
+        hotelId !== (stay.hotel_id ?? null)
+    ) {
+        return active;
+    }
+
+    if (active.some((roomType) => roomType.id === stay.room_type_id)) {
+        return active;
+    }
+
+    return [
+        {
+            id: stay.room_type_id,
+            name:
+                stay.room_type_display ?? stay.room_type_name ?? 'Unavailable',
+            hotel_id: hotelId,
+            historical: true,
+        },
+        ...active,
+    ];
 }
 
 export function CrewAccommodationStayEditSheet({
@@ -85,23 +159,48 @@ export function CrewAccommodationStayEditSheet({
         form.setData(formFromStay(stay));
         form.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the edited stay opens
-    }, [open, stay?.id, stay?.updated_at]);
+    }, [open, stay?.id, stay?.edit_version, stay?.updated_at]);
 
-    const availableRoomTypes = roomTypesForHotel(
-        formOptions?.room_types,
-        form.data.hotel_id,
+    const hotelOptions = useMemo(
+        () => hotelOptionsForStay(stay, formOptions),
+        [stay, formOptions],
     );
 
-    const selectedRoomTypeStillValid =
-        form.data.room_type_id === null ||
-        availableRoomTypes.some(
-            (roomType) => roomType.id === form.data.room_type_id,
-        );
+    const roomTypeOptions = useMemo(
+        () => roomTypeOptionsForStay(stay, form.data.hotel_id, formOptions),
+        [stay, form.data.hotel_id, formOptions],
+    );
+
+    const selectedRoomTypeValue = useMemo(() => {
+        if (form.data.room_type_id === null) {
+            return '__none__';
+        }
+
+        if (
+            roomTypeOptions.some(
+                (roomType) => roomType.id === form.data.room_type_id,
+            )
+        ) {
+            return form.data.room_type_id.toString();
+        }
+
+        // Persisted ID that cannot be listed — still show as selected historical.
+        return form.data.room_type_id.toString();
+    }, [form.data.room_type_id, roomTypeOptions]);
 
     const submit = (event: FormEvent): void => {
         event.preventDefault();
 
         if (stay === null || form.processing) {
+            return;
+        }
+
+        if (form.data.expected_edit_version === null) {
+            form.setError(
+                'expected_edit_version',
+                'This accommodation record version is missing. Refresh and try again.',
+            );
+
             return;
         }
 
@@ -111,7 +210,7 @@ export function CrewAccommodationStayEditSheet({
             check_in_date: data.check_in_date,
             check_out_date: data.check_out_date || null,
             reason: data.reason,
-            expected_updated_at: data.expected_updated_at,
+            expected_edit_version: data.expected_edit_version,
         }));
 
         form.put(
@@ -171,10 +270,12 @@ export function CrewAccommodationStayEditSheet({
                                     const hotelId = value
                                         ? Number(value)
                                         : null;
-                                    const nextRoomTypes = roomTypesForHotel(
-                                        formOptions?.room_types,
-                                        hotelId,
-                                    );
+                                    const nextRoomTypes =
+                                        roomTypeOptionsForStay(
+                                            stay,
+                                            hotelId,
+                                            formOptions,
+                                        );
                                     const keepRoomType =
                                         form.data.room_type_id !== null &&
                                         nextRoomTypes.some(
@@ -196,18 +297,35 @@ export function CrewAccommodationStayEditSheet({
                                     <SelectValue placeholder="Select hotel..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {(formOptions?.hotels ?? []).map(
-                                        (hotel) => (
-                                            <SelectItem
-                                                key={hotel.id}
-                                                value={hotel.id.toString()}
-                                            >
-                                                {hotel.name}
-                                            </SelectItem>
-                                        ),
-                                    )}
+                                    {hotelOptions.map((hotel) => (
+                                        <SelectItem
+                                            key={hotel.id}
+                                            value={hotel.id.toString()}
+                                        >
+                                            {hotel.name}
+                                            {hotel.historical
+                                                ? ' — current historical'
+                                                : ''}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+                            {stay?.hotel_id != null &&
+                            stay.hotel_is_active === false &&
+                            form.data.hotel_id === stay.hotel_id ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Current hotel is inactive. Keep it, or
+                                    choose an active hotel to correct the stay.
+                                </p>
+                            ) : null}
+                            {stay?.hotel_unresolved &&
+                            form.data.hotel_id === stay.hotel_id ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Current hotel reference could not be
+                                    resolved. Choose an active hotel to correct
+                                    it.
+                                </p>
+                            ) : null}
                             <InputError message={form.errors.hotel_id} />
                         </div>
 
@@ -216,12 +334,7 @@ export function CrewAccommodationStayEditSheet({
                                 Room Type
                             </Label>
                             <Select
-                                value={
-                                    form.data.room_type_id !== null &&
-                                    selectedRoomTypeStillValid
-                                        ? form.data.room_type_id.toString()
-                                        : '__none__'
-                                }
+                                value={selectedRoomTypeValue}
                                 onValueChange={(value) =>
                                     form.setData(
                                         'room_type_id',
@@ -239,16 +352,36 @@ export function CrewAccommodationStayEditSheet({
                                     <SelectItem value="__none__">
                                         Not specified
                                     </SelectItem>
-                                    {availableRoomTypes.map((roomType) => (
+                                    {roomTypeOptions.map((roomType) => (
                                         <SelectItem
                                             key={roomType.id}
                                             value={roomType.id.toString()}
                                         >
                                             {roomType.name}
+                                            {roomType.historical
+                                                ? ' — current historical'
+                                                : ''}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            {stay?.room_type_id != null &&
+                            stay.room_type_is_active === false &&
+                            form.data.room_type_id === stay.room_type_id ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Current room type is inactive or legacy.
+                                    Keep it, clear it, or choose an active room
+                                    type for this hotel.
+                                </p>
+                            ) : null}
+                            {stay?.room_type_unresolved &&
+                            form.data.room_type_id === stay.room_type_id ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Current room type reference could not be
+                                    resolved. Clear it or choose an active room
+                                    type.
+                                </p>
+                            ) : null}
                             <InputError message={form.errors.room_type_id} />
                         </div>
 
@@ -301,7 +434,7 @@ export function CrewAccommodationStayEditSheet({
                             />
                             <InputError message={form.errors.reason} />
                             <InputError
-                                message={form.errors.expected_updated_at}
+                                message={form.errors.expected_edit_version}
                             />
                             <InputError
                                 message={
