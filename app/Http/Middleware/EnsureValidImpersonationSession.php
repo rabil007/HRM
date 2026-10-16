@@ -50,18 +50,53 @@ class EnsureValidImpersonationSession
             $this->impersonationService->failClosed($request, 'Impersonated company context is missing or invalid.');
         }
 
-        // 4. Validate original administrator's impersonation permission
-        app(PermissionRegistrar::class)->setPermissionsTeamId($originalCompanyId);
-        $originalUser->unsetRelation('roles');
-        $originalUser->unsetRelation('permissions');
+        // 4. Validate original administrator company access
+        if (! $this->companyAccess->canAccess($originalUser, $originalCompanyId)) {
+            activity('impersonation')
+                ->causedBy($originalUser)
+                ->event('initiator_access_revoked')
+                ->withProperties([
+                    'initiator_id' => $originalUserId,
+                    'initiator_name' => $originalUser->name,
+                    'initiator_email' => $originalUser->email,
+                    'target_id' => (int) ($sessionData['target_user_id'] ?? 0),
+                    'company_id' => $originalCompanyId,
+                    'correlation_id' => $sessionData['correlation_id'] ?? null,
+                    'timestamp' => now()->timestamp,
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ])
+                ->log('Terminated impersonation because original administrator lost company access');
 
-        if (! $originalUser->can('users.impersonate')) {
+            $this->impersonationService->expire($request);
+
+            return redirect()->route('dashboard')->with('error', 'Your access to this company was revoked. Returned to your original account.');
+        }
+
+        // 5. Validate original administrator's impersonation permission
+        if (! $this->impersonationService->hasImpersonatePermissionInCompany($originalUser, $originalCompanyId)) {
+            activity('impersonation')
+                ->causedBy($originalUser)
+                ->event('initiator_permission_revoked')
+                ->withProperties([
+                    'initiator_id' => $originalUserId,
+                    'initiator_name' => $originalUser->name,
+                    'initiator_email' => $originalUser->email,
+                    'target_id' => (int) ($sessionData['target_user_id'] ?? 0),
+                    'company_id' => $originalCompanyId,
+                    'correlation_id' => $sessionData['correlation_id'] ?? null,
+                    'timestamp' => now()->timestamp,
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ])
+                ->log('Terminated impersonation because original administrator lost impersonation permission');
+
             $this->impersonationService->expire($request);
 
             return redirect()->route('dashboard')->with('error', 'Your impersonation permission was revoked. Returned to your original account.');
         }
 
-        // 5. Validate effective target user
+        // 6. Validate effective target user
         $targetUserId = (int) ($sessionData['target_user_id'] ?? 0);
         $targetUser = $targetUserId ? User::find($targetUserId) : null;
         $currentUser = $request->user();
@@ -76,14 +111,14 @@ class EnsureValidImpersonationSession
             return redirect()->route('dashboard')->with('error', 'The impersonated user account is no longer active. Returned to your original account.');
         }
 
-        // 6. Enforce target company access
+        // 7. Enforce target company access
         if (! $this->companyAccess->canAccess($targetUser, $chosenCompanyId)) {
             $this->impersonationService->expire($request);
 
             return redirect()->route('dashboard')->with('error', 'The impersonated user no longer has access to this company. Returned to your original account.');
         }
 
-        // 6. Revalidate protected accounts & role elevation during active impersonation
+        // 8. Revalidate protected accounts & role elevation during active impersonation
         if ($this->impersonationService->isProtectedAccount($targetUser, $chosenCompanyId, $originalUser)) {
             activity('impersonation')
                 ->causedBy($currentUser)
@@ -95,6 +130,7 @@ class EnsureValidImpersonationSession
                     'target_id' => $targetUserId,
                     'company_id' => $chosenCompanyId,
                     'correlation_id' => $sessionData['correlation_id'] ?? null,
+                    'timestamp' => now()->timestamp,
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                 ])
@@ -105,7 +141,7 @@ class EnsureValidImpersonationSession
             return redirect()->route('dashboard')->with('error', 'The impersonated user received protected privileges. Returned to your original account.');
         }
 
-        // 7. Enforce strict company context: restore/pin the verified chosen company before downstream authorization
+        // 9. Enforce strict company context: restore/pin the verified chosen company before downstream authorization
         $request->session()->put('current_company_id', $chosenCompanyId);
         $request->attributes->set('current_company_id', $chosenCompanyId);
         app(PermissionRegistrar::class)->setPermissionsTeamId($chosenCompanyId);
@@ -113,7 +149,7 @@ class EnsureValidImpersonationSession
         $targetUser->unsetRelation('roles');
         $targetUser->unsetRelation('permissions');
 
-        // 8. Restrict sensitive operations during impersonation
+        // 10. Restrict sensitive operations during impersonation
         if ($this->isRestrictedAction($request)) {
             activity('impersonation')
                 ->causedBy($currentUser)
@@ -123,6 +159,7 @@ class EnsureValidImpersonationSession
                     'target_id' => $targetUserId,
                     'company_id' => $chosenCompanyId,
                     'correlation_id' => $sessionData['correlation_id'] ?? null,
+                    'timestamp' => now()->timestamp,
                     'route' => (string) $request->route()?->getName(),
                     'path' => trim($request->path(), '/'),
                     'method' => $request->method(),
@@ -199,7 +236,12 @@ class EnsureValidImpersonationSession
         }
 
         // Block nested impersonation
-        if (in_array($routeName, ['organization.users.impersonate', 'organization.impersonation.confirm'], true)) {
+        if (in_array($routeName, [
+            'organization.users.impersonate',
+            'organization.impersonation.confirm',
+            'organization.impersonation.complete',
+            'organization.impersonation.cancel',
+        ], true)) {
             return true;
         }
 

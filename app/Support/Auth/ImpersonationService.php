@@ -28,7 +28,7 @@ final class ImpersonationService
      */
     public function canImpersonate(?User $initiator, User $target, int $companyId): bool
     {
-        if ($initiator === null) {
+        if ($initiator === null || $companyId <= 0) {
             return false;
         }
 
@@ -36,11 +36,11 @@ final class ImpersonationService
             return false;
         }
 
-        if ($target->status !== 'active' || $target->deleted_at !== null) {
+        if ($initiator->status !== 'active' || $initiator->deleted_at !== null || ! UserAccountStatus::allowsAuthentication($initiator)) {
             return false;
         }
 
-        if (! UserAccountStatus::allowsAuthentication($target)) {
+        if ($target->status !== 'active' || $target->deleted_at !== null || ! UserAccountStatus::allowsAuthentication($target)) {
             return false;
         }
 
@@ -48,11 +48,15 @@ final class ImpersonationService
             return false;
         }
 
-        if (! $initiator->can('users.impersonate')) {
+        if (! $this->resolveCompanyAccess->canAccess($initiator, $companyId)) {
             return false;
         }
 
         if (! $this->resolveCompanyAccess->canAccess($target, $companyId)) {
+            return false;
+        }
+
+        if (! $this->hasImpersonatePermissionInCompany($initiator, $companyId)) {
             return false;
         }
 
@@ -61,6 +65,42 @@ final class ImpersonationService
         }
 
         return true;
+    }
+
+    /**
+     * Check whether a user holds the users.impersonate permission specifically
+     * within a company's Spatie permission-team context.
+     */
+    public function hasImpersonatePermissionInCompany(User $user, int $companyId): bool
+    {
+        if ($companyId <= 0) {
+            return false;
+        }
+
+        if (! $this->resolveCompanyAccess->canAccess($user, $companyId)) {
+            return false;
+        }
+
+        if ($user->status !== 'active' || $user->deleted_at !== null || ! UserAccountStatus::allowsAuthentication($user)) {
+            return false;
+        }
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+
+        try {
+            $registrar->setPermissionsTeamId($companyId);
+            $registrar->forgetCachedPermissions();
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+
+            return (bool) $user->can('users.impersonate');
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+            $registrar->forgetCachedPermissions();
+            $user->unsetRelation('roles');
+            $user->unsetRelation('permissions');
+        }
     }
 
     /**
@@ -297,33 +337,48 @@ final class ImpersonationService
 
         abort_unless($initiator instanceof User, 401);
 
+        if ($companyId <= 0) {
+            $this->logDeniedAttempt($request, $initiator, $target, 'Invalid company context.', $companyId);
+            abort(403, 'A valid company context is required.');
+        }
+
         if ($this->isImpersonating($request)) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Nested impersonation attempt.');
+            $this->logDeniedAttempt($request, $initiator, $target, 'Nested impersonation attempt.', $companyId);
             abort(403, 'Nested impersonation is not allowed.');
         }
 
-        if (! $initiator->can('users.impersonate')) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Initiator lacks users.impersonate permission.');
-            abort(403, 'You do not have permission to impersonate users.');
+        if ($initiator->status !== 'active' || $initiator->deleted_at !== null || ! UserAccountStatus::allowsAuthentication($initiator)) {
+            $this->logDeniedAttempt($request, $initiator, $target, 'Initiator account is not active or eligible.', $companyId);
+            abort(403, 'Your account is not active or eligible to impersonate users.');
+        }
+
+        if (! $this->resolveCompanyAccess->canAccess($initiator, $companyId)) {
+            $this->logDeniedAttempt($request, $initiator, $target, 'Initiator lacks active membership in the selected company.', $companyId);
+            abort(403, 'You do not have access to the selected company.');
+        }
+
+        if (! $this->hasImpersonatePermissionInCompany($initiator, $companyId)) {
+            $this->logDeniedAttempt($request, $initiator, $target, 'Initiator lacks users.impersonate permission in the selected company.', $companyId);
+            abort(403, 'You do not have permission to impersonate users in this company.');
         }
 
         if ($target->id === $initiator->id) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Cannot impersonate self.');
+            $this->logDeniedAttempt($request, $initiator, $target, 'Cannot impersonate self.', $companyId);
             abort(403, 'Cannot impersonate yourself.');
         }
 
         if ($target->status !== 'active' || $target->deleted_at !== null || ! UserAccountStatus::allowsAuthentication($target)) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Target account is not active or eligible.');
+            $this->logDeniedAttempt($request, $initiator, $target, 'Target account is not active or eligible.', $companyId);
             abort(422, 'Target account is not active or eligible for impersonation.');
         }
 
         if (! $this->resolveCompanyAccess->canAccess($target, $companyId)) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Target user does not belong to active company.');
+            $this->logDeniedAttempt($request, $initiator, $target, 'Target user does not belong to active company.', $companyId);
             abort(403, 'Target user does not belong to the active company.');
         }
 
         if ($this->isProtectedAccount($target, $companyId, $initiator)) {
-            $this->logDeniedAttempt($request, $initiator, $target, 'Target account is a protected privileged account.');
+            $this->logDeniedAttempt($request, $initiator, $target, 'Target account is a protected privileged account.', $companyId);
             abort(403, 'Protected privileged accounts cannot be impersonated.');
         }
 
@@ -379,6 +434,7 @@ final class ImpersonationService
                 'target_email' => $target->email,
                 'company_id' => $companyId,
                 'correlation_id' => $correlationId,
+                'timestamp' => now()->timestamp,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])
@@ -405,11 +461,7 @@ final class ImpersonationService
         }
 
         // Verify initiator still holds users.impersonate
-        app(PermissionRegistrar::class)->setPermissionsTeamId($originalCompanyId);
-        $originalUser->unsetRelation('roles');
-        $originalUser->unsetRelation('permissions');
-
-        if (! $originalUser->can('users.impersonate')) {
+        if (! $this->hasImpersonatePermissionInCompany($originalUser, $originalCompanyId)) {
             $this->failClosed($request, 'Original administrator no longer has impersonation permission.');
         }
 
@@ -426,6 +478,7 @@ final class ImpersonationService
                 'target_id' => $targetUserId,
                 'company_id' => $originalCompanyId,
                 'correlation_id' => $correlationId,
+                'timestamp' => now()->timestamp,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])
@@ -446,16 +499,13 @@ final class ImpersonationService
                 ? $originalCompanyId
                 : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
 
-            if ($companyToRestore !== null) {
-                $request->session()->put('current_company_id', $companyToRestore);
-                $request->attributes->set('current_company_id', $companyToRestore);
-                app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
-            } else {
-                $request->session()->forget('current_company_id');
-                $request->attributes->remove('current_company_id');
-                app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+            if ($companyToRestore === null) {
+                $this->failClosed($request, 'Original administrator has no accessible companies to restore.');
             }
 
+            $request->session()->put('current_company_id', $companyToRestore);
+            $request->attributes->set('current_company_id', $companyToRestore);
+            app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
             $originalUser->unsetRelation('roles');
             $originalUser->unsetRelation('permissions');
@@ -493,6 +543,7 @@ final class ImpersonationService
                 'target_id' => $targetUserId,
                 'company_id' => $originalCompanyId,
                 'correlation_id' => $correlationId,
+                'timestamp' => now()->timestamp,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])
@@ -513,12 +564,13 @@ final class ImpersonationService
                     ? $originalCompanyId
                     : $this->resolveCompanyAccess->resolveFallbackCompanyId($originalUser, $accessibleIds);
 
-                if ($companyToRestore !== null) {
-                    $request->session()->put('current_company_id', $companyToRestore);
-                    $request->attributes->set('current_company_id', $companyToRestore);
-                    app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
+                if ($companyToRestore === null) {
+                    $this->failClosed($request, 'Original administrator has no accessible companies to restore.');
                 }
 
+                $request->session()->put('current_company_id', $companyToRestore);
+                $request->attributes->set('current_company_id', $companyToRestore);
+                app(PermissionRegistrar::class)->setPermissionsTeamId($companyToRestore);
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
                 $originalUser->unsetRelation('roles');
                 $originalUser->unsetRelation('permissions');
@@ -535,8 +587,10 @@ final class ImpersonationService
     /**
      * Log denied attempt.
      */
-    public function logDeniedAttempt(Request $request, ?User $initiator, ?User $target, string $reason): void
+    public function logDeniedAttempt(Request $request, ?User $initiator, ?User $target, string $reason, ?int $companyId = null, ?string $correlationId = null): void
     {
+        $resolvedCompanyId = $companyId ?? ($request->attributes->get('current_company_id') ?? $request->session()->get('current_company_id'));
+
         activity('impersonation')
             ->causedBy($initiator)
             ->event('denied')
@@ -545,7 +599,9 @@ final class ImpersonationService
                 'target_id' => $target?->id,
                 'target_name' => $target?->name,
                 'reason' => $reason,
-                'company_id' => $request->attributes->get('current_company_id') ?? $request->session()->get('current_company_id'),
+                'company_id' => $resolvedCompanyId,
+                'correlation_id' => $correlationId,
+                'timestamp' => now()->timestamp,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])
@@ -566,13 +622,13 @@ final class ImpersonationService
     /**
      * Assert initiating user has recent authentication in the current session.
      */
-    public function assertRecentAuthentication(Request $request, User $user): void
+    public function assertRecentAuthentication(Request $request, User $user, ?int $companyId = null): void
     {
         if ($this->hasRecentAuthentication($request)) {
             return;
         }
 
-        $this->logDeniedAttempt($request, $user, null, 'Initiator requires recent authentication or password confirmation.');
+        $this->logDeniedAttempt($request, $user, null, 'Initiator requires recent authentication or password confirmation.', $companyId);
         abort(423, 'Recent authentication or password confirmation required before impersonating a user.');
     }
 
@@ -599,6 +655,7 @@ final class ImpersonationService
                 'target_id' => $targetUserId,
                 'company_id' => $originalCompanyId,
                 'correlation_id' => $correlationId,
+                'timestamp' => now()->timestamp,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ])
