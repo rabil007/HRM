@@ -93,11 +93,19 @@ final class CrewPayrollSalarySheetExporter
         $this->writeSummaryRow($sheet);
         $this->writeHeaderRow($sheet);
 
+        // Keep the legacy salary sheet strictly Daily Crew. Monthly Crew uses
+        // the separate worksheet to avoid mixing movement pay and monthly salary.
+        $dailyRecords = $records->reject(function (PayrollRecord $record): bool {
+            $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+
+            return ($breakdown['salary_structure'] ?? 'daily') === 'monthly';
+        });
+
         $rowNumber = self::DATA_START_ROW;
         $serialNumber = 1;
         $missingCoordinates = [];
 
-        foreach ($records as $record) {
+        foreach ($dailyRecords as $record) {
             /** @var Employee $employee */
             $employee = $record->employee;
             $timesheet = $timesheetsByEmployee->get($employee->id);
@@ -122,7 +130,7 @@ final class CrewPayrollSalarySheetExporter
         $this->applyWorksheetFormatting($sheet, $lastDataRow);
         $this->applyMissingHighlights($sheet, $missingCoordinates);
 
-        $this->writeMovementDetailsSheet($spreadsheet, $records, $timesheetsByEmployee, $companyId);
+        $this->writeMovementDetailsSheet($spreadsheet, $dailyRecords, $timesheetsByEmployee, $companyId);
         $this->writeMonthlyCrewCompensationSheet($spreadsheet, $records);
 
         return $this->saveSpreadsheet($spreadsheet, 'crew-payroll-', $period);
