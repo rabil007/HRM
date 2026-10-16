@@ -61,7 +61,10 @@ export function formatCompanyTimezoneLabel(
             .formatToParts(date)
             .find((part) => part.type === 'timeZoneName')?.value;
 
-        const normalizedOffset = (offset ?? '').replace('GMT', 'UTC');
+        // ICU may emit "GMT" / "UTC" / "UTC+0" for zero offset; keep labels stable.
+        const normalizedOffset = (offset ?? '')
+            .replace('GMT', 'UTC')
+            .replace(/^UTC$/, 'UTC+0');
 
         if (longName && normalizedOffset) {
             return `${longName} (${normalizedOffset})`;
