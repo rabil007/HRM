@@ -84,12 +84,25 @@ final class TransactionScopedPrivateFileCompensation
     {
         $connection = $event->connection;
         $name = (string) $connection->getName();
+        $remainingLevel = $connection->transactionLevel();
 
-        if ($connection->transactionLevel() > 0) {
+        if ($remainingLevel === 0) {
+            unset(self::$pending[$name]);
+
             return;
         }
 
-        unset(self::$pending[$name]);
+        if (! isset(self::$pending[$name])) {
+            return;
+        }
+
+        // Inner commit: promote files from the committed nesting level into the parent
+        // scope so a later sibling rollback cannot treat them as its own failures.
+        foreach (self::$pending[$name] as $index => $item) {
+            if ($item['level'] > $remainingLevel) {
+                self::$pending[$name][$index]['level'] = $remainingLevel;
+            }
+        }
     }
 
     public static function handleRolledBack(TransactionRolledBack $event): void

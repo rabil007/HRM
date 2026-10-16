@@ -6,11 +6,11 @@ use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
-use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentAccess;
 use App\Support\CrewMovements\CrewAssignmentVoidGuard;
 use App\Support\EmployeeTrainings\DeletesEmployeeTrainingRecord;
+use App\Support\EmployeeTrainings\TrainingCertificateLockOrder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -166,13 +166,12 @@ final class BulkVoidCrewAssignments
 
                 $trainingDeletedCounts = [];
                 if ($deleteTraining && $phaseIds !== []) {
-                    $trainings = EmployeeTraining::query()
-                        ->where('company_id', $companyId)
-                        ->whereIn('source_crew_assignment_phase_id', $phaseIds)
-                        ->with('versions')
-                        ->orderBy('id')
-                        ->lockForUpdate()
-                        ->get();
+                    // Document → Training lock order before DeletesEmployeeTrainingRecord.
+                    $trainings = TrainingCertificateLockOrder::lockDocumentsThenTrainingsForSourcePhases(
+                        $companyId,
+                        $phaseIds,
+                        with: ['versions'],
+                    );
 
                     foreach ($trainings as $training) {
                         $aId = $phaseToAssignment[(int) $training->source_crew_assignment_phase_id] ?? null;

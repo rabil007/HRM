@@ -7,6 +7,7 @@ use App\Enums\CrewPhaseStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\CrewAssignment;
 use App\Models\CrewAssignmentPhase;
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentInvariantGuard;
@@ -93,11 +94,27 @@ final class ApplyCrewMovementCorrectionPipeline
         if ($phase->phase_code === CrewPhaseCode::Training
             && $phase->status === CrewPhaseStatus::Completed) {
             $employeeTraining = EmployeeTraining::query()
+                ->where('company_id', $companyId)
                 ->where('source_crew_assignment_phase_id', $phase->id)
-                ->lockForUpdate()
+                ->orderBy('id')
                 ->first();
 
             if ($employeeTraining !== null) {
+                // Document → Training even when Approve/Override already locked the pair.
+                if ($employeeTraining->employee_document_id !== null) {
+                    EmployeeDocument::query()
+                        ->whereKey($employeeTraining->employee_document_id)
+                        ->where('company_id', $companyId)
+                        ->lockForUpdate()
+                        ->first();
+                }
+
+                $employeeTraining = EmployeeTraining::query()
+                    ->whereKey($employeeTraining->id)
+                    ->where('company_id', $companyId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
                 $trainingUpdates = [];
                 if (array_key_exists('actual_end_at', $normalized) && $phase->actual_end_at instanceof CarbonInterface) {
                     $timezone = CompanyTimezone::forCompanyId($companyId);

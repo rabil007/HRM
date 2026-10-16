@@ -9,9 +9,9 @@ use App\Models\CrewAssignmentPhase;
 use App\Models\CrewMovementCorrection;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeSeaService;
-use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
+use App\Support\EmployeeTrainings\TrainingCertificateLockOrder;
 use Illuminate\Support\Facades\DB;
 
 final class ApproveCrewMovementCorrection
@@ -94,10 +94,10 @@ final class ApproveCrewMovementCorrection
                 ->lockForUpdate()
                 ->get();
 
-            EmployeeTraining::query()
-                ->where('source_crew_assignment_phase_id', $phase->id)
-                ->lockForUpdate()
-                ->first();
+            TrainingCertificateLockOrder::lockDocumentsThenTrainingsForSourcePhases(
+                $companyId,
+                [(int) $phase->id],
+            );
 
             $originals = $correction->original_values ?? [];
 
