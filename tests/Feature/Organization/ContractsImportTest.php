@@ -482,7 +482,7 @@ test('monthly crew import previews effective values and keeps blank metadata and
         ->assertJsonPath('rows.0.start_date', '2025-01-01')
         ->assertJsonPath('rows.0.end_date', '2027-12-31')
         ->assertJsonPath('rows.0.labor_contract_id', 'PRESERVE-MONTHLY-1')
-        ->assertJsonPath('rows.0.total_salary', 58800)
+        ->assertJsonPath('rows.0.total_salary', 58800.0)
         ->assertJsonPath('rows.0.eos_monthly_amount', '1500.00');
 
     $this->actingAs($user)

@@ -1659,6 +1659,20 @@ export function EmployeeContractTab({
                                 </span>
                                 <div className="h-px flex-1 bg-muted/50" />
                             </div>
+                            {isCrewMonthly &&
+                            [
+                                'housing_allowance',
+                                'transport_allowance',
+                                'other_allowances',
+                                'eos_monthly_amount',
+                            ].some((field) => !showField(field)) ? (
+                                <p className="text-xs text-amber-600 sm:col-span-2">
+                                    Some monthly compensation fields are hidden
+                                    by this employee's profile template. Enable
+                                    them in the Contract fields of the employee
+                                    profile template to edit their values.
+                                </p>
+                            ) : null}
                             <div className="grid gap-4 sm:grid-cols-2">
                                 {showField('basic_salary') ? (
                                     <ContractFormField
