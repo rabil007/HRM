@@ -344,7 +344,7 @@ Authorized administrators with `users.impersonate` (scoped to Spatie company tea
   5. Is the initiating administrator themselves (cannot self-impersonate).
   6. Has an inactive or suspended account status.
   7. Belongs to a different company outside the initiating administrator's authorized access.
-- **Recent Authentication**: Initiators must have recent authentication or password confirmation within `config('auth.password_timeout')` (default 3 hours) prior to starting impersonation.
+- **Recent Authentication**: Initiators must have recent authentication or password confirmation within `config('auth.password_timeout')` (default 3 hours) prior to starting impersonation. Interactive Fortify login (after any required 2FA) and Fortify password confirmation establish `auth.password_confirmed_at`; Remember Me cookie restoration and impersonation start/stop/restore transitions do not.
 - **Session Lifetime**: Impersonation sessions have a finite lifetime (`config('auth.impersonation.lifetime_minutes')`, default 120 minutes). When expired, `EnsureValidImpersonationSession` middleware automatically terminates impersonation and restores the original administrator account.
 - **Restricted Operations During Impersonation**: To protect account ownership and financial safety, the following sensitive actions are strictly blocked (returning HTTP 403) while impersonating:
   - Password updates (`/user/password`, `settings/security/password`)

@@ -25,9 +25,9 @@ class RecordUserLastLogin
             RememberSession::forget();
         }
 
-        if (request()->hasSession()) {
-            request()->session()->put('auth.password_confirmed_at', now()->timestamp);
-        }
+        // Do not set auth.password_confirmed_at here. Laravel also emits Login when a
+        // Remember Me cookie restores the session; only Fortify interactive login /
+        // completed 2FA / password confirmation may establish recent authentication.
 
         $event->user->forceFill([
             'last_login_at' => now(),

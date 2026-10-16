@@ -96,10 +96,19 @@ class ImpersonationController extends Controller
             return redirect()->route('organization.users')->with('error', 'Company not found.');
         }
 
-        // Revalidate initiator and target eligibility against selected company
+        // Revalidate initiator and target eligibility against selected company.
+        // GET must never call start() — identity transitions are POST-only.
         if (! $service->canImpersonate($initiator, $target, $companyId)) {
             $request->session()->forget('impersonation_pending');
-            $service->start($request, $target, $companyId);
+            $service->logDeniedAttempt(
+                $request,
+                $initiator,
+                $target,
+                'Pending impersonation is no longer authorized.',
+                $companyId,
+            );
+
+            return redirect()->route('organization.users')->with('error', 'You are not authorized to impersonate this user.');
         }
 
         // If password confirmation expired between prompt and continuation

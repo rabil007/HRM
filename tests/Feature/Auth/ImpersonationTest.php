@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\Auth\ImpersonationService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Laravel\Fortify\Features;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -866,6 +867,190 @@ test('interactive login satisfies recent authentication policy for impersonation
     expect(session()->has('impersonation'))->toBeTrue();
 });
 
+test('interactive login with remember me still establishes recent authentication', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $admin = User::factory()->create(['status' => 'active', 'password' => bcrypt('password')]);
+    grantCompanyPermissions($admin, $company, ['users.impersonate'], 'Admin');
+
+    $target = User::factory()->create(['status' => 'active']);
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Operator');
+
+    $this->post(route('login.store'), [
+        'email' => $admin->email,
+        'password' => 'password',
+        'remember' => '1',
+    ])->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('auth.password_confirmed_at'))->toBeTrue();
+    expect(Auth::viaRemember())->toBeFalse();
+
+    session(['current_company_id' => $company->id]);
+
+    $this->post(route('organization.users.impersonate', ['user' => $target->id]))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($target);
+});
+
+test('remember me cookie restoration does not establish password confirmation and requires confirmation before impersonation', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $admin = User::factory()->create(['status' => 'active', 'password' => bcrypt('password')]);
+    grantCompanyPermissions($admin, $company, ['users.view', 'users.impersonate'], 'Admin');
+
+    $target = User::factory()->create(['status' => 'active']);
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Operator');
+
+    $loginResponse = $this->post(route('login.store'), [
+        'email' => $admin->email,
+        'password' => 'password',
+        'remember' => '1',
+    ]);
+
+    $loginResponse->assertRedirect(route('dashboard', absolute: false));
+    expect(session()->has('auth.password_confirmed_at'))->toBeTrue();
+
+    $recallerName = Auth::guard('web')->getRecallerName();
+    $plainCookie = $loginResponse->getCookie($recallerName);
+    expect($plainCookie)->not->toBeNull();
+
+    // Simulate a later visit that restores authentication from the remember cookie only.
+    $this->app['auth']->forgetGuards();
+    $this->flushSession();
+
+    $this->withCookie($recallerName, $plainCookie->getValue())
+        ->get(route('dashboard'))
+        ->assertOk();
+
+    $this->assertAuthenticatedAs($admin);
+    expect(Auth::viaRemember())->toBeTrue();
+    expect(session()->has('auth.password_confirmed_at'))->toBeFalse();
+
+    session(['current_company_id' => $company->id]);
+
+    $this->post(route('organization.users.impersonate', ['user' => $target->id]))
+        ->assertRedirect(route('password.confirm'));
+
+    expect(session('impersonation_pending.target_user_id'))->toBe($target->id);
+    expect(session()->has('impersonation'))->toBeFalse();
+    $this->assertAuthenticatedAs($admin);
+
+    $this->post(route('password.confirm.store'), [
+        'password' => 'password',
+    ])->assertRedirect(route('organization.impersonation.confirm'));
+
+    expect(session()->has('auth.password_confirmed_at'))->toBeTrue();
+
+    $this->get(route('organization.impersonation.confirm'))
+        ->assertOk();
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('impersonation'))->toBeFalse();
+
+    $this->post(route('organization.impersonation.complete'))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($target);
+    expect(session()->has('impersonation'))->toBeTrue();
+    expect(session()->get('impersonation.original_user_id'))->toBe($admin->id);
+});
+
+test('completed two factor challenge establishes recent authentication for impersonation', function () {
+    $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
+
+    Features::twoFactorAuthentication([
+        'confirm' => true,
+        'confirmPassword' => true,
+    ]);
+
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $admin = User::factory()->withTwoFactor()->create(['status' => 'active', 'password' => bcrypt('password')]);
+    grantCompanyPermissions($admin, $company, ['users.impersonate'], 'Admin');
+
+    $target = User::factory()->create(['status' => 'active']);
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Operator');
+
+    $this->post(route('login.store'), [
+        'email' => $admin->email,
+        'password' => 'password',
+    ])->assertRedirect(route('two-factor.login'));
+
+    $this->assertGuest();
+    expect(session()->has('auth.password_confirmed_at'))->toBeFalse();
+
+    $this->post(route('two-factor.login.store'), [
+        'recovery_code' => 'recovery-code-1',
+    ])->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('auth.password_confirmed_at'))->toBeTrue();
+
+    session(['current_company_id' => $company->id]);
+
+    $this->post(route('organization.users.impersonate', ['user' => $target->id]))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($target);
+});
+
+test('impersonation start stop and restore do not refresh password confirmation', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $admin = User::factory()->create(['status' => 'active', 'password' => bcrypt('password')]);
+    grantCompanyPermissions($admin, $company, ['users.view', 'users.impersonate'], 'Admin');
+
+    $target = User::factory()->create(['status' => 'active']);
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Operator');
+
+    $this->post(route('login.store'), [
+        'email' => $admin->email,
+        'password' => 'password',
+    ]);
+
+    $confirmedAt = session('auth.password_confirmed_at');
+    expect($confirmedAt)->not->toBeNull();
+
+    session(['current_company_id' => $company->id]);
+
+    $this->post(route('organization.users.impersonate', ['user' => $target->id]))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($target);
+    expect(session()->has('auth.password_confirmed_at'))->toBeFalse();
+
+    $this->post(route('organization.impersonation.stop'))
+        ->assertRedirect(route('organization.users'));
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('auth.password_confirmed_at'))->toBeFalse();
+
+    // Restore path (expire) also must not mint a fresh confirmation timestamp.
+    session([
+        'auth.password_confirmed_at' => $confirmedAt,
+        'current_company_id' => $company->id,
+    ]);
+
+    $this->post(route('organization.users.impersonate', ['user' => $target->id]))
+        ->assertRedirect(route('dashboard'));
+
+    session([
+        'impersonation.expires_at' => now()->subMinute()->timestamp,
+    ]);
+
+    $this->get(route('dashboard'))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('auth.password_confirmed_at'))->toBeFalse();
+});
+
 test('target user receiving Owner role during active impersonation is intercepted and session terminated with attribution', function () {
     $pair = makeCompanyAuthorizationPair();
     $company = $pair['companyA'];
@@ -1363,6 +1548,49 @@ test('GET continuation renders landing page and cannot change authenticated iden
     $this->assertAuthenticatedAs($admin);
     expect(session()->has('impersonation'))->toBeFalse();
     expect(session()->has('impersonation_pending'))->toBeTrue();
+});
+
+test('GET continuation with invalid eligibility clears pending and never switches identity', function () {
+    $pair = makeCompanyAuthorizationPair();
+    $company = $pair['companyA'];
+
+    $admin = User::factory()->create(['status' => 'active', 'last_login_at' => now()]);
+    grantCompanyPermissions($admin, $company, ['users.impersonate'], 'Admin');
+
+    $target = User::factory()->create(['status' => 'active']);
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Operator');
+
+    $this->actingAs($admin)
+        ->withSession([
+            'current_company_id' => $company->id,
+            'auth.password_confirmed_at' => time(),
+            'impersonation_pending' => [
+                'initiator_id' => $admin->id,
+                'company_id' => $company->id,
+                'target_id' => $target->id,
+                'created_at' => now()->timestamp,
+                'expires_at' => now()->addMinutes(10)->timestamp,
+            ],
+        ]);
+
+    // Target becomes a protected Owner after pending was created.
+    grantCompanyPermissions($target, $company, ['employees.view'], 'Owner');
+
+    $response = $this->get(route('organization.impersonation.confirm'));
+    $response->assertRedirect(route('organization.users'));
+    $response->assertSessionHas('error');
+
+    $this->assertAuthenticatedAs($admin);
+    expect(session()->has('impersonation'))->toBeFalse();
+    expect(session()->has('impersonation_pending'))->toBeFalse();
+
+    $denied = Activity::where('log_name', 'impersonation')
+        ->where('event', 'denied')
+        ->latest('id')
+        ->first();
+
+    expect($denied)->not->toBeNull();
+    expect($denied->properties['target_id'])->toBe($target->id);
 });
 
 test('original admin losing company access during active impersonation restores into fallback company and logs attribution', function () {
