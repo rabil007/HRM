@@ -382,6 +382,62 @@ test('contracts import rejects inactive company visa type names', function () {
         ->assertJsonPath('rows.0.errors.0.field', 'company_visa_type');
 });
 
+test('crew monthly import template uses monthly allowances and preserves EOS provision', function () {
+    ['company' => $company, 'crewEmployee' => $crewEmployee] = makeContractsImportFixtures();
+
+    EmployeeContract::query()->where('employee_id', $crewEmployee->id)->update([
+        'salary_structure' => 'monthly',
+        'basic_salary' => 55000,
+        'housing_allowance' => 2000,
+        'transport_allowance' => 500,
+        'eos_monthly_amount' => 1500,
+    ]);
+
+    $result = app(ContractImportTemplateExporter::class)->export($company->id, PayrollCategory::Crew, 'monthly');
+    $sheet = IOFactory::load($result['path'])->getSheetByName('Crew Monthly Contracts');
+
+    expect($sheet)->not->toBeNull()
+        ->and((string) $sheet->getCell('K1')->getValue())->toBe('EOS Provision (Non-Payable)')
+        ->and((float) $sheet->getCell('G2')->getValue())->toBe(55000.0)
+        ->and((float) $sheet->getCell('H2')->getValue())->toBe(2000.0)
+        ->and((float) $sheet->getCell('K2')->getValue())->toBe(1500.0);
+
+    @unlink($result['path']);
+});
+
+test('daily crew import cannot silently overwrite an existing monthly crew contract', function () {
+    ['user' => $user, 'company' => $company, 'crewEmployee' => $crewEmployee] = makeContractsImportFixtures();
+
+    EmployeeContract::query()->where('employee_id', $crewEmployee->id)->update([
+        'salary_structure' => 'monthly',
+        'basic_salary' => 55000,
+        'housing_allowance' => 2000,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $file = makeContractsImportFile(PayrollCategory::Crew, [
+        [
+            'employee_no' => $crewEmployee->employee_no,
+            'name' => $crewEmployee->name,
+            'start_date' => '2025-01-01',
+            'status' => 'active',
+            'basic_salary' => 200,
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import.preview'), [
+            'payroll_category' => 'crew',
+            'salary_structure' => 'daily',
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.invalid', 1)
+        ->assertJsonPath('rows.0.errors.0.field', 'salary_structure');
+});
+
 /**
  * @return array{
  *     user: User,
