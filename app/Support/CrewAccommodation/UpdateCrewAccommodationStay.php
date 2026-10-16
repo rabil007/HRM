@@ -95,6 +95,9 @@ final class UpdateCrewAccommodationStay
 
             $this->validator->assert($assignment, $lockedStay, $checkInDate, $checkOutDate);
 
+            $previousVersion = (int) $lockedStay->edit_version;
+            $nextVersion = $previousVersion + 1;
+
             $previous = [
                 'hotel_id' => $lockedStay->hotel_id,
                 'room_type_id' => $lockedStay->room_type_id,
@@ -102,10 +105,8 @@ final class UpdateCrewAccommodationStay
                 'check_out_date' => $lockedStay->check_out_date?->toDateString(),
                 'stay_type' => $lockedStay->stay_type->value,
                 'accommodation_status' => $lockedStay->accommodation_status->value,
-                'edit_version' => (int) $lockedStay->edit_version,
+                'edit_version' => $previousVersion,
             ];
-
-            $nextVersion = (int) $lockedStay->edit_version + 1;
 
             $updated = [
                 'hotel_id' => $hotelId,
@@ -127,6 +128,9 @@ final class UpdateCrewAccommodationStay
                 'actor_id' => $actor->id,
             ];
 
+            // Set edit_version explicitly so reason-only / no-op field edits still
+            // invalidate peer forms. CrewAccommodationStay::updating skips its auto
+            // bump when edit_version is already dirty, preventing a double increment.
             $lockedStay->fill([
                 'hotel_id' => $hotelId,
                 'room_type_id' => $roomTypeId,

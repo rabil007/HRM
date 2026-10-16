@@ -1011,3 +1011,306 @@ test('summary preserves inactive and unresolved hotel and room type selections f
         ->and($item['room_type_display'])->toContain('(inactive)')
         ->and($item['room_type_display'])->not->toBe('Not specified');
 });
+
+test('newly created accommodation stays start at edit version zero', function () {
+    $f = makeAccommodationEditFixtures();
+
+    expect((int) $f['stay']->edit_version)->toBe(0);
+
+    $created = CrewAccommodationStay::factory()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'hotel_id' => $f['hotel']->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-15',
+        'check_out_date' => null,
+        'started_from_phase_id' => $f['onVessel']->id,
+    ]);
+
+    expect((int) $created->edit_version)->toBe(0)
+        ->and((int) $created->fresh()->edit_version)->toBe(0);
+});
+
+test('manual accommodation edit increments edit version exactly once', function () {
+    $f = makeAccommodationEditFixtures();
+    $version = (int) $f['stay']->edit_version;
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), accommodationEditPayload($f['stay'], [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-07',
+            'reason' => 'Single version bump',
+        ]))
+        ->assertRedirect();
+
+    expect((int) $f['stay']->fresh()->edit_version)->toBe($version + 1);
+});
+
+test('invalid accommodation edit does not increment edit version', function () {
+    $f = makeAccommodationEditFixtures();
+    $version = (int) $f['stay']->edit_version;
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $f['stay']), accommodationEditPayload($f['stay'], [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-08',
+            'check_out_date' => '2026-10-07',
+            'reason' => 'Invalid dates',
+        ]))
+        ->assertSessionHasErrors();
+
+    expect((int) $f['stay']->fresh()->edit_version)->toBe($version);
+});
+
+test('join vessel checkout increments edit version and rejects a previously opened stale edit', function () {
+    $f = makeAccommodationEditFixtures(withJoin: false);
+
+    $f['onVessel']->delete();
+    $f['joinStandby']->update([
+        'status' => CrewPhaseStatus::Active,
+        'actual_end_at' => null,
+    ]);
+    $f['assignment']->update(['current_phase_id' => $f['joinStandby']->id]);
+
+    $openedVersion = (int) $f['stay']->edit_version;
+    expect($openedVersion)->toBe(0)
+        ->and($f['stay']->check_out_date)->toBeNull();
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'occurred_at' => '2026-10-07 10:00:00',
+            'vessel_id' => $f['assignment']->vessel_id,
+            'position_id' => $f['assignment']->position_id,
+            'check_out_date' => '2026-10-07',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $stayAfterJoin = $f['stay']->fresh();
+    expect($stayAfterJoin->check_out_date?->toDateString())->toBe('2026-10-07')
+        ->and((int) $stayAfterJoin->edit_version)->toBe($openedVersion + 1);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $stayAfterJoin), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-06',
+            'reason' => 'Stale form opened before join vessel',
+            'expected_edit_version' => $openedVersion,
+        ])
+        ->assertSessionHasErrors('expected_edit_version');
+
+    $unchanged = $f['stay']->fresh();
+    expect($unchanged->check_out_date?->toDateString())->toBe('2026-10-07')
+        ->and((int) $unchanged->edit_version)->toBe($openedVersion + 1);
+});
+
+test('travel home checkout increments edit version and rejects a previously opened stale edit', function () {
+    $f = makeAccommodationEditFixtures();
+    $f['onVessel']->update([
+        'status' => CrewPhaseStatus::Completed,
+        'actual_end_at' => '2026-10-15 12:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::query()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-15 12:00:00',
+    ]);
+    $f['assignment']->update(['current_phase_id' => $demob->id]);
+
+    $postStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'hotel_id' => $f['hotel']->id,
+        'room_type_id' => $f['roomType']->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-15',
+        'check_out_date' => null,
+        'started_from_phase_id' => $demob->id,
+    ]);
+
+    $openedVersion = (int) $postStay->edit_version;
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::TravelHome->value,
+            'occurred_at' => '2026-10-16 18:00:00',
+            'check_out_date' => '2026-10-16',
+            'completion_intent' => 'close',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $stayAfterHome = $postStay->fresh();
+    expect($stayAfterHome->check_out_date?->toDateString())->toBe('2026-10-16')
+        ->and((int) $stayAfterHome->edit_version)->toBe($openedVersion + 1);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $stayAfterHome), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-15',
+            'check_out_date' => '2026-10-15',
+            'reason' => 'Stale form opened before travel home',
+            'expected_edit_version' => $openedVersion,
+        ])
+        ->assertSessionHasErrors('expected_edit_version');
+
+    expect($postStay->fresh()->check_out_date?->toDateString())->toBe('2026-10-16')
+        ->and((int) $postStay->fresh()->edit_version)->toBe($openedVersion + 1);
+});
+
+test('cancellation checkout increments edit version and rejects a previously opened stale edit', function () {
+    $f = makeAccommodationEditFixtures(withJoin: false);
+
+    $f['onVessel']->delete();
+    $f['joinStandby']->update([
+        'status' => CrewPhaseStatus::Active,
+        'actual_end_at' => null,
+    ]);
+    $f['assignment']->update(['current_phase_id' => $f['joinStandby']->id]);
+
+    $openedVersion = (int) $f['stay']->edit_version;
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'crew_operations.assignments.cancel',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::CancelAssignment->value,
+            'occurred_at' => '2026-10-06 09:00:00',
+            'check_out_date' => '2026-10-06',
+            'reason' => 'Mobilisation cancelled',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $stayAfterCancel = $f['stay']->fresh();
+    expect($stayAfterCancel->check_out_date?->toDateString())->toBe('2026-10-06')
+        ->and((int) $stayAfterCancel->edit_version)->toBe($openedVersion + 1)
+        ->and($f['assignment']->fresh()->status)->toBe(CrewAssignmentStatus::Cancelled);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $stayAfterCancel), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-03',
+            'check_out_date' => '2026-10-05',
+            'reason' => 'Stale form opened before cancellation',
+            'expected_edit_version' => $openedVersion,
+        ])
+        ->assertSessionHasErrors('expected_edit_version');
+
+    expect($f['stay']->fresh()->check_out_date?->toDateString())->toBe('2026-10-06')
+        ->and((int) $f['stay']->fresh()->edit_version)->toBe($openedVersion + 1);
+});
+
+test('redeploy source checkout increments edit version and rejects a previously opened stale edit', function () {
+    $f = makeAccommodationEditFixtures();
+    $f['onVessel']->update([
+        'status' => CrewPhaseStatus::Completed,
+        'actual_end_at' => '2026-10-15 12:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::query()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-15 12:00:00',
+    ]);
+    $f['assignment']->update(['current_phase_id' => $demob->id]);
+
+    $postStay = CrewAccommodationStay::factory()->create([
+        'company_id' => $f['company']->id,
+        'crew_assignment_id' => $f['assignment']->id,
+        'hotel_id' => $f['hotel']->id,
+        'room_type_id' => $f['roomType']->id,
+        'stay_type' => CrewAccommodationStayType::PostSignoff,
+        'accommodation_status' => CrewAccommodationStatus::Hotel,
+        'check_in_date' => '2026-10-15',
+        'check_out_date' => null,
+        'started_from_phase_id' => $demob->id,
+    ]);
+
+    $openedVersion = (int) $postStay->edit_version;
+
+    grantCompanyPermissions($f['user'], $f['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.corrections.override',
+        'crew_operations.movements.perform',
+        'audit.view',
+    ]);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $f['assignment']), [
+            'action' => CrewMovementAction::Redeploy->value,
+            'occurred_at' => '2026-10-16 09:00:00',
+            'starting_phase' => CrewPhaseCode::PreArrival->value,
+            'source_check_out_date' => '2026-10-16',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $stayAfterRedeploy = $postStay->fresh();
+    expect($stayAfterRedeploy->check_out_date?->toDateString())->toBe('2026-10-16')
+        ->and((int) $stayAfterRedeploy->edit_version)->toBe($openedVersion + 1);
+
+    $this->actingAs($f['user'])
+        ->withSession(['current_company_id' => $f['company']->id])
+        ->from(route('organization.crew-assignments.show', $f['assignment']))
+        ->put(accommodationEditUrl($f['assignment'], $stayAfterRedeploy), [
+            'hotel_id' => $f['hotel']->id,
+            'room_type_id' => $f['roomType']->id,
+            'check_in_date' => '2026-10-15',
+            'check_out_date' => '2026-10-15',
+            'reason' => 'Stale form opened before redeploy',
+            'expected_edit_version' => $openedVersion,
+        ])
+        ->assertSessionHasErrors('expected_edit_version');
+
+    expect($postStay->fresh()->check_out_date?->toDateString())->toBe('2026-10-16')
+        ->and((int) $postStay->fresh()->edit_version)->toBe($openedVersion + 1);
+});
