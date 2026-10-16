@@ -162,10 +162,23 @@ Correction dialogs and impact previews strictly follow the Phase 3 Company Timez
 3. **Impact Previews**:
    - Proposed datetime changes are previewed in the company timezone with 12-hour formatting (`DD-MM-YYYY hh:mm A`).
 
+## Accommodation record edits
+
+Privileged operators may edit existing hotel `CrewAccommodationStay` rows from the Crew Assignment detail page without opening a movement correction:
+
+- Permission: `crew_operations.corrections.override` + `privileged.2fa` (same as direct movement override)
+- Route: `PUT organization/crew/{assignment}/accommodation-stays/{stay}`
+- Action: `UpdateCrewAccommodationStay` (reason required; audited; no `CrewMovementCorrection` row)
+- Concurrency: mandatory `expected_edit_version` optimistic lock (`edit_version` increments on each successful edit)
+- Scope: hotel stays only (no conversion to/from `no_accommodation`, no deletion)
+- Validation: hotel/room-type tenancy, calendar dates, actual movement bounds (P1A arrival only — never P0), reopen rules, and hotel-interval overlap (same-day transfer boundary allowed)
+- Movement execution: join vessel / travel home / redeploy also reject **already-closed** stays that extend beyond the executed actual boundary (scheduled dates alone are not actuals)
+- Side effects: accommodation data and audit only — phases, scheduling, payroll, and sea-service are unchanged
+
 ## Non-goals
 
 - No `EmployeeDeployment` restoration
 - No vessel transfer / redeployment via corrections
-- No direct editing of assignments without an authoritative correction record (`OverrideCrewMovementCorrection` creates a verified `approved` correction record directly)
+- No direct editing of assignments without an authoritative correction record (`OverrideCrewMovementCorrection` creates a verified `approved` correction record directly). Accommodation hotel-stay field edits are a separate privileged path and do not mutate movement phases.
 - Pending proposals never affect reports’ official dates
-- **Void Erroneous Assignment** is a separate privileged workflow (`crew_operations.assignments.void`), not a correction and not Cancel — see [crew-movement-phases.md](./crew-movement-phases.md). Void is conservatively blocked once accommodation history exists until a dedicated accommodation correction/reversal workflow is implemented.
+- **Void Erroneous Assignment** is a separate privileged workflow (`crew_operations.assignments.void`), not a correction and not Cancel — see [crew-movement-phases.md](./crew-movement-phases.md). Void remains conservatively blocked once accommodation history exists (editing stays is not a reversal/delete workflow).

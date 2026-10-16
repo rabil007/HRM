@@ -27,6 +27,21 @@ class CrewAccommodationStay extends Model
     public ?array $activityLogContext = null;
 
     /**
+     * Business attributes whose change must invalidate open edit forms.
+     *
+     * @var list<string>
+     */
+    private const EDIT_VERSION_ATTRIBUTES = [
+        'hotel_id',
+        'room_type_id',
+        'stay_type',
+        'accommodation_status',
+        'check_in_date',
+        'check_out_date',
+        'started_from_phase_id',
+    ];
+
+    /**
      * @var list<string>
      */
     protected $fillable = [
@@ -41,12 +56,37 @@ class CrewAccommodationStay extends Model
         'started_from_phase_id',
         'created_by',
         'updated_by',
+        'edit_version',
     ];
 
     protected static function booted(): void
     {
         static::saving(function (CrewAccommodationStay $stay): void {
             CrewAccommodationStayIntegrity::assertValid($stay);
+        });
+
+        // Advance edit_version once per successful update of existing stays so
+        // movement checkouts and manual edits both invalidate stale edit forms.
+        // Callers that already set edit_version are left alone to avoid a double bump.
+        static::updating(function (CrewAccommodationStay $stay): void {
+            if ($stay->isDirty('edit_version')) {
+                return;
+            }
+
+            $hasSubstantiveChange = false;
+
+            foreach (self::EDIT_VERSION_ATTRIBUTES as $attribute) {
+                if ($stay->isDirty($attribute)) {
+                    $hasSubstantiveChange = true;
+                    break;
+                }
+            }
+
+            if (! $hasSubstantiveChange) {
+                return;
+            }
+
+            $stay->edit_version = (int) ($stay->getOriginal('edit_version') ?? 0) + 1;
         });
     }
 
@@ -99,6 +139,7 @@ class CrewAccommodationStay extends Model
             'started_from_phase_id' => 'integer',
             'created_by' => 'integer',
             'updated_by' => 'integer',
+            'edit_version' => 'integer',
             'stay_type' => CrewAccommodationStayType::class,
             'accommodation_status' => CrewAccommodationStatus::class,
             'check_in_date' => 'date',
