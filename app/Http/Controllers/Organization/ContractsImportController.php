@@ -26,7 +26,6 @@ class ContractsImportController extends Controller
         $payrollCategory = PayrollCategory::from($validated['payroll_category']);
         $result = $exporter->export($companyId, $payrollCategory, (string) ($validated['salary_structure'] ?? 'daily'));
 
-
         return response()
             ->download($result['path'], $result['filename'])
             ->deleteFileAfterSend();
