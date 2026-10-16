@@ -23,9 +23,12 @@ import type {
     Country,
 } from '@/features/organization/branches/types';
 import {
-    formatDisplayDate,
+    formatCompanyDateFromTimestamp,
+    formatDisplayDateTimeInTimezone,
     formatDisplayValue,
     formatActivityFieldLabel,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -126,6 +129,8 @@ export default function BranchDetails({
         expired: number;
     } | null;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const location =
         [branch.city, branch.country].filter(Boolean).join(', ') || '—';
     const [editOpen, setEditOpen] = useState(false);
@@ -285,8 +290,22 @@ export default function BranchDetails({
                                         Metadata
                                     </div>
                                     <div className="space-y-1 text-right text-sm font-medium">
-                                        <div>Created: {branch.created_at}</div>
-                                        <div>Updated: {branch.updated_at}</div>
+                                        <div>
+                                            Created:{' '}
+                                            {formatDisplayDateTimeInTimezone(
+                                                branch.created_at,
+                                                companyTimezone,
+                                                dateFormat,
+                                            )}
+                                        </div>
+                                        <div>
+                                            Updated:{' '}
+                                            {formatDisplayDateTimeInTimezone(
+                                                branch.updated_at,
+                                                companyTimezone,
+                                                dateFormat,
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -543,8 +562,10 @@ export default function BranchDetails({
                                                     </div>
 
                                                     <div className="shrink-0 text-xs text-muted-foreground/50">
-                                                        {formatDisplayDate(
+                                                        {formatCompanyDateFromTimestamp(
                                                             a.created_at,
+                                                            companyTimezone,
+                                                            dateFormat,
                                                         )}
                                                     </div>
                                                 </div>

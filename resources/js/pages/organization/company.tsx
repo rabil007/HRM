@@ -44,9 +44,11 @@ import type {
 import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import {
-    formatDisplayDate,
+    formatCompanyDateFromTimestamp,
     formatDisplayValue,
     formatActivityFieldLabel,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { index as companyDocumentsIndex } from '@/routes/organization/companies/documents';
@@ -219,6 +221,8 @@ export default function CompanyDetails({
     };
     branches?: BranchItem[];
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [editOpen, setEditOpen] = useState(false);
     const [documentSettingsOpen, setDocumentSettingsOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
@@ -1034,8 +1038,10 @@ export default function CompanyDetails({
                                                     </div>
 
                                                     <div className="shrink-0 text-xs text-muted-foreground/50">
-                                                        {formatDisplayDate(
+                                                        {formatCompanyDateFromTimestamp(
                                                             a.created_at,
+                                                            companyTimezone,
+                                                            dateFormat,
                                                         )}
                                                     </div>
                                                 </div>

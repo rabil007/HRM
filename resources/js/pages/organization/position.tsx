@@ -23,9 +23,11 @@ import type {
     PositionFormData,
 } from '@/features/organization/positions/types';
 import {
-    formatDisplayDate,
+    formatCompanyDateFromTimestamp,
     formatDisplayValue,
     formatActivityFieldLabel,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -111,6 +113,8 @@ export default function PositionDetails({
     recent_activity: ActivityItem[];
     can_view_audit: boolean;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [open, setOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
         Record<number, boolean>
@@ -513,8 +517,10 @@ export default function PositionDetails({
                                                     </div>
 
                                                     <div className="shrink-0 text-xs text-muted-foreground/50">
-                                                        {formatDisplayDate(
+                                                        {formatCompanyDateFromTimestamp(
                                                             a.created_at,
+                                                            companyTimezone,
+                                                            dateFormat,
                                                         )}
                                                     </div>
                                                 </div>

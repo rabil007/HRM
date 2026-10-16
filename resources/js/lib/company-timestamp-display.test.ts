@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+    formatCompanyDateFromTimestamp,
     formatDisplayDateTime12hInTimezone,
     toCompanyDateLocal,
 } from './company-timezone.ts';
@@ -26,5 +27,22 @@ describe('company-local timestamp display', () => {
         assert.equal(local, '2026-10-16');
         assert.equal(formatDisplayDate(local, 'd-m-Y'), '16-10-2026');
         assert.equal(formatDisplayDate(uploadedAt, 'd-m-Y'), '15-10-2026');
+    });
+
+    it('formats activity-history created_at on the company calendar day', () => {
+        const createdAt = '2026-10-15T21:30:00Z';
+
+        assert.equal(
+            formatCompanyDateFromTimestamp(createdAt, 'Asia/Dubai', 'd-m-Y'),
+            '16-10-2026',
+        );
+        assert.equal(
+            formatCompanyDateFromTimestamp(null, 'Asia/Dubai', 'd-m-Y'),
+            '—',
+        );
+        assert.equal(
+            formatCompanyDateFromTimestamp('', 'Asia/Dubai', 'd-m-Y'),
+            '—',
+        );
     });
 });

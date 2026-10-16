@@ -41,17 +41,18 @@ export function RepeatRequirementDialog({
     onSuccess,
 }: Props) {
     const companyTimezone = useCompanyTimezone();
-    const today = nowInCompanyDate(companyTimezone);
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
         useForm({
-            request_received_date: today,
+            request_received_date: '',
             required_by_date: '',
             assigned_to: '',
             priority: 'normal',
             reason: '',
         });
 
+    // Init only when the dialog opens / requirement / company context changes —
+    // not when company-local "today" rolls past midnight while open.
     useEffect(() => {
         if (open && requirement) {
             const companyToday = nowInCompanyDate(companyTimezone);

@@ -19,9 +19,11 @@ import type {
     ManagerAssignment,
 } from '@/features/organization/departments/types';
 import {
-    formatDisplayDate,
+    formatCompanyDateFromTimestamp,
     formatDisplayValue,
     formatActivityFieldLabel,
+    useCompanyTimezone,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -132,6 +134,8 @@ export default function DepartmentDetails({
     recent_activity: ActivityItem[];
     can_view_audit: boolean;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [editOpen, setEditOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<
         Record<number, boolean>
@@ -552,8 +556,10 @@ export default function DepartmentDetails({
                                                 </div>
 
                                                 <div className="shrink-0 text-xs text-muted-foreground/50">
-                                                    {formatDisplayDate(
+                                                    {formatCompanyDateFromTimestamp(
                                                         a.created_at,
+                                                        companyTimezone,
+                                                        dateFormat,
                                                     )}
                                                 </div>
                                             </div>

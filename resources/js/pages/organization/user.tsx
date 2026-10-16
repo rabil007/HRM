@@ -25,6 +25,7 @@ import type {
 } from '@/features/organization/users/types';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import {
+    formatCompanyDateFromTimestamp,
     formatDisplayDate,
     formatDisplayDateTimeInTimezone,
     formatDisplayValue,
@@ -572,8 +573,10 @@ export default function UserDetails({
 
                                                     {/* Timestamp */}
                                                     <div className="mt-0.5 shrink-0 font-mono text-[11px] whitespace-nowrap text-muted-foreground/40">
-                                                        {formatDisplayDate(
+                                                        {formatCompanyDateFromTimestamp(
                                                             a.created_at,
+                                                            companyTimezone,
+                                                            dateFormat,
                                                         )}
                                                     </div>
                                                 </div>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Http\InertiaCalendarDateExpressionChecker;
 use Illuminate\Support\Carbon;
 
 /**
@@ -8,6 +9,73 @@ use Illuminate\Support\Carbon;
  * Eloquent `date` casts serialize as UTC ISO instants when passed as Carbon.
  * With APP_TIMEZONE=Asia/Dubai that becomes the previous calendar day in JSON.
  */
+test('inertia calendar date expression checker flags unsafe carbon reads', function () {
+    $keys = ['start_date', 'end_date', 'termination_date', 'date_of_birth'];
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        '$contract->start_date',
+        $keys,
+    ))->toBeTrue();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        '$employee->currentContract?->start_date',
+        $keys,
+    ))->toBeTrue();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'termination_date',
+        '$employee->termination_date',
+        $keys,
+    ))->toBeTrue();
+});
+
+test('inertia calendar date expression checker permits safe serializers and writes', function () {
+    $keys = ['start_date', 'end_date', 'termination_date'];
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        '$employee->currentContract?->start_date?->toDateString()',
+        $keys,
+    ))->toBeFalse();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        '$employee->currentContract?->start_date?->format(\'Y-m-d\')',
+        $keys,
+    ))->toBeFalse();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        'EmployeeContract::create([\'start_date\' => $contract->start_date])',
+        $keys,
+    ))->toBeFalse();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'start_date',
+        '$contract->update([\'start_date\' => $contract->start_date])',
+        $keys,
+    ))->toBeFalse();
+
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'termination_date',
+        '$employee->forceFill([\'termination_date\' => $employee->termination_date])',
+        $keys,
+    ))->toBeFalse();
+
+    // Absolute datetime timestamps are outside the calendar-date cast key set.
+    expect(InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment(
+        'created_at',
+        '$model->created_at',
+        $keys,
+    ))->toBeFalse();
+
+    expect(InertiaCalendarDateExpressionChecker::expressionIsNonPayloadNoise(
+        '(bool) $employee->start_date',
+    ))->toBeTrue();
+});
+
 test('inertia resources presenters page data and controllers serialize calendar dates with toDateString', function () {
     $root = dirname(__DIR__, 3).'/app';
     $keys = collectModelCalendarDateKeys($root.'/Models');
@@ -43,32 +111,9 @@ test('inertia resources presenters page data and controllers serialize calendar 
             $key = $matches[1];
             $expression = rtrim($matches[2], ',');
 
-            if (! in_array($key, $keys, true)) {
-                continue;
+            if (InertiaCalendarDateExpressionChecker::isUnsafeCalendarDateAssignment($key, $expression, $keys)) {
+                $hits[] = sprintf('%s:%d %s => %s', $relative, $lineNumber + 1, $key, $expression);
             }
-
-            // Direct or nested Eloquent reads: $model->start_date / $employee->currentContract?->start_date
-            if (! preg_match(
-                '/\$[A-Za-z0-9_]+(?:(?:\?->|->)[A-Za-z0-9_]+)*(?:\?->|->)'.preg_quote($key, '/').'\b/',
-                $expression,
-            )) {
-                continue;
-            }
-
-            if (expressionAlreadySerializesCalendarDate($expression)) {
-                continue;
-            }
-
-            if (expressionIsNonPayloadNoise($expression)) {
-                continue;
-            }
-
-            // Only skip clear Eloquent write calls on the same statement line.
-            if (preg_match('/::create\(|->update\(|->forceFill\(|->fill\(/', $expression)) {
-                continue;
-            }
-
-            $hits[] = sprintf('%s:%d %s => %s', $relative, $lineNumber + 1, $key, $expression);
         }
     }
 
@@ -151,22 +196,4 @@ function collectModelCalendarDateKeys(string $modelsRoot): array
     sort($keys);
 
     return $keys;
-}
-
-function expressionAlreadySerializesCalendarDate(string $expression): bool
-{
-    return str_contains($expression, 'toDateString')
-        || str_contains($expression, "format('Y-m-d')")
-        || str_contains($expression, 'format("Y-m-d")')
-        || str_contains($expression, 'PlatformDateFormatter')
-        || (bool) preg_match('/\$dates->date\(|formatCvDate\(/', $expression);
-}
-
-function expressionIsNonPayloadNoise(string $expression): bool
-{
-    return str_contains($expression, '(bool)')
-        || str_contains($expression, 'orderBy')
-        || str_contains($expression, '$request')
-        || str_contains($expression, 'old(')
-        || str_contains($expression, 'validated(');
 }
