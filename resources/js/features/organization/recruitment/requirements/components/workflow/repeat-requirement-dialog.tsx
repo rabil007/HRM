@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { nowInCompanyDate, useCompanyTimezone } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type {
     RequirementDetail,
@@ -39,7 +40,8 @@ export function RepeatRequirementDialog({
     recruiters,
     onSuccess,
 }: Props) {
-    const today = new Date().toISOString().split('T')[0];
+    const companyTimezone = useCompanyTimezone();
+    const today = nowInCompanyDate(companyTimezone);
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
         useForm({
@@ -52,9 +54,10 @@ export function RepeatRequirementDialog({
 
     useEffect(() => {
         if (open && requirement) {
+            const companyToday = nowInCompanyDate(companyTimezone);
             clearErrors();
             setData({
-                request_received_date: today,
+                request_received_date: companyToday,
                 required_by_date: '',
                 assigned_to: requirement.assigned_to
                     ? String(requirement.assigned_to)
@@ -63,7 +66,7 @@ export function RepeatRequirementDialog({
                 reason: '',
             });
         }
-    }, [open, requirement, today, clearErrors, setData]);
+    }, [open, requirement, companyTimezone, clearErrors, setData]);
 
     if (!requirement) {
         return null;

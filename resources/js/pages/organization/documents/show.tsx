@@ -37,7 +37,12 @@ import type {
     WorkflowAssigneeOption,
     WorkflowPresetSummary,
 } from '@/features/organization/documents/workflow/types';
-import { formatDisplayDate } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    toCompanyDateLocal,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { formatBytes } from '@/lib/utils';
 import documentRoutes from '@/routes/organization/documents';
@@ -140,10 +145,18 @@ export default function DocumentShow({
     const [managerCountersignDialogOpen, setManagerCountersignDialogOpen] =
         useState(false);
     const [startSigningFlowOpen, setStartSigningFlowOpen] = useState(false);
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
 
     const pageTitle =
         doc.title || doc.document_name || doc.document_type_label || 'Document';
     const whatsappTemplates = can.whatsapp_templates ?? [];
+    const uploadedAtDisplay = doc.uploaded_at
+        ? formatDisplayDate(
+              toCompanyDateLocal(doc.uploaded_at, companyTimezone),
+              dateFormat,
+          )
+        : '—';
 
     return (
         <>
@@ -339,11 +352,7 @@ export default function DocumentShow({
                             />
                             <MetadataField
                                 label="Uploaded"
-                                value={
-                                    doc.uploaded_at
-                                        ? formatDisplayDate(doc.uploaded_at)
-                                        : '—'
-                                }
+                                value={uploadedAtDisplay}
                             />
                             {doc.notes?.trim() ? (
                                 <div className="px-1 py-3">

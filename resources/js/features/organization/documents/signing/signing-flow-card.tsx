@@ -6,7 +6,12 @@ import type {
     SigningFlowStepSummary,
     SigningFlowSummary,
 } from '@/features/organization/documents/signing/types';
-import { formatDisplayDate } from '@/lib/format-date';
+import {
+    formatDisplayDate,
+    toCompanyDateLocal,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cancel, retry } from '@/routes/organization/documents/signing-flows';
 
 type Props = {
@@ -31,6 +36,9 @@ export function SigningFlowCard({
     canRetry,
     canResendEmail = false,
 }: Props) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
+
     return (
         <Card className="border-border/80 dark:border-white/10">
             <CardHeader className="pb-3">
@@ -84,7 +92,14 @@ export function SigningFlowCard({
                                 <p className="mt-1 text-xs text-muted-foreground">
                                     Email: {step.email_delivery.status_label}
                                     {step.email_delivery.last_sent_at
-                                        ? ` · Last sent ${formatDisplayDate(step.email_delivery.last_sent_at)}`
+                                        ? ` · Last sent ${formatDisplayDate(
+                                              toCompanyDateLocal(
+                                                  step.email_delivery
+                                                      .last_sent_at,
+                                                  companyTimezone,
+                                              ),
+                                              dateFormat,
+                                          )}`
                                         : ''}
                                 </p>
                             ) : null}

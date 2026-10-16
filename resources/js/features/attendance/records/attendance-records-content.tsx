@@ -40,6 +40,7 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import {
     formatDisplayDate,
     formatDisplayDateTime12hInTimezone,
+    nowInCompanyDate,
     useCompanyTimezone,
     useDateFormat,
 } from '@/lib/format-date';
@@ -110,7 +111,12 @@ export function AttendanceRecordsContent({
         null,
     );
 
-    const form = useForm(defaultAttendanceRecordFormData());
+    const form = useForm(
+        defaultAttendanceRecordFormData(
+            linkedEmployeeId,
+            nowInCompanyDate(companyTimezone),
+        ),
+    );
 
     const filters: AttendanceRecordFilters = useMemo(
         () => ({
@@ -202,7 +208,12 @@ export function AttendanceRecordsContent({
         setCurrentRecord(null);
         form.reset();
         form.clearErrors();
-        form.setData(defaultAttendanceRecordFormData(linkedEmployeeId));
+        form.setData(
+            defaultAttendanceRecordFormData(
+                linkedEmployeeId,
+                nowInCompanyDate(companyTimezone),
+            ),
+        );
         setIsSheetOpen(true);
     };
 

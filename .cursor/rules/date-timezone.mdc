@@ -14,7 +14,10 @@ Full guide: [docs/architecture/date-and-timezone.md](../../docs/architecture/dat
 
 - **Date-only display:** `useFormatDate()` / `useDateFormat()` from `@/lib/format-date`. Never call bare `formatDisplayDate(value)` without a format in components.
 - **Pure helpers:** `formatDisplayDate(value, format?)` stays pure (no `usePage`). Pass format from the hook, or rely on the layout-synced module cache only when a non-React `.ts` module cannot accept a format argument.
+- **Company “today” for form defaults:** `nowInCompanyDate(useCompanyTimezone())`. Never `new Date().toISOString().slice(0, 10)` / `.split('T')[0]` for operational defaults (attendance, recruitment, payroll payment date).
+- **Calendar-day arithmetic:** `previousIsoCalendarDay` / `addIsoCalendarDays` from `@/lib/calendar-date`. Never `new Date(local).toISOString().slice(0, 10)` after `setDate`.
 - **Absolute ISO datetimes on org screens:** `useCompanyTimezone()` + `formatDisplayDateTimeInTimezone` / `formatDisplayDateTime12hInTimezone` (date portion uses platform format). Do not use browser-local `formatDisplayDateTime` for company data.
+- **Date-only label from an absolute timestamp:** `formatDisplayDate(toCompanyDateLocal(iso, useCompanyTimezone()), useDateFormat())` — do not feed UTC ISO into `formatDisplayDate` directly.
 - **Crew wall-clock / movement timestamps:** keep existing company-timezone helpers (`toCompanyDateTimeLocal`, movement parsing). Do not double-convert.
 - **Month headers** like “October 2026” may stay locale month-year chrome; full calendar dates must use platform format.
 - **Storage / `<input type="date">` / ISO props:** keep `Y-m-d`. Prefer `AppDateField` when the screen already uses it; do not mass-replace native date inputs unless the task asks.
@@ -34,4 +37,6 @@ Full guide: [docs/architecture/date-and-timezone.md](../../docs/architecture/dat
 - `toLocaleDateString()` for operational calendar dates
 - Bare `formatDisplayDate(iso)` in React components (skips settings unless cache was synced)
 - Browser-local datetime for attendance/leave/activity ISO instants
+- UTC “today” via `toISOString().slice(0, 10)` for company form defaults
+- Passing Eloquent `date` casts into Inertia without `toDateString()` (including nested `$model->relation?->start_date`)
 - Rewiring crew wall-clock, payroll boundaries, or leave rollover to “browser local” or “platform timezone only”

@@ -40,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useRegisterUnsavedWork } from '@/hooks/use-register-unsaved-work';
+import { nowInCompanyDate, useCompanyTimezone } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { Auth } from '@/types/auth';
@@ -127,7 +128,8 @@ export function RequirementFormSheet({
     const currentUserId = auth.user?.id ?? null;
     const showSubmitAction = canShowRequirementSubmitFormAction(canSubmit);
     const isEditing = Boolean(initialRequirement);
-    const today = new Date().toISOString().split('T')[0];
+    const companyTimezone = useCompanyTimezone();
+    const today = nowInCompanyDate(companyTimezone);
 
     const defaultPositionLine: FormPositionLineInput = {
         position_id: '',
@@ -402,7 +404,7 @@ export function RequirementFormSheet({
             }),
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, initialRequirement]);
+    }, [open, initialRequirement, companyTimezone, today]);
 
     const clientOptionsKey = (options.clients ?? [])
         .map((client) => `${client.id}:${client.name}`)
