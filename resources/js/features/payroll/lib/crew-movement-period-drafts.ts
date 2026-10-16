@@ -1,4 +1,4 @@
-import { previousIsoCalendarDay } from '@/lib/calendar-date';
+import { previousIsoCalendarDay } from '../../../lib/calendar-date.ts';
 import type { CrewPayrollRow, CrewTimesheetSegment } from '../types';
 
 export type MovementCategoryGroup = 'standby' | 'onsite';
