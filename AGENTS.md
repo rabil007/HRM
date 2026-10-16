@@ -46,6 +46,14 @@ Prefer current application code and focused tests over broad exploratory command
 
 Laravel Herd is not installed in Cloud Agent VMs. Use the environment server at `http://127.0.0.1:8000` (MySQL 8 database `oms_hrm`). Seeded login: `admin@example.com` / `password`. Vite dev HMR is pinned to the Herd host `oms-hrm.test`, so use the built assets from `npm run build` instead of `npm run dev`. Pest keeps sqlite `:memory:`. The default install skips the Puppeteer browser; PDF/Browsershot checks need `npm run browsershot:install`.
 
+## Crew movement scheduling
+
+Protected invariant. Do not change this workflow unless the project owner explicitly authorizes it:
+
+**Future movement date → Scheduled Movement → existing actual phase stays unchanged → automatic validated execution when due → crew and hotel records update only on successful execution.**
+
+Past or current times validate and execute immediately. A failed execution keeps the current actual records and marks the schedule Needs Attention. Execution does not ask for manual confirmation, and there is no Record Now / Schedule Later selector. Planned Sign-Off never disembarks by itself. Hotel dates entered with a future movement are execution instructions only. See `docs/architecture/crew-scheduled-movements.md`.
+
 ## Herd and database safety
 
 On a Herd machine the app is served by Laravel Herd; do not start another development server unless explicitly required.

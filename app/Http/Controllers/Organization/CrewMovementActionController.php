@@ -75,7 +75,11 @@ class CrewMovementActionController extends Controller
                 $companyId,
                 $assignment->id,
                 $action,
-                $payload,
+                collect($payload)->except([
+                    'check_in_date_auto_synced',
+                    'check_out_date_auto_synced',
+                    'source_check_out_date_auto_synced',
+                ])->all(),
                 $request->user()?->id,
             );
 

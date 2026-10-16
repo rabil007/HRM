@@ -1,8 +1,6 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -12,9 +10,15 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
+import {
+    movementCalendarDate,
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatDaysOnboard } from '../../format-days-in-phase';
 import { MovementNextPhaseChoice } from '../movement-next-phase-choice';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -25,6 +29,8 @@ export function ConfirmDisembarkationForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const disembarkDate = form.data.occurred_at.slice(0, 10);
     const beforeJoin =
@@ -33,83 +39,53 @@ export function ConfirmDisembarkationForm({
         disembarkDate < context.actual_join_at;
     const showPostSignoffAccommodation = form.data.next_phase === 'p3';
     const noHotelAccommodation = form.data.no_hotel_accommodation;
-    const lastAutoCheckInDateRef = useRef(
-        form.data.check_in_date || form.data.occurred_at.slice(0, 10),
-    );
     const availableRoomTypes = roomTypesForHotel(
         formOptions?.room_types,
         form.data.hotel_id,
     );
-
-    const syncCheckInDate = (occurredAt: string): void => {
-        if (!showPostSignoffAccommodation || noHotelAccommodation) {
-            return;
-        }
-
-        const nextDisembarkDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextDisembarkDate ||
-            (form.data.check_in_date !== '' &&
-                form.data.check_in_date !== lastAutoCheckInDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_in_date', nextDisembarkDate);
-        lastAutoCheckInDateRef.current = nextDisembarkDate;
-    };
+    const checkInLinked = form.data.check_in_date_auto_synced === true;
 
     const setNextPhase = (value: string): void => {
-        if (value === 'p4') {
-            form.setData({
-                ...form.data,
+        form.setData((current) => {
+            if (value === 'p4') {
+                return {
+                    ...current,
+                    next_phase: value,
+                    accommodation_status: '',
+                    hotel_id: null,
+                    room_type_id: null,
+                    check_in_date: '',
+                    check_in_date_auto_synced: false,
+                    no_hotel_accommodation: false,
+                };
+            }
+
+            const useHotel = !current.no_hotel_accommodation;
+
+            return {
+                ...current,
                 next_phase: value,
-                accommodation_status: '',
-                hotel_id: null,
-                room_type_id: null,
-                check_in_date: '',
-                no_hotel_accommodation: false,
-            });
-
-            return;
-        }
-
-        const nextCheckInDate = noHotelAccommodation
-            ? ''
-            : form.data.occurred_at.slice(0, 10);
-
-        if (!noHotelAccommodation) {
-            lastAutoCheckInDateRef.current = nextCheckInDate;
-        }
-
-        form.setData({
-            ...form.data,
-            next_phase: value,
-            accommodation_status: noHotelAccommodation
-                ? 'no_accommodation'
-                : 'hotel',
-            check_in_date: nextCheckInDate,
+                accommodation_status: useHotel ? 'hotel' : 'no_accommodation',
+                check_in_date: useHotel
+                    ? movementCalendarDate(current.occurred_at)
+                    : '',
+                check_in_date_auto_synced: useHotel,
+            };
         });
     };
 
     const setNoHotelAccommodation = (checked: boolean): void => {
-        const nextCheckInDate = checked
-            ? ''
-            : form.data.occurred_at.slice(0, 10);
-
-        if (!checked) {
-            lastAutoCheckInDateRef.current = nextCheckInDate;
-        }
-
-        form.setData({
-            ...form.data,
+        form.setData((current) => ({
+            ...current,
             no_hotel_accommodation: checked,
             accommodation_status: checked ? 'no_accommodation' : 'hotel',
-            hotel_id: checked ? null : form.data.hotel_id,
-            room_type_id: checked ? null : form.data.room_type_id,
-            check_in_date: nextCheckInDate,
-        });
+            hotel_id: checked ? null : current.hotel_id,
+            room_type_id: checked ? null : current.room_type_id,
+            check_in_date: checked
+                ? ''
+                : movementCalendarDate(current.occurred_at),
+            check_in_date_auto_synced: !checked,
+        }));
     };
 
     return (
@@ -159,13 +135,23 @@ export function ConfirmDisembarkationForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
                     min={
                         context.actual_join_at
                             ? `${context.actual_join_at}T00:00`
                             : undefined
                     }
-                    onValueChange={syncCheckInDate}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'check_in_date',
+                            syncedKey: 'check_in_date_auto_synced',
+                            active:
+                                showPostSignoffAccommodation &&
+                                !noHotelAccommodation,
+                        },
+                    ]}
                 />
             ) : null}
 
@@ -210,13 +196,13 @@ export function ConfirmDisembarkationForm({
                                 <Select
                                     value={form.data.hotel_id?.toString() ?? ''}
                                     onValueChange={(value) =>
-                                        form.setData({
-                                            ...form.data,
+                                        form.setData((current) => ({
+                                            ...current,
                                             hotel_id: value
                                                 ? Number(value)
                                                 : null,
                                             room_type_id: null,
-                                        })
+                                        }))
                                     }
                                 >
                                     <SelectTrigger id="movement-post-signoff-hotel">
@@ -278,26 +264,34 @@ export function ConfirmDisembarkationForm({
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="movement-post-signoff-check-in-date">
-                                    Check-in Date{' '}
-                                    <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="movement-post-signoff-check-in-date"
-                                    type="date"
-                                    value={form.data.check_in_date}
-                                    onChange={(event) =>
-                                        form.setData(
+                            <LinkedHotelDateField
+                                id="movement-post-signoff-check-in-date"
+                                label="Hotel Check-In"
+                                checkboxLabel="Use Disembarkation Date for Hotel Check-In"
+                                value={form.data.check_in_date}
+                                linked={checkInLinked}
+                                error={form.errors.check_in_date}
+                                onLinkedChange={(linked) =>
+                                    form.setData((current) =>
+                                        setHotelDateLink(
+                                            current,
                                             'check_in_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={form.errors.check_in_date}
-                                />
-                            </div>
+                                            'check_in_date_auto_synced',
+                                            linked,
+                                        ),
+                                    )
+                                }
+                                onValueChange={(value) =>
+                                    form.setData((current) =>
+                                        setManualHotelDate(
+                                            current,
+                                            'check_in_date',
+                                            'check_in_date_auto_synced',
+                                            value,
+                                        ),
+                                    )
+                                }
+                            />
                         </>
                     ) : null}
 

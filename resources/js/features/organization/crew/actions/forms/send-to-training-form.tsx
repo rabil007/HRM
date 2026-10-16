@@ -21,6 +21,8 @@ export function SendToTrainingForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const expectedBeforeStart =
         form.data.planned_end_at &&
@@ -41,6 +43,8 @@ export function SendToTrainingForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

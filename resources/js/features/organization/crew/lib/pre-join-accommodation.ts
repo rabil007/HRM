@@ -3,6 +3,7 @@ export type PreJoinAccommodationFields = {
     hotel_id: number | null;
     room_type_id: number | null;
     check_in_date: string;
+    check_in_date_auto_synced?: boolean;
 };
 
 export function defaultPreJoinAccommodation(): PreJoinAccommodationFields {
@@ -11,6 +12,34 @@ export function defaultPreJoinAccommodation(): PreJoinAccommodationFields {
         hotel_id: null,
         room_type_id: null,
         check_in_date: '',
+        check_in_date_auto_synced: true,
+    };
+}
+
+export function applyArrivalDateToAccommodation<
+    T extends {
+        planned_arrival_at?: string | null;
+        accommodation_status?: 'hotel' | 'no_accommodation' | '';
+        check_in_date?: string;
+        check_in_date_auto_synced?: boolean;
+    },
+>(row: T, arrival: string | null): T {
+    const next: T = {
+        ...row,
+        planned_arrival_at: arrival,
+    };
+
+    if (
+        row.accommodation_status === 'no_accommodation' ||
+        row.check_in_date_auto_synced === false
+    ) {
+        return next;
+    }
+
+    return {
+        ...next,
+        check_in_date: (arrival ?? '').slice(0, 10),
+        check_in_date_auto_synced: true,
     };
 }
 

@@ -1,8 +1,6 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -12,7 +10,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
+import {
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import { MovementNextPhaseChoice } from '../movement-next-phase-choice';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -23,55 +26,29 @@ export function RecordArrivalForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const isFixedArrivalPhase =
         context.current_phase_code === 'p0' ||
         context.current_phase_code === 'p1';
     const noHotelAccommodation = form.data.no_hotel_accommodation;
-    const lastAutoCheckInDateRef = useRef(
-        form.data.check_in_date || form.data.occurred_at.slice(0, 10),
-    );
     const availableRoomTypes = roomTypesForHotel(
         formOptions?.room_types,
         form.data.hotel_id,
     );
-
-    const syncCheckInDate = (occurredAt: string): void => {
-        if (noHotelAccommodation) {
-            return;
-        }
-
-        const arrivalDate = occurredAt.slice(0, 10);
-
-        if (
-            !arrivalDate ||
-            (form.data.check_in_date !== '' &&
-                form.data.check_in_date !== lastAutoCheckInDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_in_date', arrivalDate);
-        lastAutoCheckInDateRef.current = arrivalDate;
-    };
+    const checkInLinked = form.data.check_in_date_auto_synced === true;
 
     const setNoHotelAccommodation = (checked: boolean): void => {
-        const nextCheckInDate = checked
-            ? ''
-            : form.data.occurred_at.slice(0, 10);
-
-        if (!checked) {
-            lastAutoCheckInDateRef.current = nextCheckInDate;
-        }
-
-        form.setData({
-            ...form.data,
+        form.setData((current) => ({
+            ...current,
             no_hotel_accommodation: checked,
             accommodation_status: checked ? 'no_accommodation' : 'hotel',
-            hotel_id: checked ? null : form.data.hotel_id,
-            room_type_id: checked ? null : form.data.room_type_id,
-            check_in_date: nextCheckInDate,
-        });
+            hotel_id: checked ? null : current.hotel_id,
+            room_type_id: checked ? null : current.room_type_id,
+            check_in_date: checked ? '' : current.occurred_at.slice(0, 10),
+            check_in_date_auto_synced: !checked,
+        }));
     };
 
     return (
@@ -82,8 +59,16 @@ export function RecordArrivalForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
-                    onValueChange={syncCheckInDate}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'check_in_date',
+                            syncedKey: 'check_in_date_auto_synced',
+                            active: !noHotelAccommodation,
+                        },
+                    ]}
                 />
             ) : null}
 
@@ -106,11 +91,11 @@ export function RecordArrivalForm({
                             <Select
                                 value={form.data.hotel_id?.toString() ?? ''}
                                 onValueChange={(value) =>
-                                    form.setData({
-                                        ...form.data,
+                                    form.setData((current) => ({
+                                        ...current,
                                         hotel_id: value ? Number(value) : null,
                                         room_type_id: null,
-                                    })
+                                    }))
                                 }
                             >
                                 <SelectTrigger id="movement-hotel">
@@ -170,24 +155,34 @@ export function RecordArrivalForm({
                             <InputError message={form.errors.room_type_id} />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="movement-check-in-date">
-                                Check-in Date{' '}
-                                <span className="text-destructive">*</span>
-                            </Label>
-                            <Input
-                                id="movement-check-in-date"
-                                type="date"
-                                value={form.data.check_in_date}
-                                onChange={(event) =>
-                                    form.setData(
+                        <LinkedHotelDateField
+                            id="movement-check-in-date"
+                            label="Hotel Check-In"
+                            checkboxLabel="Use Arrival Date for Hotel Check-In"
+                            value={form.data.check_in_date}
+                            linked={checkInLinked}
+                            error={form.errors.check_in_date}
+                            onLinkedChange={(linked) =>
+                                form.setData((current) =>
+                                    setHotelDateLink(
+                                        current,
                                         'check_in_date',
-                                        event.target.value,
-                                    )
-                                }
-                            />
-                            <InputError message={form.errors.check_in_date} />
-                        </div>
+                                        'check_in_date_auto_synced',
+                                        linked,
+                                    ),
+                                )
+                            }
+                            onValueChange={(value) =>
+                                form.setData((current) =>
+                                    setManualHotelDate(
+                                        current,
+                                        'check_in_date',
+                                        'check_in_date_auto_synced',
+                                        value,
+                                    ),
+                                )
+                            }
+                        />
                     </>
                 ) : null}
 

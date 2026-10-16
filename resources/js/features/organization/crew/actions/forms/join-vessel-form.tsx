@@ -1,7 +1,5 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
 import InputError from '@/components/input-error';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -11,7 +9,12 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import { formatDisplayDate } from '@/lib/format-date';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 import { TourSignoffFields } from './tour-signoff-fields';
@@ -23,35 +26,15 @@ export function JoinVesselForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const joinDate = form.data.occurred_at.slice(0, 10);
     const preJoinAccommodation = context.pre_join_accommodation;
     const selectedPosition = formOptions?.positions.find(
         (position) => position.id === form.data.position_id,
     );
-
-    const lastAutoCheckOutDateRef = useRef(
-        form.data.check_out_date || form.data.occurred_at.slice(0, 10),
-    );
-
-    const syncCheckOutDate = (occurredAt: string): void => {
-        if (preJoinAccommodation?.status !== 'open_hotel') {
-            return;
-        }
-
-        const nextJoinDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextJoinDate ||
-            (form.data.check_out_date !== '' &&
-                form.data.check_out_date !== lastAutoCheckOutDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_out_date', nextJoinDate);
-        lastAutoCheckOutDateRef.current = nextJoinDate;
-    };
+    const checkOutLinked = form.data.check_out_date_auto_synced === true;
 
     const vesselsForClient = (formOptions?.vessels ?? []).filter((vessel) => {
         if (vessel.client_id == null) {
@@ -178,24 +161,34 @@ export function JoinVesselForm({
                             </div>
                         ) : null}
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="movement-check-out-date">
-                            Hotel Check-out Date{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="movement-check-out-date"
-                            type="date"
-                            value={form.data.check_out_date}
-                            onChange={(event) =>
-                                form.setData(
+                    <LinkedHotelDateField
+                        id="movement-check-out-date"
+                        label="Hotel Check-Out"
+                        checkboxLabel="Use Vessel Joining Date for Hotel Check-Out"
+                        value={form.data.check_out_date}
+                        linked={checkOutLinked}
+                        error={form.errors.check_out_date}
+                        onLinkedChange={(linked) =>
+                            form.setData((current) =>
+                                setHotelDateLink(
+                                    current,
                                     'check_out_date',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <InputError message={form.errors.check_out_date} />
-                    </div>
+                                    'check_out_date_auto_synced',
+                                    linked,
+                                ),
+                            )
+                        }
+                        onValueChange={(value) =>
+                            form.setData((current) =>
+                                setManualHotelDate(
+                                    current,
+                                    'check_out_date',
+                                    'check_out_date_auto_synced',
+                                    value,
+                                ),
+                            )
+                        }
+                    />
                 </div>
             ) : null}
 
@@ -221,12 +214,21 @@ export function JoinVesselForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={
                         preJoinAccommodation?.status === 'open_hotel'
                             ? undefined
                             : firstFieldRef
                     }
-                    onValueChange={syncCheckOutDate}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'check_out_date',
+                            syncedKey: 'check_out_date_auto_synced',
+                            active:
+                                preJoinAccommodation?.status === 'open_hotel',
+                        },
+                    ]}
                 />
             ) : null}
 

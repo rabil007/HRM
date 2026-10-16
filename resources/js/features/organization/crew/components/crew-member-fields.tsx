@@ -18,6 +18,7 @@ import {
 } from '@/features/organization/crew/lib/already-arrived-start';
 import { SINGLE_CREATE_ALREADY_ARRIVAL_FOOTER_NOTE } from '@/features/organization/crew/lib/crew-assignment-create-arrival-field';
 import { crewPhaseDescription } from '@/features/organization/crew/lib/crew-phase-descriptions';
+import { applyArrivalDateToAccommodation } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type { PreJoinAccommodationFields as PreJoinAccommodationValue } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type {
     ActiveOnVesselAssignment,
@@ -35,6 +36,7 @@ export type CrewMemberFieldsData = {
     hotel_id?: number | null;
     room_type_id?: number | null;
     check_in_date?: string;
+    check_in_date_auto_synced?: boolean;
 };
 
 export const ARRIVAL_DATE_HELPER = EXPECTED_ARRIVAL_DATE_HELPER;
@@ -308,10 +310,12 @@ export function CrewMemberFields({
                     type="date"
                     value={data.planned_arrival_at ?? ''}
                     onChange={(event) => {
-                        onChange({
-                            ...data,
-                            planned_arrival_at: event.target.value || null,
-                        });
+                        onChange(
+                            applyArrivalDateToAccommodation(
+                                data,
+                                event.target.value || null,
+                            ),
+                        );
                     }}
                 />
                 <p className="text-xs text-muted-foreground">{arrivalHelper}</p>
@@ -338,7 +342,14 @@ export function CrewMemberFields({
                             hotel_id: data.hotel_id ?? null,
                             room_type_id: data.room_type_id ?? null,
                             check_in_date: data.check_in_date ?? '',
+                            check_in_date_auto_synced:
+                                data.check_in_date_auto_synced,
                         }}
+                        sameDateLabel={
+                            alreadyArrived
+                                ? 'Use Actual Arrival Date for Hotel Check-In'
+                                : 'Use Arrival Date for Hotel Check-In'
+                        }
                         onChange={(next) =>
                             onChange({
                                 ...data,

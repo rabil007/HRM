@@ -1,27 +1,15 @@
 export function resolveDestinationCheckInDateOnP1AEntry({
     redeployDate,
-    currentCheckInDate,
-    lastAutoCheckInDate,
+    autoSynced,
     noHotelAccommodation,
 }: {
     redeployDate: string;
-    currentCheckInDate: string;
-    lastAutoCheckInDate: string;
+    autoSynced: boolean;
     noHotelAccommodation: boolean;
-}): { checkInDate: string; lastAutoCheckInDate: string } | null {
-    if (noHotelAccommodation || redeployDate === '') {
+}): string | null {
+    if (noHotelAccommodation || redeployDate === '' || !autoSynced) {
         return null;
     }
 
-    if (
-        currentCheckInDate === '' ||
-        currentCheckInDate === lastAutoCheckInDate
-    ) {
-        return {
-            checkInDate: redeployDate,
-            lastAutoCheckInDate: redeployDate,
-        };
-    }
-
-    return null;
+    return redeployDate;
 }

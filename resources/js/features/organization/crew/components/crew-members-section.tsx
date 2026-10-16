@@ -33,6 +33,7 @@ import {
     bulkRowIsBlocked,
     bulkRowIsIncomplete,
 } from '@/features/organization/crew/lib/bulk-row-status';
+import { applyArrivalDateToAccommodation } from '@/features/organization/crew/lib/pre-join-accommodation';
 import type {
     ActiveOnVesselAssignment,
     BulkAddCrewRow,
@@ -395,10 +396,13 @@ function BulkDesktopRow({
                         value={row.planned_arrival_at ?? ''}
                         required={alreadyArrived}
                         onChange={(event) =>
-                            onChangeRow(index, {
-                                ...row,
-                                planned_arrival_at: event.target.value || null,
-                            })
+                            onChangeRow(
+                                index,
+                                applyArrivalDateToAccommodation(
+                                    row,
+                                    event.target.value || null,
+                                ),
+                            )
                         }
                     />
                     <InputError
@@ -438,6 +442,8 @@ function BulkDesktopRow({
                                 hotel_id: row.hotel_id ?? null,
                                 room_type_id: row.room_type_id ?? null,
                                 check_in_date: row.check_in_date ?? '',
+                                check_in_date_auto_synced:
+                                    row.check_in_date_auto_synced,
                             }}
                             onChange={(next) =>
                                 onChangeRow(index, {
@@ -449,6 +455,7 @@ function BulkDesktopRow({
                             errors={errors}
                             errorPrefix={`crew.${index}`}
                             arrivalDate={row.planned_arrival_at}
+                            sameDateLabel="Use Actual Arrival Date for Hotel Check-In"
                         />
                     </td>
                 </TableRow>
@@ -556,10 +563,13 @@ function BulkMobileCard({
                     value={row.planned_arrival_at ?? ''}
                     required={alreadyArrived}
                     onChange={(event) =>
-                        onChangeRow(index, {
-                            ...row,
-                            planned_arrival_at: event.target.value || null,
-                        })
+                        onChangeRow(
+                            index,
+                            applyArrivalDateToAccommodation(
+                                row,
+                                event.target.value || null,
+                            ),
+                        )
                     }
                 />
                 <InputError
@@ -587,6 +597,8 @@ function BulkMobileCard({
                         hotel_id: row.hotel_id ?? null,
                         room_type_id: row.room_type_id ?? null,
                         check_in_date: row.check_in_date ?? '',
+                        check_in_date_auto_synced:
+                            row.check_in_date_auto_synced,
                     }}
                     onChange={(next) =>
                         onChangeRow(index, {
@@ -598,6 +610,7 @@ function BulkMobileCard({
                     errors={errors}
                     errorPrefix={`crew.${index}`}
                     arrivalDate={row.planned_arrival_at}
+                    sameDateLabel="Use Actual Arrival Date for Hotel Check-In"
                 />
             ) : null}
         </div>

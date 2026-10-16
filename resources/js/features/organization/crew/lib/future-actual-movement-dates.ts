@@ -12,22 +12,50 @@ export const SCHEDULE_PERMISSION_MESSAGE =
 export const PENDING_SCHEDULE_BLOCK_MESSAGE =
     'This assignment already has a pending scheduled movement. Edit, reschedule, or cancel it before creating another.';
 
+/**
+ * Native calendar maximum.
+ *
+ * `allowsFutureDateSelection` comes from the schedulable action itself.
+ * It must not depend on scheduling mode, which only becomes true after a
+ * future date is already selected.
+ */
 export function resolveMovementOccurredAtMax(
     companyNow: string,
-    schedulingMode = false,
+    allowsFutureDateSelection = false,
 ): string | undefined {
-    if (schedulingMode) {
+    if (allowsFutureDateSelection) {
         return undefined;
     }
 
     return companyNow;
 }
 
+/**
+ * Chronology minimums (for example disembarkation not before vessel joining)
+ * are passed by the form. Scheduling mode must not lock the calendar to
+ * company-now, or the operator cannot return to Record Movement.
+ *
+ * `preventPastSelection` is only for editing an existing schedule.
+ */
 export function resolveMovementOccurredAtMin(
     companyNow: string,
-    schedulingMode = false,
+    options: {
+        preventPastSelection?: boolean;
+        chronologyMin?: string;
+    } = {},
 ): string | undefined {
-    return schedulingMode ? companyNow : undefined;
+    if (!options.preventPastSelection) {
+        return options.chronologyMin;
+    }
+
+    if (
+        options.chronologyMin !== undefined &&
+        options.chronologyMin > companyNow
+    ) {
+        return options.chronologyMin;
+    }
+
+    return companyNow;
 }
 
 /**
@@ -35,9 +63,9 @@ export function resolveMovementOccurredAtMin(
  */
 export function shouldShowFutureMovementWarning(
     isFuture: boolean,
-    schedulingMode = false,
+    allowsFutureDateSelection = false,
 ): boolean {
-    return isFuture && !schedulingMode;
+    return isFuture && !allowsFutureDateSelection;
 }
 
 /**
@@ -45,9 +73,9 @@ export function shouldShowFutureMovementWarning(
  */
 export function shouldBlockFutureActualMovementDate(
     isFuture: boolean,
-    schedulingMode = false,
+    allowsFutureDateSelection = false,
 ): boolean {
-    return isFuture && !schedulingMode;
+    return isFuture && !allowsFutureDateSelection;
 }
 
 export function isSchedulableMovementAction(
@@ -55,6 +83,35 @@ export function isSchedulableMovementAction(
     schedulableActions: string[],
 ): boolean {
     return schedulableActions.includes(action);
+}
+
+/**
+ * Future dates on a schedulable action use the schedule presentation
+ * immediately. Editing an existing schedule stays in that presentation even
+ * when the operator has not changed the time yet.
+ */
+export function resolveAutomaticSchedulingMode(
+    selectedIsFuture: boolean,
+    actionIsSchedulable: boolean,
+    isEditingSchedule = false,
+): boolean {
+    return isEditingSchedule || (selectedIsFuture && actionIsSchedulable);
+}
+
+export function resolveMovementSubmitLabel(
+    schedulingMode: boolean,
+    isEditingSchedule: boolean,
+    recordLabel: string,
+): string {
+    if (isEditingSchedule) {
+        return 'Save Changes';
+    }
+
+    if (schedulingMode) {
+        return 'Schedule Movement';
+    }
+
+    return recordLabel;
 }
 
 export function formatScheduledMovementExplanation(

@@ -294,8 +294,84 @@ describe('scheduled-movement-edit-payload', () => {
             'Existing plan',
         );
         assert.equal(prefilled.check_out_date, '2027-01-19');
+        assert.equal(prefilled.check_out_date_auto_synced, false);
         assert.equal(prefilled.remarks, 'Prefill me');
         assert.equal(Object.hasOwn(prefilled, '_action'), false);
+    });
+
+    it('does not infer a hotel link when the stored flag is missing or the dates match', () => {
+        const matching = applyScheduledMovementFormPrefill(
+            baseForm({
+                action: 'record_arrival',
+                occurred_at: '2027-01-15 12:00',
+                check_in_date: '',
+                check_in_date_auto_synced: true,
+            }),
+            scheduleCard({
+                movement_action: 'record_arrival',
+                movement_action_label: 'Record Arrival',
+                scheduled_at_input: '2027-01-20T09:00',
+                action_payload: {
+                    _action: 'record_arrival',
+                    check_in_date: '2027-01-20',
+                    hotel_id: 9,
+                },
+            }),
+        );
+
+        assert.equal(matching.check_in_date, '2027-01-20');
+        assert.equal(matching.check_in_date_auto_synced, false);
+        assert.equal(matching.hotel_id, 9);
+
+        const linked = applyScheduledMovementFormPrefill(
+            baseForm({
+                action: 'record_arrival',
+                check_in_date: '',
+                check_in_date_auto_synced: false,
+            }),
+            scheduleCard({
+                movement_action: 'record_arrival',
+                movement_action_label: 'Record Arrival',
+                scheduled_at_input: '2027-01-22T09:00',
+                action_payload: {
+                    _action: 'record_arrival',
+                    check_in_date: '2027-01-20',
+                    check_in_date_auto_synced: true,
+                },
+            }),
+        );
+
+        assert.equal(linked.check_in_date, '2027-01-22');
+        assert.equal(linked.check_in_date_auto_synced, true);
+    });
+
+    it('includes the check-in sync flag only when the action accepts it and the option is set', () => {
+        const omitted = buildScheduledMovementEditActionFields(
+            'record_arrival',
+            baseForm({
+                action: 'record_arrival',
+                check_in_date: '2027-01-20',
+            }),
+        );
+
+        assert.equal(
+            Object.hasOwn(omitted, 'check_in_date_auto_synced'),
+            false,
+        );
+
+        const included = buildScheduledMovementEditPayload(
+            'record_arrival',
+            baseForm({
+                action: 'record_arrival',
+                occurred_at: '2027-01-20 09:00',
+                check_in_date: '2027-01-20',
+            }),
+            { checkInDateAutoSynced: false },
+        );
+
+        assert.equal(included.action_fields.check_in_date, '2027-01-20');
+        assert.equal(included.action_fields.check_in_date_auto_synced, false);
+        assert.equal(included.check_in_date_auto_synced, false);
     });
 
     it('send to training prefill restores planned dates from payload', () => {

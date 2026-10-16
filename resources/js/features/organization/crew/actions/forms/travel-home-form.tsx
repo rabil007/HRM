@@ -1,10 +1,11 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
-import InputError from '@/components/input-error';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import { formatDisplayDate } from '@/lib/format-date';
 import { MovementNextPhaseChoice } from '../movement-next-phase-choice';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -14,31 +15,11 @@ export function TravelHomeForm({
     context,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const postSignoffAccommodation = context.post_signoff_accommodation;
-
-    const lastAutoCheckOutDateRef = useRef(
-        form.data.check_out_date || form.data.occurred_at.slice(0, 10),
-    );
-
-    const syncCheckOutDate = (occurredAt: string): void => {
-        if (postSignoffAccommodation?.status !== 'open_hotel') {
-            return;
-        }
-
-        const nextReturnHomeDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextReturnHomeDate ||
-            (form.data.check_out_date !== '' &&
-                form.data.check_out_date !== lastAutoCheckOutDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_out_date', nextReturnHomeDate);
-        lastAutoCheckOutDateRef.current = nextReturnHomeDate;
-    };
+    const checkOutLinked = form.data.check_out_date_auto_synced === true;
 
     return (
         <div className="space-y-4">
@@ -83,24 +64,34 @@ export function TravelHomeForm({
                             </div>
                         ) : null}
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="movement-post-signoff-check-out-date">
-                            Hotel Check-out Date{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="movement-post-signoff-check-out-date"
-                            type="date"
-                            value={form.data.check_out_date}
-                            onChange={(event) =>
-                                form.setData(
+                    <LinkedHotelDateField
+                        id="movement-post-signoff-check-out-date"
+                        label="Hotel Check-Out"
+                        checkboxLabel="Use Return Home Date for Hotel Check-Out"
+                        value={form.data.check_out_date}
+                        linked={checkOutLinked}
+                        error={form.errors.check_out_date}
+                        onLinkedChange={(linked) =>
+                            form.setData((current) =>
+                                setHotelDateLink(
+                                    current,
                                     'check_out_date',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <InputError message={form.errors.check_out_date} />
-                    </div>
+                                    'check_out_date_auto_synced',
+                                    linked,
+                                ),
+                            )
+                        }
+                        onValueChange={(value) =>
+                            form.setData((current) =>
+                                setManualHotelDate(
+                                    current,
+                                    'check_out_date',
+                                    'check_out_date_auto_synced',
+                                    value,
+                                ),
+                            )
+                        }
+                    />
                 </div>
             ) : null}
 
@@ -126,12 +117,22 @@ export function TravelHomeForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={
                         postSignoffAccommodation?.status === 'open_hotel'
                             ? undefined
                             : firstFieldRef
                     }
-                    onValueChange={syncCheckOutDate}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'check_out_date',
+                            syncedKey: 'check_out_date_auto_synced',
+                            active:
+                                postSignoffAccommodation?.status ===
+                                'open_hotel',
+                        },
+                    ]}
                 />
             ) : null}
 
