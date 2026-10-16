@@ -61,6 +61,16 @@ type ImportPreviewRow = {
     start_date: string | null;
     end_date: string | null;
     status: string | null;
+    salary_structure: 'daily' | 'monthly';
+    basic_salary: number | string | null;
+    housing_allowance: number | string | null;
+    transport_allowance: number | string | null;
+    other_allowances: number | string | null;
+    supplementary_allowance: number | string | null;
+    site_allowance: number | string | null;
+    eos_monthly_amount: number | string | null;
+    total_salary: number | null;
+    preserved_fields: string[];
     errors: ImportRowError[];
 };
 
@@ -89,6 +99,16 @@ function isSpreadsheetLike(file: File): boolean {
         file.type.includes('excel') ||
         file.type === 'text/csv'
     );
+}
+
+function displayAmount(value: number | string | null): string {
+    if (value === null || value === '') {
+        return '—';
+    }
+
+    const amount = Number(value);
+
+    return Number.isFinite(amount) ? amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
 }
 
 function actionLabel(action: ImportPreviewRow['action']): string {
@@ -146,6 +166,8 @@ export function ContractsImportDialog({
                 row.name,
                 row.status,
                 row.action,
+                row.basic_salary,
+                row.eos_monthly_amount,
                 row.errors[0]?.message,
             ]
                 .filter(Boolean)
@@ -496,13 +518,32 @@ export function ContractsImportDialog({
                                             <TableHead>Start</TableHead>
                                             <TableHead>Status</TableHead>
                                             <TableHead>Action</TableHead>
+                                            <TableHead>Structure</TableHead>
+                                            <TableHead className="text-right">Basic</TableHead>
+                                            {payrollCategory === 'office' || salaryStructure === 'monthly' ? (
+                                                <>
+                                                    <TableHead className="text-right">Housing</TableHead>
+                                                    <TableHead className="text-right">Transport</TableHead>
+                                                    <TableHead className="text-right">Other</TableHead>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <TableHead className="text-right">Supplementary</TableHead>
+                                                    <TableHead className="text-right">Site</TableHead>
+                                                </>
+                                            )}
+                                            {payrollCategory === 'crew' && salaryStructure === 'monthly' ? (
+                                                <TableHead className="text-right">EOS (non-payable)</TableHead>
+                                            ) : null}
+                                            <TableHead className="text-right">Salary total</TableHead>
+                                            <TableHead>Preserved</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {filteredRows.length === 0 ? (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={6}
+                                                    colSpan={payrollCategory === 'crew' && salaryStructure === 'monthly' ? 13 : payrollCategory === 'office' ? 12 : 11}
                                                     className="py-8 text-center text-sm text-muted-foreground"
                                                 >
                                                     {importPreviewEmptyRowsMessage(
@@ -547,6 +588,31 @@ export function ContractsImportDialog({
                                                         {actionLabel(
                                                             row.action,
                                                         )}
+                                                    </TableCell>
+                                                    <TableCell>{row.salary_structure}</TableCell>
+                                                    <TableCell className="text-right tabular-nums">{displayAmount(row.basic_salary)}</TableCell>
+                                                    {payrollCategory === 'office' || salaryStructure === 'monthly' ? (
+                                                        <>
+                                                            <TableCell className="text-right tabular-nums">{displayAmount(row.housing_allowance)}</TableCell>
+                                                            <TableCell className="text-right tabular-nums">{displayAmount(row.transport_allowance)}</TableCell>
+                                                            <TableCell className="text-right tabular-nums">{displayAmount(row.other_allowances)}</TableCell>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <TableCell className="text-right tabular-nums">{displayAmount(row.supplementary_allowance)}</TableCell>
+                                                            <TableCell className="text-right tabular-nums">{displayAmount(row.site_allowance)}</TableCell>
+                                                        </>
+                                                    )}
+                                                    {payrollCategory === 'crew' && salaryStructure === 'monthly' ? (
+                                                        <TableCell className="text-right tabular-nums">{displayAmount(row.eos_monthly_amount)}</TableCell>
+                                                    ) : null}
+                                                    <TableCell className="text-right font-semibold tabular-nums">{displayAmount(row.total_salary)}</TableCell>
+                                                    <TableCell className="max-w-[180px] text-xs text-muted-foreground">
+                                                        {row.preserved_fields.length > 0 ? (
+                                                            <span title={row.preserved_fields.join(', ')}>
+                                                                {row.preserved_fields.length} unchanged
+                                                            </span>
+                                                        ) : '—'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))
