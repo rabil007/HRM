@@ -10,6 +10,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { useFormatDate } from '@/lib/format-date';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type { CrewAssignmentPagePermissions } from '../types';
 
@@ -61,24 +62,6 @@ export type CrewAssignmentConflictDialogProps = {
     onAdjustDates?: () => void;
 };
 
-function formatDate(dateStr: string | null | undefined): string {
-    if (!dateStr) {
-        return '—';
-    }
-
-    const d = new Date(`${dateStr}T00:00:00`);
-
-    if (isNaN(d.getTime())) {
-        return dateStr;
-    }
-
-    return d.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
 export function CrewAssignmentConflictDialog({
     open,
     onOpenChange,
@@ -87,6 +70,8 @@ export function CrewAssignmentConflictDialog({
     can,
     onAdjustDates,
 }: CrewAssignmentConflictDialogProps): ReactElement | null {
+    const formatDate = useFormatDate();
+
     if (!conflict) {
         return null;
     }

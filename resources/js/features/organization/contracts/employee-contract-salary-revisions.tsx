@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { actions } from '@/lib/design-system';
+import { useFormatDate } from '@/lib/format-date';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 
 export type ContractSalaryRevisionItem = {
@@ -105,23 +106,6 @@ function toMonthInputValue(isoDate: string | null): string {
     return isoDate.slice(0, 7);
 }
 
-function formatEffectiveMonth(isoDate: string | null): string {
-    if (!isoDate) {
-        return '—';
-    }
-
-    const date = new Date(`${isoDate.slice(0, 10)}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return isoDate;
-    }
-
-    return date.toLocaleDateString(undefined, {
-        month: 'short',
-        year: 'numeric',
-    });
-}
-
 function toMonthStartDate(monthValue: string): string {
     if (/^\d{4}-\d{2}$/.test(monthValue)) {
         return `${monthValue}-01`;
@@ -141,6 +125,7 @@ export function EmployeeContractSalaryRevisions({
     hideHeader = false,
     reloadOnly = ['contracts', 'employee'],
 }: Props): ReactElement {
+    const formatDate = useFormatDate();
     const [open, setOpen] = useState(false);
     const [editingRevision, setEditingRevision] =
         useState<ContractSalaryRevisionItem | null>(null);
@@ -318,9 +303,7 @@ export function EmployeeContractSalaryRevisions({
                                         v{revision.version}
                                     </td>
                                     <td className="px-3 py-2">
-                                        {formatEffectiveMonth(
-                                            revision.effective_from,
-                                        )}
+                                        {formatDate(revision.effective_from)}
                                     </td>
                                     <td className="px-3 py-2">
                                         <div className="space-y-0.5">

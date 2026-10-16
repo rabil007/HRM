@@ -29,6 +29,7 @@ import type {
 } from '@/features/organization/documents/workflow/types';
 import { WorkflowPresetFormDialog } from '@/features/organization/documents/workflow/workflow-preset-form-dialog';
 import { WorkflowPresetRoutingSteps } from '@/features/organization/documents/workflow/workflow-preset-routing-steps';
+import { useFormatDate } from '@/lib/format-date';
 import documentRoutes from '@/routes/organization/documents';
 import {
     activate as activatePreset,
@@ -36,27 +37,12 @@ import {
     deactivate as deactivatePreset,
 } from '@/routes/organization/documents/workflow-presets';
 
-function formatUpdatedAt(value: string | null): string {
-    if (!value) {
-        return '—';
-    }
-
-    try {
-        return new Date(value).toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-        });
-    } catch {
-        return '—';
-    }
-}
-
 export function DocumentWorkflowPresetsContent({
     presets,
     can,
     form_options,
 }: DocumentWorkflowPresetsIndexProps) {
+    const formatDate = useFormatDate();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingPreset, setEditingPreset] =
         useState<WorkflowPresetSummary | null>(null);
@@ -197,7 +183,7 @@ export function DocumentWorkflowPresetsContent({
                                 <TableCell
                                     className={`${dataTableCellClass()} whitespace-nowrap text-muted-foreground`}
                                 >
-                                    {formatUpdatedAt(preset.updated_at)}
+                                    {formatDate(preset.updated_at)}
                                 </TableCell>
                                 <TableCell
                                     className={dataTableActionsCellClass()}

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SignatureCapture } from '@/features/esign/signature-capture';
 import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
+import { useFormatDate } from '@/lib/format-date';
 
 type Props = {
     companyName: string;
@@ -42,24 +43,17 @@ export default function DocumentActionPage({
     const [consent, setConsent] = useState(false);
     const [acknowledgement, setAcknowledgement] = useState(false);
     const [typedName, setTypedName] = useState(employeeName);
+    const formatDate = useFormatDate();
 
     const expiryLabel = useMemo(() => {
         if (!expiresAt) {
             return null;
         }
 
-        const date = new Date(expiresAt);
+        const label = formatDate(expiresAt);
 
-        if (Number.isNaN(date.getTime())) {
-            return null;
-        }
-
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        });
-    }, [expiresAt]);
+        return label === '—' ? null : label;
+    }, [expiresAt, formatDate]);
 
     const submitError =
         (typeof errors.token === 'string' ? errors.token : null) ??

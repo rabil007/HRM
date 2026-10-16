@@ -58,6 +58,7 @@ import { SigningPresetFormDialog } from '@/features/organization/documents/signi
 import type { SigningPresetFormOptions } from '@/features/organization/documents/signing/types';
 import type { WorkflowPresetFormOptions } from '@/features/organization/documents/workflow/types';
 import { WorkflowPresetFormDialog } from '@/features/organization/documents/workflow/workflow-preset-form-dialog';
+import { useFormatDate } from '@/lib/format-date';
 import { getPdfJs } from '@/lib/pdfjs';
 import { cn } from '@/lib/utils';
 import { draft as draftTemplate } from '@/routes/organization/documents/templates';
@@ -466,6 +467,8 @@ function VersionInfoPanel({
     version: TemplateVersionSummary | null;
     changeSummary: VersionChangeSummary | null;
 }) {
+    const formatDate = useFormatDate();
+
     if (!version) {
         return null;
     }
@@ -489,16 +492,7 @@ function VersionInfoPanel({
                 {version.published_at && (
                     <div className="flex justify-between">
                         <span>Published</span>
-                        <span>
-                            {new Date(version.published_at).toLocaleDateString(
-                                'en-GB',
-                                {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric',
-                                },
-                            )}
-                        </span>
+                        <span>{formatDate(version.published_at)}</span>
                     </div>
                 )}
                 {version.source_pdf_original_name && (

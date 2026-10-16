@@ -19,33 +19,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
+import { useFormatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showAssignment } from '@/routes/organization/crew-assignments';
 import type {
     HotelCheckInCheckoutFilters,
     HotelCheckInCheckoutRow,
 } from './types';
-
-function formatOperationalDate(value: string | null | undefined): string {
-    if (!value) {
-        return '—';
-    }
-
-    const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
-
-    if (!match) {
-        return value;
-    }
-
-    const [, y, m, d] = match;
-    const date = new Date(Number(y), Number(m) - 1, Number(d));
-
-    return date.toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
-}
 
 function stayStatusBadgeClass(status: string): string {
     switch (status) {
@@ -134,6 +114,7 @@ export function HotelCheckInCheckoutReportTable({
     filters: HotelCheckInCheckoutFilters;
     onSort: (column: string) => void;
 }) {
+    const formatDate = useFormatDate();
     const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
     const toggle = (id: number): void => {
@@ -297,9 +278,7 @@ export function HotelCheckInCheckoutReportTable({
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="font-mono text-xs whitespace-nowrap">
-                                        {formatOperationalDate(
-                                            row.check_in_date,
-                                        )}
+                                        {formatDate(row.check_in_date)}
                                     </TableCell>
                                     <TableCell className="font-mono text-xs whitespace-nowrap">
                                         {row.is_open ? (
@@ -310,9 +289,7 @@ export function HotelCheckInCheckoutReportTable({
                                                 Open
                                             </Badge>
                                         ) : (
-                                            formatOperationalDate(
-                                                row.check_out_date,
-                                            )
+                                            formatDate(row.check_out_date)
                                         )}
                                     </TableCell>
                                     <TableCell className="whitespace-nowrap">
@@ -453,7 +430,7 @@ export function HotelCheckInCheckoutReportTable({
                                                     />
                                                     <DetailRow
                                                         label="Check-In"
-                                                        value={formatOperationalDate(
+                                                        value={formatDate(
                                                             row.check_in_date,
                                                         )}
                                                     />
@@ -462,7 +439,7 @@ export function HotelCheckInCheckoutReportTable({
                                                         value={
                                                             row.is_open
                                                                 ? 'Open'
-                                                                : formatOperationalDate(
+                                                                : formatDate(
                                                                       row.check_out_date,
                                                                   )
                                                         }
