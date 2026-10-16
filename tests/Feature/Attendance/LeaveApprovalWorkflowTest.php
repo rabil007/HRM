@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveBalanceManager;
+use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
 use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Support\Facades\DB;
@@ -632,6 +633,189 @@ test('hr then department manager self-request preserves natural manager via fall
     'all_required' => [LeaveApprovalMode::AllRequired],
     'any_required' => [LeaveApprovalMode::AnyRequired],
 ]);
+
+test('hr then department manager without fallback prefers parent manager for hr step', function (
+    LeaveApprovalMode $mode,
+) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company, withParent: true);
+
+    ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
+        'name' => 'Rima No Fallback',
+        'work_email' => 'rima-no-fallback-order@example.com',
+        'department_id' => $managed['department']->id,
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr, null);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ], $mode);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $hr->id, 2026);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+            'reason' => 'Reserve Adam for department manager',
+        ],
+        notify: false,
+    );
+
+    expect($leaveRequest->approvalMode())->toBe($mode)
+        ->and($leaveRequest->approvals)->toHaveCount(2)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_type)->toBe(LeaveApprovalApproverType::HrApprover)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_employee_id)->toBe($managed['parentManager']->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_type)->toBe(LeaveApprovalApproverType::DepartmentManager)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_employee_id)->toBe($managed['manager']->id)
+        ->and($leaveRequest->approvals->pluck('approver_employee_id')->unique()->count())->toBe(2)
+        ->and($leaveRequest->approvals->pluck('approver_employee_id'))->not->toContain($hr->id)
+        ->and($hrUser)->not->toBeNull();
+})->with([
+    'all_required' => [LeaveApprovalMode::AllRequired],
+    'any_required' => [LeaveApprovalMode::AnyRequired],
+]);
+
+test('unsuitable view_all fallback is skipped when restricted from requester department', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company, withParent: true);
+
+    ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
+        'name' => 'Rima Visibility',
+        'work_email' => 'rima-visibility@example.com',
+        'department_id' => $managed['department']->id,
+    ]);
+
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Restricted Fallback',
+        'work_email' => 'restricted-fallback@example.com',
+    ]);
+
+    // Fallback has view_all + approve but cannot see the requester's department.
+    grantCompanyPermissions($fallbackUser, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
+    ], 'restricted-fallback-role');
+
+    $otherDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Other Visibility Dept',
+        'code' => 'OVD',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    restrictTestRoleEmployeeVisibility(
+        $fallbackUser,
+        $company,
+        [(int) $otherDepartment->id],
+        'restricted-fallback-role',
+    );
+
+    configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $hr->id, 2026);
+
+    $leaveRequest = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+            'reason' => 'Skip unapprovable fallback',
+        ],
+        notify: false,
+    );
+
+    expect($leaveRequest->approvals)->toHaveCount(2)
+        ->and($leaveRequest->approvals->pluck('approver_employee_id'))->not->toContain($fallback->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 1)->approver_employee_id)->toBe($managed['parentManager']->id)
+        ->and($leaveRequest->approvals->firstWhere('sequence', 2)->approver_employee_id)->toBe($managed['manager']->id)
+        ->and(app(LeaveRequestVisibility::class)->assignedApproverCanActOnRequester(
+            $fallbackUser,
+            $hr->fresh(),
+            (int) $company->id,
+        ))->toBeFalse()
+        ->and($hrUser)->not->toBeNull();
+});
+
+test('hr self-request fails when only fallback is view_all restricted from requester department', function () {
+    ['company' => $company, 'hr' => $hr, 'hrUser' => $hrUser] = makeHrOwnedDepartmentContext();
+
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company, [
+        'name' => 'Only Restricted Fallback',
+        'work_email' => 'only-restricted-fallback@example.com',
+    ]);
+    grantCompanyPermissions($fallbackUser, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.view_all',
+        'attendance.leave-requests.approve',
+    ], 'only-restricted-fallback-role');
+
+    $otherDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Unrelated Dept',
+        'code' => 'URD',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+    restrictTestRoleEmployeeVisibility(
+        $fallbackUser,
+        $company,
+        [(int) $otherDepartment->id],
+        'only-restricted-fallback-role',
+    );
+
+    configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $hr->id, 2026);
+
+    try {
+        app(SubmitLeaveRequestWithApprovals::class)->handle(
+            companyId: (int) $company->id,
+            attributes: [
+                'employee_id' => $hr->id,
+                'leave_type_id' => $leaveType->id,
+                'start_date' => '2026-06-10',
+                'end_date' => '2026-06-11',
+                'reason' => 'No usable alternative',
+            ],
+            notify: false,
+        );
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        expect($exception->errors()['leave_request'][0] ?? null)
+            ->toBe(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+    }
+
+    expect(LeaveRequest::query()->where('employee_id', $hr->id)->exists())->toBeFalse()
+        ->and($hrUser)->not->toBeNull();
+});
 
 test('shared linked user identity cannot be used as an alternative approver', function () {
     ['company' => $company] = makeLeaveApprovalWorkflowFixtures();

@@ -25,6 +25,7 @@ final class ResolveLeaveApprovalChain
     public function __construct(
         private ResolveLeaveApprovalPolicy $resolvePolicy,
         private LeaveApproverEligibility $eligibility,
+        private LeaveRequestVisibility $visibility,
     ) {}
 
     public function handle(Employee $employee, int $companyId): ResolvedLeaveApprovalChain
@@ -65,6 +66,14 @@ final class ResolveLeaveApprovalChain
         $managementChain = ResolveDepartmentManagementChain::forEmployee($employee);
         $requesterId = (int) $employee->id;
         $requesterUserId = $employee->user_id !== null ? (int) $employee->user_id : null;
+        $reservedNaturalManagerEmployeeIds = $this->reserveNaturalManagerEmployeeIds(
+            steps: $policy->steps,
+            companyId: $companyId,
+            requester: $employee,
+            requesterEmployeeId: $requesterId,
+            requesterUserId: $requesterUserId,
+            managementChain: $managementChain,
+        );
         $usedManagerEmployeeIds = [];
         $usedRequiredApproverEmployeeIds = [];
         $usedRequiredApproverUserIds = [];
@@ -75,6 +84,7 @@ final class ResolveLeaveApprovalChain
             $candidate = $this->resolveStep(
                 step: $step,
                 companyId: $companyId,
+                requester: $employee,
                 requesterEmployeeId: $requesterId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
@@ -105,12 +115,14 @@ final class ResolveLeaveApprovalChain
 
                 $candidate = $this->resolveDistinctAlternativeApprover(
                     companyId: $companyId,
+                    requester: $employee,
                     requesterEmployeeId: $requesterId,
                     requesterUserId: $requesterUserId,
                     managementChain: $managementChain,
                     usedManagerEmployeeIds: $usedManagerEmployeeIds,
                     usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                     usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
+                    reservedNaturalManagerEmployeeIds: $reservedNaturalManagerEmployeeIds,
                     settings: $settings,
                     forStepType: $step->approver_type,
                 );
@@ -124,33 +136,24 @@ final class ResolveLeaveApprovalChain
                 if (! $this->isActionable(
                     $candidate['employee'],
                     $companyId,
+                    $employee,
                     $requesterId,
                     $requesterUserId,
                 )) {
-                    $evaluation = $this->eligibility->evaluate($candidate['employee'], $companyId);
-                    $detail = $evaluation['warnings'][0]
-                        ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
+                    $primaryCandidate = $candidate;
 
-                    throw new RuntimeException(sprintf(
-                        'Required approval step "%s" cannot be completed: %s',
-                        $step->approver_type->label(),
-                        $detail,
-                    ));
-                }
-
-                if ($this->isAlreadyUsedRequiredApprover(
-                    $candidate['employee'],
-                    $usedRequiredApproverEmployeeIds,
-                    $usedRequiredApproverUserIds,
-                )) {
+                    // Primary designated approver cannot act on this requester — try a substitute
+                    // (e.g. view_all fallback blocked by EmployeeVisibilityScope).
                     $candidate = $this->resolveDistinctAlternativeApprover(
                         companyId: $companyId,
+                        requester: $employee,
                         requesterEmployeeId: $requesterId,
                         requesterUserId: $requesterUserId,
                         managementChain: $managementChain,
                         usedManagerEmployeeIds: $usedManagerEmployeeIds,
                         usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                         usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
+                        reservedNaturalManagerEmployeeIds: $reservedNaturalManagerEmployeeIds,
                         settings: $settings,
                         forStepType: $step->approver_type,
                     );
@@ -160,6 +163,53 @@ final class ResolveLeaveApprovalChain
                         || ! $this->isActionable(
                             $candidate['employee'],
                             $companyId,
+                            $employee,
+                            $requesterId,
+                            $requesterUserId,
+                        )
+                    ) {
+                        $evaluation = $this->eligibility->evaluate($primaryCandidate['employee'], $companyId);
+
+                        if (! $evaluation['actionable']) {
+                            $detail = $evaluation['warnings'][0]
+                                ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
+
+                            throw new RuntimeException(sprintf(
+                                'Required approval step "%s" cannot be completed: %s',
+                                $step->approver_type->label(),
+                                $detail,
+                            ));
+                        }
+
+                        throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                    }
+                }
+
+                if ($this->isAlreadyUsedRequiredApprover(
+                    $candidate['employee'],
+                    $usedRequiredApproverEmployeeIds,
+                    $usedRequiredApproverUserIds,
+                )) {
+                    $candidate = $this->resolveDistinctAlternativeApprover(
+                        companyId: $companyId,
+                        requester: $employee,
+                        requesterEmployeeId: $requesterId,
+                        requesterUserId: $requesterUserId,
+                        managementChain: $managementChain,
+                        usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                        usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
+                        usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
+                        reservedNaturalManagerEmployeeIds: $reservedNaturalManagerEmployeeIds,
+                        settings: $settings,
+                        forStepType: $step->approver_type,
+                    );
+
+                    if (
+                        $candidate === null
+                        || ! $this->isActionable(
+                            $candidate['employee'],
+                            $companyId,
+                            $employee,
                             $requesterId,
                             $requesterUserId,
                         )
@@ -333,6 +383,7 @@ final class ResolveLeaveApprovalChain
     private function resolveStep(
         LeaveApprovalPolicyStep $step,
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $managementChain,
@@ -344,6 +395,7 @@ final class ResolveLeaveApprovalChain
         return match ($step->approver_type) {
             LeaveApprovalApproverType::DepartmentManager => $this->resolveDepartmentManager(
                 companyId: $companyId,
+                requester: $requester,
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
@@ -354,6 +406,7 @@ final class ResolveLeaveApprovalChain
             ),
             LeaveApprovalApproverType::ParentManager => $this->resolveParentManager(
                 companyId: $companyId,
+                requester: $requester,
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
@@ -382,6 +435,7 @@ final class ResolveLeaveApprovalChain
      */
     private function resolveDepartmentManager(
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $managementChain,
@@ -410,7 +464,7 @@ final class ResolveLeaveApprovalChain
                 continue;
             }
 
-            if (! $this->isActionable($manager, $companyId, $requesterEmployeeId, $requesterUserId)) {
+            if (! $this->isActionable($manager, $companyId, $requester, $requesterEmployeeId, $requesterUserId)) {
                 continue;
             }
 
@@ -422,6 +476,7 @@ final class ResolveLeaveApprovalChain
 
         return $this->resolveFallbackApprover(
             companyId: $companyId,
+            requester: $requester,
             requesterEmployeeId: $requesterEmployeeId,
             requesterUserId: $requesterUserId,
             usedManagerEmployeeIds: $usedManagerEmployeeIds,
@@ -441,6 +496,7 @@ final class ResolveLeaveApprovalChain
      */
     private function resolveParentManager(
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $managementChain,
@@ -468,7 +524,7 @@ final class ResolveLeaveApprovalChain
                 continue;
             }
 
-            if (! $this->isActionable($manager, $companyId, $requesterEmployeeId, $requesterUserId)) {
+            if (! $this->isActionable($manager, $companyId, $requester, $requesterEmployeeId, $requesterUserId)) {
                 continue;
             }
 
@@ -555,20 +611,24 @@ final class ResolveLeaveApprovalChain
      */
     private function resolveDistinctAlternativeApprover(
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $managementChain,
         array $usedManagerEmployeeIds,
         array $usedRequiredApproverEmployeeIds,
         array $usedRequiredApproverUserIds,
+        array $reservedNaturalManagerEmployeeIds,
         CompanyLeaveApprovalSetting $settings,
         LeaveApprovalApproverType $forStepType,
     ): ?array {
         $preferFallbackFirst = ! $this->isManagerChainType($forStepType);
+        $protectNaturalManagers = $preferFallbackFirst;
 
         if ($preferFallbackFirst) {
             $fallback = $this->resolveFallbackApprover(
                 companyId: $companyId,
+                requester: $requester,
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 usedManagerEmployeeIds: $usedManagerEmployeeIds,
@@ -584,23 +644,29 @@ final class ResolveLeaveApprovalChain
 
             return $this->resolveHierarchyAlternative(
                 companyId: $companyId,
+                requester: $requester,
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
                 usedManagerEmployeeIds: $usedManagerEmployeeIds,
                 usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                 usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
+                reservedNaturalManagerEmployeeIds: $protectNaturalManagers
+                    ? $reservedNaturalManagerEmployeeIds
+                    : [],
             );
         }
 
         $hierarchy = $this->resolveHierarchyAlternative(
             companyId: $companyId,
+            requester: $requester,
             requesterEmployeeId: $requesterEmployeeId,
             requesterUserId: $requesterUserId,
             managementChain: $managementChain,
             usedManagerEmployeeIds: $usedManagerEmployeeIds,
             usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
             usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
+            reservedNaturalManagerEmployeeIds: [],
         );
 
         if ($hierarchy !== null) {
@@ -609,6 +675,7 @@ final class ResolveLeaveApprovalChain
 
         return $this->resolveFallbackApprover(
             companyId: $companyId,
+            requester: $requester,
             requesterEmployeeId: $requesterEmployeeId,
             requesterUserId: $requesterUserId,
             usedManagerEmployeeIds: $usedManagerEmployeeIds,
@@ -624,22 +691,29 @@ final class ResolveLeaveApprovalChain
      * @param  array<int, true>  $usedManagerEmployeeIds
      * @param  array<int, true>  $usedRequiredApproverEmployeeIds
      * @param  array<int, true>  $usedRequiredApproverUserIds
+     * @param  array<int, true>  $reservedNaturalManagerEmployeeIds
      * @return array{employee: Employee, source_department: Department}|null
      */
     private function resolveHierarchyAlternative(
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $managementChain,
         array $usedManagerEmployeeIds,
         array $usedRequiredApproverEmployeeIds,
         array $usedRequiredApproverUserIds,
+        array $reservedNaturalManagerEmployeeIds,
     ): ?array {
         foreach ($managementChain as $entry) {
             $manager = $entry['manager'];
             $managerId = (int) $manager->id;
 
             if (isset($usedManagerEmployeeIds[$managerId])) {
+                continue;
+            }
+
+            if (isset($reservedNaturalManagerEmployeeIds[$managerId])) {
                 continue;
             }
 
@@ -655,7 +729,7 @@ final class ResolveLeaveApprovalChain
                 continue;
             }
 
-            if (! $this->isActionable($manager, $companyId, $requesterEmployeeId, $requesterUserId)) {
+            if (! $this->isActionable($manager, $companyId, $requester, $requesterEmployeeId, $requesterUserId)) {
                 continue;
             }
 
@@ -676,6 +750,7 @@ final class ResolveLeaveApprovalChain
      */
     private function resolveFallbackApprover(
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
         array $usedManagerEmployeeIds,
@@ -716,7 +791,7 @@ final class ResolveLeaveApprovalChain
 
         if (
             $requireActionable
-            && ! $this->isActionable($fallback, $companyId, $requesterEmployeeId, $requesterUserId)
+            && ! $this->isActionable($fallback, $companyId, $requester, $requesterEmployeeId, $requesterUserId)
         ) {
             return null;
         }
@@ -725,6 +800,56 @@ final class ResolveLeaveApprovalChain
             'employee' => $fallback,
             'source_department' => null,
         ];
+    }
+
+    /**
+     * Reserve natural department/parent managers for later required manager steps so earlier
+     * HR/Specific substitutes do not consume them when another eligible alternative exists.
+     *
+     * @param  iterable<int, LeaveApprovalPolicyStep>  $steps
+     * @param  list<array{manager: Employee, manager_user: User|null, source_department: Department, is_direct: bool, hierarchy_order: int}>  $managementChain
+     * @return array<int, true>
+     */
+    private function reserveNaturalManagerEmployeeIds(
+        iterable $steps,
+        int $companyId,
+        Employee $requester,
+        int $requesterEmployeeId,
+        ?int $requesterUserId,
+        array $managementChain,
+    ): array {
+        $reserved = [];
+        $usedManagerEmployeeIds = [];
+
+        foreach ($steps as $step) {
+            if (! $step->is_required || ! $this->isManagerChainType($step->approver_type)) {
+                continue;
+            }
+
+            foreach ($managementChain as $entry) {
+                $manager = $entry['manager'];
+                $managerId = (int) $manager->id;
+
+                if (isset($usedManagerEmployeeIds[$managerId])) {
+                    continue;
+                }
+
+                if ($this->sharesRequesterIdentity($manager, $requesterEmployeeId, $requesterUserId)) {
+                    continue;
+                }
+
+                if (! $this->isActionable($manager, $companyId, $requester, $requesterEmployeeId, $requesterUserId)) {
+                    continue;
+                }
+
+                $reserved[$managerId] = true;
+                $usedManagerEmployeeIds[$managerId] = true;
+
+                break;
+            }
+        }
+
+        return $reserved;
     }
 
     private function sharesRequesterIdentity(
@@ -773,6 +898,7 @@ final class ResolveLeaveApprovalChain
     private function isActionable(
         Employee $employee,
         int $companyId,
+        Employee $requester,
         int $requesterEmployeeId,
         ?int $requesterUserId,
     ): bool {
@@ -784,7 +910,17 @@ final class ResolveLeaveApprovalChain
             return false;
         }
 
-        return $this->eligibility->evaluate($employee, $companyId)['actionable'];
+        if (! $this->eligibility->evaluate($employee, $companyId)['actionable']) {
+            return false;
+        }
+
+        $employee->loadMissing('user:id,name,email,status');
+
+        return $this->visibility->assignedApproverCanActOnRequester(
+            $employee->user,
+            $requester,
+            $companyId,
+        );
     }
 
     /**

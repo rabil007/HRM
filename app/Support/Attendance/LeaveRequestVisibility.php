@@ -177,11 +177,7 @@ final class LeaveRequestVisibility
             ? $leaveRequest->employee
             : Employee::query()->find($leaveRequest->employee_id);
 
-        if ($employee === null || ! AttendanceLeaveDepartmentScope::canAccessEmployee($employee, $companyId)) {
-            return false;
-        }
-
-        if ($this->canViewAll($user) && ! EmployeeVisibilityScope::canAccess($user, $employee, $companyId)) {
+        if ($employee === null || ! $this->assignedApproverCanActOnRequester($user, $employee, $companyId)) {
             return false;
         }
 
@@ -192,6 +188,37 @@ final class LeaveRequestVisibility
             ->where('status', LeaveRequestApprovalStatus::Pending)
             ->where('is_required', true)
             ->exists();
+    }
+
+    /**
+     * Whether an assigned pending approver could act on leave for this requesting employee.
+     *
+     * Mirrors the non-assignment gates in canApproveCurrentStep: Attendance & Leave department
+     * participation, plus EmployeeVisibilityScope when the actor holds view_all.
+     * Ordinary assigned approvers without view_all are not blocked by directory visibility.
+     */
+    public function assignedApproverCanActOnRequester(?User $user, Employee $requesterEmployee, int $companyId): bool
+    {
+        if ($user === null || (int) $requesterEmployee->company_id !== $companyId) {
+            return false;
+        }
+
+        if (! AttendanceLeaveDepartmentScope::canAccessEmployee($requesterEmployee, $companyId)) {
+            return false;
+        }
+
+        $previousTeamId = getPermissionsTeamId();
+        setPermissionsTeamId($companyId);
+
+        try {
+            if ($this->canViewAll($user) && ! EmployeeVisibilityScope::canAccess($user, $requesterEmployee, $companyId)) {
+                return false;
+            }
+        } finally {
+            setPermissionsTeamId($previousTeamId);
+        }
+
+        return true;
     }
 
     public function assertCanAccess(LeaveRequest $leaveRequest, ?User $user, int $companyId): void
