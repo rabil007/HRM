@@ -13,13 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-function todayLocalDate(): string {
-    const now = new Date();
-    const offsetMs = now.getTimezoneOffset() * 60_000;
-
-    return new Date(now.getTime() - offsetMs).toISOString().slice(0, 10);
-}
+import { nowInCompanyDate, useCompanyTimezone } from '@/lib/format-date';
 
 export function PayrollMarkPaidDialog({
     open,
@@ -34,8 +28,11 @@ export function PayrollMarkPaidDialog({
     processing: boolean;
     paymentDateError?: string;
 }) {
+    const companyTimezone = useCompanyTimezone();
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [paymentDate, setPaymentDate] = useState<string>(todayLocalDate());
+    const [paymentDate, setPaymentDate] = useState<string>(() =>
+        nowInCompanyDate(companyTimezone),
+    );
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,10 +61,12 @@ export function PayrollMarkPaidDialog({
         setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const handleClose = (newOpen: boolean) => {
-        if (!newOpen) {
+    const handleOpenChange = (newOpen: boolean) => {
+        if (newOpen) {
+            setPaymentDate(nowInCompanyDate(companyTimezone));
+        } else {
             setSelectedFiles([]);
-            setPaymentDate(todayLocalDate());
+            setPaymentDate(nowInCompanyDate(companyTimezone));
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
@@ -78,7 +77,7 @@ export function PayrollMarkPaidDialog({
     };
 
     return (
-        <AlertDialog open={open} onOpenChange={handleClose}>
+        <AlertDialog open={open} onOpenChange={handleOpenChange}>
             <AlertDialogContent className="glass-card sm:max-w-md">
                 <AlertDialogHeader>
                     <AlertDialogTitle>Mark pay run as paid?</AlertDialogTitle>

@@ -55,9 +55,10 @@ export type AttendanceRecordFormData = {
 
 export const defaultAttendanceRecordFormData = (
     linkedEmployeeId: number | null = null,
+    todayDate?: string | null,
 ): AttendanceRecordFormData => ({
     employee_id: linkedEmployeeId ? String(linkedEmployeeId) : '',
-    date: new Date().toISOString().slice(0, 10),
+    date: todayDate && todayDate.trim() !== '' ? todayDate.trim() : '',
     clock_in: '',
     clock_out: '',
     hours_worked: '',

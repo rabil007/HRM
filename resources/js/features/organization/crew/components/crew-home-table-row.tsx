@@ -11,7 +11,11 @@ import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { CrewEmployeeIdentity } from '@/features/organization/crew/components/crew-employee-identity';
 import type { CurrentCrewHomeRow } from '@/features/organization/crew/types';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
     create as createAssignment,
@@ -31,6 +35,8 @@ function availabilityBadgeClass(
 }
 
 export function CrewHomeTableRow({ row }: { row: CurrentCrewHomeRow }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const assignmentHref =
         row.latest_assignment && row.can.view_assignment
             ? showAssignment.url(row.latest_assignment.id)
@@ -53,7 +59,13 @@ export function CrewHomeTableRow({ row }: { row: CurrentCrewHomeRow }) {
             </TableCell>
 
             <TableCell className={cn(dataTableCellClass(), 'min-w-[150px]')}>
-                {row.home_since ? formatDisplayDateTime(row.home_since) : '—'}
+                {row.home_since
+                    ? formatDisplayDateTimeInTimezone(
+                          row.home_since,
+                          companyTimezone,
+                          dateFormat,
+                      )
+                    : '—'}
             </TableCell>
 
             <TableCell className={cn(dataTableCellClass(), 'min-w-[120px]')}>

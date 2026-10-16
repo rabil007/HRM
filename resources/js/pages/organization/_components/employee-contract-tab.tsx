@@ -35,6 +35,7 @@ import { EmployeeContractSalaryRevisions } from '@/features/organization/contrac
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
+import { previousIsoCalendarDay } from '@/lib/calendar-date';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -443,23 +444,10 @@ export function EmployeeContractTab({
     const isTransferCrewDaily =
         isTransferCrewContract && !isTransferCrewMonthly;
 
-    const oldContractCalculatedEndDate = useMemo(() => {
-        if (!transferForm.data.transfer_date) {
-            return null;
-        }
-
-        const transferDate = new Date(
-            `${transferForm.data.transfer_date}T00:00:00`,
-        );
-
-        if (Number.isNaN(transferDate.getTime())) {
-            return null;
-        }
-
-        transferDate.setDate(transferDate.getDate() - 1);
-
-        return transferDate.toISOString().slice(0, 10);
-    }, [transferForm.data.transfer_date]);
+    const oldContractCalculatedEndDate = useMemo(
+        () => previousIsoCalendarDay(transferForm.data.transfer_date),
+        [transferForm.data.transfer_date],
+    );
 
     const submitTransfer = () => {
         if (!employeeId || !transferringContract) {

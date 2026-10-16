@@ -666,7 +666,7 @@ test('employee can be created and updated with hire_date on the employee record'
     expect($employee->fresh()->hire_date?->toDateString())->toBe('2024-05-20');
 });
 
-test('employee date_of_birth is serialized as a calendar date string on index and show', function () {
+test('employee calendar dates are serialized as Y-m-d strings on index and show', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -701,18 +701,34 @@ test('employee date_of_birth is serialized as a calendar date string on index an
         ->forCompany($company)
         ->create([
             'date_of_birth' => '1992-08-29',
+            'termination_date' => '2026-03-15',
+            'status' => 'active',
         ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2024-01-10',
+        'end_date' => '2025-12-31',
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
 
     $this->get('/organization/employees')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('employees.0.id', $employee->id)
-            ->where('employees.0.date_of_birth', '1992-08-29'));
+            ->where('employees.0.date_of_birth', '1992-08-29')
+            ->where('employees.0.start_date', '2024-01-10')
+            ->where('employees.0.end_date', '2025-12-31'));
 
     $this->get("/organization/employees/{$employee->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('employee.date_of_birth', '1992-08-29'));
+            ->where('employee.date_of_birth', '1992-08-29')
+            ->where('employee.start_date', '2024-01-10')
+            ->where('employee.end_date', '2025-12-31')
+            ->where('employee.termination_date', '2026-03-15'));
 });
 
 test('employee can be created with company_visa_type_id and profile update preserves sponsor', function () {

@@ -217,6 +217,7 @@ export function formatActivityFieldLabel(key: string): string {
 }
 
 export {
+    formatCompanyDateFromTimestamp,
     formatCompanyTimezoneLabel,
     formatDisplayDateTime12hInTimezone,
     isCompanyTimeInFuture,

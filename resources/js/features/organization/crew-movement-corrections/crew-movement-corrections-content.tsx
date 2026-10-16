@@ -31,7 +31,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import { useCompanyTimezone, useDateFormat } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
     index as correctionsIndex,
@@ -42,6 +42,7 @@ import type { CorrectionDecisionMode } from './components/crew-movement-correcti
 import { CrewMovementCorrectionDecisionDialog } from './components/crew-movement-correction-decision-dialog';
 import { CrewMovementCorrectionRowActions } from './components/crew-movement-correction-row-actions';
 import { CrewMovementCorrectionStatusBadge } from './components/crew-movement-correction-status-badge';
+import { formatCorrectionTimestamp } from './lib/correction-timestamp-display';
 import type {
     CrewMovementCorrectionListItem,
     CrewMovementCorrectionsIndexProps,
@@ -83,6 +84,8 @@ export function CrewMovementCorrectionsContent({
     filters: initialFilters,
     can,
 }: CrewMovementCorrectionsIndexProps): ReactElement {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const { auth } = usePage().props as unknown as {
         auth?: { user?: { id: number } };
     };
@@ -442,8 +445,10 @@ export function CrewMovementCorrectionsContent({
                                                 'text-muted-foreground',
                                             )}
                                         >
-                                            {formatDisplayDateTime12h(
+                                            {formatCorrectionTimestamp(
                                                 correction.requested_at,
+                                                companyTimezone,
+                                                dateFormat,
                                             )}
                                         </TableCell>
                                         <TableCell

@@ -22,7 +22,10 @@ Shared wiring: `SharedSettingsPresenter`, `CompanyTimezone` (PHP), `useCompanyTi
 | React date-only display | `useFormatDate()` / `useDateFormat()` from `resources/js/lib/format-date.ts` |
 | Pure / non-React formatting | `formatDisplayDate(value, format?)` — pass format; keep pure |
 | Layout cache sync | `PlatformDateFormatSync` + `syncPlatformDateFormatCache` |
+| Company-local “today” for form defaults | `nowInCompanyDate(useCompanyTimezone())` |
+| Calendar-day arithmetic on `Y-m-d` | `previousIsoCalendarDay` / `addIsoCalendarDays` in `resources/js/lib/calendar-date.ts` |
 | Absolute ISO datetime (org screens) | `formatDisplayDateTime*InTimezone(..., useCompanyTimezone())` |
+| Date-only label from absolute timestamp | `toCompanyDateLocal(iso, companyTz)` then `formatDisplayDate` |
 | Crew wall-clock local inputs | Existing company-timezone helpers in `resources/js/lib/company-timezone.ts` |
 | Date inputs (when already used) | `AppDateField` — value remains ISO `Y-m-d` |
 
@@ -52,10 +55,20 @@ Keep month-only chrome (`F Y`, chart `M j`) and protocol/filename formats (e.g. 
 - Hardcoded `d-m-Y`, `d M Y`, or `toLocaleDateString()` for operational calendar dates
 - Bare `formatDisplayDate(value)` in React components without going through `useFormatDate` / explicit format (layout cache sync is a fallback for non-React `.ts` helpers)
 - Browser-local `formatDisplayDateTime` for company attendance, leave, or activity ISO instants
+- UTC “today” via `new Date().toISOString().slice(0, 10)` / `.split('T')[0]` for attendance, recruitment, or payroll defaults
+- `new Date(localMidnight).toISOString().slice(0, 10)` after calendar arithmetic (contract transfer preview)
 - Forcing platform timezone onto companies that already set `companies.timezone`
 - Changing storage, import templates, re-importable export date columns, or `<input type="date">` values to platform display format
 - Formatting absolute ISO expiry/datetimes with date-only helpers that take the UTC calendar prefix (use company-timezone local date first)
+- Passing Eloquent `date` / `immutable_date` casts into Inertia JSON without `toDateString()` — including nested relation chains such as `$employee->currentContract?->start_date`
 - Rewiring crew movement wall-clock, payroll period boundaries, or leave rollover year logic for display-only consistency
+
+## Regression protection
+
+- Static scan: `tests/Unit/Support/InertiaCalendarDateSerializationTest.php` (Resources, Presenters, PageData, Controllers; nested relation date reads)
+- Payload examples: employee DOB / hire / termination / contract dates in `tests/Feature/Organization/EmployeesTest.php`
+- Frontend: company-local defaults and calendar-day helpers under `resources/js/lib/*.test.ts` and feature `*.test.ts` files
+- Passing Eloquent `date` casts into Inertia/JSON without `toDateString()` (Carbon midnight in `Asia/Dubai` serializes as the previous UTC day; frontend date helpers then display the wrong calendar date)
 
 ## Examples
 

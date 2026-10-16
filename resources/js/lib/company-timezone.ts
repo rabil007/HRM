@@ -159,6 +159,30 @@ export function toCompanyDateLocal(
 }
 
 /**
+ * Date-only label for an absolute timestamp, using the company calendar day
+ * and platform date format. Do not pass raw UTC ISO into formatDisplayDate.
+ */
+export function formatCompanyDateFromTimestamp(
+    value: string | null | undefined,
+    timeZone: string,
+    dateFormat?: string | null,
+): string {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+
+    const local = toCompanyDateLocal(value, timeZone);
+
+    if (!local) {
+        const trimmed = value.trim();
+
+        return trimmed === '' ? '—' : trimmed;
+    }
+
+    return formatDisplayDate(local, dateFormat);
+}
+
+/**
  * Returns current instant formatted as `YYYY-MM-DDTHH:mm` in the company's timezone.
  */
 export function nowInCompanyTime(

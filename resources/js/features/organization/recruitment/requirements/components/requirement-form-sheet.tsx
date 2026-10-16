@@ -40,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useRegisterUnsavedWork } from '@/hooks/use-register-unsaved-work';
+import { nowInCompanyDate, useCompanyTimezone } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import type { Auth } from '@/types/auth';
@@ -77,6 +78,8 @@ import {
     isRequirementPreparationStatus,
     shouldShowRequirementPositionStructureLockWarning,
 } from '../lib/requirement-form-hydration';
+import { shouldReinitializeRequirementForm } from '../lib/requirement-form-init';
+import type { RequirementFormInitIdentity } from '../lib/requirement-form-init';
 import {
     isSalaryAtPositionDefault,
     isSalaryEditedFromPosition,
@@ -127,7 +130,7 @@ export function RequirementFormSheet({
     const currentUserId = auth.user?.id ?? null;
     const showSubmitAction = canShowRequirementSubmitFormAction(canSubmit);
     const isEditing = Boolean(initialRequirement);
-    const today = new Date().toISOString().split('T')[0];
+    const companyTimezone = useCompanyTimezone();
 
     const defaultPositionLine: FormPositionLineInput = {
         position_id: '',
@@ -159,7 +162,7 @@ export function RequirementFormSheet({
         location: '',
         assigned_to: '',
         notification_recipient_ids: [],
-        request_received_date: today,
+        request_received_date: '',
         required_by_date: '',
         priority: 'normal',
         notes: '',
@@ -188,6 +191,9 @@ export function RequirementFormSheet({
     const pendingCloseRef = useRef(false);
     const pendingSubmitForApprovalRef = useRef(false);
     const formBodyRef = useRef<HTMLDivElement | null>(null);
+    const formInitIdentityRef = useRef<RequirementFormInitIdentity | null>(
+        null,
+    );
 
     const isReturnedEdit =
         isEditing && initialRequirement?.status === 'returned';
@@ -357,18 +363,39 @@ export function RequirementFormSheet({
     const busy = isSubmitting || isCheckingDuplicates;
 
     useEffect(() => {
+        const nextIdentity: RequirementFormInitIdentity = {
+            open,
+            requirementId: initialRequirement?.id ?? null,
+            companyTimezone,
+        };
+
         if (!open) {
             clearErrors();
             setBaseline(null);
             setConfirmDiscardOpen(false);
             pendingCloseRef.current = false;
             setIsSubmitting(false);
+            formInitIdentityRef.current = nextIdentity;
 
             return;
         }
 
+        if (
+            !shouldReinitializeRequirementForm(
+                formInitIdentityRef.current,
+                nextIdentity,
+            )
+        ) {
+            return;
+        }
+
+        formInitIdentityRef.current = nextIdentity;
+
         setClientItems(syncRequirementClientOptions(options.clients));
         setProjectItems(syncRequirementProjectOptions(options.projects));
+
+        // Fresh company-local today at init only — do not re-run solely for midnight.
+        const today = nowInCompanyDate(companyTimezone);
 
         const nextData = initialRequirement
             ? {
@@ -402,7 +429,7 @@ export function RequirementFormSheet({
             }),
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, initialRequirement]);
+    }, [open, initialRequirement, companyTimezone]);
 
     const clientOptionsKey = (options.clients ?? [])
         .map((client) => `${client.id}:${client.name}`)
