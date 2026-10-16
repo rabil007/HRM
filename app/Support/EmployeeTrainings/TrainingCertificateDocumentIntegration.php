@@ -2,6 +2,7 @@
 
 namespace App\Support\EmployeeTrainings;
 
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentVersion;
@@ -38,31 +39,35 @@ class TrainingCertificateDocumentIntegration
 
         $createdPath = null;
 
+        $run = function () use ($training, $employee, $file, $companyId, $userId, &$createdPath): EmployeeDocument {
+            /** @var EmployeeTraining $lockedTraining */
+            $lockedTraining = EmployeeTraining::query()
+                ->whereKey($training->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $documentType = $this->documentTypeResolver->resolve();
+
+            $document = $this->documentStore->create(
+                $employee,
+                $documentType,
+                $file,
+                $this->documentMetadataFromTraining($lockedTraining),
+                $companyId,
+                $userId,
+            );
+
+            $createdPath = $document->file_path;
+
+            $this->assignDocumentToTraining($lockedTraining, $document);
+
+            return $document;
+        };
+
         try {
-            return DB::transaction(function () use ($training, $employee, $file, $companyId, $userId, &$createdPath) {
-                /** @var EmployeeTraining $lockedTraining */
-                $lockedTraining = EmployeeTraining::query()
-                    ->whereKey($training->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                $documentType = $this->documentTypeResolver->resolve();
-
-                $document = $this->documentStore->create(
-                    $employee,
-                    $documentType,
-                    $file,
-                    $this->documentMetadataFromTraining($lockedTraining),
-                    $companyId,
-                    $userId,
-                );
-
-                $createdPath = $document->file_path;
-
-                $this->assignDocumentToTraining($lockedTraining, $document);
-
-                return $document;
-            });
+            return DB::transactionLevel() > 0
+                ? $run()
+                : DB::transaction($run);
         } catch (Throwable $exception) {
             if (is_string($createdPath) && $createdPath !== '') {
                 EmployeePrivateFile::deleteStored(
@@ -259,7 +264,7 @@ class TrainingCertificateDocumentIntegration
 
     public function syncLinkedTrainingsFromDocument(EmployeeDocument $document): void
     {
-        DB::transaction(function () use ($document): void {
+        $run = function () use ($document): void {
             EmployeeTraining::query()
                 ->where('employee_document_id', $document->id)
                 ->where('company_id', $document->company_id)
@@ -273,7 +278,15 @@ class TrainingCertificateDocumentIntegration
                         'expiry_date' => $document->expiry_date?->toDateString(),
                     ]);
                 });
-        });
+        };
+
+        if (DB::transactionLevel() > 0) {
+            $run();
+
+            return;
+        }
+
+        DB::transaction($run);
     }
 
     public function assertDocumentTypeChangeAllowed(EmployeeDocument $document, ?int $newDocumentTypeId): void
@@ -388,15 +401,16 @@ class TrainingCertificateDocumentIntegration
                 $existingDocument = $this->findCompatibleExistingDocumentForLegacy($locked, $documentType->id);
 
                 if ($existingDocument instanceof EmployeeDocument) {
-                    EmployeeDocument::query()
+                    /** @var EmployeeDocument $lockedDocument */
+                    $lockedDocument = EmployeeDocument::query()
                         ->whereKey($existingDocument->id)
                         ->lockForUpdate()
                         ->firstOrFail();
 
-                    $existingDocument->refresh();
-
-                    $this->importTrainingCertificateVersionsIntoDocument($locked, $existingDocument);
-                    $this->assignDocumentToTraining($locked, $existingDocument);
+                    $this->reconcileLegacyCertificateHistoryBeforeLink($locked, $lockedDocument);
+                    $lockedDocument->refresh();
+                    $this->assignDocumentToTraining($locked, $lockedDocument);
+                    $this->syncTrainingDatesFromDocument($locked, $lockedDocument);
 
                     return 'reused';
                 }
@@ -480,7 +494,7 @@ class TrainingCertificateDocumentIntegration
             }
         }
 
-        $documentType = $this->documentTypeResolver->resolve();
+        $documentType = $this->documentTypeResolver->findExistingForAssessment();
         $matchingDocuments = EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $training->employee_id)
@@ -495,6 +509,10 @@ class TrainingCertificateDocumentIntegration
         $existingDocument = $matchingDocuments->first();
 
         if ($existingDocument instanceof EmployeeDocument) {
+            if (! $documentType instanceof DocumentType) {
+                return 'duplicate_conflicting_reference';
+            }
+
             if ((int) $existingDocument->document_type_id !== (int) $documentType->id) {
                 return 'duplicate_conflicting_reference';
             }
@@ -546,16 +564,34 @@ class TrainingCertificateDocumentIntegration
         }
 
         $this->importTrainingCertificateVersionsIntoDocument($training, $document);
+        $this->establishNonCollidingDocumentCurrentVersion($training, $document);
+    }
 
-        $maxDocumentVersion = max(
-            (int) $document->current_version,
-            (int) $training->current_version,
-            (int) $document->versions->max('version'),
-            (int) $training->versions->max('version'),
+    private function establishNonCollidingDocumentCurrentVersion(
+        EmployeeTraining $training,
+        EmployeeDocument $document,
+    ): void {
+        $document->unsetRelation('versions');
+        $document->load('versions');
+        $training->loadMissing('versions');
+
+        $maxArchivedVersion = max(
+            (int) ($document->versions->max('version') ?? 0),
+            (int) ($training->versions->max('version') ?? 0),
         );
 
-        if ($maxDocumentVersion > (int) $document->current_version) {
-            $document->update(['current_version' => $maxDocumentVersion]);
+        $desiredCurrentVersion = max(
+            (int) $document->current_version,
+            (int) $training->current_version,
+            1,
+        );
+
+        if ($desiredCurrentVersion <= $maxArchivedVersion) {
+            $desiredCurrentVersion = $maxArchivedVersion + 1;
+        }
+
+        if ($desiredCurrentVersion !== (int) $document->current_version) {
+            $document->update(['current_version' => $desiredCurrentVersion]);
         }
     }
 
