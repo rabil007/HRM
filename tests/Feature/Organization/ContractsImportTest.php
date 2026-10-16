@@ -438,6 +438,71 @@ test('daily crew import cannot silently overwrite an existing monthly crew contr
         ->assertJsonPath('rows.0.errors.0.field', 'salary_structure');
 });
 
+test('monthly crew import previews effective values and keeps blank metadata and EOS on update', function () {
+    ['user' => $user, 'company' => $company, 'crewEmployee' => $crewEmployee] = makeContractsImportFixtures();
+
+    $contract = EmployeeContract::query()
+        ->where('employee_id', $crewEmployee->id)
+        ->where('status', 'active')
+        ->firstOrFail();
+    $contract->update([
+        'salary_structure' => 'monthly',
+        'start_date' => '2025-01-01',
+        'end_date' => '2027-12-31',
+        'labor_contract_id' => 'PRESERVE-MONTHLY-1',
+        'basic_salary' => 55000,
+        'housing_allowance' => 2000,
+        'transport_allowance' => 500,
+        'other_allowances' => 300,
+        'eos_monthly_amount' => 1500,
+        'note' => 'Keep existing note',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.import']);
+
+    $file = makeContractsImportFile(PayrollCategory::Crew, [[
+        'employee_no' => $crewEmployee->employee_no,
+        'name' => $crewEmployee->name,
+        'basic_salary' => 56000,
+        'status' => null,
+        'start_date' => null,
+        'housing_allowance' => null,
+        'eos_monthly_amount' => null,
+    ]], 'monthly');
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import.preview'), [
+            'payroll_category' => 'crew',
+            'salary_structure' => 'monthly',
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.importable', 1)
+        ->assertJsonPath('rows.0.start_date', '2025-01-01')
+        ->assertJsonPath('rows.0.end_date', '2027-12-31')
+        ->assertJsonPath('rows.0.labor_contract_id', 'PRESERVE-MONTHLY-1')
+        ->assertJsonPath('rows.0.total_salary', 58800)
+        ->assertJsonPath('rows.0.eos_monthly_amount', '1500.00');
+
+    $this->actingAs($user)
+        ->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.contracts.import'), [
+            'payroll_category' => 'crew',
+            'salary_structure' => 'monthly',
+            'file' => $file,
+        ])
+        ->assertRedirect(route('organization.contracts'));
+
+    $saved = $contract->fresh();
+    expect((float) $saved->basic_salary)->toBe(56000.0)
+        ->and((float) $saved->housing_allowance)->toBe(2000.0)
+        ->and((float) $saved->eos_monthly_amount)->toBe(1500.0)
+        ->and($saved->end_date?->toDateString())->toBe('2027-12-31')
+        ->and($saved->labor_contract_id)->toBe('PRESERVE-MONTHLY-1')
+        ->and($saved->note)->toBe('Keep existing note');
+});
+
 /**
  * @return array{
  *     user: User,
@@ -542,14 +607,14 @@ function makeContractsImportFixtures(): array
 /**
  * @param  list<array<string, mixed>>  $rows
  */
-function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows): UploadedFile
+function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows, string $salaryStructure = 'daily'): UploadedFile
 {
     $import = app(ContractsImport::class);
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
-    $sheet->setTitle($import->sheetName($payrollCategory));
+    $sheet->setTitle($import->sheetName($payrollCategory, $salaryStructure));
 
-    foreach ($import->headers($payrollCategory) as $columnIndex => $header) {
+    foreach ($import->headers($payrollCategory, $salaryStructure) as $columnIndex => $header) {
         $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
     }
 
@@ -570,6 +635,13 @@ function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows):
             $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['other_allowances'] ?? null);
             $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['note'] ?? null);
             $sheet->setCellValueByColumnAndRow(12, $rowNumber, $row['company_visa_type'] ?? null);
+        } elseif ($salaryStructure === 'monthly') {
+            $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['housing_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['transport_allowance'] ?? null);
+            $sheet->setCellValueByColumnAndRow(10, $rowNumber, $row['other_allowances'] ?? null);
+            $sheet->setCellValueByColumnAndRow(11, $rowNumber, $row['eos_monthly_amount'] ?? null);
+            $sheet->setCellValueByColumnAndRow(12, $rowNumber, $row['note'] ?? null);
+            $sheet->setCellValueByColumnAndRow(13, $rowNumber, $row['company_visa_type'] ?? null);
         } else {
             $sheet->setCellValueByColumnAndRow(8, $rowNumber, $row['supplementary_allowance'] ?? null);
             $sheet->setCellValueByColumnAndRow(9, $rowNumber, $row['site_allowance'] ?? null);
