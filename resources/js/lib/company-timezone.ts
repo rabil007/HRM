@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { formatDisplayDate } from './format-date-core.ts';
 
 /**
  * Validates an IANA timezone identifier and falls back to a safe alternative or 'UTC'.
@@ -181,11 +182,13 @@ export function nowInCompanyDate(
 }
 
 /**
- * Formats a timestamp as `DD-MM-YYYY hh:mm A` in the specified company timezone.
+ * Formats a timestamp as `{platformDate} hh:mm A` in the specified company timezone.
+ * Pass platform date format from useDateFormat() when available.
  */
 export function formatDisplayDateTime12hInTimezone(
     value: string | Date | null | undefined,
     timeZone?: string | null,
+    dateFormat?: string | null,
 ): string {
     if (value === null || value === undefined || value === '') {
         return '—';
@@ -207,7 +210,7 @@ export function formatDisplayDateTime12hInTimezone(
             hours = 12;
         }
 
-        return `${day}-${month}-${year} ${hours}:${minStr} ${period}`;
+        return `${formatDisplayDate(`${year}-${month}-${day}`, dateFormat)} ${hours}:${minStr} ${period}`;
     }
 
     const date = value instanceof Date ? value : new Date(str);
@@ -229,7 +232,9 @@ export function formatDisplayDateTime12hInTimezone(
     const get = (type: Intl.DateTimeFormatPartTypes): string =>
         parts.find((part) => part.type === type)?.value ?? '';
 
-    return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')} ${get('dayPeriod').toUpperCase()}`;
+    const isoDate = `${get('year')}-${get('month')}-${get('day')}`;
+
+    return `${formatDisplayDate(isoDate, dateFormat)} ${get('hour')}:${get('minute')} ${get('dayPeriod').toUpperCase()}`;
 }
 
 /**
