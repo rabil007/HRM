@@ -10,6 +10,7 @@ use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Contracts\Actions\MirrorLatestContractSalaryRevision;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
+use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
 use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -69,7 +70,7 @@ test('monthly crew EOS salary revisions retain historically effective non-payabl
             'eos_monthly_amount' => 350,
         ], '2026-04-01', 'EOS increase');
 
-        $resolver = app(\App\Support\Payroll\ResolveEffectiveContractSalaryComponents::class);
+        $resolver = app(ResolveEffectiveContractSalaryComponents::class);
         $priorComponents = $resolver->handle($contract->fresh(), Carbon::parse('2026-02-01'));
         $futureComponents = $resolver->handle($contract->fresh(), Carbon::parse('2026-04-01'));
         $eosAmount = fn ($components) => (float) $components
