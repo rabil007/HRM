@@ -6,7 +6,7 @@
  * Eloquent `date` casts serialize as UTC ISO instants when passed as Carbon.
  * With APP_TIMEZONE=Asia/Dubai that becomes the previous calendar day in JSON.
  */
-test('inertia resources presenters and page data serialize calendar dates with toDateString', function () {
+test('inertia resources presenters page data and controllers serialize calendar dates with toDateString', function () {
     $root = dirname(__DIR__, 3).'/app';
     $keys = [
         'date_of_birth',
@@ -63,14 +63,18 @@ test('inertia resources presenters and page data serialize calendar dates with t
             continue;
         }
 
-        if (! preg_match('/(Resource|Presenter|PageData)\.php$/', $file->getFilename())) {
+        $path = $file->getPathname();
+        $relative = str_replace('\\', '/', substr($path, strlen(dirname($root)) + 1));
+        $isPayloadMapper = (bool) preg_match('/(Resource|Presenter|PageData)\.php$/', $file->getFilename());
+        $isController = str_contains($relative, 'Http/Controllers/');
+
+        if (! $isPayloadMapper && ! $isController) {
             continue;
         }
 
-        $path = $file->getPathname();
-        $relative = str_replace('\\', '/', substr($path, strlen(dirname($root)) + 1));
+        $lines = file($path);
 
-        foreach (file($path) as $lineNumber => $line) {
+        foreach ($lines as $lineNumber => $line) {
             if (! preg_match("/'([^']+)'\s*=>\s*(.+),?\s*$/", trim($line), $matches)) {
                 continue;
             }
@@ -82,17 +86,18 @@ test('inertia resources presenters and page data serialize calendar dates with t
                 continue;
             }
 
+            // Only flag Eloquent attribute reads: $model->start_date / $model?->start_date
+            if (! preg_match('/\$[A-Za-z0-9_]+(?:\?->|->)'.preg_quote($key, '/').'\b/', $expression)) {
+                continue;
+            }
+
             if (
                 str_contains($expression, 'toDateString')
                 || str_contains($expression, "format('Y-m-d')")
                 || str_contains($expression, 'format("Y-m-d")')
                 || str_contains($expression, 'PlatformDateFormatter')
-                || preg_match('/\$dates->date\(|->date\(/', $expression)
+                || preg_match('/\$dates->date\(|formatCvDate\(/', $expression)
             ) {
-                continue;
-            }
-
-            if (! preg_match('/\$[A-Za-z0-9_]+(?:\?->|->)[A-Za-z0-9_]+/', $expression)) {
                 continue;
             }
 
@@ -100,7 +105,15 @@ test('inertia resources presenters and page data serialize calendar dates with t
                 str_contains($expression, '(bool)')
                 || str_contains($expression, 'orderBy')
                 || str_contains($expression, '$request')
+                || str_contains($expression, 'old(')
+                || str_contains($expression, 'validated(')
             ) {
+                continue;
+            }
+
+            // DB writes (create/update) may pass Carbon through Eloquent casts safely.
+            $window = implode('', array_slice($lines, max(0, $lineNumber - 6), 14));
+            if (preg_match('/::create\(|->update\(|->forceFill\(|->fill\(/', $window)) {
                 continue;
             }
 
