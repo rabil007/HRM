@@ -16,6 +16,7 @@ use App\Support\Documents\RecipientRequests\Delivery\QueueDocumentRecipientReque
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestLinkService;
 use App\Support\Documents\Signing\DocumentSigningInternalSignerEligibility;
 use App\Support\Email\EmailTemplateBodyRenderer;
+use App\Support\Settings\CompanyTimezone;
 use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -291,7 +292,9 @@ class DeliverDocumentRecipientRequestEmailJob implements ShouldBeEncrypted, Shou
             '{{action_label}}' => (string) ($request->action?->label() ?? 'Review document'),
             '{{action_url}}' => $actionUrl,
             '{{expires_at}}' => PlatformDateFormatter::make()->dateTime(
-                $request->expires_at?->timezone(config('app.timezone')),
+                $request->expires_at?->copy()->timezone(
+                    CompanyTimezone::forCompany($request->company ?? $request->company_id),
+                ),
                 '',
             ) ?? '',
             '{{step_label}}' => $stepLabel,

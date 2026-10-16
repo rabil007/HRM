@@ -236,7 +236,10 @@ class AttendanceRecordController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         return AttendanceRecord::query()
-            ->with(['employee:id,company_id,employee_no,name'])
+            ->with([
+                'employee:id,company_id,employee_no,name',
+                'company:id,timezone',
+            ])
             ->where('company_id', $companyId)
             ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $request->user(), $companyId))
             ->filtered($filters)
