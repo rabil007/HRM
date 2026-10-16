@@ -105,7 +105,7 @@ export function CrewFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                    Status
+                    Assignment State
                 </Label>
                 <AppSelect
                     value={value.status}

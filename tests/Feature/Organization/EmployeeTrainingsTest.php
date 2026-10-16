@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeDocument;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeTrainingVersion;
 use App\Models\User;
@@ -1007,15 +1008,21 @@ test('users with permission can replace a training certificate and keep version 
         'issue_date' => '2024-01-01',
         'expiry_date' => '2029-01-01',
         'institute_center' => 'MTC',
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHasNoErrors();
 
     $training->refresh();
+    $document = EmployeeDocument::query()->findOrFail($training->employee_document_id);
 
-    expect($training->current_version)->toBe(2);
-    expect($training->certificate_path)->not->toBe($oldPath);
+    expect($training->usesIntegratedCertificateDocument())->toBeTrue()
+        ->and($training->current_version)->toBe(2)
+        ->and($training->certificate_path)->not->toBe($oldPath)
+        ->and($training->certificate_path)->toBe($document->file_path)
+        ->and($document->current_version)->toBe(2);
 
-    $this->assertDatabaseHas('employee_training_versions', [
-        'employee_training_id' => $training->id,
+    expect(EmployeeTrainingVersion::query()->where('employee_training_id', $training->id)->count())->toBe(0);
+
+    $this->assertDatabaseHas('employee_document_versions', [
+        'employee_document_id' => $document->id,
         'version' => 1,
         'file_path' => $oldPath,
     ]);

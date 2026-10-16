@@ -49,6 +49,7 @@ import type {
     PhasePeriod,
     PhaseSummary,
     PhaseTimelineEntry,
+    StandbyWindow,
     TrainingHistoryEntry,
 } from './types';
 
@@ -61,10 +62,10 @@ const columns = {
     vessel: 'w-[140px] min-w-[140px]',
     client: 'w-[130px] min-w-[130px]',
     arrival: 'w-[115px] min-w-[115px]',
-    preJoiningStandby: 'w-[150px] min-w-[150px]',
+    preJoiningStandby: 'w-[210px] min-w-[210px]',
     joined: 'w-[115px] min-w-[115px]',
     signOff: 'w-[130px] min-w-[130px]',
-    demobStandby: 'w-[160px] min-w-[160px]',
+    demobStandby: 'w-[210px] min-w-[210px]',
     returnedHome: 'w-[130px] min-w-[130px]',
     standbyDays: 'w-[130px] min-w-[130px]',
     vesselDays: 'w-[150px] min-w-[150px]',
@@ -128,7 +129,12 @@ function SortHead({
 }) {
     if (!column) {
         return (
-            <DataTableHead className={cn('whitespace-nowrap', className)}>
+            <DataTableHead
+                className={cn(
+                    'h-auto py-2 align-bottom whitespace-normal!',
+                    className,
+                )}
+            >
                 {label}
             </DataTableHead>
         );
@@ -142,14 +148,19 @@ function SortHead({
         : ChevronsUpDown;
 
     return (
-        <DataTableHead className={cn('whitespace-nowrap', className)}>
+        <DataTableHead
+            className={cn(
+                'h-auto py-2 align-bottom whitespace-normal!',
+                className,
+            )}
+        >
             <button
                 type="button"
                 onClick={() => onSort(column)}
-                className="inline-flex max-w-full items-center gap-1.5 transition-colors hover:text-primary"
+                className="inline-flex max-w-full items-start gap-1.5 text-left transition-colors hover:text-primary"
             >
-                <span className="truncate">{label}</span>
-                <Icon className="size-3.5 shrink-0" aria-hidden />
+                <span className="whitespace-normal">{label}</span>
+                <Icon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             </button>
         </DataTableHead>
     );
@@ -172,6 +183,88 @@ function Cell({
         >
             {children}
         </TableCell>
+    );
+}
+
+function StandbyWindowCell({
+    window,
+    emptyTitle,
+}: {
+    window: StandbyWindow | undefined;
+    emptyTitle: string;
+}) {
+    if (!window || !window.recorded) {
+        return (
+            <div title={emptyTitle}>
+                <p className="text-xs text-muted-foreground">Not recorded</p>
+                <p className="mt-1 text-xs font-semibold text-foreground">
+                    {window?.service_days_label ??
+                        window?.days_label ??
+                        'Not recorded'}
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-1 text-xs" title={emptyTitle}>
+            {window.multiple ? (
+                <>
+                    <p className="font-medium text-foreground">
+                        {window.period_count} periods
+                    </p>
+                    <ul className="space-y-1 text-[11px] text-muted-foreground">
+                        {window.periods.map((period, index) => (
+                            <li
+                                key={`${period.phase_code}-${period.from ?? 'open'}-${index}`}
+                            >
+                                <span className="font-medium text-foreground/80">
+                                    {period.phase_label}
+                                </span>
+                                <span className="mt-0.5 block">
+                                    From:{' '}
+                                    {period.from
+                                        ? formatDisplayDate(period.from)
+                                        : '—'}
+                                </span>
+                                <span className="block">
+                                    To:{' '}
+                                    {period.to_label === 'Ongoing'
+                                        ? 'Ongoing'
+                                        : period.to
+                                          ? formatDisplayDate(period.to)
+                                          : '—'}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            ) : (
+                <>
+                    <p>
+                        <span className="text-muted-foreground">From: </span>
+                        <span className="font-medium text-foreground">
+                            {window.periods[0]?.from
+                                ? formatDisplayDate(window.periods[0].from)
+                                : '—'}
+                        </span>
+                    </p>
+                    <p>
+                        <span className="text-muted-foreground">To: </span>
+                        <span className="font-medium text-foreground">
+                            {window.periods[0]?.to_label === 'Ongoing'
+                                ? 'Ongoing'
+                                : window.periods[0]?.to
+                                  ? formatDisplayDate(window.periods[0].to)
+                                  : '—'}
+                        </span>
+                    </p>
+                </>
+            )}
+            <p className="font-semibold text-foreground">
+                {window.service_days_label}
+            </p>
+        </div>
     );
 }
 
@@ -1233,7 +1326,7 @@ export function CrewMovementHistoryReportTable({
 
     return (
         <OrganizationDataTable
-            minWidth="min-w-[2040px]"
+            minWidth="min-w-[2280px]"
             compact
             tableClassName="table-fixed"
             header={
@@ -1305,12 +1398,12 @@ export function CrewMovementHistoryReportTable({
                     />
                     <DataTableHead
                         className={cn(
-                            'whitespace-nowrap',
+                            'h-auto py-2 align-bottom whitespace-normal!',
                             columns.preJoiningStandby,
                         )}
                     >
-                        <span title="Allocated pre-joining standby days from recorded Pre-Joining Standby and Training phases. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
-                            Pre-Joining Standby (Days)
+                        <span title="Pre-Joining Standby and Training movement dates, with allocated service days. Training is included in the total. A date owned by the vessel is not also standby. Multiple periods are listed separately. Missing phase shows Not recorded.">
+                            Pre-Joining Standby
                         </span>
                     </DataTableHead>
                     <SortHead
@@ -1322,41 +1415,47 @@ export function CrewMovementHistoryReportTable({
                     />
                     <SortHead
                         column="actual_disembarkation"
-                        label="Sign-Off / Disembarked"
+                        label="Disembarked"
                         filters={filters}
                         onSort={onSort}
                         className={columns.signOff}
                     />
                     <DataTableHead
                         className={cn(
-                            'whitespace-nowrap',
+                            'h-auto py-2 align-bottom whitespace-normal!',
                             columns.demobStandby,
                         )}
                     >
-                        <span title="Allocated demobilisation standby days from the recorded Demobilisation Standby phase. A date owned by the vessel is not also standby. Missing phase shows Not recorded / 0 days.">
-                            Demobilisation Standby (Days)
+                        <span title="Demobilisation Standby movement dates and allocated service days. A date owned by the vessel is not also standby. Multiple periods are listed separately. Missing phase shows Not recorded.">
+                            Demobilisation Standby
                         </span>
                     </DataTableHead>
                     <DataTableHead
                         className={cn(
-                            'whitespace-nowrap',
+                            'h-auto py-2 align-bottom whitespace-normal!',
                             columns.returnedHome,
                         )}
                     >
                         Returned Home
                     </DataTableHead>
                     <DataTableHead
-                        className={cn('whitespace-nowrap', columns.standbyDays)}
+                        className={cn(
+                            'h-auto py-2 align-bottom whitespace-normal!',
+                            columns.standbyDays,
+                        )}
                     >
                         <span title="Total Standby = Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero. A date owned by the vessel is not also counted as standby.">
                             Total Standby
                         </span>
                     </DataTableHead>
                     <DataTableHead
-                        className={cn('whitespace-nowrap', columns.vesselDays)}
+                        className={cn(
+                            'h-auto py-2 align-bottom whitespace-normal!',
+                            columns.vesselDays,
+                        )}
                     >
-                        <span title="Allocated on-vessel days. 4 Oct through 7 Oct is 4 days, including the day the crew member leaves the vessel.">
-                            Vessel Service Days
+                        <span title="Allocated on-vessel service days. 4 Oct through 7 Oct is 4 days, including the day the crew member leaves the vessel.">
+                            Vessel Days
                         </span>
                     </DataTableHead>
                     <SortHead
@@ -1482,12 +1581,10 @@ export function CrewMovementHistoryReportTable({
                                     </div>
                                 </Cell>
                                 <Cell className={columns.preJoiningStandby}>
-                                    <span
-                                        className="text-xs font-medium text-foreground tabular-nums"
-                                        title="Allocated pre-joining standby days. A date owned by the vessel is not also standby."
-                                    >
-                                        {row.pre_joining_standby_days_label}
-                                    </span>
+                                    <StandbyWindowCell
+                                        window={row.pre_joining_standby}
+                                        emptyTitle="Allocated pre-joining standby days include Pre-Joining Standby and Training. Dates are movement boundaries, not a day-count formula."
+                                    />
                                 </Cell>
                                 <Cell className={columns.joined}>
                                     <span className="text-xs font-medium text-foreground tabular-nums">
@@ -1518,12 +1615,10 @@ export function CrewMovementHistoryReportTable({
                                     )}
                                 </Cell>
                                 <Cell className={columns.demobStandby}>
-                                    <span
-                                        className="text-xs font-medium text-foreground tabular-nums"
-                                        title="Allocated demobilisation standby days. A date owned by the vessel is not also standby."
-                                    >
-                                        {row.demobilisation_standby_days_label}
-                                    </span>
+                                    <StandbyWindowCell
+                                        window={row.demobilisation_standby}
+                                        emptyTitle="Allocated demobilisation standby days. Dates are movement boundaries, not a day-count formula."
+                                    />
                                 </Cell>
                                 <Cell className={columns.returnedHome}>
                                     {row.home_redeploy.outcome ===

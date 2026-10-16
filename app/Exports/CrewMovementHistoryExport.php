@@ -116,9 +116,15 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
             'Client',
             'Arrival Date',
             'Pre-Joining Standby (Days)',
+            'Pre-Joining Standby From',
+            'Pre-Joining Standby To',
+            'Pre-Joining Standby Periods',
             'Join Vessel Date',
             'Sign-Off / Disembarkation Date',
             'Demobilisation Standby (Days)',
+            'Demobilisation Standby From',
+            'Demobilisation Standby To',
+            'Demobilisation Standby Periods',
             'Return Home Date',
             'Total Standby',
             'Vessel Service Days',
@@ -164,9 +170,15 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
             $row['client']['name'] ?? null,
             $actualArrival ? $this->date($actualArrival) : '—',
             $row['pre_joining_standby_days_label'] ?? $row['pre_joining_standby_days'] ?? '—',
+            $this->standbyEndpoint($row['pre_joining_standby'] ?? [], 'from'),
+            $this->standbyEndpoint($row['pre_joining_standby'] ?? [], 'to'),
+            $this->standbyPeriodList($row['pre_joining_standby'] ?? []),
             $actualJoin ? $this->date($actualJoin) : '—',
             $actualDisembarkation === 'Ongoing' ? 'Ongoing' : ($actualDisembarkation ? $this->date($actualDisembarkation) : '—'),
             $row['demobilisation_standby_days_label'] ?? $row['demobilisation_standby_days'] ?? '—',
+            $this->standbyEndpoint($row['demobilisation_standby'] ?? [], 'from'),
+            $this->standbyEndpoint($row['demobilisation_standby'] ?? [], 'to'),
+            $this->standbyPeriodList($row['demobilisation_standby'] ?? []),
             $returnHome,
             $row['standby_service_days_label'] ?? $row['standby_service_days'] ?? 0,
             $row['vessel_service_days_label'] ?? $row['vessel_service_days'] ?? 0,
@@ -188,6 +200,65 @@ final class CrewHistorySummarySheet implements FromQuery, WithHeadings, WithMapp
         } catch (\Throwable) {
             return $date;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $window
+     */
+    private function standbyEndpoint(array $window, string $edge): string
+    {
+        $periods = $window['periods'] ?? [];
+
+        if ($periods === []) {
+            return '—';
+        }
+
+        if (($window['multiple'] ?? false) === true) {
+            return 'Multiple periods';
+        }
+
+        $period = $periods[0];
+
+        if ($edge === 'to') {
+            $label = $period['to_label'] ?? null;
+
+            if ($label === 'Ongoing') {
+                return 'Ongoing';
+            }
+
+            return is_string($label) && $label !== '' ? $this->date($label) : '—';
+        }
+
+        $from = $period['from'] ?? null;
+
+        return is_string($from) && $from !== '' ? $this->date($from) : '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $window
+     */
+    private function standbyPeriodList(array $window): string
+    {
+        $periods = $window['periods'] ?? [];
+
+        if ($periods === []) {
+            return '—';
+        }
+
+        return collect($periods)
+            ->map(function (array $period): string {
+                $from = is_string($period['from'] ?? null) && $period['from'] !== ''
+                    ? $this->date($period['from'])
+                    : '—';
+                $toLabel = $period['to_label'] ?? null;
+                $to = $toLabel === 'Ongoing'
+                    ? 'Ongoing'
+                    : (is_string($toLabel) && $toLabel !== '' ? $this->date($toLabel) : '—');
+                $phase = trim((string) ($period['phase_label'] ?? ''));
+
+                return trim($phase.' '.$from.' to '.$to);
+            })
+            ->implode('; ');
     }
 }
 
@@ -280,16 +351,16 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
             'Home / Redeploy To',
             'Home / Redeploy Days',
             'Phase Timeline',
-            'Pre-Join Accommodation',
-            'Pre-Join Hotel',
-            'Pre-Join Room Type',
-            'Pre-Join Check-In',
-            'Pre-Join Check-Out',
-            'Post-Sign-Off Accommodation',
-            'Post-Sign-Off Hotel',
-            'Post-Sign-Off Room Type',
-            'Post-Sign-Off Check-In',
-            'Post-Sign-Off Check-Out',
+            'Pre-Joining Standby Accommodation',
+            'Pre-Joining Standby Hotel',
+            'Pre-Joining Standby Room Type',
+            'Pre-Joining Standby Check-In',
+            'Pre-Joining Standby Check-Out',
+            'Demobilisation Standby Accommodation',
+            'Demobilisation Standby Hotel',
+            'Demobilisation Standby Room Type',
+            'Demobilisation Standby Check-In',
+            'Demobilisation Standby Check-Out',
             'Accommodation History',
             'Previous Assignment',
             'Previous Vessel',
@@ -377,9 +448,9 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
             $row['pre_joining_standby_days_label'] ?? $row['pre_joining_standby_days'] ?? '—',
             $row['demobilisation_standby_days_label'] ?? $row['demobilisation_standby_days'] ?? '—',
             $row['standby_service_days_label'] ?? $row['standby_service_days'] ?? 0,
-            $this->periods($row['demob_standby']['periods']),
-            $this->date($row['demob_standby']['from']),
-            $this->end($row['demob_standby']),
+            $this->standbyPeriodList($row['demobilisation_standby'] ?? ['periods' => $row['demob_standby']['periods'] ?? []]),
+            $this->standbyEndpoint($row['demobilisation_standby'] ?? [], 'from'),
+            $this->standbyEndpoint($row['demobilisation_standby'] ?? [], 'to'),
             $row['demob_standby']['total_days'],
             $this->periods($row['home_redeploy']['periods']),
             $this->dateTime($row['home_redeploy']['actual_return_home_at'] ?? null),
@@ -463,6 +534,66 @@ final class CrewMovementDetailsSheet implements FromQuery, WithHeadings, WithMap
     /**
      * @param  list<array{start?: string|null, start_at?: string|null, end?: string|null, end_at?: string|null, status: string}>  $periods
      */
+    /**
+     * @param  array<string, mixed>  $window
+     */
+    private function standbyEndpoint(array $window, string $edge): string
+    {
+        $periods = $window['periods'] ?? [];
+
+        if ($periods === []) {
+            return '—';
+        }
+
+        if (($window['multiple'] ?? false) === true) {
+            return 'Multiple periods';
+        }
+
+        $period = $periods[0];
+
+        if ($edge === 'to') {
+            $label = $period['to_label'] ?? null;
+
+            if ($label === 'Ongoing') {
+                return 'Ongoing';
+            }
+
+            return is_string($label) && $label !== '' ? $this->date($label) : '—';
+        }
+
+        $from = $period['from'] ?? null;
+
+        return is_string($from) && $from !== '' ? $this->date($from) : '—';
+    }
+
+    /**
+     * @param  array<string, mixed>  $window
+     */
+    private function standbyPeriodList(array $window): string
+    {
+        $periods = $window['periods'] ?? [];
+
+        if ($periods === []) {
+            return '—';
+        }
+
+        return collect($periods)
+            ->map(function (array $period): string {
+                $from = isset($period['from']) && is_string($period['from']) && $period['from'] !== ''
+                    ? $this->date($period['from'])
+                    : (isset($period['start']) && is_string($period['start']) ? $this->date($period['start']) : '—');
+                $toLabel = $period['to_label'] ?? $period['end'] ?? null;
+                $ongoing = ($period['status'] ?? null) === 'active' && ($period['end'] ?? $period['to'] ?? null) === null;
+                $to = $toLabel === 'Ongoing' || $ongoing
+                    ? 'Ongoing'
+                    : (is_string($toLabel) && $toLabel !== '' ? $this->date($toLabel) : '—');
+                $phase = trim((string) ($period['phase_label'] ?? ''));
+
+                return trim($phase.' '.$from.' to '.$to);
+            })
+            ->implode('; ');
+    }
+
     private function periods(array $periods): string
     {
         return collect($periods)

@@ -8,5 +8,6 @@ final class SignedDocumentLibraryReplacement
         public readonly string $newPath,
         public readonly string $oldPath,
         public readonly int $companyId,
+        public readonly ?int $employeeDocumentId = null,
     ) {}
 }

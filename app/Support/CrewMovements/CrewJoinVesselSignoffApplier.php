@@ -14,7 +14,8 @@ use Illuminate\Validation\ValidationException;
  * Choice values:
  * - tour_of_duty: use Tour of Duty suggestion
  * - existing_plan: keep existing planned date
- * - manual_override: enter another date (requires reason)
+ * - manual_override: enter another date. Join Vessel does not require a reason.
+ *   Transfer Vessel and direct redeploy still require one.
  */
 final class CrewJoinVesselSignoffApplier
 {
@@ -38,6 +39,7 @@ final class CrewJoinVesselSignoffApplier
         array $payload,
         ?CarbonInterface $existingPlannedSignoff,
         CarbonInterface $actualJoinAt,
+        bool $requireOverrideReason = true,
     ): array {
         $choice = $this->resolveChoice($payload, $tour, $existingPlannedSignoff);
         $explicitChoice = isset($payload['planned_signoff_choice'])
@@ -58,12 +60,11 @@ final class CrewJoinVesselSignoffApplier
             $source = CrewPlannedSignoffSource::ExistingPlan;
         } elseif ($choice === self::CHOICE_MANUAL) {
             if ($explicitChoice || (isset($payload['planned_signoff_at']) && filled($payload['planned_signoff_at']))) {
-                // Manual override requires date + reason.
                 $planned = $this->parseManualDate($payload, $tour->timezone);
                 $source = CrewPlannedSignoffSource::ManualOverride;
-                $reason = $overrideReason;
+                $reason = ($overrideReason === null || $overrideReason === '') ? null : $overrideReason;
 
-                if ($reason === null || $reason === '') {
+                if ($requireOverrideReason && $reason === null) {
                     throw ValidationException::withMessages([
                         'planned_signoff_override_reason' => 'A reason is required when entering another Planned Sign-Off date.',
                     ]);

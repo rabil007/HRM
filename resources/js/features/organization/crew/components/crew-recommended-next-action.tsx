@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MovementActionDialog } from '@/features/organization/crew/actions/movement-action-dialog';
 import { CrewOperationalStatePanel } from '@/features/organization/crew/components/crew-operational-state-panel';
 import { resolveOperatorNextStepButtons } from '@/features/organization/crew/lib/crew-operational-state';
+import type { OperatorReliefAction } from '@/features/organization/crew/lib/crew-operational-state';
 import type {
     CrewAssignmentFormOptions,
     CrewMovementAction,
     CrewMovementContext,
+    CrewOperatorStage,
     CrewRecommendedAction,
 } from '@/features/organization/crew/types';
 
@@ -28,6 +30,8 @@ export function CrewRecommendedNextAction({
     status,
     statusLabel,
     vesselName,
+    operatorStage,
+    reliefAction = null,
 }: {
     assignmentId: number;
     recommended: CrewRecommendedAction | null;
@@ -46,6 +50,8 @@ export function CrewRecommendedNextAction({
     status?: string;
     statusLabel?: string;
     vesselName?: string | null;
+    operatorStage?: CrewOperatorStage | null;
+    reliefAction?: OperatorReliefAction | null;
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
         useState<CrewMovementAction | null>(null);
@@ -69,6 +75,7 @@ export function CrewRecommendedNextAction({
         },
         canViewDocuments,
         canViewPlanning,
+        reliefAction,
     });
 
     return (
@@ -108,6 +115,7 @@ export function CrewRecommendedNextAction({
                         status: status ?? 'active',
                         status_label: statusLabel ?? '',
                         available_actions: availableActions,
+                        operator_stage: operatorStage ?? null,
                         vessel: vesselName ? { id: 0, name: vesselName } : null,
                     }}
                     recommended={recommended}
@@ -122,15 +130,29 @@ export function CrewRecommendedNextAction({
                         <div className="flex flex-wrap items-center gap-2.5">
                             {buttons.map((button) => {
                                 if (button.kind === 'href' && button.href) {
+                                    const secondary =
+                                        button.emphasis === 'secondary';
+
                                     return (
                                         <Button
-                                            key={`href-${button.href}`}
+                                            key={`href-${button.label}`}
                                             asChild
-                                            className="font-medium shadow-xs"
+                                            variant={
+                                                secondary
+                                                    ? 'outline'
+                                                    : 'default'
+                                            }
+                                            className={
+                                                secondary
+                                                    ? undefined
+                                                    : 'font-medium shadow-xs'
+                                            }
                                         >
                                             <Link href={button.href}>
                                                 <span>{button.label}</span>
-                                                <ArrowRight className="ml-1.5 size-4" />
+                                                {secondary ? null : (
+                                                    <ArrowRight className="ml-1.5 size-4" />
+                                                )}
                                             </Link>
                                         </Button>
                                     );

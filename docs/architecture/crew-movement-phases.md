@@ -470,7 +470,7 @@ Ineligible assignments (draft, pre-P2, completed, cancelled, assignments with ex
 |--------|-----------|
 | `tour_of_duty` | Use calculated suggestion |
 | `existing_plan` | Keep existing Planning/assignment planned date (never silently overwritten) |
-| `manual_override` | Enter another date; date and reason are both required when this choice is explicit |
+| `manual_override` | Enter another date. Join Vessel requires the date and does not require a reason. Transfer Vessel and direct on-vessel redeploy still require a reason. Plan Sign-Off always requires a reason. |
 
 If no Tour exists and no Planned Sign-Off is entered (and no explicit manual choice was supplied), join still succeeds and attention warnings surface `missing_tour_of_duty` / `missing_planned_signoff`.
 
@@ -1315,20 +1315,15 @@ This is powered by `ActiveOnVesselAssignmentFinder` (`form_options.active_on_ves
 
 The edit sidebar answers “what can I safely change on this existing mobilisation?” via `assignment-edit-guidance.ts`: phase-aware copy, safe-to-update fields, destination-change notes (not Transfer Vessel before boarding), linked Planning change summary (Vessel/Rank/Expected Join), and proactive date advisories. Backend validation in `UpdateCrewAssignmentRequest` remains authoritative. Edit form options preserve inactive historical Vessel/Client options when unchanged.
 
-### Phase Timeline (Plan vs Actual)
+### Phase Timeline
 
-The Crew Assignment show page presents a single **Phase Timeline** as the operator-facing source for planned and actual movements (`CrewAssignmentPhaseTimeline`). The separate **Assignment Journey** progress strip is no longer shown on the detail page; legacy P1/P3 context and skipped normal-path stages appear as compact status notes on the Phase Timeline instead (without inventing phase records).
-
-| Mode | Meaning |
-|------|---------|
-| **Plan vs Actual** (default) | Compact date rows for planned and actual windows, with start/end/duration variance copy |
-| **Actual Only** | Actual movement dates and elapsed/completed duration only |
-| **Planned Only** | Planned phase schedule only |
+The Crew Assignment show page presents a single **Phase Timeline** of recorded actual movements (`CrewAssignmentPhaseTimeline`). There are no Plan vs Actual, Actual Only, or Planned Only tabs, and the timeline does not create planned-only phase rows. The separate **Assignment Journey** progress strip is no longer shown on the detail page; legacy P1/P3 context and skipped normal-path stages appear as compact status notes on the Phase Timeline instead (without inventing phase records).
 
 Display conventions:
 
-- Each recorded phase shows planned start/end, actual start/end, planned duration, and either the movement span or in-progress elapsed whole calendar days (company timezone). Same-day completion = 1 inclusive calendar day. Payable P1A, P1B, P2, and P3 phases also show allocated service days. A completed pre-joining window of 1–5 October can show **Standby service: 4 days** and **Movement span: 5 days** when 5 October belongs to On Vessel. Active phases never treat “today” as a confirmed actual end. Elapsed days in the current phase stay separate from allocated service totals.
-- Missing dates use “Not recorded”, “Not started”, or “In progress” as appropriate. Variance is omitted when planned/actual data is insufficient.
+- Completed phases show the phase name, completed state, actual start and end, and either allocated service days or the inclusive calendar span. Payable P1A, P1B, P2, and P3 phases show allocated service days. A completed pre-joining window of 2–10 October that joined the vessel on 10 October can show **Actual Movement: 2 October → 10 October** and **Standby service: 8 days**. Those eight payable days are not replaced by a nine-day calendar span.
+- An active phase shows the actual start and the one relevant upcoming planned milestone: P0 Expected Arrival, P1A Expected Vessel Join, P1B Expected Training Completion, P2 Planned Sign-Off (or **Sign-Off Not Planned**), P3 Planned Travel Home, and P4 recorded home/redeployment progress. A planned sign-off is never shown as an actual disembarkation, and the phase stays active until the actual movement is recorded.
+- Active phases never treat “today” as a confirmed actual end. Elapsed days in the current phase stay separate from allocated service totals.
 - Graphical planned/actual date-range bars are not used; presentation is date-and-duration text along a subtle vertical timeline.
 
 Data sources (unchanged storage):
@@ -1336,13 +1331,13 @@ Data sources (unchanged storage):
 - Per-phase planned/actual windows come from `crew_assignment_phases.planned_start_at` / `planned_end_at` / `actual_start_at` / `actual_end_at` (presented as company-local date strings by `CrewAssignmentPresenter`).
 - Assignment-level forecast milestones (Arrival, Vessel Join, Travel, Sign-Off) remain on `CrewAssignment` and appear as an expandable **Assignment milestones** strip inside the Phase Timeline card. **Assignment Started** (`started_at`) and **Assignment Ended** (`closed_at`, or **Ongoing** while active) are shown separately in the operational summary **Assignment Lifecycle** card — they are not duplicated in milestones or as P0 “actual arrival”.
 - Active **current P0** rows emphasize **Expected Arrival** (assignment `planned_arrival_at`) and **Waiting for crew arrival**. P0 phase activation (`actual_start_at`) is assignment start, not employee arrival; it is not shown as a misleading “Actual” arrival line on the compact P0 card. Authoritative actual arrival appears on **P1A** when recorded. Completed historical P0 rows still show their recorded phase windows for audit.
-- Per-phase **Phase details** expanders are removed. Meaningful remarks, training metadata (P1B course and training provider with readable labels — not internal IDs), variance detail bullets, and correction actions stay visible inline on each phase card. Active current P0 shows **Waiting for crew arrival** once (status line only in Actual Only; Expected Arrival remains in Plan vs Actual and Planned Only when forecast exists).
+- Per-phase **Phase details** expanders are removed. Meaningful remarks, training metadata (P1B course and training provider with readable labels — not internal IDs), and correction actions stay visible inline on each phase card. Active current P0 shows **Waiting for crew arrival** once, with Expected Arrival when a forecast exists and **P0 Started** when it does not.
 - Variance is presentation-only. Active phases without `actual_end_at` never treat “today” as a confirmed completion for end/duration variance. Planned and actual values stay independent; movement workflows, corrections, overrides, transfers, timesheets, and sea service are unchanged.
 - Milestone comparisons normalize calendar dates in the company timezone before highlighting variance.
 
 ### Assignment detail layout (show page)
 
-`organization/crew/{id}` keeps a compact identity header (employee, assignment context, status/phase/tenure) and a three-card operational summary (**Next Milestone / Expected Arrival**, **Operational Attention**, **Assignment Lifecycle**). Edit/Void live only in the Operations Center sidebar (Recommended Next Action → Needs Attention / Readiness → Other Actions). Left-column order is **Phase Timeline** → **Tour of Duty** (on vessel only) → **Assignment Records & History**. Supporting records are independently collapsible (relationships, accommodation, corrections, remarks, audit), with operationally important sections (open accommodation stays, pending corrections) expanded by default. Phase Timeline **Actual Only** never shows planned overdue or planned windows; for active current P0 it shows a waiting state instead of P0 activation dates.
+`organization/crew/{id}` keeps a compact identity header (employee, assignment context, operator stage) and a three-card operational summary (**Key Operational Date**, **Operational Attention**, **Assignment Lifecycle**). Edit/Void live only in the Operations Center sidebar (Recommended Next Action → Needs Attention / Readiness → Other Actions). For active P2, Confirm Disembarkation is the highlighted movement; Plan Sign-Off, Plan Relief, and Transfer Vessel stay secondary when permitted. Left-column order is **Phase Timeline** → **Tour of Duty** (on vessel only) → **Assignment Records & History**. Supporting records are independently collapsible (relationships, accommodation, corrections, remarks, audit), with operationally important sections (open accommodation stays, pending corrections) expanded by default. Active current P0 shows a waiting state and does not present P0 activation as crew arrival.
 
 ### Operational timestamps and company timezone UX
 

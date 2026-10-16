@@ -472,3 +472,33 @@ test('relieves context ignores cross-company Position mapping for source assignm
 
     expect($detail['relieves']['source_position'])->not->toBeNull();
 });
+
+test('list and detail share the operator stage and on-vessel key date', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewAssignmentFixtures();
+    $vessel = makeCrewMovementVessel('Operator Stage Vessel');
+    $assignment = makeActiveOnVesselAssignment($company, $employee, $rank, $vessel);
+    $assignment->forceFill([
+        'planned_signoff_at' => '2026-02-15 08:00:00',
+    ])->saveQuietly();
+
+    $loaded = $assignment->fresh([
+        'employee',
+        'position',
+        'vessel',
+        'client',
+        'currentPhase',
+        'company',
+        'phases',
+    ]);
+
+    $list = CrewAssignmentPresenter::listItem($loaded);
+    $detail = CrewAssignmentPresenter::detail($loaded);
+
+    expect($list['operator_stage']['label'])->toBe('On Vessel')
+        ->and($list['operator_stage']['secondary'])->toBe('P2 · On Vessel')
+        ->and($list['key_operational_date']['label'])->toBe('Planned Sign-Off')
+        ->and($list['key_operational_date']['kind'])->toBe('planned')
+        ->and($list['recommended_action']['action'])->toBe(CrewMovementAction::ConfirmDisembarkation->value)
+        ->and($detail['operator_stage'])->toBe($list['operator_stage'])
+        ->and($detail['key_operational_date'])->toBe($list['key_operational_date']);
+});

@@ -154,7 +154,7 @@ export function MobileRecordCard({
     subtitle?: string | null;
     meta?: Array<string | null | undefined>;
     status?: ReactNode;
-    attention?: string | null;
+    attention?: ReactNode;
     href?: string;
     primaryAction?: MobileRecordPrimaryAction;
     overflowActions?: MobileRecordOverflowAction[];
@@ -216,7 +216,7 @@ export function MobileRecordCard({
                     </p>
                 ) : null}
 
-                {attention ? (
+                {typeof attention === 'string' && attention !== '' ? (
                     <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300">
                         <AlertTriangle
                             className="mt-0.5 h-3.5 w-3.5 shrink-0"
@@ -224,6 +224,8 @@ export function MobileRecordCard({
                         />
                         <span className="min-w-0">{attention}</span>
                     </p>
+                ) : attention ? (
+                    <div className="mt-2">{attention}</div>
                 ) : null}
 
                 {resolvedPrimary ? (

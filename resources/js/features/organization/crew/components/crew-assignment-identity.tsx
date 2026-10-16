@@ -110,20 +110,18 @@ export function CrewAssignmentIdentity({
 
     const badgesNode = (
         <>
-            <Badge
-                variant={
-                    assignment.status === 'active'
-                        ? 'success'
-                        : assignment.status === 'draft'
-                          ? 'secondary'
-                          : assignment.status === 'cancelled'
-                            ? 'destructive'
-                            : 'outline'
-                }
-            >
-                {assignment.status_label}
-            </Badge>
-            {assignment.current_phase ? (
+            {assignment.operator_stage ? (
+                <Badge variant="secondary">
+                    {assignment.operator_stage.label}
+                </Badge>
+            ) : (
+                <Badge variant="outline">{assignment.status_label}</Badge>
+            )}
+            {assignment.operator_stage?.secondary ? (
+                <span className="text-xs font-medium text-muted-foreground">
+                    {assignment.operator_stage.secondary}
+                </span>
+            ) : assignment.current_phase ? (
                 <CrewPhaseBadge
                     code={assignment.current_phase.code}
                     label={assignment.current_phase.label}

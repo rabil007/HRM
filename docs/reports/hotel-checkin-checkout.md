@@ -83,7 +83,7 @@ Clicking any summary card toggles the corresponding `stay_status` filter.
 - **Search**: Matches employee name, employee number, hotel name, room type name, assignment number, or vessel name.
 - **Hotel**: Active company hotels.
 - **Room Type**: Active room types (scoped to selected hotel if chosen).
-- **Stay Type**: `pre_join` ("Pre-Join") or `post_signoff` ("Post-Sign-Off").
+- **Stay Type**: `pre_join` ("Pre-Joining Standby") or `post_signoff` ("Demobilisation Standby"). Persisted codes are unchanged. Hotel days stay inclusive and are not payroll standby days.
 - **Stay Status**: `currently_checked_in`, `check_in_today`, `checking_out_today`, `upcoming`, `checked_out`.
 - **Check-In Dates**: Check-In From and Check-In To.
 - **Check-Out Dates**: Check-Out From and Check-Out To.

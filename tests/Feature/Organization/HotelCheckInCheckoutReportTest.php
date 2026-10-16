@@ -93,7 +93,7 @@ test('basic listing returns stay with employee, hotel, stay type, dates, assignm
             ->where('stays.0.hotel.name', 'Royal Hotel')
             ->where('stays.0.room_type.name', 'Deluxe Suite')
             ->where('stays.0.stay_type', 'pre_join')
-            ->where('stays.0.stay_type_label', 'Pre-Join')
+            ->where('stays.0.stay_type_label', 'Pre-Joining Standby')
             ->where('stays.0.check_in_date', '2026-09-20')
             ->where('stays.0.check_out_date', '2026-09-26')
             ->where('stays.0.stay_status', 'currently_checked_in')

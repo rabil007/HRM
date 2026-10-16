@@ -46,7 +46,10 @@ class EmployeeDocumentShowController extends Controller
             'documentInstance.currentVersion',
             'documentInstance.generatedBy:id,name',
             'documentInstance.lifecycleAutomation',
+            'employeeTrainings.course:id,name',
         ]);
+        $document->loadCount('versions');
+        $document->loadExists('employeeTrainings');
 
         $workflowPresenter = app(DocumentWorkflowPresenter::class);
         $workflowEligibility = app(DocumentWorkflowEligibility::class);

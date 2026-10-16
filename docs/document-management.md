@@ -414,20 +414,43 @@ Training completion metadata stays on `employee_trainings`. The **employee docum
 | --- | --- |
 | Course, institute, training dates, training status | Training (`employee_trainings`) |
 | File storage, versions, document metadata, expiry alerts | Documents (`employee_documents` + `employee_document_versions`) |
-| Link | `employee_trainings.employee_document_id` (nullable) |
+| Link | `employee_trainings.employee_document_id` (nullable; unique among live rows via `active_employee_document_id`) |
 
-New certificate uploads from Training create (or link) a `Training Certificate` document type row titled with the **course name**. Replacing from Training or from Documents uses the **document version engine only** for integrated records; legacy training-only version rows remain readable until backfilled.
+### Ownership and lifecycle
 
-Cross-domain certificate actions require **both** training permissions and `documents.upload` (see `TrainingCertificateDocumentPermissions`). Deleting a training record unlinks but **preserves** the linked employee document and its physical files (including document version history). Legacy-only training rows still delete their private certificate files when no document owns those paths. Deleting a document linked to training is blocked until associations are removed.
+- New certificate uploads from Training (create, first attachment on an existing row, or bulk create) create or link a `Training Certificate` document titled with the **course name**.
+- Replacement of an integrated certificate always uses the **document version engine**. Legacy (unlinked) replacement first integrates compatible history into Documents, then replaces through that engine; conflicting or missing history is rejected with a validation error instead of discarding files.
+- Training detail / list / employee Training tab expose **Upload certificate** when a row has no file, and keep **Link existing document** as a separate action. Documents/shared-folder uploads remain separate documents unless the user explicitly links them.
+- Deleting a training record (single, employee bulk, organization bulk, or crew-void with “Delete training”) unlinks the document and **preserves** document-owned files and versions. Legacy-only paths are deleted after successful DB commit only when no other live document, document version, training, or training version still references them.
+- Deleting an employee document that still has an active training link is blocked. Deleting a document never removes a physical file that another live document, version, or training still references (including accidental duplicate owners of the same path).
+- Changing the document type of an actively linked Training Certificate to an unrelated type is rejected on the backend and locked in the edit UI. Title, dates, number, and notes remain editable.
+- Generated-document signing that replaces the library PDF archives the previous file as a document version, syncs linked Training mirror fields, and does not delete a path still needed by history or Training.
+- Crew training sync and approved corrections update linked document **issue date** and **title** (course name) through the shared integration while preserving manually maintained document expiry dates.
 
-Linking an existing Training Certificate document to a training row that already has legacy certificate files requires overlapping file paths; legacy version rows are imported into `employee_document_versions` before the association is saved only when the version number and attachment (path or checksum) match an existing document version or can be added without conflict. Matching version numbers with different files are rejected with validation errors instead of silently reusing or hiding history. Unrelated certificate histories are rejected the same way.
+### Permissions
 
-Legacy certificates without a link are backfilled idempotently (no automatic production run). The command validates tenant-safe paths and readable files before creating document rows, uses row locks for concurrent safety, and reports categories such as `would_link`, `missing_current_file`, `missing_historical_version`, and `duplicate_conflicting_reference`. Dry runs never modify data or create document types.
+Cross-domain certificate create/link/replace actions from Training require **both** the relevant training permission and `documents.upload` (`TrainingCertificateDocumentPermissions`).
+
+Documents managers with `documents.upload` (without `training.update`) may still update linked certificate metadata and replace the document file through Documents routes; those changes sync onto linked Training rows. That policy is intentional and covered by regression tests. Frontend `can` flags remain UX only.
+
+### Backfill and ownership audit (read-only first)
+
+Legacy certificates without a link are backfilled idempotently (no automatic production run). Compatible existing Training Certificate documents that already own the same current file for the same employee are **reused** (`would_reuse` / `reused`) instead of creating a second owner. Ambiguous or conflicting ownership is reported and makes no writes (`duplicate_conflicting_reference`, `ambiguous_existing_document`, `conflicting_version_history`, missing file categories). Dry runs never modify data or create document types.
 
 ```bash
+php artisan training:audit-certificate-document-ownership
+php artisan training:audit-certificate-document-ownership --company=1
 php artisan training:backfill-certificate-documents --dry-run
 php artisan training:backfill-certificate-documents --company=1
 ```
+
+Run the audit before relying on the live unique link backstop (`active_employee_document_id`). It reports duplicate active links and shared file paths only; it does **not** delete or merge production records. Any repair must be explicit, scoped, and preserve all histories.
+
+### Expiry and compliance notes
+
+Expiry reminders remain based on individual `EmployeeDocument` rows (with existing recipient scope, enabled-rule/type checks, and per-document deduplication). Two Training Certificate documents for the same employee both appear in expiry notifications. Changing expiry from Training or Documents updates the same linked document. File replacement with the same expiry does not resend an already-delivered alert for that document+expiry. Reminders are not silently expanded to already-expired records.
+
+The existing Documents compliance summary remains **latest-per-document-type**, not per-training-course. Do not treat that summary as proof that every training course is compliant.
 
 ## Employee profile templates and create employee
 

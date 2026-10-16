@@ -345,6 +345,10 @@ class EmployeeDocument extends Model
             ? $this->employeeTrainings->first()
             : null;
 
+        $linkedToTraining = $this->relationLoaded('employeeTrainings')
+            ? $this->employeeTrainings->isNotEmpty()
+            : (bool) ($this->employee_trainings_exists ?? false);
+
         return [
             'id' => $this->id,
             'document_name' => $this->original_filename
@@ -364,6 +368,7 @@ class EmployeeDocument extends Model
             'expiry_status' => DocumentExpiry::resolve($this->expiry_date)?->value,
             'remaining_days' => DocumentExpiry::remainingDays($this->expiry_date),
             'expiry_label' => DocumentExpiry::humanLabel($this->expiry_date),
+            'linked_to_training' => $linkedToTraining,
             'linked_training_course_name' => $linkedTraining?->relationLoaded('course')
                 ? $linkedTraining->course?->name
                 : ($linkedTraining?->course()->value('name')),

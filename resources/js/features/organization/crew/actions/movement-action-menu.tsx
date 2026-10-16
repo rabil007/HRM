@@ -24,6 +24,7 @@ export function MovementActionMenu({
     size = 'default',
     triggerLabel = 'Record Movement',
     excludeActions = [],
+    highlightedAction = null,
 }: {
     assignmentId: number;
     availableActions: string[];
@@ -32,16 +33,21 @@ export function MovementActionMenu({
     size?: 'default' | 'sm';
     triggerLabel?: string;
     excludeActions?: string[];
+    highlightedAction?: CrewMovementAction | null;
 }): ReactElement | null {
     const [selectedAction, setSelectedAction] =
         useState<CrewMovementAction | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const menuActions = availableActions.filter(
-        (action) => !excludeActions.includes(action),
+        (action) =>
+            !excludeActions.includes(action) && action !== highlightedAction,
     );
+    const showHighlight =
+        highlightedAction !== null &&
+        availableActions.includes(highlightedAction);
 
-    if (menuActions.length === 0) {
+    if (menuActions.length === 0 && !showHighlight) {
         return null;
     }
 
@@ -62,46 +68,60 @@ export function MovementActionMenu({
 
     return (
         <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    {isCompact ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
-                            title={triggerLabel}
-                            aria-label={triggerLabel}
-                        >
-                            <ArrowRightLeft className="size-4" />
-                        </Button>
-                    ) : (
-                        <Button type="button" variant="outline">
-                            {triggerLabel}
-                            <ChevronDown className="h-4 w-4" />
-                        </Button>
-                    )}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                    {menuActions.map((actionValue) => {
-                        const action = actionValue as CrewMovementAction;
-
-                        return (
-                            <DropdownMenuItem
-                                key={action}
-                                variant={
-                                    action === 'cancel_assignment'
-                                        ? 'destructive'
-                                        : 'default'
-                                }
-                                onClick={() => openAction(action)}
+            {showHighlight && highlightedAction ? (
+                <Button
+                    type="button"
+                    size={isCompact ? 'sm' : 'default'}
+                    className={isCompact ? 'h-8 px-2.5 text-xs' : undefined}
+                    onClick={() => openAction(highlightedAction)}
+                >
+                    {CREW_MOVEMENT_ACTION_LABELS[highlightedAction] ??
+                        highlightedAction}
+                </Button>
+            ) : null}
+            {menuActions.length > 0 ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        {isCompact ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                                title={triggerLabel}
+                                aria-label={triggerLabel}
                             >
-                                {CREW_MOVEMENT_ACTION_LABELS[action] ?? action}
-                            </DropdownMenuItem>
-                        );
-                    })}
-                </DropdownMenuContent>
-            </DropdownMenu>
+                                <ArrowRightLeft className="size-4" />
+                            </Button>
+                        ) : (
+                            <Button type="button" variant="outline">
+                                {triggerLabel}
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                        {menuActions.map((actionValue) => {
+                            const action = actionValue as CrewMovementAction;
+
+                            return (
+                                <DropdownMenuItem
+                                    key={action}
+                                    variant={
+                                        action === 'cancel_assignment'
+                                            ? 'destructive'
+                                            : 'default'
+                                    }
+                                    onClick={() => openAction(action)}
+                                >
+                                    {CREW_MOVEMENT_ACTION_LABELS[action] ??
+                                        action}
+                                </DropdownMenuItem>
+                            );
+                        })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ) : null}
 
             <MovementActionDialog
                 open={dialogOpen}

@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { CheckCircle2, ChevronDown, FilePenLine, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,21 +16,11 @@ import {
     normalProgressSkippedStagesNote,
     resolveActiveLegacyPhaseContext,
 } from '@/features/organization/crew/lib/crew-phase-visibility';
-import { buildPhaseDateLineSummary } from '@/features/organization/crew/lib/phase-timeline-display';
-import type { PhaseTimelineDisplayMode } from '@/features/organization/crew/lib/phase-timeline-math';
-import {
-    PHASE_TIMELINE_DISPLAY_MODES,
-    calendarDatesDiffer,
-    phasesHavePlannedDates,
-} from '@/features/organization/crew/lib/phase-timeline-math';
-import {
-    assignmentShowsP0ExpectedArrivalInPlannedOnly,
-    shouldHideP0MobilisationActivationLines,
-} from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
+import { buildOperationalPhaseLines } from '@/features/organization/crew/lib/phase-timeline-display';
+import { calendarDatesDiffer } from '@/features/organization/crew/lib/phase-timeline-math';
+import { shouldHideP0MobilisationActivationLines } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import type { P0ExpectedArrivalContext } from '@/features/organization/crew/lib/phase-timeline-p0-expected-arrival';
 import { buildPhaseMetadataRows } from '@/features/organization/crew/lib/phase-timeline-phase-metadata';
-import type { PhaseVarianceTone } from '@/features/organization/crew/lib/phase-timeline-variance';
-import { summarizePhaseVariance } from '@/features/organization/crew/lib/phase-timeline-variance';
 import type {
     CrewAssignmentDetail,
     CrewAssignmentPagePermissions,
@@ -40,59 +30,6 @@ import { useCompanyLocalDate } from '@/hooks/use-company-local-date';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { show as showEmployeeTraining } from '@/routes/organization/employees/training';
-
-function SegmentedControl({
-    value,
-    onChange,
-}: {
-    value: PhaseTimelineDisplayMode;
-    onChange: (value: PhaseTimelineDisplayMode) => void;
-}): ReactElement {
-    return (
-        <div
-            className="inline-flex w-full max-w-md rounded-lg border border-border/60 bg-muted/10 p-0.5 sm:w-auto"
-            role="tablist"
-            aria-label="Phase timeline display mode"
-        >
-            {PHASE_TIMELINE_DISPLAY_MODES.map((option) => {
-                const selected = option.value === value;
-
-                return (
-                    <button
-                        key={option.value}
-                        type="button"
-                        role="tab"
-                        aria-selected={selected}
-                        className={cn(
-                            'flex-1 rounded-md px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:flex-none',
-                            selected
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground',
-                        )}
-                        onClick={() => onChange(option.value)}
-                    >
-                        {option.label}
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
-
-function varianceToneClass(tone: PhaseVarianceTone): string {
-    switch (tone) {
-        case 'success':
-            return 'text-emerald-700 dark:text-emerald-300';
-        case 'warning':
-            return 'text-amber-700 dark:text-amber-300';
-        case 'pending':
-            return 'text-sky-700 dark:text-sky-300';
-        case 'muted':
-            return 'text-muted-foreground';
-        default:
-            return 'text-muted-foreground';
-    }
-}
 
 function AssignmentMilestones({
     milestones,
@@ -200,95 +137,64 @@ function buildP0ExpectedArrivalContext(
 
 function PhaseDateLines({
     phase,
-    mode,
     today,
     timeZone,
-    p0ExpectedArrivalContext,
+    isCurrent,
+    assignmentStatus,
+    plannedArrivalAt,
+    plannedJoinAt,
+    plannedSignoffAt,
+    plannedTravelAt,
 }: {
     phase: PhaseTimelineItem;
-    mode: PhaseTimelineDisplayMode;
     today: string;
     timeZone?: string | null;
-    p0ExpectedArrivalContext: P0ExpectedArrivalContext;
+    isCurrent: boolean;
+    assignmentStatus?: string | null;
+    plannedArrivalAt?: string | null;
+    plannedJoinAt?: string | null;
+    plannedSignoffAt?: string | null;
+    plannedTravelAt?: string | null;
 }): ReactElement {
-    const hideP0Activation = shouldHideP0MobilisationActivationLines(
-        phase,
-        p0ExpectedArrivalContext,
-    );
-    const lines = buildPhaseDateLineSummary(phase, mode, today, {
+    const lines = buildOperationalPhaseLines(phase, {
+        isCurrent,
+        todayIso: today,
         timeZone,
+        assignmentStatus,
+        plannedArrivalAt,
+        plannedJoinAt,
+        plannedSignoffAt,
+        plannedTravelAt,
         formatDate: formatDisplayDate,
-        p0ExpectedArrivalContext,
-    });
-    const variance = summarizePhaseVariance(phase, timeZone, {
-        p0ExpectedArrivalContext,
     });
 
-    if (hideP0Activation && mode === 'actual_only') {
+    if (lines.length === 0) {
         return <></>;
     }
 
     return (
         <div className="space-y-1 text-xs text-muted-foreground">
-            {lines.showPlanned ? (
-                <p>
-                    {lines.showExpectedArrival ? (
-                        <>
-                            <span className="font-medium text-foreground/70">
-                                Expected Arrival:{' '}
-                            </span>
-                            <span className="font-semibold text-foreground">
-                                {lines.expectedArrivalLabel}
-                            </span>
-                        </>
-                    ) : (
-                        <>
-                            <span className="font-medium text-foreground/70">
-                                Planned:{' '}
-                            </span>
-                            {lines.hasPlanned ? (
-                                <>
-                                    {lines.plannedStartLabel}
-                                    {lines.plannedEndLabel
-                                        ? ` → ${lines.plannedEndLabel}`
-                                        : ''}
-                                </>
-                            ) : (
-                                <span className="text-muted-foreground/70">
-                                    Not recorded
-                                </span>
-                            )}
-                        </>
-                    )}
-                </p>
-            ) : null}
-            {lines.showActual ? (
-                <p>
+            {lines.map((line) => (
+                <p key={`${line.label}-${line.value}`}>
                     <span className="font-medium text-foreground/70">
-                        Actual:{' '}
+                        {`${line.label}: `}
                     </span>
-                    {phase.actual_start_at || variance.isInProgress ? (
-                        <>
-                            {lines.actualStartLabel}
-                            {lines.actualEndLabel
-                                ? ` → ${lines.actualEndLabel}`
-                                : ''}
-                        </>
-                    ) : (
-                        <span className="text-muted-foreground/70">
-                            {lines.actualStartLabel}
+                    <span
+                        className={
+                            line.planned
+                                ? 'font-semibold text-foreground'
+                                : 'font-medium text-foreground'
+                        }
+                    >
+                        {line.value}
+                    </span>
+                    {line.planned ? (
+                        <span className="ml-1 text-[10px] tracking-wide text-muted-foreground uppercase">
+                            Planned
                         </span>
-                    )}
+                    ) : null}
                 </p>
-            ) : null}
-            {lines.durationParts.length > 0 ? (
-                <p>
-                    <span className="font-medium text-foreground/70">
-                        Duration:{' '}
-                    </span>
-                    {lines.durationParts.join(' · ')}
-                </p>
-            ) : null}
+            ))}
         </div>
     );
 }
@@ -297,23 +203,31 @@ function PhaseTimelineRow({
     phase,
     index,
     isCurrent,
-    mode,
     today,
     timeZone,
+    assignmentStatus,
     can,
     employeeId,
     correctablePhaseIds,
     onCorrect,
     onCancelPending,
     p0ExpectedArrivalContext,
+    plannedArrivalAt,
+    plannedJoinAt,
+    plannedSignoffAt,
+    plannedTravelAt,
 }: {
     phase: PhaseTimelineItem;
     index: number;
     isCurrent: boolean;
-    mode: PhaseTimelineDisplayMode;
     today: string;
     timeZone?: string | null;
+    assignmentStatus?: string | null;
     p0ExpectedArrivalContext: P0ExpectedArrivalContext;
+    plannedArrivalAt?: string | null;
+    plannedJoinAt?: string | null;
+    plannedSignoffAt?: string | null;
+    plannedTravelAt?: string | null;
     can: Pick<
         CrewAssignmentPagePermissions,
         | 'view_corrections'
@@ -326,26 +240,7 @@ function PhaseTimelineRow({
     onCorrect: (phaseId: number) => void;
     onCancelPending: (correctionId: number) => void;
 }): ReactElement {
-    const variance = summarizePhaseVariance(phase, timeZone, {
-        p0ExpectedArrivalContext,
-    });
-    const hideP0Activation = shouldHideP0MobilisationActivationLines(
-        phase,
-        p0ExpectedArrivalContext,
-    );
-    const lines = buildPhaseDateLineSummary(phase, mode, today, {
-        timeZone,
-        formatDate: formatDisplayDate,
-        p0ExpectedArrivalContext,
-    });
     const metadataRows = buildPhaseMetadataRows(phase);
-    const showVarianceHeadline =
-        lines.showVariance &&
-        !(
-            hideP0Activation &&
-            (lines.showExpectedArrival ||
-                variance.headline === 'Waiting for crew arrival')
-        );
 
     return (
         <li className="relative pb-5 last:pb-0">
@@ -447,34 +342,20 @@ function PhaseTimelineRow({
                                 p0ExpectedArrivalContext,
                             )}
                         </p>
-                        {showVarianceHeadline ? (
-                            <p
-                                className={cn(
-                                    'text-xs font-medium',
-                                    varianceToneClass(variance.tone),
-                                )}
-                            >
-                                {variance.headline}
-                            </p>
-                        ) : null}
                     </div>
                 </div>
 
                 <PhaseDateLines
                     phase={phase}
-                    mode={mode}
                     today={today}
                     timeZone={timeZone}
-                    p0ExpectedArrivalContext={p0ExpectedArrivalContext}
+                    isCurrent={isCurrent}
+                    assignmentStatus={assignmentStatus}
+                    plannedArrivalAt={plannedArrivalAt}
+                    plannedJoinAt={plannedJoinAt}
+                    plannedSignoffAt={plannedSignoffAt}
+                    plannedTravelAt={plannedTravelAt}
                 />
-
-                {lines.showVariance && variance.details.length > 0 ? (
-                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
-                        {variance.details.map((detail) => (
-                            <li key={detail}>{detail}</li>
-                        ))}
-                    </ul>
-                ) : null}
                 {phase.remarks ? (
                     <p className="text-xs whitespace-pre-wrap text-muted-foreground">
                         Remarks: {phase.remarks}
@@ -503,17 +384,13 @@ export function CrewAssignmentPhaseTimeline({
     correctablePhaseIds,
     onCorrect,
     onCancelPending,
-    initialDisplayMode = 'plan_vs_actual',
 }: {
     assignment: CrewAssignmentDetail;
     can: CrewAssignmentPagePermissions;
     correctablePhaseIds: Set<number>;
     onCorrect: (phaseId: number) => void;
     onCancelPending: (correctionId: number) => void;
-    initialDisplayMode?: PhaseTimelineDisplayMode;
 }): ReactElement {
-    const [mode, setMode] =
-        useState<PhaseTimelineDisplayMode>(initialDisplayMode);
     const timeZone = assignment.company_timezone;
     const today = useCompanyLocalDate(timeZone);
 
@@ -521,15 +398,6 @@ export function CrewAssignmentPhaseTimeline({
         () => buildAssignmentMilestoneRows(assignment),
         [assignment],
     );
-
-    const hasAnyPlannedDates = phasesHavePlannedDates(
-        assignment.phase_timeline,
-    );
-    const plannedOnlyEmpty =
-        mode === 'planned_only' &&
-        assignment.phase_timeline.length > 0 &&
-        !hasAnyPlannedDates &&
-        !assignmentShowsP0ExpectedArrivalInPlannedOnly(assignment);
 
     const legacyContext = resolveActiveLegacyPhaseContext(
         assignment.current_phase?.code ?? null,
@@ -549,10 +417,10 @@ export function CrewAssignmentPhaseTimeline({
                             Phase Timeline
                         </CardTitle>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Planned and actual movement dates by phase
+                            Recorded movements, with the next planned milestone
+                            while a phase is still active
                         </p>
                     </div>
-                    <SegmentedControl value={mode} onChange={setMode} />
                 </div>
                 {legacyContext || skippedNote ? (
                     <div className="space-y-1.5">
@@ -578,12 +446,6 @@ export function CrewAssignmentPhaseTimeline({
                     <p className="text-sm text-muted-foreground">
                         No phase timeline recorded yet.
                     </p>
-                ) : plannedOnlyEmpty ? (
-                    <p className="text-sm text-muted-foreground">
-                        No planned phase dates recorded for this assignment.
-                        Switch to Actual Only or Plan vs Actual to review
-                        recorded movements.
-                    </p>
                 ) : (
                     <ol className="relative space-y-0 border-l border-border/70 pl-5">
                         {assignment.phase_timeline.map((phase, index) => {
@@ -596,14 +458,24 @@ export function CrewAssignmentPhaseTimeline({
                                     phase={phase}
                                     index={index}
                                     isCurrent={isCurrent}
-                                    mode={mode}
                                     today={today}
                                     timeZone={timeZone}
+                                    assignmentStatus={assignment.status}
                                     can={can}
                                     employeeId={assignment.employee?.id}
                                     correctablePhaseIds={correctablePhaseIds}
                                     onCorrect={onCorrect}
                                     onCancelPending={onCancelPending}
+                                    plannedArrivalAt={
+                                        assignment.planned_arrival_at
+                                    }
+                                    plannedJoinAt={assignment.planned_join_at}
+                                    plannedSignoffAt={
+                                        assignment.planned_signoff_at
+                                    }
+                                    plannedTravelAt={
+                                        assignment.planned_travel_at
+                                    }
                                     p0ExpectedArrivalContext={buildP0ExpectedArrivalContext(
                                         assignment,
                                         phase,

@@ -37,6 +37,8 @@ use Illuminate\Validation\ValidationException;
  */
 final class CrewMovementService
 {
+    private SyncCrewTrainingToEmployeeTraining $trainingSync;
+
     public function __construct(
         private CrewAssignmentInvariantGuard $invariants,
         private CrewAssignmentNumberGenerator $numbers,
@@ -44,12 +46,14 @@ final class CrewMovementService
         private CrewMovementMasterDataGuard $masters,
         private CrewTourOfDutyResolver $tourOfDutyResolver = new CrewTourOfDutyResolver,
         private CrewJoinVesselSignoffApplier $signoffApplier = new CrewJoinVesselSignoffApplier,
-        private SyncCrewTrainingToEmployeeTraining $trainingSync = new SyncCrewTrainingToEmployeeTraining,
+        ?SyncCrewTrainingToEmployeeTraining $trainingSync = null,
         private CrewAccommodationService $accommodation = new CrewAccommodationService,
         private CrewActualMovementTimestampGuard $actualMovementTimestamps = new CrewActualMovementTimestampGuard,
         private CrewAssignmentConflictEvaluator $conflictEvaluator = new CrewAssignmentConflictEvaluator,
         private CrewInitialArrivalBackdateGuard $initialArrivalBackdate = new CrewInitialArrivalBackdateGuard,
-    ) {}
+    ) {
+        $this->trainingSync = $trainingSync ?? app(SyncCrewTrainingToEmployeeTraining::class);
+    }
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -762,6 +766,7 @@ final class CrewMovementService
             actualJoinAt: $occurredAt,
             payload: $payload,
             existingPlannedSignoff: $assignment->planned_signoff_at,
+            requireOverrideReason: false,
         );
 
         $this->accommodation->validatePreJoinCheckOutPayload($assignment, $payload, $occurredAt);
@@ -1791,6 +1796,7 @@ final class CrewMovementService
         CarbonInterface $actualJoinAt,
         array $payload,
         ?CarbonInterface $existingPlannedSignoff = null,
+        bool $requireOverrideReason = true,
     ): array {
         $tour = $this->tourOfDutyResolver->resolve(
             $companyId,
@@ -1803,6 +1809,7 @@ final class CrewMovementService
             $payload,
             $existingPlannedSignoff,
             $actualJoinAt,
+            $requireOverrideReason,
         );
     }
 
