@@ -140,6 +140,26 @@ export type PayrollDaySummary = {
     total_days: number;
 };
 
+export type StandbyWindowPeriod = {
+    phase_code: string;
+    phase_label: string;
+    from: string | null;
+    to: string | null;
+    to_label: string | null;
+    status: string | null;
+    allocated_days: number | null;
+};
+
+export type StandbyWindow = {
+    periods: StandbyWindowPeriod[];
+    period_count: number;
+    multiple: boolean;
+    recorded: boolean;
+    days: number | null;
+    days_label: string;
+    service_days_label: string;
+};
+
 export type CrewMovementHistoryRow = {
     id: number;
     assignment_no: string;
@@ -218,6 +238,8 @@ export type CrewMovementHistoryRow = {
      */
     pre_joining_standby_days: number | null;
     pre_joining_standby_days_label: string;
+    pre_joining_standby?: StandbyWindow;
+    demobilisation_standby?: StandbyWindow;
     /** Distinct inclusive demobilisation (sign-off) standby calendar dates. */
     demobilisation_standby_days: number | null;
     demobilisation_standby_days_label: string;

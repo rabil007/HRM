@@ -168,7 +168,7 @@ test('export headings and mapped row match authoritative stay and assignment val
         ->and($mapped[3])->toBe($fixtures['rank']->title)
         ->and($mapped[4])->toBe($hotel->name)
         ->and($mapped[5])->toBe($roomType->name)
-        ->and($mapped[6])->toBe('Pre-Join')
+        ->and($mapped[6])->toBe('Pre-Joining Standby')
         ->and($mapped[7])->toBe('Hotel')
         ->and($mapped[8])->toBe('2026-09-20')
         ->and($mapped[9])->toBe('2026-09-25')

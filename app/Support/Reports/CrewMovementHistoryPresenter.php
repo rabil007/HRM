@@ -277,6 +277,29 @@ final class CrewMovementHistoryPresenter
                 $serviceDays['future_actual_only'],
                 $serviceDays['has_future_actual'],
             ),
+            'pre_joining_standby' => self::standbyWindow(
+                [
+                    ['code' => CrewPhaseCode::JoinStandby->value, 'label' => CrewPhaseCode::JoinStandby->label(), 'summary' => $summaries[CrewPhaseCode::JoinStandby->value]],
+                    ['code' => CrewPhaseCode::Training->value, 'label' => CrewPhaseCode::Training->label(), 'summary' => $summaries[CrewPhaseCode::Training->value]],
+                ],
+                $serviceDays['pre_joining_standby_days'],
+                self::serviceDaysLabel(
+                    $serviceDays['pre_joining_standby_days'],
+                    $serviceDays['future_actual_only'],
+                    $serviceDays['has_future_actual'],
+                ),
+            ),
+            'demobilisation_standby' => self::standbyWindow(
+                [
+                    ['code' => CrewPhaseCode::DemobStandby->value, 'label' => CrewPhaseCode::DemobStandby->label(), 'summary' => $summaries[CrewPhaseCode::DemobStandby->value]],
+                ],
+                $serviceDays['demobilisation_standby_days'],
+                self::serviceDaysLabel(
+                    $serviceDays['demobilisation_standby_days'],
+                    $serviceDays['future_actual_only'],
+                    $serviceDays['has_future_actual'],
+                ),
+            ),
             // Total Standby = Pre-Joining + Demobilisation (missing phase = 0).
             'standby_service_days' => $serviceDays['standby_service_days'],
             'standby_service_days_label' => self::serviceDaysLabel(
@@ -453,6 +476,72 @@ final class CrewMovementHistoryPresenter
             'from' => $summary['periods'][0]['start'] ?? null,
             'to' => self::lastCompletedEnd($summary),
         ];
+    }
+
+    /**
+     * Movement boundaries for standby columns. Service-day totals stay on the
+     * allocated payable count and are never recomputed from From/To.
+     *
+     * @param  list<array{code: string, label: string, summary: array{periods: list<array<string, mixed>>}}>  $groups
+     * @return array{
+     *     periods: list<array<string, mixed>>,
+     *     period_count: int,
+     *     multiple: bool,
+     *     recorded: bool,
+     *     days: int|null,
+     *     days_label: string,
+     *     service_days_label: string
+     * }
+     */
+    private static function standbyWindow(array $groups, ?int $allocatedDays, string $daysLabel): array
+    {
+        $periods = [];
+
+        foreach ($groups as $group) {
+            foreach ($group['summary']['periods'] as $period) {
+                $start = $period['start'] ?? null;
+                $end = $period['end'] ?? null;
+
+                if ($start === null && $end === null) {
+                    continue;
+                }
+
+                $ongoing = ($period['status'] ?? null) === CrewPhaseStatus::Active->value && ($end === null || $end === '');
+
+                $periods[] = [
+                    'phase_code' => $group['code'],
+                    'phase_label' => $group['label'],
+                    'from' => $start,
+                    'to' => $ongoing ? null : $end,
+                    'to_label' => $ongoing ? 'Ongoing' : $end,
+                    'status' => $period['status'] ?? null,
+                    'allocated_days' => $period['days'] ?? null,
+                ];
+            }
+        }
+
+        return [
+            'periods' => $periods,
+            'period_count' => count($periods),
+            'multiple' => count($periods) > 1,
+            'recorded' => $periods !== [],
+            'days' => $allocatedDays,
+            'days_label' => $daysLabel,
+            'service_days_label' => self::allocatedServiceDaysLabel($allocatedDays, $daysLabel),
+        ];
+    }
+
+    private static function allocatedServiceDaysLabel(?int $days, string $daysLabel): string
+    {
+        if ($days === null) {
+            return 'Not recorded';
+        }
+
+        if (str_contains(strtolower($daysLabel), 'future')) {
+            return $daysLabel;
+        }
+
+        return $days === 1 ? '1 service day' : "{$days} service days";
     }
 
     private static function serviceDaysLabel(?int $days, bool $futureActualOnly, bool $hasFutureActual = false): string

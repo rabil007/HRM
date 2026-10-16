@@ -117,7 +117,16 @@ test('it preserves repeated phases and calculates inclusive service days in comp
         ->and($row['standby_service_days'])->toBe(9)
         ->and($row['pre_joining_standby_days_label'])->toBe('9 days')
         ->and($row['demobilisation_standby_days_label'])->toBe('0 days')
-        ->and($row['standby_service_days_label'])->toBe('9 days');
+        ->and($row['standby_service_days_label'])->toBe('9 days')
+        ->and($row['pre_joining_standby']['multiple'])->toBeTrue()
+        ->and($row['pre_joining_standby']['period_count'])->toBe(4)
+        ->and($row['pre_joining_standby']['days'])->toBe(9)
+        ->and($row['pre_joining_standby']['service_days_label'])->toBe('9 service days')
+        ->and($row['pre_joining_standby']['periods'][0]['from'])->toBe('2026-07-15')
+        ->and($row['pre_joining_standby']['periods'][0]['to'])->toBe('2026-07-17')
+        ->and($row['pre_joining_standby']['periods'][0]['from'])->not->toBe($row['pre_joining_standby']['periods'][3]['from'])
+        ->and($row['demobilisation_standby']['recorded'])->toBeFalse()
+        ->and($row['demobilisation_standby']['service_days_label'])->toBe('0 service days');
 
     CarbonImmutable::setTestNow();
 });
@@ -1710,7 +1719,15 @@ test('standby breakdown handles ongoing demobilisation and historical completed 
         ->and($ongoingRow['standby_service_days'])->toBe(4)
         ->and($ongoingRow['vessel_service_days'])->toBe(8)
         ->and($ongoingRow['on_vessel']['actual_join'])->toBe('2026-10-03')
-        ->and($ongoingRow['on_vessel']['actual_disembarkation'])->toBe('2026-10-10');
+        ->and($ongoingRow['on_vessel']['actual_disembarkation'])->toBe('2026-10-10')
+        ->and($ongoingRow['demobilisation_standby']['multiple'])->toBeFalse()
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['from'])->toBe('2026-10-10')
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['to'])->toBeNull()
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['to_label'])->toBe('Ongoing')
+        ->and($ongoingRow['demobilisation_standby']['days'])->toBe(2)
+        ->and($ongoingRow['demobilisation_standby']['service_days_label'])->toBe('2 service days')
+        ->and($incompleteRow['pre_joining_standby']['recorded'])->toBeFalse()
+        ->and($incompleteRow['pre_joining_standby']['service_days_label'])->toBe('Not recorded');
 
     // Historical: pre-joining 2–4 Jan (3 days before vessel handoff 5 Jan), demob 29–30 Jan (2 days after 28 Jan vessel).
     expect($historicalRow['pre_joining_standby_days'])->toBe(3)

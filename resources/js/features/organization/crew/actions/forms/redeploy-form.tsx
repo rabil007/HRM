@@ -327,7 +327,7 @@ export function RedeployForm({
                 <div className="space-y-4 rounded-lg border border-border/60 p-4">
                     <div>
                         <h3 className="text-sm font-semibold">
-                            Current Post-Sign-Off Accommodation
+                            Current Demobilisation Standby Accommodation
                         </h3>
                     </div>
                     <div className="space-y-2 text-sm">
@@ -525,7 +525,7 @@ export function RedeployForm({
                 <div className="space-y-4 rounded-lg border border-border/60 p-4">
                     <div>
                         <h3 className="text-sm font-semibold">
-                            Destination Pre-Join Accommodation
+                            Destination Pre-Joining Standby Accommodation
                         </h3>
                     </div>
 

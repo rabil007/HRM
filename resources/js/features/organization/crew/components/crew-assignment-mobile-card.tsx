@@ -2,14 +2,18 @@ import { MobileRecordCard } from '@/components/mobile-record-list';
 import type { MobileRecordOverflowAction } from '@/components/mobile-record-list';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
-import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
+import {
+    CrewKeyOperationalDateFact,
+    CrewOperatorAttentionFact,
+    CrewOperatorStageFact,
+} from '@/features/organization/crew/components/crew-operator-facts';
 import { crewAssignmentMobileCardModel } from '@/features/organization/crew/lib/crew-assignment-mobile-card';
 import { reliefActionHref } from '@/features/organization/crew/lib/relief-action';
 import type {
     CrewAssignmentFormOptions,
     CrewAssignmentListItem,
 } from '@/features/organization/crew/types';
-import { formatDisplayDate } from '@/lib/format-date';
+import type { CrewMovementAction } from '@/features/organization/crew/types';
 
 export function CrewAssignmentMobileCard({
     assignment,
@@ -94,36 +98,54 @@ export function CrewAssignmentMobileCard({
             }
             title={model.title}
             subtitle={model.subtitle}
-            meta={[
-                model.vesselName,
-                model.plannedSignoffAt
-                    ? `Sign-off: ${formatDisplayDate(model.plannedSignoffAt)}`
-                    : null,
-            ]}
+            meta={[model.vesselName]}
             status={
-                model.phaseCode && model.phaseLabel ? (
-                    <CrewPhaseBadge
-                        code={model.phaseCode}
-                        label={model.phaseLabel}
-                        status={assignment.current_phase?.status}
-                    />
+                assignment.operator_stage ? (
+                    <CrewOperatorStageFact stage={assignment.operator_stage} />
                 ) : undefined
             }
-            attention={model.attention}
+            attention={
+                assignment.operator_attention ? (
+                    <CrewOperatorAttentionFact
+                        attention={assignment.operator_attention}
+                    />
+                ) : (
+                    model.attention
+                )
+            }
             href={onView ? undefined : viewHref}
             primaryAction={
                 onView ? { label: 'Quick view', onClick: onView } : undefined
             }
             extraActions={
-                model.showMovement ? (
-                    <MovementActionMenu
-                        assignmentId={assignment.id}
-                        availableActions={assignment.available_actions}
-                        movementContext={assignment.movement_context}
-                        formOptions={formOptions}
-                        size="sm"
-                    />
-                ) : undefined
+                <div className="flex flex-col items-end gap-2">
+                    {assignment.key_operational_date ? (
+                        <CrewKeyOperationalDateFact
+                            value={assignment.key_operational_date}
+                        />
+                    ) : null}
+                    {model.showMovement ? (
+                        <MovementActionMenu
+                            assignmentId={assignment.id}
+                            availableActions={assignment.available_actions}
+                            movementContext={assignment.movement_context}
+                            formOptions={formOptions}
+                            size="sm"
+                            highlightedAction={
+                                assignment.recommended_action?.type ===
+                                    'movement' &&
+                                assignment.recommended_action.action &&
+                                (assignment.recommended_action.action ===
+                                'cancel_assignment'
+                                    ? canCancel
+                                    : canPerformMovement)
+                                    ? (assignment.recommended_action
+                                          .action as CrewMovementAction)
+                                    : null
+                            }
+                        />
+                    ) : null}
+                </div>
             }
             overflowActions={overflowActions}
         />

@@ -230,14 +230,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                 Rule::in(['tour_of_duty', 'existing_plan', 'manual_override']),
             ];
             $baseRules['planned_signoff_at'] = ['nullable', 'date'];
-            $baseRules['planned_signoff_override_reason'] = [
-                Rule::requiredIf(fn () => $this->input('planned_signoff_choice') === 'manual_override'
-                    || (! in_array($this->input('planned_signoff_choice'), ['tour_of_duty', 'existing_plan'], true) && $this->filled('planned_signoff_at'))
-                ),
-                'nullable',
-                'string',
-                'max:1000',
-            ];
+            $baseRules['planned_signoff_override_reason'] = ['nullable', 'string', 'max:1000'];
             $baseRules['remarks'] = ['nullable', 'string', 'max:1000'];
         }
 
@@ -620,7 +613,7 @@ class PerformCrewMovementActionRequest extends FormRequest
                     );
                 }
 
-                if ($isManualSignoff && ! $this->filled('planned_signoff_override_reason')) {
+                if ($action !== 'join_vessel' && $isManualSignoff && ! $this->filled('planned_signoff_override_reason')) {
                     $validator->errors()->add(
                         'planned_signoff_override_reason',
                         'A reason is required when entering another Planned Sign-Off date.',

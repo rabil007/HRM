@@ -23,6 +23,7 @@ export function TourSignoffFields({
     occurredDate,
     existingPlannedSignoffAt = null,
     allowExistingPlan = false,
+    requireOverrideReason = true,
     idPrefix = 'movement',
     tourContextLabel = 'this position',
 }: {
@@ -31,6 +32,8 @@ export function TourSignoffFields({
     occurredDate: string;
     existingPlannedSignoffAt?: string | null;
     allowExistingPlan?: boolean;
+    /** Join Vessel does not ask for a reason. Transfer and redeploy still do. */
+    requireOverrideReason?: boolean;
     idPrefix?: string;
     /** e.g. "destination position" for transfer/redeploy copy */
     tourContextLabel?: string;
@@ -167,7 +170,9 @@ export function TourSignoffFields({
                             Enter another date
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Set a custom planned sign-off with a reason.
+                            {requireOverrideReason
+                                ? 'Set a custom planned sign-off with a reason.'
+                                : 'Set a custom planned sign-off date.'}
                         </p>
                     </RadioItem>
                 </RadioGroup>
@@ -202,28 +207,32 @@ export function TourSignoffFields({
                         <InputError message={form.errors.planned_signoff_at} />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor={`${idPrefix}-signoff-reason`}>
-                            Override reason{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Textarea
-                            id={`${idPrefix}-signoff-reason`}
-                            value={form.data.planned_signoff_override_reason}
-                            onChange={(event) =>
-                                form.setData(
-                                    'planned_signoff_override_reason',
-                                    event.target.value,
-                                )
-                            }
-                            rows={2}
-                        />
-                        <InputError
-                            message={
-                                form.errors.planned_signoff_override_reason
-                            }
-                        />
-                    </div>
+                    {requireOverrideReason ? (
+                        <div className="space-y-2">
+                            <Label htmlFor={`${idPrefix}-signoff-reason`}>
+                                Override reason{' '}
+                                <span className="text-destructive">*</span>
+                            </Label>
+                            <Textarea
+                                id={`${idPrefix}-signoff-reason`}
+                                value={
+                                    form.data.planned_signoff_override_reason
+                                }
+                                onChange={(event) =>
+                                    form.setData(
+                                        'planned_signoff_override_reason',
+                                        event.target.value,
+                                    )
+                                }
+                                rows={2}
+                            />
+                            <InputError
+                                message={
+                                    form.errors.planned_signoff_override_reason
+                                }
+                            />
+                        </div>
+                    ) : null}
                 </>
             ) : null}
         </>

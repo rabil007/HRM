@@ -69,7 +69,7 @@ Crew Movement History keeps several counts. They are not interchangeable.
 | Count | Meaning |
 |---|---|
 | Vessel Service Days | Allocated payable On Vessel (P2) calendar dates. Each employee/date is owned by one category. 4 October through 7 October is 4 vessel service days, including the disembarkation date. |
-| Pre-Joining Standby (Days) | Allocated sign-on standby dates after payable-date ownership. **Includes P1A Pre-Joining Standby and P1B Training.** Training is the same payroll Sign-On Standby category, not a separate report bucket. |
+| Pre-Joining Standby | Movement From/To for each recorded P1A and P1B period, plus the allocated sign-on standby total. **Includes P1A Pre-Joining Standby and P1B Training.** Repeated periods stay separate. An open period shows To: Ongoing. The day total is the allocated payable count, not From minus To. |
 | Demobilisation Standby (Days) | Allocated sign-off standby dates (P3 Demobilisation Standby only) after payable-date ownership. Vessel and Home / Redeployment dates are never included. |
 | Total Standby | Pre-Joining Standby + Demobilisation Standby. Missing phases count as zero; both phases are not required. |
 | Phase service days | Allocated dates for payable phases (P1A, P1B, P2, P3). P0 and P4 show the actual calendar span instead and add no payable service days. |
@@ -196,7 +196,7 @@ Every query is scoped to `current_company_id`. Soft-deleted/voided assignments a
 Export provides both operator-friendly summaries and deep movement details:
 
 - **XLSX Workbook (Multi-sheet)**:
-  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Pre-Joining Standby (Days), Join Vessel Date, Sign-Off / Disembarkation Date, Demobilisation Standby (Days), Return Home Date, Total Standby, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks).
+  - **Sheet 1: `CREW HISTORY`** — clean, operator-friendly summary matching the web table (Employee No, Employee Name, Rank, Vessel, Client, Arrival Date, Pre-Joining Standby days plus From/To/Periods, Join Vessel Date, Sign-Off / Disembarkation Date, Demobilisation Standby days plus From/To/Periods, Return Home Date, Total Standby, Vessel Service Days, Assignment Status, Assignment No, Assignment Source, Remarks). Multiple standby periods export From and To as “Multiple periods” and list each range separately.
   - **Sheet 2: `MOVEMENT DETAILS`** — rich OMS movement history including planned vs actual dates, tour of duty, P0–P4 phase timeline occurrences (plus a legacy section only when historical Travel In / Ready to Join rows exist), training history, accommodation stays, pre-joining / demobilisation / total standby service days, payroll preview days, and corrections.
 - **CSV Export**:
   - Exports a clean, flat **Crew History summary** matching the first Excel worksheet without nested structures.

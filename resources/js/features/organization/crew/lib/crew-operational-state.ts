@@ -45,19 +45,74 @@ export function otherValidMovementActions(
     return permitted.filter((action) => !excluded.has(action));
 }
 
+const ACTIVE_STAGE_LABELS: Record<string, string> = {
+    p0: 'Awaiting Arrival',
+    p1a: 'Awaiting Vessel Joining',
+    p1b: 'In Training',
+    p2: 'On Vessel',
+    p3: 'Awaiting Home / Redeployment',
+    p4: 'Home / Awaiting Closure',
+};
+
+export function operatorStageLabel(
+    assignment: Pick<
+        CrewAssignmentListItem,
+        'current_phase' | 'status' | 'status_label' | 'operator_stage'
+    >,
+): string {
+    if (assignment.operator_stage?.label) {
+        return assignment.operator_stage.label;
+    }
+
+    if (assignment.status === 'draft') {
+        return 'Not Started';
+    }
+
+    if (assignment.status === 'completed') {
+        return 'Completed';
+    }
+
+    if (assignment.status === 'cancelled') {
+        return 'Cancelled';
+    }
+
+    const code = assignment.current_phase?.code?.toLowerCase();
+
+    if (code && ACTIVE_STAGE_LABELS[code]) {
+        return ACTIVE_STAGE_LABELS[code];
+    }
+
+    return (
+        assignment.current_phase?.label ??
+        assignment.status_label ??
+        assignment.status
+    );
+}
+
+export function operatorStageSecondary(
+    assignment: Pick<
+        CrewAssignmentListItem,
+        'current_phase' | 'status' | 'operator_stage'
+    >,
+): string | null {
+    if (assignment.operator_stage) {
+        return assignment.operator_stage.secondary;
+    }
+
+    if (assignment.status !== 'active' || !assignment.current_phase) {
+        return null;
+    }
+
+    return `${assignment.current_phase.code.toUpperCase()} · ${assignment.current_phase.label}`;
+}
+
 export function currentStateLabel(
     assignment: Pick<
         CrewAssignmentListItem,
-        'current_phase' | 'status' | 'status_label'
+        'current_phase' | 'status' | 'status_label' | 'operator_stage'
     >,
 ): string {
-    if (assignment.current_phase) {
-        const code = assignment.current_phase.code.toUpperCase();
-
-        return `${code} · ${assignment.current_phase.label}`;
-    }
-
-    return assignment.status_label ?? assignment.status;
+    return operatorStageLabel(assignment);
 }
 
 export function nextNormalActionLabel(
@@ -98,7 +153,68 @@ export type OperatorNextStepButton = {
     label: string;
     action?: CrewMovementAction;
     href?: string;
+    emphasis?: 'primary' | 'secondary';
 };
+
+export type OperatorReliefAction = {
+    href: string;
+    label: string;
+};
+
+function reliefNeedsPlanningPermission(label: string): boolean {
+    return label === 'Plan Relief' || label === 'Open Relief Plan';
+}
+
+function insertReliefAction(
+    buttons: OperatorNextStepButton[],
+    relief: OperatorReliefAction | null | undefined,
+    canViewPlanning: boolean,
+): void {
+    if (!relief?.href) {
+        return;
+    }
+
+    if (reliefNeedsPlanningPermission(relief.label) && !canViewPlanning) {
+        return;
+    }
+
+    if (
+        buttons.some(
+            (button) =>
+                button.href === relief.href || button.label === relief.label,
+        )
+    ) {
+        return;
+    }
+
+    const reliefButton: OperatorNextStepButton = {
+        kind: 'href',
+        href: relief.href,
+        label: relief.label,
+        emphasis: 'secondary',
+    };
+    const planSignoffIndex = buttons.findIndex(
+        (button) => button.action === 'plan_signoff',
+    );
+
+    if (planSignoffIndex >= 0) {
+        buttons.splice(planSignoffIndex + 1, 0, reliefButton);
+
+        return;
+    }
+
+    const transferIndex = buttons.findIndex(
+        (button) => button.action === 'transfer_vessel',
+    );
+
+    if (transferIndex >= 0) {
+        buttons.splice(transferIndex, 0, reliefButton);
+
+        return;
+    }
+
+    buttons.push(reliefButton);
+}
 
 export function resolveOperatorNextStepButtons(options: {
     recommended: CrewRecommendedAction | null | undefined;
@@ -106,6 +222,7 @@ export function resolveOperatorNextStepButtons(options: {
     permissions: OperationalStatePermissions;
     canViewDocuments: boolean;
     canViewPlanning: boolean;
+    reliefAction?: OperatorReliefAction | null;
 }): OperatorNextStepButton[] {
     const { recommended, availableActions, permissions } = options;
     const buttons: OperatorNextStepButton[] = [];
@@ -168,6 +285,8 @@ export function resolveOperatorNextStepButtons(options: {
             label: formatOtherValidActionLabel(action),
         });
     }
+
+    insertReliefAction(buttons, options.reliefAction, options.canViewPlanning);
 
     if (permissions.cancel && availableActions.includes('cancel_assignment')) {
         buttons.push({

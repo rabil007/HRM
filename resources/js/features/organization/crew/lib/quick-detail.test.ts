@@ -115,7 +115,7 @@ describe('crew quick detail operational summary', () => {
         assert.equal(model.milestone?.label, 'Planned sign-off');
         assert.equal(model.daysUntilMilestone, 6);
         assert.equal(model.needsRelief, true);
-        assert.equal(model.movement, 'plan_signoff');
+        assert.equal(model.movement, 'confirm_disembarkation');
     });
 
     it('keeps overdue sign-off separate from the past planned join date', () => {

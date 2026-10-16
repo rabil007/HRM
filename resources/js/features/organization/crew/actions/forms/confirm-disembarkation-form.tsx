@@ -191,7 +191,7 @@ export function ConfirmDisembarkationForm({
                 <div className="space-y-4 rounded-lg border border-border/60 p-4">
                     <div>
                         <h3 className="text-sm font-semibold">
-                            Post-Sign-Off Accommodation
+                            Demobilisation Standby Accommodation
                         </h3>
                         <p className="mt-1 text-xs text-muted-foreground">
                             Record the crew member&apos;s post-sign-off hotel

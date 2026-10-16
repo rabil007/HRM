@@ -1,5 +1,4 @@
 import { Link, router } from '@inertiajs/react';
-import { AlertTriangle } from 'lucide-react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
@@ -7,24 +6,50 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { ListTableCrudActions } from '@/components/list-table-actions';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { MovementActionMenu } from '@/features/organization/crew/actions/movement-action-menu';
 import { CrewEmployeeIdentity } from '@/features/organization/crew/components/crew-employee-identity';
-import { CrewMobilisationReadinessBadge } from '@/features/organization/crew/components/crew-mobilisation-readiness-badge';
-import { CrewPhaseBadge } from '@/features/organization/crew/components/crew-phase-badge';
-import { CrewReliefReadinessBadge } from '@/features/organization/crew/components/crew-relief-readiness-badge';
-import { CrewTourProgressDisplay } from '@/features/organization/crew/components/crew-tour-progress-display';
-import { formatDaysInPhase } from '@/features/organization/crew/format-days-in-phase';
+import {
+    CrewKeyOperationalDateFact,
+    CrewOperatorAttentionFact,
+    CrewOperatorStageFact,
+} from '@/features/organization/crew/components/crew-operator-facts';
 import { reliefActionHref } from '@/features/organization/crew/lib/relief-action';
+import { CREW_MOVEMENT_ACTION_LABELS } from '@/features/organization/crew/types';
 import type {
     CrewAssignmentFormOptions,
     CrewAssignmentListItem,
+    CrewMovementAction,
 } from '@/features/organization/crew/types';
 import { RecordSelectionCell } from '@/features/organization/shared/record-selection-checkbox';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+
+function highlightedMovement(
+    assignment: CrewAssignmentListItem,
+    canPerformMovement: boolean,
+    canCancel: boolean,
+): CrewMovementAction | null {
+    const recommended = assignment.recommended_action;
+
+    if (recommended?.type !== 'movement' || !recommended.action) {
+        return null;
+    }
+
+    if (
+        !(recommended.action in CREW_MOVEMENT_ACTION_LABELS) ||
+        !assignment.available_actions.includes(recommended.action)
+    ) {
+        return null;
+    }
+
+    const action = recommended.action as CrewMovementAction;
+    const permitted =
+        action === 'cancel_assignment' ? canCancel : canPerformMovement;
+
+    return permitted ? action : null;
+}
 
 export function CrewAssignmentsTableRow({
     assignment,
@@ -55,11 +80,15 @@ export function CrewAssignmentsTableRow({
     showSelect?: boolean;
     onDelete?: () => void;
 }) {
-    const warningCount = assignment.warnings.length;
     const showMovementActions =
         (canPerformMovement || canCancel) &&
         assignment.available_actions.length > 0;
     const isOnVessel = assignment.current_phase?.code === 'p2';
+    const primaryMovement = highlightedMovement(
+        assignment,
+        canPerformMovement,
+        canCancel,
+    );
     const reliefHref = isOnVessel ? reliefActionHref(assignment) : null;
     const reliefActionLabel =
         assignment.relief_action_label ??
@@ -85,23 +114,18 @@ export function CrewAssignmentsTableRow({
                 />
             ) : null}
             <TableCell
-                className={cn(dataTableCellPrimaryClass(), 'min-w-[160px]')}
+                className={cn(dataTableCellPrimaryClass(), 'min-w-[240px]')}
             >
-                <div className="min-w-0">
-                    <p className="truncate font-semibold text-foreground">
-                        {assignment.assignment_no}
-                    </p>
-                    <p className="truncate text-[11px] text-muted-foreground/70">
-                        Created {formatDisplayDate(assignment.created_at)}
-                    </p>
-                </div>
-            </TableCell>
-
-            <TableCell className={cn(dataTableCellClass(), 'min-w-[220px]')}>
                 <CrewEmployeeIdentity
                     employee={assignment.employee}
                     positionName={assignment.position?.name}
                 />
+                <p className="mt-1 truncate text-[11px] text-muted-foreground/70">
+                    {assignment.assignment_no}
+                    {assignment.created_at
+                        ? ` · Created ${formatDisplayDate(assignment.created_at)}`
+                        : ''}
+                </p>
             </TableCell>
 
             <TableCell
@@ -124,61 +148,17 @@ export function CrewAssignmentsTableRow({
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
-                {assignment.current_phase ? (
-                    <CrewPhaseBadge
-                        code={assignment.current_phase.code}
-                        label={assignment.current_phase.label}
-                        status={assignment.current_phase.status}
-                    />
+                {assignment.operator_stage ? (
+                    <CrewOperatorStageFact stage={assignment.operator_stage} />
                 ) : (
                     <span className="text-muted-foreground">—</span>
                 )}
-                {assignment.days_in_phase !== null ? (
-                    <p className="mt-1 text-[11px] text-muted-foreground/70">
-                        {formatDaysInPhase(assignment.days_in_phase)}
-                    </p>
-                ) : null}
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
-                <div className="flex flex-col gap-1">
-                    <div className="text-[11px] text-muted-foreground/70">
-                        Expected Join
-                    </div>
-                    <div className="font-medium">
-                        {formatDisplayDate(assignment.planned_join_at)}
-                    </div>
-                    {isOnVessel ? (
-                        <div className="mt-2">
-                            <CrewTourProgressDisplay
-                                progress={assignment}
-                                plannedSignoffAt={assignment.planned_signoff_at}
-                                compact
-                            />
-                        </div>
-                    ) : (
-                        <>
-                            <div className="text-[11px] text-muted-foreground/70">
-                                Planned sign-off
-                            </div>
-                            <div className="font-medium">
-                                {formatDisplayDate(
-                                    assignment.planned_signoff_at,
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
-            </TableCell>
-
-            <TableCell className={dataTableCellClass()}>
-                {isOnVessel ? (
-                    <CrewReliefReadinessBadge
-                        relief_status={assignment.relief_status}
-                        relief_status_label={assignment.relief_status_label}
-                        relief_risk={assignment.relief_risk}
-                        relief_risk_label={assignment.relief_risk_label}
-                        relief_employee={assignment.relief_employee}
+                {assignment.key_operational_date ? (
+                    <CrewKeyOperationalDateFact
+                        value={assignment.key_operational_date}
                     />
                 ) : (
                     <span className="text-muted-foreground">—</span>
@@ -186,39 +166,13 @@ export function CrewAssignmentsTableRow({
             </TableCell>
 
             <TableCell className={dataTableCellClass()}>
-                <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge
-                        variant={
-                            assignment.status === 'active'
-                                ? 'success'
-                                : assignment.status === 'draft'
-                                  ? 'secondary'
-                                  : assignment.status === 'cancelled'
-                                    ? 'destructive'
-                                    : 'outline'
-                        }
-                    >
-                        {assignment.status_label}
-                    </Badge>
-                    {warningCount > 0 ? (
-                        <Badge
-                            variant="outline"
-                            className="gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                            title={assignment.warnings
-                                .map((warning) => warning.label)
-                                .join(', ')}
-                        >
-                            <AlertTriangle className="size-3" aria-hidden />
-                            {warningCount}
-                        </Badge>
-                    ) : null}
-                    {assignment.mobilisation_readiness ? (
-                        <CrewMobilisationReadinessBadge
-                            readiness={assignment.mobilisation_readiness}
-                            compact
-                        />
-                    ) : null}
-                </div>
+                {assignment.operator_attention ? (
+                    <CrewOperatorAttentionFact
+                        attention={assignment.operator_attention}
+                    />
+                ) : (
+                    <span className="text-muted-foreground">—</span>
+                )}
             </TableCell>
 
             <TableCell
@@ -249,6 +203,7 @@ export function CrewAssignmentsTableRow({
                             movementContext={assignment.movement_context}
                             formOptions={formOptions}
                             size="sm"
+                            highlightedAction={primaryMovement}
                         />
                     ) : null}
                     <ListTableCrudActions

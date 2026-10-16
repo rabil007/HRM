@@ -7,6 +7,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { buildAssignmentLifecycleLabels } from '@/features/organization/crew/lib/assignment-lifecycle-display';
+import { keyOperationalDateDetail } from '@/features/organization/crew/lib/operator-presentation';
 import type {
     CorrectionsSummary,
     CrewAssignmentDetail,
@@ -133,6 +134,22 @@ function nextMilestone(assignment: CrewAssignmentDetail): {
     detail: string;
     tone: SummaryTone;
 } {
+    if (assignment.key_operational_date) {
+        const keyDate = assignment.key_operational_date;
+        const missing = keyDate.date == null;
+
+        return {
+            label: keyDate.label,
+            value: missing
+                ? keyDate.label === 'Planned Sign-Off'
+                    ? 'Sign-Off Not Planned'
+                    : 'Not recorded'
+                : formatDisplayDate(keyDate.date),
+            detail: keyOperationalDateDetail(keyDate.kind),
+            tone: missing ? 'warning' : 'neutral',
+        };
+    }
+
     if (assignment.current_phase?.code === 'p2') {
         const days = assignment.days_until_signoff;
 

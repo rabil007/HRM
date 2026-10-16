@@ -766,6 +766,7 @@ final class CrewMovementService
             actualJoinAt: $occurredAt,
             payload: $payload,
             existingPlannedSignoff: $assignment->planned_signoff_at,
+            requireOverrideReason: false,
         );
 
         $this->accommodation->validatePreJoinCheckOutPayload($assignment, $payload, $occurredAt);
@@ -1795,6 +1796,7 @@ final class CrewMovementService
         CarbonInterface $actualJoinAt,
         array $payload,
         ?CarbonInterface $existingPlannedSignoff = null,
+        bool $requireOverrideReason = true,
     ): array {
         $tour = $this->tourOfDutyResolver->resolve(
             $companyId,
@@ -1807,6 +1809,7 @@ final class CrewMovementService
             $payload,
             $existingPlannedSignoff,
             $actualJoinAt,
+            $requireOverrideReason,
         );
     }
 

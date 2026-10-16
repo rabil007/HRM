@@ -334,6 +334,7 @@ export function JoinVesselForm({
                 occurredDate={joinDate}
                 existingPlannedSignoffAt={context.planned_signoff_at}
                 allowExistingPlan
+                requireOverrideReason={false}
                 idPrefix="movement"
                 tourContextLabel="this position"
             />

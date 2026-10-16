@@ -186,6 +186,9 @@ export interface CrewAssignmentListItem
     created_at: string | null;
     company_timezone?: string;
     warnings: CrewAssignmentWarning[];
+    operator_stage?: CrewOperatorStage;
+    key_operational_date?: CrewKeyOperationalDate;
+    operator_attention?: CrewOperatorAttention;
     available_actions: string[];
     mobilisation_readiness: CrewMobilisationReadiness | null;
     recommended_action?: CrewRecommendedAction | null;
@@ -247,6 +250,9 @@ export interface CrewAssignmentDetail
     suggested_planned_signoff_at?: string | null;
     phase_timeline: PhaseTimelineItem[];
     warnings: CrewAssignmentWarning[];
+    operator_stage?: CrewOperatorStage;
+    key_operational_date?: CrewKeyOperationalDate;
+    operator_attention?: CrewOperatorAttention;
     available_actions: string[];
     mobilisation_readiness: CrewMobilisationReadiness | null;
     recommended_action: CrewRecommendedAction | null;
@@ -332,6 +338,33 @@ export interface CrewAssignmentWarning {
     label: string;
     message: string;
     date: string | null;
+}
+
+export interface CrewOperatorStage {
+    label: string;
+    phase_code: string | null;
+    phase_label: string | null;
+    secondary: string | null;
+}
+
+export interface CrewKeyOperationalDate {
+    label: string;
+    date: string | null;
+    kind: 'planned' | 'actual' | 'recorded';
+}
+
+export interface CrewOperatorAttentionItem {
+    code: string;
+    label: string;
+    detail: string;
+}
+
+export interface CrewOperatorAttention {
+    label: string;
+    detail: string | null;
+    tone: 'clear' | 'info' | 'warning' | 'critical' | string;
+    extra_count: number;
+    items: CrewOperatorAttentionItem[];
 }
 
 export interface CrewAssignmentFormData {

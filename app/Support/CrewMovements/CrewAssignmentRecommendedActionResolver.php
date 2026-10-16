@@ -5,7 +5,6 @@ namespace App\Support\CrewMovements;
 use App\Enums\CrewMobilisationReadinessStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewPhaseCode;
-use App\Enums\CrewReliefStatus;
 use App\Models\CrewAssignment;
 use App\Models\User;
 
@@ -46,7 +45,10 @@ final class CrewAssignmentRecommendedActionResolver
         }
 
         if ($phase === CrewPhaseCode::OnVessel) {
-            return $this->forOnVessel($assignment, $permitted, $relief, $user);
+            // Relief readiness stays in operator attention. It does not replace Confirm Disembarkation.
+            unset($relief);
+
+            return $this->forOnVessel($permitted);
         }
 
         if ($phase === CrewPhaseCode::DemobStandby) {
@@ -117,30 +119,12 @@ final class CrewAssignmentRecommendedActionResolver
     /**
      * @param  list<string>  $permitted
      */
-    private function forOnVessel(
-        CrewAssignment $assignment,
-        array $permitted,
-        ?CrewReliefReadinessResult $relief,
-        ?User $user,
-    ): ?CrewAssignmentRecommendedActionResult {
-        $daysUntil = $relief?->daysUntilSignoff;
-        $reliefNotReady = $relief !== null && in_array($relief->status, CrewReliefStatus::notReady(), true);
-        $signoffSoon = $daysUntil !== null && $daysUntil <= 14;
-
-        if ($reliefNotReady && $signoffSoon && $user?->can('crew_operations.planning.view')) {
-            return new CrewAssignmentRecommendedActionResult(
-                type: 'relief',
-                label: $relief->status->actionLabel(),
-                reason: $relief->status === CrewReliefStatus::NoRelief
-                    ? 'Planned sign-off is approaching and no operational relief is in place.'
-                    : 'Planned sign-off is approaching and the planned relief is not ready to join.',
-                href: $this->reliefHref($assignment, $relief),
-            );
-        }
-
+    private function forOnVessel(array $permitted): ?CrewAssignmentRecommendedActionResult
+    {
         return $this->firstMovement($permitted, [
             [CrewMovementAction::ConfirmDisembarkation, 'Confirm disembarkation when the crew member actually leaves the vessel.'],
             [CrewMovementAction::PlanSignoff, 'Update the planned sign-off forecast. This does not disembark the crew member.'],
+            [CrewMovementAction::TransferVessel, 'Transfer the crew member to another vessel without treating that as disembarkation home.'],
         ]);
     }
 
@@ -215,27 +199,5 @@ final class CrewAssignmentRecommendedActionResolver
     private function allows(array $permitted, CrewMovementAction $action): bool
     {
         return in_array($action->value, $permitted, true);
-    }
-
-    private function reliefHref(CrewAssignment $assignment, CrewReliefReadinessResult $relief): string
-    {
-        if ($relief->status === CrewReliefStatus::NoRelief) {
-            return route('organization.crew-planning.index', array_filter([
-                'vessel_id' => $assignment->vessel_id,
-                'position_id' => $assignment->position_id,
-                'relieves_crew_assignment_id' => $assignment->id,
-                'planned_join_date' => $assignment->planned_signoff_at?->toDateString(),
-                'open_create' => 1,
-            ], fn ($value) => $value !== null && $value !== ''));
-        }
-
-        if ($relief->reliefCrewAssignmentId !== null) {
-            return route('organization.crew-assignments.show', $relief->reliefCrewAssignmentId);
-        }
-
-        return route('organization.crew-planning.index', array_filter([
-            'vessel_id' => $assignment->vessel_id,
-            'position_id' => $assignment->position_id,
-        ], fn ($value) => $value !== null));
     }
 }

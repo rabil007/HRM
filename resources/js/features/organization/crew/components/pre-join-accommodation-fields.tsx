@@ -72,7 +72,7 @@ export function PreJoinAccommodationFields({
         >
             <div>
                 <h3 className="text-sm font-semibold">
-                    Pre-Join Accommodation
+                    Pre-Joining Standby Accommodation
                 </h3>
                 <p className="mt-1 text-xs text-muted-foreground">
                     Record the crew member&apos;s pre-join hotel stay, or mark

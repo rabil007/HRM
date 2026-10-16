@@ -19,7 +19,7 @@ describe('crew operational state helpers', () => {
                 status: 'active',
                 status_label: 'Active',
             }),
-            'P1A · Pre-Joining Standby',
+            'Awaiting Vessel Joining',
         );
     });
 
@@ -285,5 +285,130 @@ describe('resolveOperatorNextStepButtons', () => {
             false,
         );
         assert.ok(buttons.some((button) => button.kind === 'cancel'));
+    });
+
+    it('keeps confirm disembarkation primary and adds plan relief beside the other secondary actions', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'movement',
+                action: 'confirm_disembarkation',
+                label: 'Confirm Disembarkation',
+                reason: 'The crew member is on the vessel.',
+                href: null,
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: [
+                'confirm_disembarkation',
+                'plan_signoff',
+                'transfer_vessel',
+            ],
+            permissions,
+            canViewDocuments: true,
+            canViewPlanning: true,
+            reliefAction: {
+                href: '/organization/crew-planning?open_create=1',
+                label: 'Plan Relief',
+            },
+        });
+
+        assert.deepEqual(
+            buttons.map((button) => button.label),
+            [
+                'Confirm Disembarkation',
+                'Plan Sign-off',
+                'Plan Relief',
+                'Transfer Vessel',
+            ],
+        );
+        assert.equal(buttons[0]?.kind, 'movement');
+        assert.equal(buttons[0]?.action, 'confirm_disembarkation');
+        assert.equal(
+            buttons.filter((button) => button.label === 'Plan Relief').length,
+            1,
+        );
+        assert.equal(
+            buttons.find((button) => button.label === 'Plan Relief')?.emphasis,
+            'secondary',
+        );
+        assert.equal(
+            buttons.find((button) => button.label === 'Plan Relief')?.href,
+            '/organization/crew-planning?open_create=1',
+        );
+    });
+
+    it('hides plan relief without planning permission', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'movement',
+                action: 'confirm_disembarkation',
+                label: 'Confirm Disembarkation',
+                reason: 'The crew member is on the vessel.',
+                href: null,
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: ['confirm_disembarkation', 'plan_signoff'],
+            permissions,
+            canViewDocuments: true,
+            canViewPlanning: false,
+            reliefAction: {
+                href: '/organization/crew-planning?open_create=1',
+                label: 'Plan Relief',
+            },
+        });
+
+        assert.equal(
+            buttons.some((button) => button.label === 'Plan Relief'),
+            false,
+        );
+        assert.equal(buttons[0]?.action, 'confirm_disembarkation');
+    });
+
+    it('opens an existing relief record instead of offering to create another plan', () => {
+        const buttons = resolveOperatorNextStepButtons({
+            recommended: {
+                type: 'movement',
+                action: 'confirm_disembarkation',
+                label: 'Confirm Disembarkation',
+                reason: 'The crew member is on the vessel.',
+                href: null,
+                anyway_action: null,
+                anyway_label: null,
+            },
+            availableActions: [
+                'confirm_disembarkation',
+                'plan_signoff',
+                'transfer_vessel',
+            ],
+            permissions,
+            canViewDocuments: false,
+            canViewPlanning: true,
+            reliefAction: {
+                href: '/organization/crew-assignments/42',
+                label: 'Open Relief Assignment',
+            },
+        });
+
+        assert.equal(buttons[0]?.action, 'confirm_disembarkation');
+        assert.deepEqual(
+            buttons.find((button) => button.kind === 'href'),
+            {
+                kind: 'href',
+                href: '/organization/crew-assignments/42',
+                label: 'Open Relief Assignment',
+                emphasis: 'secondary',
+            },
+        );
+        assert.equal(
+            buttons.filter((button) => button.label === 'Plan Relief').length,
+            0,
+        );
+        assert.equal(
+            buttons.filter(
+                (button) => button.label === 'Open Relief Assignment',
+            ).length,
+            1,
+        );
     });
 });

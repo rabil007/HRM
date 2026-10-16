@@ -181,10 +181,10 @@ describe('crew movement history presentation logic', () => {
 
         assertLabelsInOrder(header, [
             'Arrival',
-            'Pre-Joining Standby (Days)',
+            'Pre-Joining Standby',
             'Joined Vessel',
-            'Sign-Off / Disembarked',
-            'Demobilisation Standby (Days)',
+            'Disembarked',
+            'Demobilisation Standby',
             'Returned Home',
             'Total Standby',
         ]);
