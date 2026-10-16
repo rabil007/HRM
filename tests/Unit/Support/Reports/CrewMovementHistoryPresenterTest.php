@@ -1746,3 +1746,68 @@ test('standby breakdown handles ongoing demobilisation and historical completed 
 
     CarbonImmutable::setTestNow();
 });
+
+test('standby service day labels keep a singular day and do not rewrite future actuals', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-12 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $oneDay = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($oneDay)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-01 18:00:00',
+    ]);
+
+    $futureOnly = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($futureOnly)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-11-01 08:00:00',
+        'actual_end_at' => '2026-11-04 18:00:00',
+    ]);
+
+    $mixed = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    CrewAssignmentPhase::factory()->forAssignment($mixed)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-01 18:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($mixed)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-11-01 08:00:00',
+        'actual_end_at' => '2026-11-02 18:00:00',
+    ]);
+
+    $present = fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    $oneDayRow = $present($oneDay);
+    $futureRow = $present($futureOnly);
+    $mixedRow = $present($mixed);
+
+    expect($oneDayRow['pre_joining_standby_days'])->toBe(1)
+        ->and($oneDayRow['pre_joining_standby']['days'])->toBe(1)
+        ->and($oneDayRow['pre_joining_standby']['service_days_label'])->toBe('1 service day')
+        ->and($oneDayRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-01')
+        ->and($oneDayRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-01')
+        ->and($futureRow['pre_joining_standby_days'])->toBe(0)
+        ->and($futureRow['pre_joining_standby']['recorded'])->toBeTrue()
+        ->and($futureRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-11-01')
+        ->and($futureRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-11-04')
+        ->and($futureRow['pre_joining_standby']['days_label'])->toBe('Future actual')
+        ->and($futureRow['pre_joining_standby']['service_days_label'])->toBe('Future actual')
+        ->and($mixedRow['pre_joining_standby_days'])->toBe(1)
+        ->and($mixedRow['pre_joining_standby']['days_label'])->toBe('1 day + future actual')
+        ->and($mixedRow['pre_joining_standby']['service_days_label'])->toBe('1 day + future actual')
+        ->and($mixedRow['pre_joining_standby']['period_count'])->toBe(2);
+
+    CarbonImmutable::setTestNow();
+});
