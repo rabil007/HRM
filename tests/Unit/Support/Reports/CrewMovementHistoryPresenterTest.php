@@ -124,6 +124,8 @@ test('it preserves repeated phases and calculates inclusive service days in comp
         ->and($row['pre_joining_standby']['service_days_label'])->toBe('9 service days')
         ->and($row['pre_joining_standby']['periods'][0]['from'])->toBe('2026-07-15')
         ->and($row['pre_joining_standby']['periods'][0]['to'])->toBe('2026-07-17')
+        ->and($row['pre_joining_standby']['periods'][1]['from'])->toBe('2026-07-18')
+        ->and($row['pre_joining_standby']['periods'][1]['to'])->toBe('2026-07-19')
         ->and($row['pre_joining_standby']['periods'][0]['from'])->not->toBe($row['pre_joining_standby']['periods'][3]['from'])
         ->and($row['demobilisation_standby']['recorded'])->toBeFalse()
         ->and($row['demobilisation_standby']['service_days_label'])->toBe('0 service days');
@@ -1721,9 +1723,12 @@ test('standby breakdown handles ongoing demobilisation and historical completed 
         ->and($ongoingRow['on_vessel']['actual_join'])->toBe('2026-10-03')
         ->and($ongoingRow['on_vessel']['actual_disembarkation'])->toBe('2026-10-10')
         ->and($ongoingRow['demobilisation_standby']['multiple'])->toBeFalse()
-        ->and($ongoingRow['demobilisation_standby']['periods'][0]['from'])->toBe('2026-10-10')
-        ->and($ongoingRow['demobilisation_standby']['periods'][0]['to'])->toBeNull()
-        ->and($ongoingRow['demobilisation_standby']['periods'][0]['to_label'])->toBe('Ongoing')
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['from'])->toBe('2026-10-11')
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['to'])->toBe('2026-10-12')
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['ongoing'])->toBeTrue()
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['movement_from'])->toBe('2026-10-10')
+        ->and($ongoingRow['demobilisation_standby']['periods'][0]['movement_to'])->toBeNull()
+        ->and($ongoingRow['demob_standby']['from'])->toBe('2026-10-10')
         ->and($ongoingRow['demobilisation_standby']['days'])->toBe(2)
         ->and($ongoingRow['demobilisation_standby']['service_days_label'])->toBe('2 service days')
         ->and($incompleteRow['pre_joining_standby']['recorded'])->toBeFalse()
@@ -1734,6 +1739,10 @@ test('standby breakdown handles ongoing demobilisation and historical completed 
         ->and($historicalRow['demobilisation_standby_days'])->toBe(2)
         ->and($historicalRow['standby_service_days'])->toBe(5)
         ->and($historicalRow['vessel_service_days'])->toBe(24)
+        ->and($historicalRow['pre_joining_standby']['periods'][0]['from'])->toBe('2025-01-02')
+        ->and($historicalRow['pre_joining_standby']['periods'][0]['to'])->toBe('2025-01-04')
+        ->and($historicalRow['demobilisation_standby']['periods'][0]['from'])->toBe('2025-01-29')
+        ->and($historicalRow['demobilisation_standby']['periods'][0]['to'])->toBe('2025-01-30')
         ->and($historicalRow['home_redeploy']['from'])->toBe('2025-01-30');
 
     // Incomplete planned-only assignment has no recorded service days.
@@ -1743,6 +1752,313 @@ test('standby breakdown handles ongoing demobilisation and historical completed 
         ->and($incompleteRow['pre_joining_standby_days_label'])->toBe('Not recorded')
         ->and($incompleteRow['demobilisation_standby_days_label'])->toBe('Not recorded')
         ->and($incompleteRow['standby_service_days_label'])->toBe('Not recorded');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('standby summary shows allocated pre-joining and demobilisation service ranges', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $preJoin = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-03 08:00:00',
+        'actual_end_at' => '2026-10-07 08:00:00',
+    ]);
+    $vessel = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-07 08:00:00',
+        'actual_end_at' => '2026-10-10 18:00:00',
+    ]);
+    $demob = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::DemobStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => '2026-10-14 18:00:00',
+    ]);
+    $home = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::HomeRedeploy,
+        'sequence' => 4,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-14 12:00:00',
+        'actual_end_at' => '2026-10-14 20:00:00',
+    ]);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['pre_joining_standby']['periods'])->toHaveCount(1)
+        ->and($row['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-03')
+        ->and($row['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-06')
+        ->and($row['pre_joining_standby']['periods'][0]['allocated_days'])->toBe(4)
+        ->and($row['pre_joining_standby']['periods'][0]['movement_from'])->toBe('2026-10-03')
+        ->and($row['pre_joining_standby']['periods'][0]['movement_to'])->toBe('2026-10-07')
+        ->and($row['pre_joining_standby']['service_days_label'])->toBe('4 service days')
+        ->and($row['pre_joining_standby_days'])->toBe(4)
+        ->and($row['on_vessel']['actual_join'])->toBe('2026-10-07')
+        ->and($row['on_vessel']['actual_disembarkation'])->toBe('2026-10-10')
+        ->and($row['vessel_service_days'])->toBe(4)
+        ->and($row['demobilisation_standby']['periods'][0]['from'])->toBe('2026-10-11')
+        ->and($row['demobilisation_standby']['periods'][0]['to'])->toBe('2026-10-14')
+        ->and($row['demobilisation_standby']['periods'][0]['allocated_days'])->toBe(4)
+        ->and($row['demobilisation_standby']['periods'][0]['movement_from'])->toBe('2026-10-10')
+        ->and($row['demobilisation_standby']['periods'][0]['movement_to'])->toBe('2026-10-14')
+        ->and($row['demobilisation_standby']['service_days_label'])->toBe('4 service days')
+        ->and($row['demobilisation_standby_days'])->toBe(4)
+        ->and($row['standby_service_days'])->toBe(8)
+        ->and($row['home_redeploy']['actual_return_home_at'])->toBe('2026-10-14 12:00:00')
+        ->and($row['join_standby']['periods'][0]['start'])->toBe('2026-10-03')
+        ->and($row['join_standby']['periods'][0]['end'])->toBe('2026-10-07')
+        ->and($row['phase_timeline'][0]['actual_end_at'])->toBe('2026-10-07 08:00:00')
+        ->and($row['phase_timeline'][1]['actual_start_at'])->toBe('2026-10-07 08:00:00')
+        ->and($row['phase_timeline'][1]['actual_end_at'])->toBe('2026-10-10 18:00:00')
+        ->and($row['phase_timeline'][2]['actual_start_at'])->toBe('2026-10-10 08:00:00')
+        ->and($row['phase_timeline'][2]['actual_end_at'])->toBe('2026-10-14 18:00:00')
+        ->and($row['payroll_days']['sign_on_standby']['total_days'])->toBe(4)
+        ->and($row['payroll_days']['onsite']['total_days'])->toBe(4)
+        ->and($row['payroll_days']['sign_off_standby']['total_days'])->toBe(4)
+        ->and($row['payroll_days']['total_days'])->toBe(12)
+        ->and($preJoin->fresh()->actual_end_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-07 08:00:00')
+        ->and($vessel->fresh()->actual_start_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-07 08:00:00')
+        ->and($demob->fresh()->actual_start_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-10 08:00:00')
+        ->and($home->fresh()->actual_start_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-14 12:00:00');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('standby summary keeps repeated occurrences handoffs gaps and zero-day phases', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $handoff = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($handoff)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-03 08:00:00',
+        'actual_end_at' => '2026-10-07 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($handoff)->create([
+        'phase_code' => CrewPhaseCode::Training,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-07 08:00:00',
+        'actual_end_at' => '2026-10-09 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($handoff)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-09 08:00:00',
+        'actual_end_at' => '2026-10-12 18:00:00',
+    ]);
+
+    $repeated = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $firstStandby = CrewAssignmentPhase::factory()->forAssignment($repeated)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-03 08:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($repeated)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-03 08:00:00',
+        'actual_end_at' => '2026-10-06 08:00:00',
+    ]);
+    $secondStandby = CrewAssignmentPhase::factory()->forAssignment($repeated)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 3,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-06 08:00:00',
+        'actual_end_at' => '2026-10-08 18:00:00',
+    ]);
+
+    $zero = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($zero)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-05 08:00:00',
+        'actual_end_at' => '2026-10-05 09:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($zero)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-05 09:00:00',
+        'actual_end_at' => '2026-10-05 18:00:00',
+    ]);
+
+    $gapped = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    CrewAssignmentPhase::factory()->forAssignment($gapped)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-07 18:00:00',
+    ]);
+    $linked = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'previous_assignment_id' => $gapped->id,
+        'source' => 'vessel_transfer',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($linked)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-04 08:00:00',
+        'actual_end_at' => '2026-10-05 18:00:00',
+    ]);
+
+    $present = fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    $handoffRow = $present($handoff);
+    $repeatedRow = $present($repeated);
+    $zeroRow = $present($zero);
+    $gappedRow = $present($gapped);
+    $linkedRow = $present($linked);
+
+    expect($handoffRow['pre_joining_standby']['multiple'])->toBeTrue()
+        ->and($handoffRow['pre_joining_standby']['periods'][0]['phase_code'])->toBe('p1a')
+        ->and($handoffRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-03')
+        ->and($handoffRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-07')
+        ->and($handoffRow['pre_joining_standby']['periods'][0]['allocated_days'])->toBe(5)
+        ->and($handoffRow['pre_joining_standby']['periods'][1]['phase_code'])->toBe('p1b')
+        ->and($handoffRow['pre_joining_standby']['periods'][1]['from'])->toBe('2026-10-08')
+        ->and($handoffRow['pre_joining_standby']['periods'][1]['to'])->toBe('2026-10-08')
+        ->and($handoffRow['pre_joining_standby']['periods'][1]['movement_from'])->toBe('2026-10-07')
+        ->and($handoffRow['pre_joining_standby']['days'])->toBe(6)
+        ->and($handoffRow['on_vessel']['actual_join'])->toBe('2026-10-09')
+        ->and($repeatedRow['pre_joining_standby']['period_count'])->toBe(2)
+        ->and($repeatedRow['pre_joining_standby']['periods'][0]['phase_id'])->toBe($firstStandby->id)
+        ->and($repeatedRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-01')
+        ->and($repeatedRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-02')
+        ->and($repeatedRow['pre_joining_standby']['periods'][1]['phase_id'])->toBe($secondStandby->id)
+        ->and($repeatedRow['pre_joining_standby']['periods'][1]['from'])->toBe('2026-10-07')
+        ->and($repeatedRow['pre_joining_standby']['periods'][1]['to'])->toBe('2026-10-08')
+        ->and($repeatedRow['pre_joining_standby']['days'])->toBe(4)
+        ->and($repeatedRow['pre_joining_standby']['periods'][0]['to'])->not->toBe('2026-10-08')
+        ->and($zeroRow['pre_joining_standby']['recorded'])->toBeTrue()
+        ->and($zeroRow['pre_joining_standby']['service_days_label'])->toBe('0 service days')
+        ->and($zeroRow['pre_joining_standby']['periods'][0]['from'])->toBeNull()
+        ->and($zeroRow['pre_joining_standby']['periods'][0]['to'])->toBeNull()
+        ->and($zeroRow['pre_joining_standby']['periods'][0]['allocated_days'])->toBe(0)
+        ->and($zeroRow['pre_joining_standby']['periods'][0]['movement_from'])->toBe('2026-10-05')
+        ->and($zeroRow['join_standby']['periods'][0]['start'])->toBe('2026-10-05')
+        ->and($zeroRow['join_standby']['periods'][0]['end'])->toBe('2026-10-05')
+        ->and($zeroRow['vessel_service_days'])->toBe(1)
+        ->and($gappedRow['pre_joining_standby']['multiple'])->toBeTrue()
+        ->and($gappedRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-01')
+        ->and($gappedRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-03')
+        ->and($gappedRow['pre_joining_standby']['periods'][1]['from'])->toBe('2026-10-06')
+        ->and($gappedRow['pre_joining_standby']['periods'][1]['to'])->toBe('2026-10-07')
+        ->and($gappedRow['pre_joining_standby']['days'])->toBe(5)
+        ->and(collect($gappedRow['pre_joining_standby']['periods'])->contains(
+            fn (array $period): bool => $period['from'] === '2026-10-01' && $period['to'] === '2026-10-07',
+        ))->toBeFalse()
+        ->and($linkedRow['vessel_service_days'])->toBe(2)
+        ->and($gappedRow['pre_joining_standby_days'] + $linkedRow['vessel_service_days'])->toBe(7);
+
+    CarbonImmutable::setTestNow();
+});
+
+test('active and future standby service ranges stop at company-local today', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-16 09:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+
+    $active = CrewAssignment::factory()->forEmployee($employee)->active()->create();
+    $activePhase = CrewAssignmentPhase::factory()->forAssignment($active)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Active,
+        'actual_start_at' => '2026-10-10 08:00:00',
+        'actual_end_at' => null,
+    ]);
+    $active->update(['current_phase_id' => $activePhase->id]);
+
+    $future = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    $futurePhase = CrewAssignmentPhase::factory()->forAssignment($future)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-01 08:00:00',
+        'actual_end_at' => '2026-10-25 08:00:00',
+    ]);
+
+    $present = fn (CrewAssignment $assignment): array => CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+    $activeRow = $present($active);
+    $futureRow = $present($future);
+
+    expect($activeRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-10')
+        ->and($activeRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-16')
+        ->and($activeRow['pre_joining_standby']['periods'][0]['ongoing'])->toBeTrue()
+        ->and($activeRow['pre_joining_standby']['days'])->toBe(7)
+        ->and($activeRow['pre_joining_standby']['service_days_label'])->toBe('7 service days')
+        ->and(collect($activeRow['pre_joining_standby']['periods'])->contains(
+            fn (array $period): bool => $period['to'] === '2026-10-17',
+        ))->toBeFalse()
+        ->and($activeRow['phase_timeline'][0]['actual_end_at'])->toBeNull()
+        ->and($activePhase->fresh()->actual_end_at)->toBeNull()
+        ->and($futureRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-01')
+        ->and($futureRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-16')
+        ->and($futureRow['pre_joining_standby']['periods'][0]['ongoing'])->toBeFalse()
+        ->and($futureRow['pre_joining_standby_days'])->toBe(16)
+        ->and($futureRow['pre_joining_standby']['service_days_label'])->toContain('future')
+        ->and($futureRow['payroll_days']['sign_on_standby']['total_days'])->toBe(25)
+        ->and($futureRow['phase_timeline'][0]['actual_end_at'])->toBe('2026-10-25 08:00:00')
+        ->and($futurePhase->fresh()->actual_end_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-25 08:00:00');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('standby service ranges use the company timezone', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create();
+    // Stored wall clock stays on 2 Oct in the application clock. Pacific/Auckland
+    // is nine hours ahead of Asia/Dubai in October, so ownership uses 3 Oct.
+    $phase = CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::JoinStandby,
+        'sequence' => 1,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-02 20:00:00',
+        'actual_end_at' => '2026-10-06 20:00:00',
+    ]);
+    CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+        'phase_code' => CrewPhaseCode::OnVessel,
+        'sequence' => 2,
+        'status' => CrewPhaseStatus::Completed,
+        'actual_start_at' => '2026-10-06 20:00:00',
+        'actual_end_at' => '2026-10-07 20:00:00',
+    ]);
+    $assignment->company->update(['timezone' => 'Pacific/Auckland']);
+
+    $row = CrewMovementHistoryPresenter::toArray(
+        $assignment->fresh(['company', 'employee', 'position', 'vessel', 'client', 'currentPhase', 'phases']),
+    );
+
+    expect($row['company_timezone'])->toBe('Pacific/Auckland')
+        ->and($row['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-03')
+        ->and($row['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-06')
+        ->and($row['pre_joining_standby_days'])->toBe(4)
+        ->and($row['on_vessel']['actual_join'])->toBe('2026-10-07')
+        ->and($row['phase_timeline'][0]['actual_start_at'])->toBe('2026-10-03 05:00:00')
+        ->and($row['phase_timeline'][0]['actual_end_at'])->toBe('2026-10-07 05:00:00')
+        ->and($phase->fresh()->actual_start_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-02 20:00:00')
+        ->and($phase->fresh()->actual_end_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2026-10-06 20:00:00');
 
     CarbonImmutable::setTestNow();
 });
@@ -1800,14 +2116,22 @@ test('standby service day labels keep a singular day and do not rewrite future a
         ->and($oneDayRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-01')
         ->and($futureRow['pre_joining_standby_days'])->toBe(0)
         ->and($futureRow['pre_joining_standby']['recorded'])->toBeTrue()
-        ->and($futureRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-11-01')
-        ->and($futureRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-11-04')
+        // Future-only phases contribute no allocated service dates.
+        ->and($futureRow['pre_joining_standby']['periods'][0]['from'])->toBeNull()
+        ->and($futureRow['pre_joining_standby']['periods'][0]['to'])->toBeNull()
+        ->and($futureRow['pre_joining_standby']['periods'][0]['movement_from'])->toBe('2026-11-01')
+        ->and($futureRow['pre_joining_standby']['periods'][0]['movement_to'])->toBe('2026-11-04')
         ->and($futureRow['pre_joining_standby']['days_label'])->toBe('Future actual')
         ->and($futureRow['pre_joining_standby']['service_days_label'])->toBe('Future actual')
         ->and($mixedRow['pre_joining_standby_days'])->toBe(1)
         ->and($mixedRow['pre_joining_standby']['days_label'])->toBe('1 day + future actual')
         ->and($mixedRow['pre_joining_standby']['service_days_label'])->toBe('1 day + future actual')
-        ->and($mixedRow['pre_joining_standby']['period_count'])->toBe(2);
+        ->and($mixedRow['pre_joining_standby']['period_count'])->toBe(2)
+        ->and($mixedRow['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-01')
+        ->and($mixedRow['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-01')
+        ->and($mixedRow['pre_joining_standby']['periods'][1]['from'])->toBeNull()
+        ->and($mixedRow['pre_joining_standby']['periods'][1]['to'])->toBeNull()
+        ->and($mixedRow['pre_joining_standby']['periods'][1]['movement_from'])->toBe('2026-11-01');
 
     CarbonImmutable::setTestNow();
 });

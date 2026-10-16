@@ -50,6 +50,7 @@ import type {
     PhaseSummary,
     PhaseTimelineEntry,
     StandbyWindow,
+    StandbyWindowPeriod,
     TrainingHistoryEntry,
 } from './types';
 
@@ -186,6 +187,35 @@ function Cell({
     );
 }
 
+function StandbyPeriodDates({ period }: { period: StandbyWindowPeriod }) {
+    if (!period.from && !period.to) {
+        return (
+            <span className="block text-muted-foreground">
+                No allocated service dates
+                {period.ongoing ? ' · Ongoing' : ''}
+            </span>
+        );
+    }
+
+    return (
+        <>
+            <span className="mt-0.5 block">
+                <span className="text-muted-foreground">From: </span>
+                <span className="font-medium text-foreground">
+                    {period.from ? formatDisplayDate(period.from) : '—'}
+                </span>
+            </span>
+            <span className="block">
+                <span className="text-muted-foreground">To: </span>
+                <span className="font-medium text-foreground">
+                    {period.to ? formatDisplayDate(period.to) : '—'}
+                    {period.ongoing ? ' · Ongoing' : ''}
+                </span>
+            </span>
+        </>
+    );
+}
+
 function StandbyWindowCell({
     window,
     emptyTitle,
@@ -206,6 +236,8 @@ function StandbyWindowCell({
         );
     }
 
+    const period = window.periods[0];
+
     return (
         <div className="space-y-1 text-xs" title={emptyTitle}>
             {window.multiple ? (
@@ -214,52 +246,24 @@ function StandbyWindowCell({
                         {window.period_count} periods
                     </p>
                     <ul className="space-y-1 text-[11px] text-muted-foreground">
-                        {window.periods.map((period, index) => (
+                        {window.periods.map((item, index) => (
                             <li
-                                key={`${period.phase_code}-${period.from ?? 'open'}-${index}`}
+                                key={`${item.phase_code}-${item.phase_id ?? index}-${item.from ?? 'none'}-${index}`}
                             >
                                 <span className="font-medium text-foreground/80">
-                                    {period.phase_label}
+                                    {item.phase_label}
                                 </span>
-                                <span className="mt-0.5 block">
-                                    From:{' '}
-                                    {period.from
-                                        ? formatDisplayDate(period.from)
-                                        : '—'}
-                                </span>
-                                <span className="block">
-                                    To:{' '}
-                                    {period.to_label === 'Ongoing'
-                                        ? 'Ongoing'
-                                        : period.to
-                                          ? formatDisplayDate(period.to)
-                                          : '—'}
-                                </span>
+                                <StandbyPeriodDates period={item} />
                             </li>
                         ))}
                     </ul>
                 </>
+            ) : period ? (
+                <StandbyPeriodDates period={period} />
             ) : (
-                <>
-                    <p>
-                        <span className="text-muted-foreground">From: </span>
-                        <span className="font-medium text-foreground">
-                            {window.periods[0]?.from
-                                ? formatDisplayDate(window.periods[0].from)
-                                : '—'}
-                        </span>
-                    </p>
-                    <p>
-                        <span className="text-muted-foreground">To: </span>
-                        <span className="font-medium text-foreground">
-                            {window.periods[0]?.to_label === 'Ongoing'
-                                ? 'Ongoing'
-                                : window.periods[0]?.to
-                                  ? formatDisplayDate(window.periods[0].to)
-                                  : '—'}
-                        </span>
-                    </p>
-                </>
+                <p className="text-muted-foreground">
+                    No allocated service dates
+                </p>
             )}
             <p className="font-semibold text-foreground">
                 {window.service_days_label}
@@ -1402,7 +1406,7 @@ export function CrewMovementHistoryReportTable({
                             columns.preJoiningStandby,
                         )}
                     >
-                        <span title="Pre-Joining Standby and Training movement dates, with allocated service days. Training is included in the total. A date owned by the vessel is not also standby. Multiple periods are listed separately. Missing phase shows Not recorded.">
+                        <span title="Allocated Pre-Joining Standby and Training service dates. Training is included in the total. From and To follow payable-date ownership. A date owned by the vessel is not also standby. Separate occurrences and gaps stay separate. Missing phase shows Not recorded.">
                             Pre-Joining Standby
                         </span>
                     </DataTableHead>
@@ -1426,7 +1430,7 @@ export function CrewMovementHistoryReportTable({
                             columns.demobStandby,
                         )}
                     >
-                        <span title="Demobilisation Standby movement dates and allocated service days. A date owned by the vessel is not also standby. Multiple periods are listed separately. Missing phase shows Not recorded.">
+                        <span title="Allocated Demobilisation Standby service dates. From and To follow payable-date ownership. A date owned by the vessel is not also standby. Separate occurrences and gaps stay separate. Missing phase shows Not recorded.">
                             Demobilisation Standby
                         </span>
                     </DataTableHead>
@@ -1583,7 +1587,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.preJoiningStandby}>
                                     <StandbyWindowCell
                                         window={row.pre_joining_standby}
-                                        emptyTitle="Allocated pre-joining standby days include Pre-Joining Standby and Training. Dates are movement boundaries, not a day-count formula."
+                                        emptyTitle="Allocated pre-joining standby service dates for Pre-Joining Standby and Training. From and To follow payable-date ownership."
                                     />
                                 </Cell>
                                 <Cell className={columns.joined}>
@@ -1617,7 +1621,7 @@ export function CrewMovementHistoryReportTable({
                                 <Cell className={columns.demobStandby}>
                                     <StandbyWindowCell
                                         window={row.demobilisation_standby}
-                                        emptyTitle="Allocated demobilisation standby days. Dates are movement boundaries, not a day-count formula."
+                                        emptyTitle="Allocated demobilisation standby service dates. From and To follow payable-date ownership."
                                     />
                                 </Cell>
                                 <Cell className={columns.returnedHome}>

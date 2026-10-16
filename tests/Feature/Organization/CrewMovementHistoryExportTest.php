@@ -622,15 +622,26 @@ test('web summary and excel csv exports share allocated vessel and standby servi
         ->and($summaryRow['Vessel Service Days'])->toBe('4 days')
         ->and($summaryRow['Pre-Joining Standby (Days)'])->toBe('2 days')
         ->and($summaryRow['Pre-Joining Standby From'])->toBe('2026-10-02')
-        ->and($summaryRow['Pre-Joining Standby To'])->toBe('2026-10-04')
+        ->and($summaryRow['Pre-Joining Standby To'])->toBe('2026-10-03')
+        ->and($summaryRow['Pre-Joining Standby Periods'])->toBe('Pre-Joining Standby 2026-10-02 to 2026-10-03')
         ->and($summaryRow['Demobilisation Standby (Days)'])->toBe('6 days')
-        ->and($summaryRow['Demobilisation Standby From'])->toBe('2026-10-07')
+        ->and($summaryRow['Demobilisation Standby From'])->toBe('2026-10-08')
         ->and($summaryRow['Demobilisation Standby To'])->toBe('2026-10-13')
+        ->and($summaryRow['Demobilisation Standby Periods'])->toBe('Demobilisation Standby 2026-10-08 to 2026-10-13')
         ->and($summaryRow['Total Standby'])->toBe('8 days')
         ->and($csvRow['Vessel Service Days'])->toBe('4 days')
         ->and($csvRow['Pre-Joining Standby (Days)'])->toBe('2 days')
+        ->and($csvRow['Pre-Joining Standby From'])->toBe($summaryRow['Pre-Joining Standby From'])
+        ->and($csvRow['Pre-Joining Standby To'])->toBe($summaryRow['Pre-Joining Standby To'])
+        ->and($csvRow['Pre-Joining Standby Periods'])->toBe($summaryRow['Pre-Joining Standby Periods'])
         ->and($csvRow['Demobilisation Standby (Days)'])->toBe('6 days')
+        ->and($csvRow['Demobilisation Standby From'])->toBe($summaryRow['Demobilisation Standby From'])
+        ->and($csvRow['Demobilisation Standby To'])->toBe($summaryRow['Demobilisation Standby To'])
+        ->and($csvRow['Demobilisation Standby Periods'])->toBe($summaryRow['Demobilisation Standby Periods'])
         ->and($csvRow['Total Standby'])->toBe('8 days')
+        ->and($detailRow['Demobilisation Standby From'])->toBe('2026-10-08')
+        ->and($detailRow['Demobilisation Standby To'])->toBe('2026-10-13')
+        ->and($detailRow['Demobilisation Standby Periods'])->toBe('Demobilisation Standby 2026-10-08 to 2026-10-13')
         ->and($detailRow['Vessel Service Days'])->toBe('4 days')
         ->and($detailRow['Pre-Joining Standby Service Days'])->toBe('2 days')
         ->and($detailRow['Demobilisation Standby Service Days'])->toBe('6 days')
@@ -642,6 +653,10 @@ test('web summary and excel csv exports share allocated vessel and standby servi
         ->and($detailRow['Sign-Off Standby Days'])->toBe(6)
         ->and($presenter['join_standby']['total_days'])->toBe(2)
         ->and($presenter['join_standby']['calendar_span_days'])->toBe(3)
+        ->and($presenter['join_standby']['periods'][0]['end'])->toBe('2026-10-04')
+        ->and($presenter['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-03')
+        ->and($presenter['pre_joining_standby']['periods'][0]['movement_to'])->toBe('2026-10-04')
+        ->and($detailRow['Pre-Joining Standby Periods'])->toContain('2026-10-04')
         ->and($presenter['demob_standby']['total_days'])->toBe(6)
         ->and($presenter['demob_standby']['calendar_span_days'])->toBe(7);
 
@@ -846,6 +861,63 @@ test('movement history export batches linked phase lookups for multiple employee
         ->and($mapped[$ids[1]][$vesselColumn])->toBe('10 days')
         ->and($mapped[$ids[2]][$vesselColumn])->toBe('10 days')
         ->and($mapped[$ids[3]][$vesselColumn])->toBe('10 days');
+
+    CarbonImmutable::setTestNow();
+});
+
+test('excel and csv standby from and to match the allocated service ranges', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['company' => $company, 'employee' => $employee] = makeCrewAssignmentFixtures();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'assignment_no' => 'CA-EXPORT-ALLOCATED',
+    ]);
+
+    foreach ([
+        [CrewPhaseCode::JoinStandby, 1, '2026-10-03 08:00:00', '2026-10-07 08:00:00'],
+        [CrewPhaseCode::OnVessel, 2, '2026-10-07 08:00:00', '2026-10-10 18:00:00'],
+        [CrewPhaseCode::DemobStandby, 3, '2026-10-10 08:00:00', '2026-10-14 18:00:00'],
+        [CrewPhaseCode::HomeRedeploy, 4, '2026-10-14 12:00:00', '2026-10-14 20:00:00'],
+    ] as [$code, $sequence, $start, $end]) {
+        CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+            'phase_code' => $code,
+            'sequence' => $sequence,
+            'status' => CrewPhaseStatus::Completed,
+            'actual_start_at' => $start,
+            'actual_end_at' => $end,
+        ]);
+    }
+
+    $query = new CrewMovementHistoryQuery($company->id, new CrewMovementHistoryFilters, $company->timezone);
+    $model = $query->exportQuery()->whereKey($assignment->id)->firstOrFail();
+    $presenter = CrewMovementHistoryPresenter::toArray($model);
+    $summary = CrewMovementHistoryExport::forQuery($query->exportQuery());
+    $csv = CrewMovementHistoryExport::forQuery($query->exportQuery(), 'csv');
+    $summaryRow = array_combine($summary->headings(), $summary->map($model));
+    $csvRow = array_combine($csv->headings(), $csv->map($model));
+    $details = $summary->sheets()[1];
+    $detailRow = array_combine($details->headings(), $details->map($model));
+
+    expect($presenter['pre_joining_standby']['periods'][0]['from'])->toBe('2026-10-03')
+        ->and($presenter['pre_joining_standby']['periods'][0]['to'])->toBe('2026-10-06')
+        ->and($summaryRow['Pre-Joining Standby From'])->toBe('2026-10-03')
+        ->and($summaryRow['Pre-Joining Standby To'])->toBe('2026-10-06')
+        ->and($summaryRow['Pre-Joining Standby Periods'])->toBe('Pre-Joining Standby 2026-10-03 to 2026-10-06')
+        ->and($summaryRow['Join Vessel Date'])->toBe('2026-10-07')
+        ->and($summaryRow['Demobilisation Standby From'])->toBe('2026-10-11')
+        ->and($summaryRow['Demobilisation Standby To'])->toBe('2026-10-14')
+        ->and($summaryRow['Demobilisation Standby Periods'])->toBe('Demobilisation Standby 2026-10-11 to 2026-10-14')
+        ->and($summaryRow['Return Home Date'])->toBe('2026-10-14')
+        ->and($csvRow['Pre-Joining Standby From'])->toBe($summaryRow['Pre-Joining Standby From'])
+        ->and($csvRow['Pre-Joining Standby To'])->toBe($summaryRow['Pre-Joining Standby To'])
+        ->and($csvRow['Pre-Joining Standby Periods'])->toBe($summaryRow['Pre-Joining Standby Periods'])
+        ->and($csvRow['Demobilisation Standby From'])->toBe($summaryRow['Demobilisation Standby From'])
+        ->and($csvRow['Demobilisation Standby To'])->toBe($summaryRow['Demobilisation Standby To'])
+        ->and($csvRow['Demobilisation Standby Periods'])->toBe($summaryRow['Demobilisation Standby Periods'])
+        ->and($detailRow['Demobilisation Standby From'])->toBe('2026-10-11')
+        ->and($detailRow['Demobilisation Standby To'])->toBe('2026-10-14')
+        ->and($detailRow['Pre-Joining Standby Periods'])->toContain('2026-10-07')
+        ->and($detailRow['Phase Timeline'])->toContain('2026-10-07')
+        ->and($presenter['phase_timeline'][0]['actual_end_at'])->toBe('2026-10-07 08:00:00');
 
     CarbonImmutable::setTestNow();
 });

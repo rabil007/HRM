@@ -194,6 +194,16 @@ describe('crew movement history presentation logic', () => {
             /Pre-Joining Standby and Training/,
             'Pre-Joining tooltip must state that Training is included',
         );
+        assert.match(
+            header,
+            /payable-date ownership/,
+            'Standby headings must describe allocated service dates',
+        );
+        assert.equal(
+            header.includes('movement dates'),
+            false,
+            'summary headings must not describe standby From/To as movement dates',
+        );
         assert.equal(
             header.includes('Standby Service Days'),
             false,
@@ -236,5 +246,23 @@ describe('crew movement history presentation logic', () => {
         assert.equal(periodShortcuts[2].key, 'last_month');
         assert.equal(periodShortcuts[3].key, 'last_3_months');
         assert.equal(periodShortcuts[4].key, 'this_year');
+    });
+
+    it('renders allocated standby ranges and marks an open phase ongoing', () => {
+        const source = readFileSync(reportTablePath, 'utf8');
+
+        assert.match(source, /function StandbyPeriodDates/);
+        assert.match(source, /period\.ongoing/);
+        assert.match(source, /No allocated service dates/);
+        assert.equal(
+            source.includes('Dates are movement boundaries'),
+            false,
+            'standby cells must not describe allocated ranges as movement boundaries',
+        );
+        assert.equal(
+            source.includes('movement_from'),
+            false,
+            'the summary cell must not display recorded phase boundaries',
+        );
     });
 });

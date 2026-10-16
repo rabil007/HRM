@@ -16,6 +16,7 @@ use App\Support\CrewMovements\CrewMovementAttentionQuery;
 use App\Support\CrewMovements\CrewTourProgress;
 use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
 use App\Support\Positions\CrewAssignmentPositionPresenter;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -278,27 +279,28 @@ final class CrewMovementHistoryPresenter
                 $serviceDays['has_future_actual'],
             ),
             'pre_joining_standby' => self::standbyWindow(
-                [
-                    ['code' => CrewPhaseCode::JoinStandby->value, 'label' => CrewPhaseCode::JoinStandby->label(), 'summary' => $summaries[CrewPhaseCode::JoinStandby->value]],
-                    ['code' => CrewPhaseCode::Training->value, 'label' => CrewPhaseCode::Training->label(), 'summary' => $summaries[CrewPhaseCode::Training->value]],
-                ],
+                $phases,
+                [CrewPhaseCode::JoinStandby, CrewPhaseCode::Training],
+                $operational['allocated_dates_by_phase'],
                 $serviceDays['pre_joining_standby_days'],
                 self::serviceDaysLabel(
                     $serviceDays['pre_joining_standby_days'],
                     $serviceDays['future_actual_only'],
                     $serviceDays['has_future_actual'],
                 ),
+                $timezone,
             ),
             'demobilisation_standby' => self::standbyWindow(
-                [
-                    ['code' => CrewPhaseCode::DemobStandby->value, 'label' => CrewPhaseCode::DemobStandby->label(), 'summary' => $summaries[CrewPhaseCode::DemobStandby->value]],
-                ],
+                $phases,
+                [CrewPhaseCode::DemobStandby],
+                $operational['allocated_dates_by_phase'],
                 $serviceDays['demobilisation_standby_days'],
                 self::serviceDaysLabel(
                     $serviceDays['demobilisation_standby_days'],
                     $serviceDays['future_actual_only'],
                     $serviceDays['has_future_actual'],
                 ),
+                $timezone,
             ),
             // Total Standby = Pre-Joining + Demobilisation (missing phase = 0).
             'standby_service_days' => $serviceDays['standby_service_days'],
@@ -479,10 +481,17 @@ final class CrewMovementHistoryPresenter
     }
 
     /**
-     * Movement boundaries for standby columns. Service-day totals stay on the
-     * allocated payable count and are never recomputed from From/To.
+     * Allocated service ranges for standby summary columns.
      *
-     * @param  list<array{code: string, label: string, summary: array{periods: list<array<string, mixed>>}}>  $groups
+     * From/To are contiguous dates already awarded to that phase occurrence.
+     * Recorded phase timestamps stay on the phase summary and timeline.
+     * A gap stays as separate ranges. A phase that won no dates keeps the
+     * occurrence with no invented service range. Service-day totals stay on
+     * the allocated payable count and are never recomputed from From/To.
+     *
+     * @param  Collection<int, CrewAssignmentPhase>  $phases
+     * @param  list<CrewPhaseCode>  $codes
+     * @param  array<int, list<string>>  $allocatedDatesByPhase
      * @return array{
      *     periods: list<array<string, mixed>>,
      *     period_count: int,
@@ -493,29 +502,67 @@ final class CrewMovementHistoryPresenter
      *     service_days_label: string
      * }
      */
-    private static function standbyWindow(array $groups, ?int $allocatedDays, string $daysLabel): array
-    {
+    private static function standbyWindow(
+        Collection $phases,
+        array $codes,
+        array $allocatedDatesByPhase,
+        ?int $allocatedDays,
+        string $daysLabel,
+        string $timezone,
+    ): array {
         $periods = [];
+        $recorded = false;
 
-        foreach ($groups as $group) {
-            foreach ($group['summary']['periods'] as $period) {
-                $start = $period['start'] ?? null;
-                $end = $period['end'] ?? null;
+        $matching = $phases
+            ->filter(fn (CrewAssignmentPhase $phase): bool => in_array($phase->phase_code, $codes, true))
+            ->sortBy('sequence');
 
-                if ($start === null && $end === null) {
-                    continue;
-                }
+        foreach ($matching as $phase) {
+            $movementFrom = self::date($phase->actual_start_at, $timezone);
+            $movementTo = self::date($phase->actual_end_at, $timezone);
 
-                $ongoing = ($period['status'] ?? null) === CrewPhaseStatus::Active->value && ($end === null || $end === '');
+            if ($movementFrom === null && $movementTo === null) {
+                continue;
+            }
 
+            $recorded = true;
+            $ongoing = $phase->status === CrewPhaseStatus::Active;
+            $dates = $allocatedDatesByPhase[(int) $phase->id] ?? [];
+
+            if ($dates === []) {
                 $periods[] = [
-                    'phase_code' => $group['code'],
-                    'phase_label' => $group['label'],
-                    'from' => $start,
-                    'to' => $ongoing ? null : $end,
-                    'to_label' => $ongoing ? 'Ongoing' : $end,
-                    'status' => $period['status'] ?? null,
-                    'allocated_days' => $period['days'] ?? null,
+                    'phase_id' => (int) $phase->id,
+                    'phase_code' => $phase->phase_code->value,
+                    'phase_label' => $phase->phase_code->label(),
+                    'from' => null,
+                    'to' => null,
+                    'to_label' => null,
+                    'ongoing' => $ongoing,
+                    'status' => $phase->status->value,
+                    'allocated_days' => 0,
+                    'movement_from' => $movementFrom,
+                    'movement_to' => $movementTo,
+                ];
+
+                continue;
+            }
+
+            $ranges = self::contiguousDateRanges($dates, $timezone);
+            $lastIndex = count($ranges) - 1;
+
+            foreach ($ranges as $index => $range) {
+                $periods[] = [
+                    'phase_id' => (int) $phase->id,
+                    'phase_code' => $phase->phase_code->value,
+                    'phase_label' => $phase->phase_code->label(),
+                    'from' => $range['from'],
+                    'to' => $range['to'],
+                    'to_label' => $range['to'],
+                    'ongoing' => $ongoing && $index === $lastIndex,
+                    'status' => $phase->status->value,
+                    'allocated_days' => $range['days'],
+                    'movement_from' => $movementFrom,
+                    'movement_to' => $movementTo,
                 ];
             }
         }
@@ -524,11 +571,58 @@ final class CrewMovementHistoryPresenter
             'periods' => $periods,
             'period_count' => count($periods),
             'multiple' => count($periods) > 1,
-            'recorded' => $periods !== [],
+            'recorded' => $recorded,
             'days' => $allocatedDays,
             'days_label' => $daysLabel,
             'service_days_label' => self::allocatedServiceDaysLabel($allocatedDays, $daysLabel),
         ];
+    }
+
+    /**
+     * @param  list<string>  $dates
+     * @return list<array{from: string, to: string, days: int}>
+     */
+    private static function contiguousDateRanges(array $dates, string $timezone): array
+    {
+        $dates = array_values(array_unique($dates));
+        sort($dates);
+
+        if ($dates === []) {
+            return [];
+        }
+
+        $ranges = [];
+        $start = $dates[0];
+        $previous = $dates[0];
+        $days = 1;
+
+        foreach (array_slice($dates, 1) as $date) {
+            $expected = CarbonImmutable::parse($previous, $timezone)->addDay()->toDateString();
+
+            if ($date === $expected) {
+                $previous = $date;
+                $days++;
+
+                continue;
+            }
+
+            $ranges[] = [
+                'from' => $start,
+                'to' => $previous,
+                'days' => $days,
+            ];
+            $start = $date;
+            $previous = $date;
+            $days = 1;
+        }
+
+        $ranges[] = [
+            'from' => $start,
+            'to' => $previous,
+            'days' => $days,
+        ];
+
+        return $ranges;
     }
 
     private static function allocatedServiceDaysLabel(?int $days, string $daysLabel): string

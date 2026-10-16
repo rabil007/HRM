@@ -946,3 +946,49 @@ test('arrival tenancy: report display, filtering, and sorting ignore foreign pha
             ->where('assignments.0.assignment_no', 'CA-ARR-LOCAL-P1-ONLY')
             ->where('assignments.1.assignment_no', 'CA-ARR-LOCAL-BOTH'));
 });
+
+test('report page returns allocated standby service ranges', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-20 12:00:00', 'Asia/Dubai'));
+    ['user' => $user, 'employee' => $employee] = authorizeCrewMovementHistoryReport();
+    $assignment = CrewAssignment::factory()->forEmployee($employee)->completed()->create([
+        'assignment_no' => 'CA-ALLOCATED-RANGE',
+    ]);
+
+    foreach ([
+        [CrewPhaseCode::JoinStandby, 1, '2026-10-03 08:00:00', '2026-10-07 08:00:00'],
+        [CrewPhaseCode::OnVessel, 2, '2026-10-07 08:00:00', '2026-10-10 18:00:00'],
+        [CrewPhaseCode::DemobStandby, 3, '2026-10-10 08:00:00', '2026-10-14 18:00:00'],
+        [CrewPhaseCode::HomeRedeploy, 4, '2026-10-14 12:00:00', '2026-10-14 20:00:00'],
+    ] as [$code, $sequence, $start, $end]) {
+        CrewAssignmentPhase::factory()->forAssignment($assignment)->create([
+            'phase_code' => $code,
+            'sequence' => $sequence,
+            'status' => CrewPhaseStatus::Completed,
+            'actual_start_at' => $start,
+            'actual_end_at' => $end,
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('organization.reports.crew-movement-history.index', ['search' => 'CA-ALLOCATED-RANGE']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('assignments', 1)
+            ->where('assignments.0.pre_joining_standby.periods.0.from', '2026-10-03')
+            ->where('assignments.0.pre_joining_standby.periods.0.to', '2026-10-06')
+            ->where('assignments.0.pre_joining_standby.service_days_label', '4 service days')
+            ->where('assignments.0.pre_joining_standby.periods.0.movement_to', '2026-10-07')
+            ->where('assignments.0.on_vessel.actual_join', '2026-10-07')
+            ->where('assignments.0.vessel_service_days', 4)
+            ->where('assignments.0.demobilisation_standby.periods.0.from', '2026-10-11')
+            ->where('assignments.0.demobilisation_standby.periods.0.to', '2026-10-14')
+            ->where('assignments.0.demobilisation_standby.service_days_label', '4 service days')
+            ->where('assignments.0.standby_service_days', 8)
+            ->where('assignments.0.home_redeploy.actual_return_home_at', '2026-10-14 12:00:00')
+            ->where('assignments.0.phase_timeline.0.actual_end_at', '2026-10-07 08:00:00')
+            ->where('assignments.0.payroll_days.sign_on_standby.total_days', 4)
+            ->where('assignments.0.payroll_days.onsite.total_days', 4)
+            ->where('assignments.0.payroll_days.sign_off_standby.total_days', 4));
+
+    CarbonImmutable::setTestNow();
+});
