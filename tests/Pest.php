@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Settings\SettingService;
 use App\Support\Employees\EmployeeVisibilityScope;
 use Composer\Autoload\ClassLoader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -83,6 +84,8 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
         EmployeeVisibilityScope::clearCache();
+        // SettingService is a singleton; drop request caches after RefreshDatabase.
+        app(SettingService::class)->clearCache();
     })
     ->in('Feature');
 
@@ -90,6 +93,7 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
         EmployeeVisibilityScope::clearCache();
+        app(SettingService::class)->clearCache();
     })
     ->in('Unit/Support', 'Unit/Employees');
 
