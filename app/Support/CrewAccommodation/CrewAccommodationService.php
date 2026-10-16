@@ -813,9 +813,14 @@ final class CrewAccommodationService
                     ? $stay->hotel->name
                     : null;
 
-                $roomTypeName = ($stay->roomType !== null && (! isset($stay->roomType->company_id) || (int) $stay->roomType->company_id === $companyId))
-                    ? $stay->roomType->name
-                    : null;
+                $roomTypeResolved = $stay->roomType !== null
+                    && (! isset($stay->roomType->company_id) || (int) $stay->roomType->company_id === $companyId);
+                $roomTypeName = $roomTypeResolved ? $stay->roomType->name : null;
+                $roomTypeDisplay = match (true) {
+                    $roomTypeResolved && is_string($roomTypeName) && $roomTypeName !== '' => $roomTypeName,
+                    $stay->room_type_id !== null => 'Unavailable',
+                    default => 'Not specified',
+                };
 
                 $isOpenHotel = $stay->accommodation_status === CrewAccommodationStatus::Hotel
                     && $stay->check_out_date === null;
@@ -840,14 +845,18 @@ final class CrewAccommodationService
                     'stay_type_label' => $stay->stay_type->label(),
                     'accommodation_status' => $stay->accommodation_status->value,
                     'accommodation_status_label' => $stay->accommodation_status->label(),
+                    'hotel_id' => $stay->hotel_id !== null ? (int) $stay->hotel_id : null,
                     'hotel_name' => $hotelName,
+                    'room_type_id' => $stay->room_type_id !== null ? (int) $stay->room_type_id : null,
                     'room_type_name' => $roomTypeName,
+                    'room_type_display' => $roomTypeDisplay,
                     'check_in_date' => $stay->check_in_date?->toDateString(),
                     'check_out_date' => $stay->check_out_date?->toDateString(),
                     'is_open' => $isOpenHotel,
                     'stay_days' => $stayDays['days'],
                     'stay_days_label' => $stayDays['label'],
                     'stay_days_invalid' => $stayDays['invalid'],
+                    'updated_at' => $stay->updated_at?->toISOString(),
                 ];
             })
             ->values()

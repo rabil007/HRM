@@ -321,6 +321,9 @@ export default function CrewAssignmentShow({
                                 {hasAccommodation ? (
                                     <CrewAssignmentAccommodationCard
                                         items={assignment.accommodation ?? []}
+                                        assignmentId={assignment.id}
+                                        canEdit={can.override_corrections}
+                                        formOptions={form_options}
                                     />
                                 ) : null}
                                 {can.view_corrections && corrections ? (

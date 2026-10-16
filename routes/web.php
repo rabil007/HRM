@@ -74,6 +74,7 @@ use App\Http\Controllers\Organization\ContractShowController;
 use App\Http\Controllers\Organization\ContractsImportController;
 use App\Http\Controllers\Organization\ContractsIndexController;
 use App\Http\Controllers\Organization\ContractsNoContractController;
+use App\Http\Controllers\Organization\CrewAccommodationStayController;
 use App\Http\Controllers\Organization\CrewAssignmentBulkController;
 use App\Http\Controllers\Organization\CrewAssignmentController;
 use App\Http\Controllers\Organization\CrewMovementActionController;
@@ -883,6 +884,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/crew/{assignment}/corrections/override', [CrewMovementCorrectionController::class, 'override'])
         ->middleware(['can:crew_operations.corrections.override', 'privileged.2fa'])
         ->name('organization.crew-assignments.corrections.override');
+    Route::put('organization/crew/{assignment}/accommodation-stays/{stay}', [CrewAccommodationStayController::class, 'update'])
+        ->middleware(['can:crew_operations.corrections.override', 'privileged.2fa'])
+        ->name('organization.crew-assignments.accommodation-stays.update');
 
     Route::get('organization/crew-scheduled-movements', [CrewScheduledMovementController::class, 'index'])
         ->middleware('can:crew_operations.movements.schedule.view')

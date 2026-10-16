@@ -53,14 +53,18 @@ export type CrewAccommodationSummaryItem = {
     stay_type_label: string;
     accommodation_status: string;
     accommodation_status_label: string;
+    hotel_id?: number | null;
     hotel_name: string | null;
+    room_type_id?: number | null;
     room_type_name: string | null;
+    room_type_display?: string | null;
     check_in_date: string | null;
     check_out_date: string | null;
     is_open: boolean;
     stay_days: number | null;
     stay_days_label?: string;
     stay_days_invalid?: boolean;
+    updated_at?: string | null;
 };
 
 export type CrewMovementContext = {

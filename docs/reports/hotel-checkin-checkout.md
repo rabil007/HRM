@@ -103,6 +103,12 @@ Whitelisted sort fields:
 - `vessel`: Vessel name (correlated subquery)
 - `stay_days`: Inclusive hotel-day expression matching `summarizeStayDays()` (MySQL `DATEDIFF + 1`, SQLite `julianday + 1`, with upcoming = 0 and reversed dates = NULL)
 
+## Editing accommodation records
+
+Hotel stays can be corrected from **Crew Assignment detail → Accommodation Records** by users with `crew_operations.corrections.override` and satisfied privileged 2FA. Edits update only `CrewAccommodationStay` fields (hotel, optional room type, check-in/out, reason). They do not create a `CrewMovementCorrection`, do not change phases/movements/payroll/sea-service, and do not execute scheduled movements. Validation reuses accommodation integrity plus actual movement-date bounds (arrival/join for pre-join; disembarkation/home for demobilisation). See [crew-movement-corrections.md](../architecture/crew-movement-corrections.md#accommodation-record-edits).
+
+Assignment cards always show Room Type for hotel records: the resolved name, `Not specified` when `room_type_id` is null, or `Unavailable` when a stored ID cannot be resolved.
+
 ## Export
 
 Excel (`.xlsx`) and CSV (`.csv`) export formats via `HotelCheckInCheckoutExport` stream results with identical filters, permissions, and tenant/visibility scoping.
