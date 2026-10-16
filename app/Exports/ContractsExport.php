@@ -18,6 +18,7 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
     public function __construct(
         private readonly Builder $query,
         private readonly string $payrollCategory = '',
+        private readonly string $salaryStructure = 'daily',
     ) {}
 
     public function query(): Builder
@@ -39,18 +40,23 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Basic Salary',
         ];
 
-        if ($this->payrollCategory !== 'crew') {
+        $monthlyCrew = $this->payrollCategory === 'crew' && $this->salaryStructure === 'monthly';
+        if ($this->payrollCategory !== 'crew' || $monthlyCrew) {
             $headings[] = 'Housing Allowance';
             $headings[] = 'Transport Allowance';
         }
 
-        if ($this->payrollCategory !== 'office') {
+        if ($this->payrollCategory !== 'office' && ! $monthlyCrew) {
             $headings[] = 'Supplementary Allowance';
             $headings[] = 'Site Allowance';
         }
 
-        if ($this->payrollCategory !== 'crew') {
+        if ($this->payrollCategory !== 'crew' || $monthlyCrew) {
             $headings[] = 'Other Allowances';
+        }
+
+        if ($monthlyCrew) {
+            $headings[] = 'EOS Provision (Non-Payable)';
         }
 
         $headings[] = 'Total Salary';
@@ -77,18 +83,23 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $contract->basic_salary,
         ];
 
-        if ($this->payrollCategory !== 'crew') {
+        $monthlyCrew = $this->payrollCategory === 'crew' && $this->salaryStructure === 'monthly';
+        if ($this->payrollCategory !== 'crew' || $monthlyCrew) {
             $row[] = $contract->housing_allowance;
             $row[] = $contract->transport_allowance;
         }
 
-        if ($this->payrollCategory !== 'office') {
+        if ($this->payrollCategory !== 'office' && ! $monthlyCrew) {
             $row[] = $contract->supplementary_allowance;
             $row[] = $contract->site_allowance;
         }
 
-        if ($this->payrollCategory !== 'crew') {
+        if ($this->payrollCategory !== 'crew' || $monthlyCrew) {
             $row[] = $contract->other_allowances;
+        }
+
+        if ($monthlyCrew) {
+            $row[] = $contract->eos_monthly_amount;
         }
 
         $row[] = $totalSalary;

@@ -112,6 +112,7 @@ export function ContractsImportDialog({
     const [payrollCategory, setPayrollCategory] =
         useState<PayrollCategory>('office');
     const [file, setFile] = useState<File | null>(null);
+    const [salaryStructure, setSalaryStructure] = useState<'daily' | 'monthly'>('daily');
     const [preview, setPreview] = useState<ImportPreviewResponse | null>(null);
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
@@ -155,6 +156,7 @@ export function ContractsImportDialog({
 
     const resetState = () => {
         setPayrollCategory('office');
+        setSalaryStructure('daily');
         setFile(null);
         setPreview(null);
         setMessage(null);
@@ -183,6 +185,9 @@ export function ContractsImportDialog({
             const formData = new FormData();
             formData.append('file', selected);
             formData.append('payroll_category', category);
+            if (category === 'crew') {
+                formData.append('salary_structure', salaryStructure);
+            }
 
             try {
                 const csrf = document.querySelector<HTMLMetaElement>(
@@ -230,7 +235,7 @@ export function ContractsImportDialog({
                 setIsPreviewing(false);
             }
         },
-        [],
+        [salaryStructure],
     );
 
     const pickFile = (selected: File | undefined | null) => {
@@ -249,11 +254,22 @@ export function ContractsImportDialog({
 
     const handleCategoryChange = (category: PayrollCategory) => {
         setPayrollCategory(category);
+        setSalaryStructure('daily');
         setFile(null);
         setPreview(null);
         setMessage(null);
         setSearchQuery('');
 
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSalaryStructureChange = (structure: 'daily' | 'monthly') => {
+        setSalaryStructure(structure);
+        setFile(null);
+        setPreview(null);
+        setMessage(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -273,6 +289,9 @@ export function ContractsImportDialog({
         const formData = new FormData();
         formData.append('file', file);
         formData.append('payroll_category', payrollCategory);
+        if (payrollCategory === 'crew') {
+            formData.append('salary_structure', salaryStructure);
+        }
 
         router.post(importContracts.url(), formData, {
             forceFormData: true,
@@ -295,8 +314,9 @@ export function ContractsImportDialog({
         pickFile(event.dataTransfer.files?.[0]);
     };
 
-    const sheetLabel =
-        payrollCategory === 'office' ? 'Office Contracts' : 'Crew Contracts';
+    const sheetLabel = payrollCategory === 'office'
+        ? 'Office Contracts'
+        : salaryStructure === 'monthly' ? 'Crew Monthly Contracts' : 'Crew Contracts';
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -307,7 +327,7 @@ export function ContractsImportDialog({
                         Choose office or crew, download the template with your
                         active employees pre-filled, edit contract fields, then
                         upload the file. Rows with no contract data are skipped.
-                        Rows are matched by employee number and contract ID.
+                        Existing salaries are preserved when salary cells are blank; enter zero to clear a component. Crew templates must match the contract salary structure.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -339,11 +359,27 @@ export function ContractsImportDialog({
                             })}
                         </div>
 
+                        {payrollCategory === 'crew' ? (
+                            <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-1">
+                                {(['daily', 'monthly'] as const).map((option) => (
+                                    <Button
+                                        key={option}
+                                        type="button"
+                                        variant={salaryStructure === option ? 'default' : 'ghost'}
+                                        size="sm"
+                                        onClick={() => handleSalaryStructureChange(option)}
+                                    >
+                                        {option === 'daily' ? 'Daily' : 'Monthly'}
+                                    </Button>
+                                ))}
+                            </div>
+                        ) : null}
                         <Button asChild variant="outline" size="sm">
                             <a
                                 href={importTemplate.url({
                                     query: {
                                         payroll_category: payrollCategory,
+                                        salary_structure: payrollCategory === 'crew' ? salaryStructure : undefined,
                                     },
                                 })}
                             >
