@@ -11,6 +11,7 @@ use App\Models\LeaveRequestApproval;
 use App\Support\Attendance\LeaveNotificationSettings;
 use App\Support\Attendance\ResolveLeaveRequestEmailDepartmentManagerName;
 use App\Support\Email\CommaSeparatedEmailList;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Facades\Mail;
 
 final class SendLeaveRequestDecidedEmail
@@ -200,8 +201,8 @@ final class SendLeaveRequestDecidedEmail
             'decidedByName' => $decidedByName !== '' ? $decidedByName : '—',
             'leaveType' => (string) ($leaveRequest->leaveType?->name ?? '—'),
             'leaveTypeColor' => $leaveRequest->leaveType?->color,
-            'startDate' => $leaveRequest->start_date?->format('d M Y') ?? '—',
-            'endDate' => $leaveRequest->end_date?->format('d M Y') ?? '—',
+            'startDate' => PlatformDateFormatter::make()->date($leaveRequest->start_date) ?? '—',
+            'endDate' => PlatformDateFormatter::make()->date($leaveRequest->end_date) ?? '—',
             'totalDays' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
             'reason' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
             'requestUrl' => route('attendance.leave-requests.show', $leaveRequest),
@@ -226,8 +227,8 @@ final class SendLeaveRequestDecidedEmail
             '{{employee_no}}' => (string) ($employee?->employee_no ?? ''),
             '{{department_name}}' => (string) ($employee?->department?->name ?? '—'),
             '{{leave_type}}' => (string) ($leaveRequest->leaveType?->name ?? ''),
-            '{{start_date}}' => $leaveRequest->start_date?->format('d M Y') ?? '',
-            '{{end_date}}' => $leaveRequest->end_date?->format('d M Y') ?? '',
+            '{{start_date}}' => PlatformDateFormatter::make()->date($leaveRequest->start_date, '') ?? '',
+            '{{end_date}}' => PlatformDateFormatter::make()->date($leaveRequest->end_date, '') ?? '',
             '{{total_days}}' => number_format((float) $leaveRequest->total_days, 1, '.', ''),
             '{{reason}}' => filled($leaveRequest->reason) ? (string) $leaveRequest->reason : '—',
             '{{manager_name}}' => ResolveLeaveRequestEmailDepartmentManagerName::handle($leaveRequest),

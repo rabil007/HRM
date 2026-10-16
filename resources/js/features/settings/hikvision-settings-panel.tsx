@@ -22,7 +22,11 @@ import { Switch } from '@/components/ui/switch';
 import { HikvisionDevicesSection } from '@/features/settings/hikvision-devices-section';
 import type { HikvisionDevicesSectionProps } from '@/features/settings/hikvision-devices-section';
 import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import {
+    formatDisplayDateTimeInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -115,6 +119,8 @@ export function HikvisionSettingsPanel({
     can,
     devices,
 }: HikvisionSettingsPanelProps) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const [connectionStatus, setConnectionStatus] =
         useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(
@@ -496,8 +502,10 @@ export function HikvisionSettingsPanel({
                             <StatusItem label="Last fetch">
                                 <span className="text-sm">
                                     {settings.events_last_fetched_at
-                                        ? formatDisplayDateTime(
+                                        ? formatDisplayDateTimeInTimezone(
                                               settings.events_last_fetched_at,
+                                              companyTimezone,
+                                              dateFormat,
                                           )
                                         : 'Never'}
                                 </span>
@@ -743,8 +751,10 @@ export function HikvisionSettingsPanel({
                             <StatusItem label="Last event received">
                                 <span className="text-sm">
                                     {settings.webhook_last_event_at
-                                        ? formatDisplayDateTime(
+                                        ? formatDisplayDateTimeInTimezone(
                                               settings.webhook_last_event_at,
+                                              companyTimezone,
+                                              dateFormat,
                                           )
                                         : 'Never'}
                                 </span>
@@ -752,8 +762,10 @@ export function HikvisionSettingsPanel({
                             <StatusItem label="Registered at">
                                 <span className="text-sm">
                                     {settings.webhook_registered_at
-                                        ? formatDisplayDateTime(
+                                        ? formatDisplayDateTimeInTimezone(
                                               settings.webhook_registered_at,
+                                              companyTimezone,
+                                              dateFormat,
                                           )
                                         : '—'}
                                 </span>

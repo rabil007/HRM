@@ -4,6 +4,7 @@ namespace App\Support\Announcements;
 
 use App\Models\Announcement;
 use App\Models\AnnouncementRecipient;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Facades\View;
 
 final class BuildAnnouncementEmailContent
@@ -46,7 +47,9 @@ final class BuildAnnouncementEmailContent
             'title' => $announcement->title,
             'bodyHtml' => $announcement->body_html,
             'priority' => $announcement->priority->label(),
-            'publishedAt' => $announcement->published_at?->format('d M Y H:i') ?? now()->format('d M Y H:i'),
+            'publishedAt' => PlatformDateFormatter::make()->dateTime(
+                $announcement->published_at ?? now(),
+            ) ?? '—',
             'companyName' => (string) ($announcement->company?->name ?? config('app.name')),
             'attachmentLinks' => $attachmentLinks,
         ])->render();

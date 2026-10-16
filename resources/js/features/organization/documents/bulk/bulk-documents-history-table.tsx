@@ -20,7 +20,11 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { BulkActivityItem } from './types';
 
@@ -163,6 +167,9 @@ export function BulkDocumentsHistoryTable({
     header?: ReactNode;
     onEmailBatchClick?: (batchId: number) => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
+
     return (
         <div className="space-y-4">
             {/* Desktop table view */}
@@ -276,8 +283,10 @@ export function BulkDocumentsHistoryTable({
                                             )}
                                         >
                                             {item.created_at
-                                                ? formatDisplayDateTime12h(
+                                                ? formatDisplayDateTime12hInTimezone(
                                                       item.created_at,
+                                                      companyTimezone,
+                                                      dateFormat,
                                                   )
                                                 : '—'}
                                         </TableCell>
@@ -336,8 +345,10 @@ export function BulkDocumentsHistoryTable({
                                     title={operationTitle}
                                     subtitle={
                                         item.created_at
-                                            ? formatDisplayDateTime12h(
+                                            ? formatDisplayDateTime12hInTimezone(
                                                   item.created_at,
+                                                  companyTimezone,
+                                                  dateFormat,
                                               )
                                             : undefined
                                     }

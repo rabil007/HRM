@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Position;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -58,7 +59,7 @@ class PositionsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $position->is_crew_position ? 'yes' : 'no',
             $position->max_tour_of_duty_days,
             $position->attachment_original_name,
-            optional($position->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($position->created_at, '') ?? '',
         ];
     }
 }

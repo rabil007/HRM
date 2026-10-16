@@ -55,7 +55,11 @@ import { downloadBulkZip } from '@/features/organization/documents/shared/downlo
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { useRecordSelection } from '@/hooks/use-record-selection';
-import { formatDisplayDateTime12h } from '@/lib/format-date';
+import {
+    formatDisplayDateTime12hInTimezone,
+    useCompanyTimezone,
+    useDateFormat,
+} from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import documentRoutes, {
@@ -1263,6 +1267,8 @@ function BulkRosterRow({
     canDownload: boolean;
     onViewJourney: () => void;
 }) {
+    const companyTimezone = useCompanyTimezone();
+    const dateFormat = useDateFormat();
     const hasDocument = employee.document !== null;
     const documentBadge = rosterGenerationBadge(employee);
     const assignment = [employee.department, employee.position]
@@ -1412,8 +1418,10 @@ function BulkRosterRow({
                             </span>
                         ) : process.last_activity.timestamp ? (
                             <span className="text-[11px] text-muted-foreground/70">
-                                {formatDisplayDateTime12h(
+                                {formatDisplayDateTime12hInTimezone(
                                     process.last_activity.timestamp,
+                                    companyTimezone,
+                                    dateFormat,
                                 )}
                             </span>
                         ) : null}

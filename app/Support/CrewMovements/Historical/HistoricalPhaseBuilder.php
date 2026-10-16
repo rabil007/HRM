@@ -6,6 +6,7 @@ use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewPhaseCode;
 use App\Enums\CrewPhaseStatus;
 use App\Support\Payroll\CrewTimeline\CrewPayableDateOwnership;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonInterface;
 
 /**
@@ -128,6 +129,8 @@ final class HistoricalPhaseBuilder
         $knownPeriods = [];
         $presentation = CrewPayableDateOwnership::presentPlainPhases($phases, $timezone);
 
+        $dates = PlatformDateFormatter::make();
+
         foreach ($periods as $index => $period) {
             $fromLocal = $period['from']->copy()->timezone($timezone);
             $toLocal = $period['to']?->copy()->timezone($timezone);
@@ -141,9 +144,9 @@ final class HistoricalPhaseBuilder
             $knownPeriods[] = [
                 'key' => $period['key'],
                 'label' => $period['label'],
-                'from' => $fromLocal->format('d M Y'),
-                'to' => $toLocal?->format('d M Y'),
-                'to_display' => $isPeriodOpen ? 'Current' : ($toLocal?->format('d M Y') ?? 'Current'),
+                'from' => $dates->date($fromLocal) ?? '—',
+                'to' => $dates->date($toLocal, null),
+                'to_display' => $isPeriodOpen ? 'Current' : ($dates->date($toLocal) ?? 'Current'),
                 'days' => HistoricalCrewAssignmentData::inclusiveDays($period['from'], $period['to']),
                 'is_open' => $isPeriodOpen,
                 'allocated_service_days' => $presented['allocated_service_days'],
@@ -154,12 +157,13 @@ final class HistoricalPhaseBuilder
 
         if ($data->homeAvailableFrom !== null) {
             $homeLocal = $data->homeAvailableFrom->copy()->timezone($timezone);
+            $homeFormatted = $dates->date($homeLocal) ?? '—';
             $knownPeriods[] = [
                 'key' => self::EVENT_HOME,
                 'label' => 'Home / Available',
-                'from' => $homeLocal->format('d M Y'),
-                'to' => $homeLocal->format('d M Y'),
-                'to_display' => $homeLocal->format('d M Y'),
+                'from' => $homeFormatted,
+                'to' => $homeFormatted,
+                'to_display' => $homeFormatted,
                 'days' => null,
                 'is_open' => false,
                 'allocated_service_days' => null,

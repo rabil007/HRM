@@ -5,6 +5,7 @@ namespace App\Support\Users;
 use App\Models\EmailTemplate;
 use App\Models\UserInvitation;
 use App\Services\Settings\SettingService;
+use App\Support\Settings\PlatformDateFormatter;
 
 final class ComposeUserInvitationMail
 {
@@ -58,7 +59,7 @@ final class ComposeUserInvitationMail
             ? (string) $invitation->inviter->name
             : 'An administrator';
         $roleName = filled($invitation->role?->name) ? (string) $invitation->role->name : '—';
-        $expiresAt = $invitation->expires_at?->format('M j, Y') ?? '';
+        $expiresAt = PlatformDateFormatter::make()->date($invitation->expires_at, '') ?? '';
 
         return [
             '{{invitee_name}}' => $inviteeName,

@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Support\BulkDocuments\BrowsershotEmbeddedFonts;
 use App\Support\BulkDocuments\ConfiguresBrowsershotPdf;
 use App\Support\Documents\DocumentTemplateMergeFields;
+use App\Support\Settings\PlatformDateFormatter;
 use InvalidArgumentException;
 use Spatie\Browsershot\Browsershot;
 
@@ -35,7 +36,7 @@ class ContentTemplatePdfRenderer
         $html = view('documents.content-template-pdf', [
             'title' => $template->name,
             'company_name' => $mergeValues['{{company_name}}'] ?? '',
-            'date' => $mergeValues['{{today}}'] ?? now()->format('d M Y'),
+            'date' => $mergeValues['{{today}}'] ?? (PlatformDateFormatter::make()->date(now()) ?? ''),
             'content' => $resolvedContent,
             'embedded_font_styles' => BrowsershotEmbeddedFonts::dejaVuStyles(),
             'show_header' => false,

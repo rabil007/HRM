@@ -9,6 +9,7 @@ use App\Models\SalaryInput;
 use App\Support\Media\CompanyLogoDataUri;
 use App\Support\Settings\CompanyCurrency;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 
 final class PayslipData
@@ -71,10 +72,12 @@ final class PayslipData
             'employee_no' => (string) $row['employee_no'],
             'designation' => (string) $row['designation'],
             'period_name' => $periodStart->format('F Y'),
-            'period_start' => $periodStart->format('M d, Y'),
-            'period_end' => $periodEnd->format('M d, Y'),
-            'payment_date' => $periodEnd->format('M d, Y'),
-            'issued_on' => CarbonImmutable::now(CompanyTimezone::forCompany($company))->format('M d, Y'),
+            'period_start' => PlatformDateFormatter::make()->date($periodStart) ?? '—',
+            'period_end' => PlatformDateFormatter::make()->date($periodEnd) ?? '—',
+            'payment_date' => PlatformDateFormatter::make()->date($periodEnd) ?? '—',
+            'issued_on' => PlatformDateFormatter::make()->date(
+                CarbonImmutable::now(CompanyTimezone::forCompany($company)),
+            ) ?? '—',
             'currency_code' => $currencyCode,
             'payroll_category' => PayrollCategory::Crew->value,
             'payroll_category_label' => PayrollCategory::Crew->label(),
@@ -122,13 +125,14 @@ final class PayslipData
             ? (string) $breakdown['currency_code']
             : CompanyCurrency::codeForCompany($company);
 
+        $dates = PlatformDateFormatter::make();
         $periodStart = ! empty($breakdown['period_start_date'])
-            ? CarbonImmutable::parse($breakdown['period_start_date'])->format('M d, Y')
-            : ($period?->start_date?->format('M d, Y') ?? '');
+            ? ($dates->date(CarbonImmutable::parse($breakdown['period_start_date']), '') ?? '')
+            : ($dates->date($period?->start_date, '') ?? '');
 
         $periodEnd = ! empty($breakdown['period_end_date'])
-            ? CarbonImmutable::parse($breakdown['period_end_date'])->format('M d, Y')
-            : ($period?->end_date?->format('M d, Y') ?? '');
+            ? ($dates->date(CarbonImmutable::parse($breakdown['period_end_date']), '') ?? '')
+            : ($dates->date($period?->end_date, '') ?? '');
 
         $base = [
             'company_name' => (string) ($company?->name ?? ''),
@@ -139,8 +143,10 @@ final class PayslipData
             'period_name' => (string) ($period?->name ?? ''),
             'period_start' => $periodStart,
             'period_end' => $periodEnd,
-            'payment_date' => $period?->payment_date?->format('M d, Y') ?? '',
-            'issued_on' => CarbonImmutable::now(CompanyTimezone::forCompany($company))->format('M d, Y'),
+            'payment_date' => $dates->date($period?->payment_date, '') ?? '',
+            'issued_on' => $dates->date(
+                CarbonImmutable::now(CompanyTimezone::forCompany($company)),
+            ) ?? '—',
             'currency_code' => $currencyCode,
             'payroll_category' => $category->value,
             'payroll_category_label' => $category->label(),
@@ -599,10 +605,12 @@ final class PayslipData
 
         $rateDetail = self::crewRateComponentDetail($payCategory, $basic, $site, $supp);
 
+        $dates = PlatformDateFormatter::make();
+
         return sprintf(
             '%s – %s · %s days × %s',
-            $from->format('d M Y'),
-            $to->format('d M Y'),
+            $dates->date($from) ?? '—',
+            $dates->date($to) ?? '—',
             self::formatDayCount($days),
             $rateDetail,
         );

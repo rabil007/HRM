@@ -6,6 +6,7 @@ use App\Models\CrewAssignment;
 use App\Models\User;
 use App\Support\CrewMovements\CrewAssignmentPresenter;
 use App\Support\CrewMovements\CrewReliefVisibility;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -76,9 +77,9 @@ final class CurrentCrewOnboardVesselsExport implements FromCollection, WithHeadi
             $row['employee']['employee_no'] ?? null,
             $row['position']['name'] ?? null,
             $row['assignment_no'],
-            $row['actual_join_at'] ?? null,
+            PlatformDateFormatter::make()->date($row['actual_join_at'] ?? null, null),
             $row['days_onboard'] ?? null,
-            $row['planned_signoff_at'] ?? null,
+            PlatformDateFormatter::make()->date($row['planned_signoff_at'] ?? null, null),
             $row['tour_of_duty_days'] ?? null,
             $row['tour_status_label'] ?? null,
             $row['relief_status_label'] ?? null,

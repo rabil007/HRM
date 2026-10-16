@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\EmailTemplate;
 use App\Services\Settings\SettingService;
 use App\Support\CrewOperations\CrewOperationalAlertDigestPresenter;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Facades\View;
 
 final class EmailTemplatePreview
@@ -238,7 +239,7 @@ final class EmailTemplatePreview
                     'employee_name' => 'John Doe',
                     'employee_id' => '1042',
                     'document_name' => 'Passport',
-                    'expiry_date' => now()->addDays(24)->format('d M Y'),
+                    'expiry_date' => PlatformDateFormatter::make()->date(now()->addDays(24)) ?? '—',
                     'days_remaining' => 24,
                     'folder_url' => url('/organization/documents/employees/1'),
                 ],
@@ -246,7 +247,7 @@ final class EmailTemplatePreview
                     'employee_name' => 'Jane Doe',
                     'employee_id' => '1077',
                     'document_name' => 'Visa',
-                    'expiry_date' => now()->addDays(7)->format('d M Y'),
+                    'expiry_date' => PlatformDateFormatter::make()->date(now()->addDays(7)) ?? '—',
                     'days_remaining' => 7,
                     'folder_url' => url('/organization/documents/employees/2'),
                 ],
@@ -265,14 +266,14 @@ final class EmailTemplatePreview
                 [
                     'document_name' => 'Trade License',
                     'document_number' => 'TL-2026-001',
-                    'expiry_date' => now()->addDays(20)->format('d M Y'),
+                    'expiry_date' => PlatformDateFormatter::make()->date(now()->addDays(20)) ?? '—',
                     'days_remaining' => 20,
                     'view_url' => url('/organization/companies/1/documents'),
                 ],
                 [
                     'document_name' => 'Establishment Card',
                     'document_number' => 'EC-5582',
-                    'expiry_date' => now()->addDays(5)->format('d M Y'),
+                    'expiry_date' => PlatformDateFormatter::make()->date(now()->addDays(5)) ?? '—',
                     'days_remaining' => 5,
                     'view_url' => url('/organization/companies/1/documents'),
                 ],
@@ -313,13 +314,15 @@ final class EmailTemplatePreview
      */
     private function samplePlaceholders(string $organizationName): array
     {
+        $dates = PlatformDateFormatter::make();
+
         return [
             '{{employee_name}}' => 'Jane Smith',
             '{{employee_no}}' => 'EMP-1042',
             '{{department_name}}' => 'Technology',
             '{{leave_type}}' => 'Annual Leave',
-            '{{start_date}}' => now()->addDays(7)->format('d M Y'),
-            '{{end_date}}' => now()->addDays(9)->format('d M Y'),
+            '{{start_date}}' => $dates->date(now()->addDays(7)) ?? '—',
+            '{{end_date}}' => $dates->date(now()->addDays(9)) ?? '—',
             '{{total_days}}' => '3.0',
             '{{reason}}' => 'Family commitment',
             '{{manager_name}}' => 'John Manager',
@@ -331,7 +334,7 @@ final class EmailTemplatePreview
             '{{net_salary}}' => '12,500.00',
             '{{rejection_reason}}' => 'Resource planning constraints during this period.',
             '{{alert_count}}' => '4',
-            '{{generated_at}}' => now()->format('d M Y H:i'),
+            '{{generated_at}}' => $dates->dateTime(now()) ?? '—',
             '{{highest_severity}}' => 'CRITICAL',
             '{{crew_operations_url}}' => url('/organization/crew-operations'),
             '{{alerts_table}}' => CrewOperationalAlertDigestPresenter::sampleTable(),
@@ -339,7 +342,7 @@ final class EmailTemplatePreview
             '{{inviter_name}}' => 'Jordan Admin',
             '{{brand_name}}' => $organizationName,
             '{{accept_url}}' => url('/invitations/accept?token=preview-token'),
-            '{{expires_at}}' => now()->addDays(7)->format('M j, Y'),
+            '{{expires_at}}' => $dates->date(now()->addDays(7)) ?? '—',
             '{{role_name}}' => 'Manager',
             '{{recipient_name}}' => 'Jane Smith',
             '{{document_title}}' => 'Employment Contract',
@@ -357,16 +360,16 @@ final class EmailTemplatePreview
             '{{project_name}}' => 'Vessel Alpha',
             '{{submitter_name}}' => 'Sam Requester',
             '{{recruiter_name}}' => 'Riley Recruiter',
-            '{{approved_at}}' => now()->format('d M Y H:i'),
+            '{{approved_at}}' => $dates->dateTime(now()) ?? '—',
             '{{return_reason}}' => 'Please clarify salary range and joining date.',
             '{{requirement_url}}' => url('/organization/recruitment/requirements/1'),
             '{{days_label}}' => '3 days remaining',
             '{{status_note}}' => 'approaching its Target Date (3 days remaining)',
-            '{{target_date}}' => now()->addDays(3)->format('d M Y'),
+            '{{target_date}}' => $dates->date(now()->addDays(3)) ?? '—',
             '{{heading}}' => 'Target Date reminder — due in 3 days',
             '{{milestone_label}}' => 'due in 3 days',
-            '{{old_deadline}}' => now()->addDays(8)->format('d M Y'),
-            '{{new_deadline}}' => now()->addDays(18)->format('d M Y'),
+            '{{old_deadline}}' => $dates->date(now()->addDays(8)) ?? '—',
+            '{{new_deadline}}' => $dates->date(now()->addDays(18)) ?? '—',
             '{{reason}}' => 'Candidate availability requires additional sourcing time.',
             '{{note}}' => 'Please source from the additional market.',
             '{{headcount_changes}}' => 'Welder: 5 → 8',

@@ -14,6 +14,7 @@ use App\Support\CrewMovements\CrewReliefReadinessResolver;
 use App\Support\CrewMovements\CurrentOnboardCrewQuery;
 use App\Support\CrewOperations\CrewProjectedManningQuery;
 use App\Support\Settings\CompanyTimezone;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -780,7 +781,7 @@ final class VesselManningHealthQuery
 
     private function formatDate(string $date): string
     {
-        return CarbonImmutable::parse($date)->format('j M Y');
+        return PlatformDateFormatter::make()->date(CarbonImmutable::parse($date)) ?? '—';
     }
 
     private function vesselPositionKey(int $vesselId, int $positionId): string

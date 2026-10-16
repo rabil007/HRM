@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SignatureCapture } from '@/features/esign/signature-capture';
 import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
+import { toCompanyDateLocal, useCompanyTimezone } from '@/lib/company-timezone';
+import { useFormatDate } from '@/lib/format-date';
 
 type Props = {
     request: {
@@ -37,24 +39,22 @@ export default function RecipientRequestRespondPage({
     const [signatureClearToken] = useState(0);
     const [consent, setConsent] = useState(false);
     const [typedName, setTypedName] = useState(auth?.user?.name ?? '');
+    const formatDate = useFormatDate();
+    const companyTimezone = useCompanyTimezone();
 
     const expiryLabel = useMemo(() => {
         if (!request.expires_at) {
             return null;
         }
 
-        const date = new Date(request.expires_at);
+        const localDate = toCompanyDateLocal(
+            request.expires_at,
+            companyTimezone,
+        );
+        const label = formatDate(localDate || null);
 
-        if (Number.isNaN(date.getTime())) {
-            return null;
-        }
-
-        return date.toLocaleDateString('en-GB', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        });
-    }, [request.expires_at]);
+        return label === '—' ? null : label;
+    }, [companyTimezone, formatDate, request.expires_at]);
 
     const submitError =
         (typeof errors.token === 'string' ? errors.token : null) ??

@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Branch;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -56,7 +57,7 @@ class BranchesExport implements FromQuery, WithHeadings, WithMapping, WithStrict
             $branch->email,
             $branch->is_headquarters ? 'Yes' : 'No',
             $branch->status,
-            optional($branch->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($branch->created_at, '') ?? '',
         ];
     }
 }

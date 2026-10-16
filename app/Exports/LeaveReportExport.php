@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Models\LeaveRequest;
 use App\Support\Reports\LeaveReportApprovalHistory;
 use App\Support\Reports\LeaveReportPresenter;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
@@ -90,11 +91,18 @@ final class LeaveReportExport implements FromQuery, WithHeadings, WithMapping, W
 
     private function date(?string $date): ?string
     {
-        return $date === null ? null : CarbonImmutable::parse($date)->format('d M Y');
+        return $date === null
+            ? null
+            : PlatformDateFormatter::make()->date(CarbonImmutable::parse($date), null);
     }
 
     private function datetime(?string $value): ?string
     {
-        return $value === null ? null : CarbonImmutable::parse($value)->timezone($this->timezone)->format('d M Y H:i');
+        return $value === null
+            ? null
+            : PlatformDateFormatter::make()->dateTime(
+                CarbonImmutable::parse($value)->timezone($this->timezone),
+                null,
+            );
     }
 }

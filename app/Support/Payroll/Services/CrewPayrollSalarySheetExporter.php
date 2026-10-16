@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Support\Payroll\PayrollRecordAccess;
 use App\Support\Payroll\Services\Concerns\SpreadsheetPayrollExportFormatting;
 use App\Support\Settings\CompanyCurrency;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -518,8 +519,8 @@ final class CrewPayrollSalarySheetExporter
             'client' => $assignment?->client?->name,
             'rank' => $assignment?->position?->title,
             'category' => $segment->pay_category?->label(),
-            'from' => $segment->from_date?->format('d-m-Y'),
-            'to' => $segment->to_date?->format('d-m-Y'),
+            'from' => PlatformDateFormatter::make()->date($segment->from_date, null),
+            'to' => PlatformDateFormatter::make()->date($segment->to_date, null),
             'days' => (float) $segment->days,
             'source' => $segment->source?->label(),
             'period' => PayrollWorkPeriodClassification::Current->label(),
@@ -564,7 +565,7 @@ final class CrewPayrollSalarySheetExporter
         }
 
         try {
-            return CarbonImmutable::parse((string) $value)->format('d-m-Y');
+            return PlatformDateFormatter::make()->date(CarbonImmutable::parse((string) $value), null);
         } catch (\Throwable) {
             return is_string($value) ? $value : null;
         }

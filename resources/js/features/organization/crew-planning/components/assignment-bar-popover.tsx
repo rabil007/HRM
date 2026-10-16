@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { useFormatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { barAvatarClass } from '../lib/assignment-bar-styles';
 import type {
@@ -15,14 +16,6 @@ function initials(name: string): string {
         .slice(0, 2)
         .map((p) => p[0]?.toUpperCase() ?? '')
         .join('');
-}
-
-function formatDate(dateStr: string): string {
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-    });
 }
 
 function Avatar({
@@ -81,6 +74,7 @@ function AssignmentBarPopoverContent({
     onEdit,
     onDelete,
 }: Props): ReactElement {
+    const formatDate = useFormatDate();
     const isVacant = bar.employee_id === null;
     const sourceLabel =
         bar.planning_kind_label ??

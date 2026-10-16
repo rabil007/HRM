@@ -3,6 +3,7 @@
 namespace App\Support\Recruitment;
 
 use App\Models\RecruitmentRequirementDeadlineExtension;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Support\Collection;
 
 final class RequirementDeadlineExtensionPresenter
@@ -19,17 +20,17 @@ final class RequirementDeadlineExtensionPresenter
             'status' => $extension->status->value,
             'status_label' => $extension->status->label(),
             'old_deadline' => $extension->old_deadline?->format('Y-m-d'),
-            'old_deadline_formatted' => $extension->old_deadline?->format('d M Y') ?? '—',
+            'old_deadline_formatted' => PlatformDateFormatter::make()->date($extension->old_deadline) ?? '—',
             'requested_deadline' => $extension->requested_deadline?->format('Y-m-d'),
-            'requested_deadline_formatted' => $extension->requested_deadline?->format('d M Y') ?? '—',
+            'requested_deadline_formatted' => PlatformDateFormatter::make()->date($extension->requested_deadline) ?? '—',
             'reason' => filled($extension->reason) ? (string) $extension->reason : null,
             'decision_note' => filled($extension->decision_note) ? (string) $extension->decision_note : null,
             'requested_by' => $extension->requested_by !== null ? (int) $extension->requested_by : null,
             'requested_by_name' => $extension->requestedBy?->name,
             'decided_by' => $extension->decided_by !== null ? (int) $extension->decided_by : null,
             'decided_by_name' => $extension->decidedBy?->name,
-            'requested_at_formatted' => $extension->created_at?->format('d M Y H:i') ?? '—',
-            'decided_at_formatted' => $extension->decided_at?->format('d M Y H:i'),
+            'requested_at_formatted' => PlatformDateFormatter::make()->dateTime($extension->created_at) ?? '—',
+            'decided_at_formatted' => PlatformDateFormatter::make()->dateTime($extension->decided_at, null),
         ];
     }
 

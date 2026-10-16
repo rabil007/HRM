@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\DocumentExpiryStatus;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -69,11 +70,11 @@ class DocumentsExport implements FromQuery, ShouldAutoSize, WithHeadings, WithMa
             $document->original_filename ?: ($document->title ?: $document->document_type_label),
             $document->document_type_label,
             $document->document_number ?? '',
-            $document->issue_date?->format('d-m-Y') ?? '',
-            $document->expiry_date?->format('d-m-Y') ?? '',
+            PlatformDateFormatter::make()->date($document->issue_date, '') ?? '',
+            PlatformDateFormatter::make()->date($document->expiry_date, '') ?? '',
             DocumentExpiry::humanLabel($document->expiry_date),
             $status,
-            $document->created_at?->format('d-m-Y H:i') ?? '',
+            PlatformDateFormatter::make()->dateTime($document->created_at, '') ?? '',
             $document->uploader?->name ?? '',
         ];
     }

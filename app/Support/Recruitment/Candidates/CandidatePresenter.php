@@ -12,6 +12,7 @@ use App\Models\RecruitmentCandidateStageTransition;
 use App\Models\User;
 use App\Support\Employees\EmployeeVisibilityScope;
 use App\Support\Recruitment\Candidates\Actions\CorrectCandidateStage;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 
@@ -709,7 +710,10 @@ final class CandidatePresenter
             }
         }
 
-        return $value->copy()->timezone($timezone)->format('d M Y H:i');
+        return PlatformDateFormatter::make()->dateTime(
+            $value->copy()->timezone($timezone),
+            null,
+        );
     }
 
     /**

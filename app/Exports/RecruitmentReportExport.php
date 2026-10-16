@@ -6,6 +6,7 @@ use App\Models\RecruitmentCandidate;
 use App\Models\User;
 use App\Support\Reports\Recruitment\RecruitmentReportPresenter;
 use App\Support\Reports\Recruitment\RecruitmentSpreadsheetSafeString;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -92,8 +93,8 @@ final class RecruitmentReportExport implements FromQuery, WithHeadings, WithMapp
             RecruitmentSpreadsheetSafeString::sanitize($row['recruiter_name']),
             $row['stage_label'],
             $row['interview_outcome_label'],
-            $row['expected_joining_date'],
-            $row['actual_joining_date'],
+            PlatformDateFormatter::make()->date($row['expected_joining_date'], '') ?? '',
+            PlatformDateFormatter::make()->date($row['actual_joining_date'], '') ?? '',
             $row['joining_readiness_label'],
             $row['conversion_status_label'],
             RecruitmentSpreadsheetSafeString::sanitize($employeeNo),

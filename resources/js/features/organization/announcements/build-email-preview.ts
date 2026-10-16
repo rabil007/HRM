@@ -1,3 +1,5 @@
+import { formatDisplayDateTime } from '@/lib/format-date';
+
 export function buildEmailPreview(input: {
     companyName: string;
     title: string;
@@ -7,13 +9,7 @@ export function buildEmailPreview(input: {
     const company = input.companyName.trim() || 'Company';
     const title = input.title.trim() || 'Announcement title';
     const priority = input.priorityLabel.trim() || 'Normal';
-    const publishedAt = new Date().toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
+    const publishedAt = formatDisplayDateTime(new Date().toISOString());
 
     const subject = `${priority} Announcement — ${title}`;
 

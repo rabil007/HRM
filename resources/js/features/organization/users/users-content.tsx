@@ -36,6 +36,7 @@ import { useHasPermission } from '@/hooks/use-has-permission';
 import { useOrganizationCrudList } from '@/hooks/use-organization-crud-list';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { buildListExportUrl } from '@/lib/build-list-export-url';
+import { useFormatDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { users as usersIndex } from '@/routes/organization';
 import {
@@ -96,6 +97,7 @@ export function UsersContent({
     invitations: UserInvitation[];
     employeesForLinking: EmployeeForLinking[];
 }) {
+    const formatDate = useFormatDate();
     const canCreate = useHasPermission('users.create');
     const [isInviteOpen, setIsInviteOpen] = useState(false);
     const canUpdate = useHasPermission('users.update');
@@ -334,9 +336,7 @@ export function UsersContent({
                                         {invitation.role?.name || '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {new Date(
-                                            invitation.expires_at,
-                                        ).toLocaleDateString()}
+                                        {formatDate(invitation.expires_at)}
                                     </TableCell>
                                     <TableCell
                                         className={dataTableActionsCellClass()}

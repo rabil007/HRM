@@ -4,6 +4,7 @@ namespace App\Support\CrewMovements\Historical;
 
 use App\Models\EmployeeSeaService;
 use App\Models\Position;
+use App\Support\Settings\PlatformDateFormatter;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -185,9 +186,10 @@ final class HistoricalSeaServiceMatchResolver
 
             if ($recordStart <= $proposedEndCmp && $seaStartDate <= $recordEndCmp) {
                 $conflictVesselName = $record->vessel?->name ?? 'another vessel';
-                $recStartFormatted = Carbon::parse($recordStart)->format('d M Y');
+                $dates = PlatformDateFormatter::make();
+                $recStartFormatted = $dates->date(Carbon::parse($recordStart)) ?? '—';
                 $recEndFormatted = $recordEnd !== null
-                    ? Carbon::parse($recordEnd)->format('d M Y')
+                    ? ($dates->date(Carbon::parse($recordEnd)) ?? '—')
                     : 'Current';
 
                 return sprintf(

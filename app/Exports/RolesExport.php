@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -37,7 +38,7 @@ class RolesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
             $role->id,
             $role->name,
             $role->permissions->pluck('name')->implode(', '),
-            optional($role->created_at)->toDateTimeString(),
+            PlatformDateFormatter::make()->dateTime($role->created_at, '') ?? '',
         ];
     }
 }

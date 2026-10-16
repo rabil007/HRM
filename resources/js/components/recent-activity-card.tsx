@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-    formatDisplayDate,
     formatDisplayValue,
     formatActivityFieldLabel,
+    useFormatDate,
+    useDateFormat,
 } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -66,6 +67,8 @@ export function RecentActivityCard({
     const [expandedActivity, setExpandedActivity] = useState<
         Record<number, boolean>
     >({});
+    const formatDate = useFormatDate();
+    const dateFormat = useDateFormat();
 
     return (
         <Card className="mt-8 glass-card border-border bg-card dark:border-white/5 dark:bg-white/5">
@@ -179,6 +182,7 @@ export function RecentActivityCard({
                                                                         <span className="text-muted-foreground/70">
                                                                             {formatDisplayValue(
                                                                                 oldVal,
+                                                                                dateFormat,
                                                                             )}
                                                                         </span>
                                                                         {' → '}
@@ -187,6 +191,7 @@ export function RecentActivityCard({
                                                                 <span className="text-foreground/90">
                                                                     {formatDisplayValue(
                                                                         newVal,
+                                                                        dateFormat,
                                                                     )}
                                                                 </span>
                                                             </span>
@@ -222,7 +227,7 @@ export function RecentActivityCard({
                                         </div>
 
                                         <div className="shrink-0 text-xs text-muted-foreground/50">
-                                            {formatDisplayDate(item.created_at)}
+                                            {formatDate(item.created_at)}
                                         </div>
                                     </div>
                                 </div>

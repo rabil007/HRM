@@ -370,7 +370,7 @@ test('fetch dispatches background job for selected date', function () {
 
     postHikvisionAccessEventsFetch($user, '2026-06-07')
         ->assertRedirect()
-        ->assertSessionHas('success', 'Fetch started for 07-06-2026. Records will update automatically when complete.');
+        ->assertSessionHas('success', 'Fetch started for 2026-06-07. Records will update automatically when complete.');
 
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class, fn (FetchHikvisionAccessEventsJob $job): bool => $job->date === '2026-06-07');
 });

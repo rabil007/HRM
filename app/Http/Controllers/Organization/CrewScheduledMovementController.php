@@ -15,6 +15,7 @@ use App\Support\CrewMovements\Scheduling\CrewScheduledMovementAccess;
 use App\Support\CrewMovements\Scheduling\CrewScheduledMovementIndexQuery;
 use App\Support\CrewMovements\Scheduling\ScheduleCrewMovement;
 use App\Support\CrewMovements\Scheduling\UpdateCrewScheduledMovement;
+use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -81,7 +82,10 @@ class CrewScheduledMovementController extends Controller
             ->with('success', sprintf(
                 '%s scheduled for %s.',
                 $schedule->movement_action->label(),
-                $schedule->scheduled_at?->timezone($schedule->scheduled_timezone)->format('d M Y H:i'),
+                PlatformDateFormatter::make()->dateTime(
+                    $schedule->scheduled_at?->timezone($schedule->scheduled_timezone),
+                    null,
+                ),
             ));
     }
 
@@ -108,7 +112,10 @@ class CrewScheduledMovementController extends Controller
             ->route('organization.crew-assignments.show', $schedule->crew_assignment_id)
             ->with('success', sprintf(
                 'Scheduled movement updated for %s.',
-                $schedule->scheduled_at?->timezone($schedule->scheduled_timezone)->format('d M Y H:i'),
+                PlatformDateFormatter::make()->dateTime(
+                    $schedule->scheduled_at?->timezone($schedule->scheduled_timezone),
+                    null,
+                ),
             ));
     }
 

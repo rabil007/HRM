@@ -4,6 +4,7 @@ namespace App\Support\Recruitment;
 
 use App\Models\RecruitmentRequirement;
 use App\Models\RecruitmentRequirementLine;
+use App\Support\Settings\PlatformDateFormatter;
 
 final class DuplicateRequirementDto
 {
@@ -77,7 +78,7 @@ final class DuplicateRequirementDto
             'status' => $requirement->status->value,
             'status_label' => $requirement->status->label(),
             'required_by_date' => $requirement->required_by_date?->format('Y-m-d') ?? '',
-            'required_by_date_formatted' => $requirement->required_by_date?->format('d-m-Y') ?? '—',
+            'required_by_date_formatted' => PlatformDateFormatter::make()->date($requirement->required_by_date) ?? '—',
             'total_headcount' => (int) $requirement->lines->sum('required_headcount'),
             'matching_positions' => array_values(array_unique($matchingTitles)),
             'positions' => $positions,

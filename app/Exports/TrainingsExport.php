@@ -46,8 +46,9 @@ class TrainingsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $training->employee?->department?->name,
             $training->employee?->position?->title,
             $training->course?->name,
-            optional($training->issue_date)->toDateString(),
-            optional($training->expiry_date)->toDateString(),
+            // ISO Y-m-d — re-importable via TrainingsImport.
+            $training->issue_date?->toDateString(),
+            $training->expiry_date?->toDateString(),
             TrainingExpiry::humanLabel($training->expiry_date),
             $training->institute_center,
             $training->country?->name,

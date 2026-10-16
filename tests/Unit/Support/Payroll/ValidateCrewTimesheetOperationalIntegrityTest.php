@@ -234,8 +234,8 @@ test('payable legacy flat range after period end is blocking when period is supp
         ->and($withPeriod->hasBlocking())->toBeTrue()
         ->and($withPeriod->blocking[0]['code'])->toBe('legacy_movement_outside_payroll_period')
         ->and($withPeriod->blocking[0]['pay_category'])->toBe('onsite')
-        ->and($withPeriod->blocking[0]['message'])->toContain('01 Aug – 06 Aug 2026')
-        ->and($withPeriod->blocking[0]['message'])->toContain('01 Jul – 31 Jul 2026');
+        ->and($withPeriod->blocking[0]['message'])->toContain('2026-08-01 – 2026-08-06')
+        ->and($withPeriod->blocking[0]['message'])->toContain('2026-07-01 – 2026-07-31');
 });
 
 test('payable legacy flat range starting before period remains allowed when period end is respected', function () {

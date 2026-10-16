@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 import {
     DEFAULT_DATE_FORMAT,
     formatDisplayDate,
+    formatDisplayDateTime,
+    formatDisplayDateTime12h,
     formatDisplayValue,
     isIsoDateString,
     SUPPORTED_DATE_FORMATS,
@@ -131,6 +133,24 @@ describe('format-date utility', () => {
                 'd-m-Y',
                 'M d, Y',
             ]);
+        });
+    });
+
+    describe('datetime helpers respect platform date format', () => {
+        it('formats local datetime date portion with the provided format', () => {
+            const value = new Date(2026, 4, 21, 14, 5, 0).toISOString();
+
+            // Construct from local parts to avoid TZ flakiness in assertion of date portion
+            const local = new Date(2026, 4, 21, 14, 5, 0);
+            const resultYmd = formatDisplayDateTime(local.toString(), 'Y-m-d');
+            const resultDmy = formatDisplayDateTime12h(
+                local.toString(),
+                'd/m/Y',
+            );
+
+            assert.match(resultYmd, /^2026-05-21 \d{2}:\d{2}$/);
+            assert.match(resultDmy, /^21\/05\/2026 \d{1,2}:\d{2} (AM|PM)$/);
+            assert.ok(value);
         });
     });
 });
