@@ -428,7 +428,6 @@ export function EmployeeContractTab({
                         ? ''
                         : String(row.other_allowances),
                 eos_monthly_amount: row.eos_monthly_amount == null ? '' : String(row.eos_monthly_amount),
-                eos_monthly_amount: row.eos_monthly_amount == null ? '' : String(row.eos_monthly_amount),
                 supplementary_allowance:
                     row.supplementary_allowance === null ||
                     row.supplementary_allowance === undefined
@@ -677,6 +676,7 @@ export function EmployeeContractTab({
                     row.other_allowances === undefined
                         ? ''
                         : String(row.other_allowances),
+                eos_monthly_amount: row.eos_monthly_amount == null ? '' : String(row.eos_monthly_amount),
                 supplementary_allowance:
                     row.supplementary_allowance === null ||
                     row.supplementary_allowance === undefined

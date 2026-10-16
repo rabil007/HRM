@@ -29,12 +29,13 @@ final class ContractImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, importable: int, skipped: int, warnings: int}
      * }
      */
-    public function preview(int $companyId, PayrollCategory $payrollCategory, UploadedFile $file): array
+    public function preview(int $companyId, PayrollCategory $payrollCategory, UploadedFile $file, string $salaryStructure = 'daily'): array
     {
         $evaluation = $this->evaluateRows(
             $companyId,
             $payrollCategory,
-            $this->import->parse($file, $payrollCategory),
+            $this->import->parse($file, $payrollCategory, $salaryStructure),
+            $salaryStructure,
         );
 
         return [
@@ -59,12 +60,13 @@ final class ContractImportOrchestrator
      *     errors: list<array{row: int, field: string, message: string}>
      * }
      */
-    public function execute(int $companyId, PayrollCategory $payrollCategory, UploadedFile $file): array
+    public function execute(int $companyId, PayrollCategory $payrollCategory, UploadedFile $file, string $salaryStructure = 'daily'): array
     {
         $evaluation = $this->evaluateRows(
             $companyId,
             $payrollCategory,
-            $this->import->parse($file, $payrollCategory),
+            $this->import->parse($file, $payrollCategory, $salaryStructure),
+            $salaryStructure,
         );
 
         if ($evaluation['summary']['importable'] === 0) {
@@ -114,7 +116,7 @@ final class ContractImportOrchestrator
      *     summary: array{total: int, valid: int, invalid: int, importable: int, skipped: int, warnings: int}
      * }
      */
-    private function evaluateRows(int $companyId, PayrollCategory $payrollCategory, array $parsedRows): array
+    private function evaluateRows(int $companyId, PayrollCategory $payrollCategory, array $parsedRows, string $salaryStructure): array
     {
         $employeesByNo = $this->loadEmployeesByNumber($companyId);
         $companyVisaTypeMap = $this->loadCompanyVisaTypeMap();
@@ -176,7 +178,7 @@ final class ContractImportOrchestrator
             $contractAttributes = [];
 
             if ($hasContractData) {
-                $contractAttributes = $this->buildContractAttributes($parsedRow, $payrollCategory, $companyVisaTypeId);
+                $contractAttributes = $this->buildContractAttributes($parsedRow, $payrollCategory, $companyVisaTypeId, $salaryStructure);
                 $validator = Validator::make($contractAttributes, $this->contractRules());
 
                 if ($validator->fails()) {
@@ -191,7 +193,24 @@ final class ContractImportOrchestrator
 
                 if ($employee !== null && empty($rowErrors)) {
                     $existingContract = $this->resolveExistingContract($employee, $payrollCategory);
-                    $action = $existingContract === null ? 'create' : 'update';
+                    $desiredStructure = $payrollCategory === PayrollCategory::Office ? 'monthly' : $salaryStructure;
+                    if ($existingContract !== null && $existingContract->resolvedSalaryStructure()->value !== $desiredStructure) {
+                        $rowErrors[] = [
+                            'row' => $rowNumber,
+                            'field' => 'salary_structure',
+                            'message' => 'Existing active contract has a different salary structure. Use the matching template or transfer workflow.',
+                        ];
+                    } else {
+                        // Blank salary cells on import preserve current values; explicit 0 clears a component.
+                        if ($existingContract !== null) {
+                            foreach (['basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'eos_monthly_amount', 'supplementary_allowance', 'site_allowance'] as $field) {
+                                if (($contractAttributes[$field] ?? null) === null) {
+                                    unset($contractAttributes[$field]);
+                                }
+                            }
+                        }
+                        $action = $existingContract === null ? 'create' : 'update';
+                    }
                 }
             }
 
@@ -204,6 +223,7 @@ final class ContractImportOrchestrator
                 'end_date' => $contractAttributes['end_date'] ?? null,
                 'labor_contract_id' => $contractAttributes['labor_contract_id'] ?? null,
                 'status' => $contractAttributes['status'] ?? null,
+                'salary_structure' => $payrollCategory === PayrollCategory::Office ? 'monthly' : $salaryStructure,
                 'basic_salary' => $contractAttributes['basic_salary'] ?? null,
                 'company_visa_type' => $parsedRow['company_visa_type'] ?? null,
                 'errors' => $rowErrors,
@@ -287,6 +307,7 @@ final class ContractImportOrchestrator
             'housing_allowance',
             'transport_allowance',
             'other_allowances',
+            'eos_monthly_amount',
             'supplementary_allowance',
             'site_allowance',
             'note',
@@ -304,7 +325,7 @@ final class ContractImportOrchestrator
      * @param  array<string, mixed>  $parsedRow
      * @return array<string, mixed>
      */
-    private function buildContractAttributes(array $parsedRow, PayrollCategory $payrollCategory, ?int $companyVisaTypeId): array
+    private function buildContractAttributes(array $parsedRow, PayrollCategory $payrollCategory, ?int $companyVisaTypeId, string $salaryStructure): array
     {
         return [
             'start_date' => $parsedRow['start_date'],
@@ -312,10 +333,12 @@ final class ContractImportOrchestrator
             'labor_contract_id' => $parsedRow['labor_contract_id'],
             'status' => $parsedRow['status'],
             'payroll_category' => $payrollCategory->value,
+            'salary_structure' => $payrollCategory === PayrollCategory::Office ? 'monthly' : $salaryStructure,
             'basic_salary' => $parsedRow['basic_salary'],
             'housing_allowance' => $parsedRow['housing_allowance'],
             'transport_allowance' => $parsedRow['transport_allowance'],
             'other_allowances' => $parsedRow['other_allowances'],
+            'eos_monthly_amount' => $parsedRow['eos_monthly_amount'] ?? null,
             'supplementary_allowance' => $parsedRow['supplementary_allowance'],
             'site_allowance' => $parsedRow['site_allowance'],
             'note' => $parsedRow['note'],
@@ -334,10 +357,12 @@ final class ContractImportOrchestrator
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'in:active,ended'],
             'payroll_category' => ['required', 'in:office,crew'],
+            'salary_structure' => ['required', 'in:daily,monthly'],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'eos_monthly_amount' => ['nullable', 'numeric', 'min:0'],
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],

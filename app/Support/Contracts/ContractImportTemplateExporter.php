@@ -22,7 +22,7 @@ final class ContractImportTemplateExporter
     /**
      * @return array{path: string, filename: string}
      */
-    public function export(int $companyId, PayrollCategory $payrollCategory): array
+    public function export(int $companyId, PayrollCategory $payrollCategory, string $salaryStructure = 'daily'): array
     {
         $employees = Employee::query()
             ->where('employees.company_id', $companyId)
@@ -36,6 +36,14 @@ final class ContractImportTemplateExporter
                 'contracts' => fn ($query) => $query
                     ->where('status', 'active')
                     ->where('payroll_category', $payrollCategory->value)
+                    ->when($payrollCategory === PayrollCategory::Crew, function ($query) use ($salaryStructure): void {
+                        $query->where(function ($scoped) use ($salaryStructure): void {
+                            $scoped->where('salary_structure', $salaryStructure);
+                            if ($salaryStructure === 'daily') {
+                                $scoped->orWhereNull('salary_structure');
+                            }
+                        });
+                    })
                     ->with('companyVisaType:id,name'),
             ])
             ->orderBy('employees.name')
@@ -43,9 +51,9 @@ final class ContractImportTemplateExporter
 
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle($this->import->sheetName($payrollCategory));
+        $sheet->setTitle($this->import->sheetName($payrollCategory, $salaryStructure));
 
-        foreach ($this->import->headers($payrollCategory) as $columnIndex => $header) {
+        foreach ($this->import->headers($payrollCategory, $salaryStructure) as $columnIndex => $header) {
             $sheet->setCellValueByColumnAndRow($columnIndex + 1, 1, $header);
         }
 
@@ -69,6 +77,13 @@ final class ContractImportTemplateExporter
                 $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->other_allowances);
                 $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->note);
                 $this->setStringCell($sheet, 12, $rowNumber, $contract?->companyVisaType?->name);
+            } elseif ($salaryStructure === 'monthly') {
+                $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->housing_allowance);
+                $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->transport_allowance);
+                $sheet->setCellValueByColumnAndRow(10, $rowNumber, $contract?->other_allowances);
+                $sheet->setCellValueByColumnAndRow(11, $rowNumber, $contract?->eos_monthly_amount);
+                $sheet->setCellValueByColumnAndRow(12, $rowNumber, $contract?->note);
+                $this->setStringCell($sheet, 13, $rowNumber, $contract?->companyVisaType?->name);
             } else {
                 $sheet->setCellValueByColumnAndRow(8, $rowNumber, $contract?->supplementary_allowance);
                 $sheet->setCellValueByColumnAndRow(9, $rowNumber, $contract?->site_allowance);
@@ -79,7 +94,8 @@ final class ContractImportTemplateExporter
             $rowNumber++;
         }
 
-        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'L' : 'K';
+        $lastColumn = $payrollCategory === PayrollCategory::Office ? 'L'
+            : ($salaryStructure === 'monthly' ? 'M' : 'K');
         $lastDataRow = max($rowNumber - 1, ContractsImport::DATA_START_ROW);
         $sheet->setAutoFilter("A1:{$lastColumn}{$lastDataRow}");
         $sheet->freezePane('A2');
@@ -92,7 +108,7 @@ final class ContractImportTemplateExporter
 
         $filename = $payrollCategory === PayrollCategory::Office
             ? 'office-contracts-template.xlsx'
-            : 'crew-contracts-template.xlsx';
+            : ($salaryStructure === 'monthly' ? 'crew-monthly-contracts-template.xlsx' : 'crew-contracts-template.xlsx');
 
         $path = storage_path('app/temp/'.uniqid('contracts-template-', true).'.xlsx');
         if (! is_dir(dirname($path))) {
