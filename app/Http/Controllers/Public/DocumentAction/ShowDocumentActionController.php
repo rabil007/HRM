@@ -13,6 +13,7 @@ use App\Support\Documents\RecipientRequests\DocumentRecipientRequestEventRecorde
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestLinkService;
 use App\Support\Documents\RecipientRequests\DocumentRecipientRequestToken;
 use App\Support\Documents\RecipientRequests\DocumentSignaturePlacementValidator;
+use App\Support\Settings\CompanyTimezone;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -66,6 +67,8 @@ class ShowDocumentActionController extends Controller
             'documentTitle' => (string) ($recipientRequest->documentInstance?->title_snapshot ?? 'Document'),
             'employeeName' => $recipientRequest->recipient_name_snapshot,
             'expiresAt' => $recipientRequest->expires_at?->toIso8601String(),
+            // Guests lack shared company settings; pass the document company's TZ for expiry display.
+            'companyTimezone' => CompanyTimezone::forCompany($recipientRequest->company),
             'status' => $recipientRequest->status->value,
             'action' => $recipientRequest->action->value,
             'alreadyCompleted' => $alreadyCompleted,

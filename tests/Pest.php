@@ -84,7 +84,7 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
         EmployeeVisibilityScope::clearCache();
-        // SettingService is a singleton; drop request caches after RefreshDatabase.
+        // Drop settings cache after RefreshDatabase so Pest tests do not share warm values.
         app(SettingService::class)->clearCache();
     })
     ->in('Feature');

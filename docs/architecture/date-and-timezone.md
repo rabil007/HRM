@@ -30,9 +30,11 @@ Shared wiring: `SharedSettingsPresenter`, `CompanyTimezone` (PHP), `useCompanyTi
 
 | Use case | Helper |
 | --- | --- |
-| Inertia `*_formatted`, email, PDF, export | `App\Support\Settings\PlatformDateFormatter` |
+| Inertia `*_formatted`, email, PDF, report-only export | `App\Support\Settings\PlatformDateFormatter` |
 | Company “today” / business boundaries | `App\Support\Settings\CompanyTimezone` |
-| Storage / import / API / validation | ISO `Y-m-d` (and normal Carbon casting) |
+| Storage / import / API / validation / re-importable export date columns | ISO `Y-m-d` (and normal Carbon casting) |
+
+Re-importable Excel/CSV pairs (`EmployeesExport`↔`EmployeesImport`, `SeaServicesExport`↔`SeaServicesImport`, `TrainingsExport`↔`TrainingsImport`, `ContractsExport`↔`ContractsImport`) keep date-only cells as ISO `Y-m-d` so ambiguous platform formats (`d/m/Y` vs `m/d/Y`) cannot silently swap day and month.
 
 ## Coverage
 
@@ -51,7 +53,8 @@ Keep month-only chrome (`F Y`, chart `M j`) and protocol/filename formats (e.g. 
 - Bare `formatDisplayDate(value)` in React components without going through `useFormatDate` / explicit format (layout cache sync is a fallback for non-React `.ts` helpers)
 - Browser-local `formatDisplayDateTime` for company attendance, leave, or activity ISO instants
 - Forcing platform timezone onto companies that already set `companies.timezone`
-- Changing storage, import templates, or `<input type="date">` values to platform display format
+- Changing storage, import templates, re-importable export date columns, or `<input type="date">` values to platform display format
+- Formatting absolute ISO expiry/datetimes with date-only helpers that take the UTC calendar prefix (use company-timezone local date first)
 - Rewiring crew movement wall-clock, payroll period boundaries, or leave rollover year logic for display-only consistency
 
 ## Examples

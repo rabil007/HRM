@@ -4,7 +4,6 @@ namespace App\Exports;
 
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeTrainings\TrainingExpiry;
-use App\Support\Settings\PlatformDateFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -47,8 +46,9 @@ class TrainingsExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $training->employee?->department?->name,
             $training->employee?->position?->title,
             $training->course?->name,
-            PlatformDateFormatter::make()->date($training->issue_date, '') ?? '',
-            PlatformDateFormatter::make()->date($training->expiry_date, '') ?? '',
+            // ISO Y-m-d — re-importable via TrainingsImport.
+            $training->issue_date?->toDateString(),
+            $training->expiry_date?->toDateString(),
             TrainingExpiry::humanLabel($training->expiry_date),
             $training->institute_center,
             $training->country?->name,

@@ -21,10 +21,12 @@ Full guide: [docs/architecture/date-and-timezone.md](../../docs/architecture/dat
 
 ## Backend (PHP)
 
-- **Human dates** for Inertia `*_formatted` props, emails, PDFs, exports: `PlatformDateFormatter::make()->date()` / `dateTime()`.
+- **Human dates** for Inertia `*_formatted` props, emails, PDFs, report-only exports: `PlatformDateFormatter::make()->date()` / `dateTime()`.
+- **Re-importable export date columns** (employees, sea services, trainings, contracts): keep ISO `Y-m-d` so export→import cannot corrupt ambiguous `05/06/2026` values.
 - **No new hardcoded** `->format('d-m-Y')` or `->format('d M Y')` for display.
 - **Storage, imports, APIs, validation:** keep ISO `Y-m-d` / Carbon; do not parse platform display formats as input.
 - **Business “today”, payroll periods, leave year, crew movement clocks:** `CompanyTimezone` (company first, platform fallback). Never force platform timezone onto companies that already have `companies.timezone`.
+- **Absolute ISO expiry/datetimes on UI:** convert to company-local calendar day (`toCompanyDateLocal` / company TZ) before platform date formatting; do not take the UTC `YYYY-MM-DD` prefix.
 
 ## Anti-patterns
 

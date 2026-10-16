@@ -63,9 +63,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(DocumentAiExtractor::class, DocumentAiProviderExtractor::class);
         $this->app->singleton(RendersSalaryDeclarationPdf::class, SalaryDeclarationPdfRenderer::class);
-        // Keep request-scoped settings/format caches warm across presenters and exports.
-        $this->app->singleton(SettingService::class);
-        $this->app->singleton(PlatformDateFormatter::class);
+        // One instance per HTTP request / queue job: warm caches within the unit of
+        // work (exports, presenters) without retaining stale settings across jobs.
+        $this->app->scoped(SettingService::class);
+        $this->app->scoped(PlatformDateFormatter::class);
     }
 
     /**

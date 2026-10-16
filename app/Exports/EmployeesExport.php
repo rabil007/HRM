@@ -67,8 +67,10 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             return $value ? 'Yes' : 'No';
         }
 
+        // Date-only cells stay ISO Y-m-d so export → EmployeesImport round-trips
+        // without ambiguous day/month corruption (e.g. 05/06/2026).
         if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1) {
-            return PlatformDateFormatter::make()->date($value, '') ?? '';
+            return $value;
         }
 
         if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/', $value) === 1) {

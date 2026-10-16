@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SignatureCapture } from '@/features/esign/signature-capture';
 import { pdfEmbedUrl } from '@/features/organization/documents/lib/pdf-embed-url';
+import { toCompanyDateLocal, useCompanyTimezone } from '@/lib/company-timezone';
 import { useFormatDate } from '@/lib/format-date';
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
     documentTitle: string;
     employeeName: string;
     expiresAt: string | null;
+    companyTimezone?: string | null;
     status: string;
     action: 'sign' | 'acknowledge';
     alreadyCompleted: boolean;
@@ -29,6 +31,7 @@ export default function DocumentActionPage({
     documentTitle,
     employeeName,
     expiresAt,
+    companyTimezone: companyTimezoneProp,
     action,
     alreadyCompleted,
     documentUrl,
@@ -44,16 +47,19 @@ export default function DocumentActionPage({
     const [acknowledgement, setAcknowledgement] = useState(false);
     const [typedName, setTypedName] = useState(employeeName);
     const formatDate = useFormatDate();
+    const companyTimezone = useCompanyTimezone(companyTimezoneProp);
 
     const expiryLabel = useMemo(() => {
         if (!expiresAt) {
             return null;
         }
 
-        const label = formatDate(expiresAt);
+        // ISO instants must use company TZ calendar day (not UTC date prefix).
+        const localDate = toCompanyDateLocal(expiresAt, companyTimezone);
+        const label = formatDate(localDate || null);
 
         return label === '—' ? null : label;
-    }, [expiresAt, formatDate]);
+    }, [companyTimezone, expiresAt, formatDate]);
 
     const submitError =
         (typeof errors.token === 'string' ? errors.token : null) ??
