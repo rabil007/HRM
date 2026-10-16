@@ -21,6 +21,7 @@ final class CrewScheduledMovementPayload
         'scheduled_at',
         'scheduled_timezone',
         'action_fields',
+        'check_in_date_auto_synced',
         'check_out_date_auto_synced',
         'source_check_out_date_auto_synced',
     ];
@@ -51,6 +52,7 @@ final class CrewScheduledMovementPayload
         'course_id',
         'completion_intent',
         'remarks',
+        'check_in_date_auto_synced',
         'check_out_date_auto_synced',
         'source_check_out_date_auto_synced',
         'planned_start_at',
@@ -102,6 +104,10 @@ final class CrewScheduledMovementPayload
 
         $payload = self::onlyAllowedActionFields($payload);
 
+        if (array_key_exists('check_in_date_auto_synced', $validated)) {
+            $payload['check_in_date_auto_synced'] = (bool) $validated['check_in_date_auto_synced'];
+        }
+
         if (array_key_exists('check_out_date_auto_synced', $validated)) {
             $payload['check_out_date_auto_synced'] = (bool) $validated['check_out_date_auto_synced'];
         }
@@ -124,6 +130,7 @@ final class CrewScheduledMovementPayload
         $execution = $payload;
         unset(
             $execution['_action'],
+            $execution['check_in_date_auto_synced'],
             $execution['check_out_date_auto_synced'],
             $execution['source_check_out_date_auto_synced'],
         );
@@ -142,6 +149,10 @@ final class CrewScheduledMovementPayload
     public static function syncAutoLinkedDates(array $payload, string $scheduledAtLocal): array
     {
         $date = substr($scheduledAtLocal, 0, 10);
+
+        if (($payload['check_in_date_auto_synced'] ?? false) === true) {
+            $payload['check_in_date'] = $date;
+        }
 
         if (($payload['check_out_date_auto_synced'] ?? false) === true) {
             $payload['check_out_date'] = $date;

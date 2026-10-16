@@ -3,6 +3,7 @@ import type {
     CrewMovementActionFormData,
     CrewScheduledMovementCard,
 } from '../types';
+import { storedHotelDateAutoSynced } from './linked-hotel-date.ts';
 
 /**
  * Mirrors `CrewScheduledMovementPayload::ALLOWED_ACTION_FIELD_KEYS`.
@@ -29,6 +30,7 @@ export const ALLOWED_SCHEDULE_ACTION_FIELD_KEYS = [
     'course_id',
     'completion_intent',
     'remarks',
+    'check_in_date_auto_synced',
     'check_out_date_auto_synced',
     'source_check_out_date_auto_synced',
     'planned_start_at',
@@ -57,6 +59,7 @@ export const ACTION_SCHEDULE_FIELD_KEYS: Partial<
         'room_type_id',
         'check_in_date',
         'remarks',
+        'check_in_date_auto_synced',
     ],
     send_to_training: [
         'provider',
@@ -92,6 +95,7 @@ export const ACTION_SCHEDULE_FIELD_KEYS: Partial<
         'room_type_id',
         'check_in_date',
         'remarks',
+        'check_in_date_auto_synced',
     ],
     travel_home: [
         'check_out_date',
@@ -123,6 +127,7 @@ export const ACTION_SCHEDULE_FIELD_KEYS: Partial<
         'room_type_id',
         'check_in_date',
         'remarks',
+        'check_in_date_auto_synced',
         'source_check_out_date_auto_synced',
     ],
     close_assignment: ['remarks'],
@@ -142,6 +147,7 @@ export function buildScheduledMovementEditActionFields(
     action: CrewMovementAction,
     payload: Partial<CrewMovementActionFormData> & Record<string, unknown>,
     options: {
+        checkInDateAutoSynced?: boolean;
         checkOutDateAutoSynced?: boolean;
         sourceCheckOutDateAutoSynced?: boolean;
     } = {},
@@ -151,6 +157,14 @@ export function buildScheduledMovementEditActionFields(
 
     for (const key of keys) {
         if (!isAllowedScheduleActionFieldKey(key)) {
+            continue;
+        }
+
+        if (key === 'check_in_date_auto_synced') {
+            if (options.checkInDateAutoSynced !== undefined) {
+                fields[key] = Boolean(options.checkInDateAutoSynced);
+            }
+
             continue;
         }
 
@@ -202,6 +216,17 @@ export function applyScheduledMovementFormPrefill(
         schedule.scheduled_at_input?.replace('T', ' ') ??
         schedule.scheduled_at ??
         data.occurred_at;
+    const occurredAt = scheduledAt.slice(0, 16).replace('T', ' ');
+    const calendarDate = occurredAt.slice(0, 10);
+    const checkInAutoSynced = storedHotelDateAutoSynced(
+        payload.check_in_date_auto_synced,
+    );
+    const checkOutAutoSynced = storedHotelDateAutoSynced(
+        payload.check_out_date_auto_synced,
+    );
+    const sourceCheckOutAutoSynced = storedHotelDateAutoSynced(
+        payload.source_check_out_date_auto_synced,
+    );
 
     return {
         ...data,
@@ -210,8 +235,24 @@ export function applyScheduledMovementFormPrefill(
                 ([key]) => key !== '_action' && key in data,
             ),
         ),
-        occurred_at: scheduledAt.slice(0, 16).replace('T', ' '),
+        occurred_at: occurredAt,
         action: schedule.movement_action as CrewMovementAction,
+        check_in_date: checkInAutoSynced
+            ? calendarDate
+            : String(payload.check_in_date ?? data.check_in_date ?? ''),
+        check_out_date: checkOutAutoSynced
+            ? calendarDate
+            : String(payload.check_out_date ?? data.check_out_date ?? ''),
+        source_check_out_date: sourceCheckOutAutoSynced
+            ? calendarDate
+            : String(
+                  payload.source_check_out_date ??
+                      data.source_check_out_date ??
+                      '',
+              ),
+        check_in_date_auto_synced: checkInAutoSynced,
+        check_out_date_auto_synced: checkOutAutoSynced,
+        source_check_out_date_auto_synced: sourceCheckOutAutoSynced,
     };
 }
 
@@ -219,17 +260,22 @@ export function buildScheduledMovementEditPayload(
     action: CrewMovementAction,
     payload: Partial<CrewMovementActionFormData> & Record<string, unknown>,
     options: {
+        checkInDateAutoSynced?: boolean;
         checkOutDateAutoSynced?: boolean;
         sourceCheckOutDateAutoSynced?: boolean;
     } = {},
 ): {
     scheduled_at: string;
     action_fields: Record<string, unknown>;
+    check_in_date_auto_synced?: boolean;
     check_out_date_auto_synced?: boolean;
     source_check_out_date_auto_synced?: boolean;
 } {
     const keys = ACTION_SCHEDULE_FIELD_KEYS[action] ?? [];
     const scopedOptions = {
+        checkInDateAutoSynced: keys.includes('check_in_date_auto_synced')
+            ? options.checkInDateAutoSynced
+            : undefined,
         checkOutDateAutoSynced: keys.includes('check_out_date_auto_synced')
             ? options.checkOutDateAutoSynced
             : undefined,
@@ -252,12 +298,19 @@ export function buildScheduledMovementEditPayload(
     const result: {
         scheduled_at: string;
         action_fields: Record<string, unknown>;
+        check_in_date_auto_synced?: boolean;
         check_out_date_auto_synced?: boolean;
         source_check_out_date_auto_synced?: boolean;
     } = {
         scheduled_at: scheduledAt,
         action_fields: actionFields,
     };
+
+    if (scopedOptions.checkInDateAutoSynced !== undefined) {
+        result.check_in_date_auto_synced = Boolean(
+            scopedOptions.checkInDateAutoSynced,
+        );
+    }
 
     if (scopedOptions.checkOutDateAutoSynced !== undefined) {
         result.check_out_date_auto_synced = Boolean(

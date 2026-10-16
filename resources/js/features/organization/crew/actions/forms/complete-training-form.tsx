@@ -21,6 +21,8 @@ export function CompleteTrainingForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const isSyncEnabled = Boolean(context.sync_training_enabled);
     const shouldSync =
@@ -40,6 +42,8 @@ export function CompleteTrainingForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

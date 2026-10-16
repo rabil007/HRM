@@ -56,6 +56,7 @@ class StoreCrewScheduledMovementRequest extends PerformCrewMovementActionRequest
             'string',
             Rule::in(CrewSchedulableMovementActions::values()),
         ];
+        $rules['check_in_date_auto_synced'] = ['sometimes', 'boolean'];
         $rules['check_out_date_auto_synced'] = ['sometimes', 'boolean'];
         $rules['source_check_out_date_auto_synced'] = ['sometimes', 'boolean'];
         $rules['remarks'] = ['nullable', 'string', 'max:1000'];

@@ -1,12 +1,16 @@
 import type { ReactElement } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { ActionImpactPreview } from '@/components/action-impact-preview';
 import InputError from '@/components/input-error';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import type { CrewPreJoinAccommodationContext } from '@/features/organization/crew/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 
@@ -31,6 +35,8 @@ export function CancelAssignmentForm({
     context,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const openAccommodation = resolveOpenHotelAccommodation(
         context.pre_join_accommodation,
@@ -41,28 +47,7 @@ export function CancelAssignmentForm({
         context.post_signoff_accommodation?.warning ??
         null;
 
-    const lastAutoCheckOutDateRef = useRef(
-        form.data.check_out_date || form.data.occurred_at.slice(0, 10),
-    );
-
-    const syncCheckOutDate = (occurredAt: string): void => {
-        if (openAccommodation === null) {
-            return;
-        }
-
-        const nextCancellationDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextCancellationDate ||
-            (form.data.check_out_date !== '' &&
-                form.data.check_out_date !== lastAutoCheckOutDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_out_date', nextCancellationDate);
-        lastAutoCheckOutDateRef.current = nextCancellationDate;
-    };
+    const checkOutLinked = form.data.check_out_date_auto_synced === true;
 
     useEffect(() => {
         if (!config.occurredAtLabel) {
@@ -140,24 +125,34 @@ export function CancelAssignmentForm({
                             {formatDisplayDate(openAccommodation.check_in_date)}
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="movement-cancel-check-out-date">
-                            Hotel Check-out Date{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="movement-cancel-check-out-date"
-                            type="date"
-                            value={form.data.check_out_date}
-                            onChange={(event) =>
-                                form.setData(
+                    <LinkedHotelDateField
+                        id="movement-cancel-check-out-date"
+                        label="Hotel Check-Out"
+                        checkboxLabel="Use Cancellation Date for Hotel Check-Out"
+                        value={form.data.check_out_date}
+                        linked={checkOutLinked}
+                        error={form.errors.check_out_date}
+                        onLinkedChange={(linked) =>
+                            form.setData((current) =>
+                                setHotelDateLink(
+                                    current,
                                     'check_out_date',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <InputError message={form.errors.check_out_date} />
-                    </div>
+                                    'check_out_date_auto_synced',
+                                    linked,
+                                ),
+                            )
+                        }
+                        onValueChange={(value) =>
+                            form.setData((current) =>
+                                setManualHotelDate(
+                                    current,
+                                    'check_out_date',
+                                    'check_out_date_auto_synced',
+                                    value,
+                                ),
+                            )
+                        }
+                    />
                 </div>
             ) : null}
 
@@ -171,10 +166,18 @@ export function CancelAssignmentForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={
                         openAccommodation !== null ? undefined : firstFieldRef
                     }
-                    onValueChange={syncCheckOutDate}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'check_out_date',
+                            syncedKey: 'check_out_date_auto_synced',
+                            active: openAccommodation !== null,
+                        },
+                    ]}
                 />
             ) : null}
 

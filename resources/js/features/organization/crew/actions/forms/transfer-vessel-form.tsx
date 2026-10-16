@@ -25,6 +25,8 @@ export function TransferVesselForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const transferDate = form.data.occurred_at.slice(0, 10);
     const selectedPosition = findPositionTourOption(
@@ -134,6 +136,8 @@ export function TransferVesselForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={firstFieldRef}
                 />
             ) : null}

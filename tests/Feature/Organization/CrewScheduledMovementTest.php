@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\CrewAccommodationStatus;
+use App\Enums\CrewAccommodationStayType;
 use App\Enums\CrewAssignmentStatus;
 use App\Enums\CrewMovementAction;
 use App\Enums\CrewOperationalAlertType;
@@ -7,10 +9,12 @@ use App\Enums\CrewPhaseCode;
 use App\Enums\CrewScheduledMovementStatus;
 use App\Exceptions\CrewMovementException;
 use App\Models\Company;
+use App\Models\CrewAccommodationStay;
 use App\Models\CrewAssignment;
 use App\Models\CrewScheduledMovement;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\Hotel;
 use App\Models\Position;
 use App\Models\User;
 use App\Support\CrewMovements\CrewMovementService;
@@ -108,6 +112,23 @@ function advanceDemobStandbyAssignment(array $fixtures, ?object $vessel = null):
         'occurred_at' => '2027-01-14 09:00:00',
         'next_phase' => CrewPhaseCode::DemobStandby->value,
         'accommodation_status' => 'no_accommodation',
+    ], $fixtures['user']->id);
+
+    return $assignment->fresh(['currentPhase']);
+}
+
+function startScheduledPreArrivalAssignment(array $fixtures): CrewAssignment
+{
+    $service = app(CrewMovementService::class);
+    $vessel = makeCrewMovementVessel('Future Arrival Vessel', $fixtures['company']);
+
+    $assignment = $service->createDraft($fixtures['company']->id, $fixtures['employee']->id, [
+        'position_id' => $fixtures['rank']->id,
+        'vessel_id' => $vessel->id,
+    ], $fixtures['user']->id);
+
+    $service->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::ApproveMobilisation, [
+        'occurred_at' => '2027-01-08 08:00:00',
     ], $fixtures['user']->id);
 
     return $assignment->fresh(['currentPhase']);
@@ -1395,4 +1416,291 @@ test('update rejects generic form fields that are not allowlisted', function () 
 
     expect($schedule->fresh()->action_payload)->not->toHaveKey('reason')
         ->and($schedule->fresh()->action_payload)->not->toHaveKey('planned_travel_at');
+});
+
+test('future arrival with hotel schedules without creating a stay and applies both on execution', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Future Arrival Hotel']);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-20',
+            'check_in_date_auto_synced' => true,
+        ])
+        ->assertRedirect(route('organization.crew-assignments.show', $assignment))
+        ->assertSessionHas('success');
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->first();
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0)
+        ->and($schedule)->not->toBeNull()
+        ->and($schedule->status)->toBe(CrewScheduledMovementStatus::Scheduled)
+        ->and($schedule->action_payload['check_in_date'] ?? null)->toBe('2027-01-20')
+        ->and($schedule->action_payload['check_in_date_auto_synced'] ?? null)->toBeTrue();
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:00:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-20 09:00:00', 'Asia/Dubai'));
+    $result = app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->first();
+
+    expect($result['executed'])->toBe(1)
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($stay)->not->toBeNull()
+        ->and($stay->stay_type)->toBe(CrewAccommodationStayType::PreJoin)
+        ->and($stay->check_in_date?->toDateString())->toBe('2027-01-20')
+        ->and($stay->check_out_date)->toBeNull()
+        ->and($schedule->fresh()->status)->toBe(CrewScheduledMovementStatus::Executed);
+});
+
+test('late future arrival does not create a hotel stay or change phase', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Late Arrival Hotel']);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-20',
+            'check_in_date_auto_synced' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:20:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-20 09:20:00', 'Asia/Dubai'));
+    app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    expect($schedule->status)->toBe(CrewScheduledMovementStatus::NeedsAttention)
+        ->and($schedule->last_error_code)->toBe('lateness_exceeded')
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+});
+
+test('future join vessel does not check out the hotel until execution', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Join Checkout Hotel']);
+
+    app(CrewMovementService::class)->perform($fixtures['company']->id, $assignment->id, CrewMovementAction::RecordArrival, [
+        'occurred_at' => '2027-01-10 08:00:00',
+        'next_phase' => CrewPhaseCode::JoinStandby->value,
+        'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+        'hotel_id' => $hotel->id,
+        'check_in_date' => '2027-01-10',
+    ], $fixtures['user']->id);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment->fresh()), [
+            'action' => CrewMovementAction::JoinVessel->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'vessel_id' => $assignment->vessel_id,
+            'position_id' => $assignment->position_id,
+            'planned_signoff_choice' => 'manual_override',
+            'planned_signoff_at' => '2027-03-20',
+            'planned_signoff_override_reason' => 'Future join hotel',
+            'check_out_date' => '2027-01-20',
+            'check_out_date_auto_synced' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $stay = CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->first();
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::JoinStandby)
+        ->and($stay)->not->toBeNull()
+        ->and($stay->check_out_date)->toBeNull();
+
+    Carbon::setTestNow(Carbon::parse('2027-01-20 09:00:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-20 09:00:00', 'Asia/Dubai'));
+    app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and($stay->fresh()->check_out_date?->toDateString())->toBe('2027-01-20');
+});
+
+test('future disembarkation does not create a demobilisation hotel stay until execution', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = advanceOnVesselAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Demob Hotel']);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::ConfirmDisembarkation->value,
+            'occurred_at' => '2027-01-25 09:00:00',
+            'next_phase' => CrewPhaseCode::DemobStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-25',
+            'check_in_date_auto_synced' => true,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::OnVessel)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->where('stay_type', CrewAccommodationStayType::PostSignoff)->count())->toBe(0);
+
+    Carbon::setTestNow(Carbon::parse('2027-01-25 09:00:00', 'Asia/Dubai'));
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2027-01-25 09:00:00', 'Asia/Dubai'));
+    app(ProcessDueCrewScheduledMovements::class)->handle(25, Carbon::now('UTC'));
+
+    $stay = CrewAccommodationStay::query()
+        ->where('crew_assignment_id', $assignment->id)
+        ->where('stay_type', CrewAccommodationStayType::PostSignoff)
+        ->first();
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::DemobStandby)
+        ->and($stay)->not->toBeNull()
+        ->and($stay->check_in_date?->toDateString())->toBe('2027-01-25');
+});
+
+test('quick reschedule follows an auto linked arrival check in and preserves a manual one', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Linked Check In Hotel']);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-20',
+            'check_in_date_auto_synced' => true,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $linked = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $linked), [
+            'scheduled_at' => '2027-01-22 09:00:00',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($linked->fresh()->action_payload['check_in_date'] ?? null)->toBe('2027-01-22')
+        ->and($linked->fresh()->action_payload['check_in_date_auto_synced'] ?? null)->toBeTrue()
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
+
+    $manualFixtures = makeCrewScheduledMovementFixtures();
+    $manualAssignment = startScheduledPreArrivalAssignment($manualFixtures);
+    $manualHotel = Hotel::factory()->create(['company_id' => $manualFixtures['company']->id, 'name' => 'Manual Check In Hotel']);
+
+    $this->actingAs($manualFixtures['user'])
+        ->withSession(['current_company_id' => $manualFixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $manualAssignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $manualHotel->id,
+            'check_in_date' => '2027-01-20',
+            'check_in_date_auto_synced' => false,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $manual = CrewScheduledMovement::query()->where('crew_assignment_id', $manualAssignment->id)->firstOrFail();
+
+    $this->actingAs($manualFixtures['user'])
+        ->withSession(['current_company_id' => $manualFixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $manual), [
+            'scheduled_at' => '2027-01-22 09:00:00',
+        ])
+        ->assertSessionHasErrors('check_in_date');
+
+    expect($manual->fresh()->action_payload['check_in_date'] ?? null)->toBe('2027-01-20')
+        ->and($manual->fresh()->scheduled_at?->timezone('Asia/Dubai')->format('Y-m-d H:i:s'))->toBe('2027-01-20 09:00:00');
+
+    $this->actingAs($manualFixtures['user'])
+        ->withSession(['current_company_id' => $manualFixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $manual), [
+            'scheduled_at' => '2027-01-18 09:00:00',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($manual->fresh()->action_payload['check_in_date'] ?? null)->toBe('2027-01-20')
+        ->and($manual->fresh()->action_payload['check_in_date_auto_synced'] ?? null)->toBeFalse()
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $manualAssignment->id)->count())->toBe(0);
+});
+
+test('a missing check in sync flag is not inferred when the dates match', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Legacy Check In Hotel']);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-20',
+        ])
+        ->assertSessionHasNoErrors();
+
+    $schedule = CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->firstOrFail();
+
+    expect($schedule->action_payload)->not->toHaveKey('check_in_date_auto_synced');
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->put(route('organization.crew-scheduled-movements.update', $schedule), [
+            'scheduled_at' => '2027-01-18 09:00:00',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($schedule->fresh()->action_payload['check_in_date'] ?? null)->toBe('2027-01-20')
+        ->and($schedule->fresh()->action_payload)->not->toHaveKey('check_in_date_auto_synced')
+        ->and($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival);
+});
+
+test('users without schedule permission cannot record a future arrival', function () {
+    $fixtures = makeCrewScheduledMovementFixtures();
+    $assignment = startScheduledPreArrivalAssignment($fixtures);
+    $hotel = Hotel::factory()->create(['company_id' => $fixtures['company']->id, 'name' => 'Denied Arrival Hotel']);
+
+    grantCompanyPermissions($fixtures['user'], $fixtures['company'], [
+        'crew_operations.assignments.view',
+        'crew_operations.movements.perform',
+    ]);
+
+    $this->actingAs($fixtures['user'])
+        ->withSession(['current_company_id' => $fixtures['company']->id])
+        ->post(route('organization.crew-assignments.perform-action', $assignment), [
+            'action' => CrewMovementAction::RecordArrival->value,
+            'occurred_at' => '2027-01-20 09:00:00',
+            'next_phase' => CrewPhaseCode::JoinStandby->value,
+            'accommodation_status' => CrewAccommodationStatus::Hotel->value,
+            'hotel_id' => $hotel->id,
+            'check_in_date' => '2027-01-20',
+            'check_in_date_auto_synced' => true,
+        ])
+        ->assertSessionHasErrors('occurred_at');
+
+    expect($assignment->fresh()->currentPhase?->phase_code)->toBe(CrewPhaseCode::PreArrival)
+        ->and(CrewScheduledMovement::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0)
+        ->and(CrewAccommodationStay::query()->where('crew_assignment_id', $assignment->id)->count())->toBe(0);
 });

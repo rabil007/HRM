@@ -1,5 +1,4 @@
 import type { ReactElement } from 'react';
-import { useRef } from 'react';
 import InputError from '@/components/input-error';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,11 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { roomTypesForHotel } from '@/features/organization/crew/lib/accommodation-room-types';
+import {
+    movementCalendarDate,
+    setHotelDateLink,
+    setManualHotelDate,
+} from '@/features/organization/crew/lib/linked-hotel-date';
 import { resolveDestinationCheckInDateOnP1AEntry } from '@/features/organization/crew/lib/redeploy-destination-check-in';
 import {
     clearedDirectP4TourFields,
@@ -23,6 +27,7 @@ import {
 } from '@/features/organization/crew/lib/tour-signoff';
 import { formatDisplayDate } from '@/lib/format-date';
 import { CREW_PHASE_LABELS } from '../../types';
+import { LinkedHotelDateField } from './linked-hotel-date-field';
 import { MovementOccurredAtField } from './movement-form-shared';
 import type { MovementActionFormProps } from './movement-form-shared';
 import { TourSignoffFields } from './tour-signoff-fields';
@@ -40,6 +45,8 @@ export function RedeployForm({
     formOptions,
     firstFieldRef,
     schedulingMode,
+    allowsFutureDates,
+    preventPastSelection,
 }: MovementActionFormProps): ReactElement {
     const startingPhase = form.data.starting_phase;
     const requiresVessel = startingPhase === 'p2';
@@ -54,70 +61,23 @@ export function RedeployForm({
         formOptions?.room_types,
         form.data.hotel_id,
     );
-    const lastAutoSourceCheckOutDateRef = useRef(
-        form.data.source_check_out_date || form.data.occurred_at.slice(0, 10),
-    );
-    const lastAutoDestinationCheckInDateRef = useRef(
-        form.data.check_in_date || form.data.occurred_at.slice(0, 10),
-    );
-
-    const syncSourceCheckOutDate = (occurredAt: string): void => {
-        if (postSignoffAccommodation?.status !== 'open_hotel') {
-            return;
-        }
-
-        const nextRedeployDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextRedeployDate ||
-            (form.data.source_check_out_date !== '' &&
-                form.data.source_check_out_date !==
-                    lastAutoSourceCheckOutDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('source_check_out_date', nextRedeployDate);
-        lastAutoSourceCheckOutDateRef.current = nextRedeployDate;
-    };
-
-    const syncDestinationCheckInDate = (occurredAt: string): void => {
-        if (!showDestinationAccommodation || noDestinationHotelAccommodation) {
-            return;
-        }
-
-        const nextRedeployDate = occurredAt.slice(0, 10);
-
-        if (
-            !nextRedeployDate ||
-            (form.data.check_in_date !== '' &&
-                form.data.check_in_date !==
-                    lastAutoDestinationCheckInDateRef.current)
-        ) {
-            return;
-        }
-
-        form.setData('check_in_date', nextRedeployDate);
-        lastAutoDestinationCheckInDateRef.current = nextRedeployDate;
-    };
+    const sourceCheckOutLinked =
+        form.data.source_check_out_date_auto_synced === true;
+    const destinationCheckInLinked =
+        form.data.check_in_date_auto_synced === true;
 
     const setNoDestinationHotelAccommodation = (checked: boolean): void => {
-        const nextCheckInDate = checked
-            ? ''
-            : form.data.occurred_at.slice(0, 10);
-
-        if (!checked) {
-            lastAutoDestinationCheckInDateRef.current = nextCheckInDate;
-        }
-
-        form.setData({
-            ...form.data,
+        form.setData((current) => ({
+            ...current,
             no_hotel_accommodation: checked,
             accommodation_status: checked ? 'no_accommodation' : 'hotel',
-            hotel_id: checked ? null : form.data.hotel_id,
-            room_type_id: checked ? null : form.data.room_type_id,
-            check_in_date: nextCheckInDate,
-        });
+            hotel_id: checked ? null : current.hotel_id,
+            room_type_id: checked ? null : current.room_type_id,
+            check_in_date: checked
+                ? ''
+                : movementCalendarDate(current.occurred_at),
+            check_in_date_auto_synced: !checked,
+        }));
     };
     const selectedPosition = findPositionTourOption(
         formOptions?.positions,
@@ -235,74 +195,99 @@ export function RedeployForm({
                 <Select
                     value={startingPhase}
                     onValueChange={(value) => {
-                        const next: Partial<typeof form.data> = {
-                            starting_phase: value,
-                        };
+                        form.setData((current) => {
+                            const next: Partial<typeof current> = {
+                                starting_phase: value,
+                            };
 
-                        if (value === 'p0') {
-                            next.vessel_id = null;
-                            next.position_id = null;
-                            next.client_id = null;
-                            next.planned_signoff_at = '';
-                            Object.assign(next, clearedDirectP4TourFields());
-                        } else if (value === 'p2') {
-                            if (!['p1a', 'p2'].includes(startingPhase)) {
+                            if (value === 'p0') {
+                                next.vessel_id = null;
+                                next.position_id = null;
+                                next.client_id = null;
+                                next.planned_signoff_at = '';
+                                Object.assign(
+                                    next,
+                                    clearedDirectP4TourFields(),
+                                );
+                            } else if (value === 'p2') {
+                                if (
+                                    !['p1a', 'p2'].includes(
+                                        current.starting_phase,
+                                    )
+                                ) {
+                                    next.vessel_id = context.vessel_id;
+                                    next.position_id = context.position_id;
+                                    next.client_id = context.client_id;
+                                }
+
+                                const rankId =
+                                    next.position_id !== undefined
+                                        ? next.position_id
+                                        : current.position_id;
+                                const position = findPositionTourOption(
+                                    formOptions?.positions,
+                                    rankId,
+                                );
+
+                                next.planned_signoff_choice =
+                                    defaultDestinationTourSignoffChoice(
+                                        position,
+                                    );
+                                next.planned_signoff_override_reason = '';
+                                next.planned_signoff_at = '';
+                            } else if (value === 'p1a') {
+                                if (
+                                    !['p1', 'p1a', 'p2'].includes(
+                                        current.starting_phase,
+                                    )
+                                ) {
+                                    next.vessel_id = context.vessel_id;
+                                    next.position_id = context.position_id;
+                                    next.client_id = context.client_id;
+                                }
+
+                                Object.assign(
+                                    next,
+                                    clearedDirectP4TourFields(),
+                                );
+
+                                const syncedCheckIn =
+                                    resolveDestinationCheckInDateOnP1AEntry({
+                                        redeployDate: movementCalendarDate(
+                                            current.occurred_at,
+                                        ),
+                                        autoSynced:
+                                            current.check_in_date_auto_synced !==
+                                            false,
+                                        noHotelAccommodation:
+                                            current.no_hotel_accommodation,
+                                    });
+
+                                if (syncedCheckIn !== null) {
+                                    next.check_in_date = syncedCheckIn;
+                                    next.check_in_date_auto_synced = true;
+                                }
+                            } else if (
+                                !['p1', 'p1a', 'p2'].includes(
+                                    current.starting_phase,
+                                )
+                            ) {
                                 next.vessel_id = context.vessel_id;
                                 next.position_id = context.position_id;
                                 next.client_id = context.client_id;
+                                Object.assign(
+                                    next,
+                                    clearedDirectP4TourFields(),
+                                );
+                            } else {
+                                Object.assign(
+                                    next,
+                                    clearedDirectP4TourFields(),
+                                );
                             }
 
-                            const rankId =
-                                next.position_id !== undefined
-                                    ? next.position_id
-                                    : form.data.position_id;
-                            const position = findPositionTourOption(
-                                formOptions?.positions,
-                                rankId,
-                            );
-
-                            next.planned_signoff_choice =
-                                defaultDestinationTourSignoffChoice(position);
-                            next.planned_signoff_override_reason = '';
-                            next.planned_signoff_at = '';
-                        } else if (value === 'p1a') {
-                            if (!['p1', 'p1a', 'p2'].includes(startingPhase)) {
-                                next.vessel_id = context.vessel_id;
-                                next.position_id = context.position_id;
-                                next.client_id = context.client_id;
-                            }
-
-                            Object.assign(next, clearedDirectP4TourFields());
-
-                            const syncedCheckIn =
-                                resolveDestinationCheckInDateOnP1AEntry({
-                                    redeployDate: form.data.occurred_at.slice(
-                                        0,
-                                        10,
-                                    ),
-                                    currentCheckInDate: form.data.check_in_date,
-                                    lastAutoCheckInDate:
-                                        lastAutoDestinationCheckInDateRef.current,
-                                    noHotelAccommodation:
-                                        form.data.no_hotel_accommodation,
-                                });
-
-                            if (syncedCheckIn !== null) {
-                                next.check_in_date = syncedCheckIn.checkInDate;
-                                lastAutoDestinationCheckInDateRef.current =
-                                    syncedCheckIn.lastAutoCheckInDate;
-                            }
-                        } else {
-                            if (!['p1', 'p1a', 'p2'].includes(startingPhase)) {
-                                next.vessel_id = context.vessel_id;
-                                next.position_id = context.position_id;
-                                next.client_id = context.client_id;
-                            }
-
-                            Object.assign(next, clearedDirectP4TourFields());
-                        }
-
-                        form.setData({ ...form.data, ...next });
+                            return { ...current, ...next };
+                        });
                     }}
                 >
                     <SelectTrigger id="redeploy-starting-phase">
@@ -346,26 +331,34 @@ export function RedeployForm({
                             )}
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="redeploy-source-check-out-date">
-                            Source Hotel Check-out Date{' '}
-                            <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="redeploy-source-check-out-date"
-                            type="date"
-                            value={form.data.source_check_out_date}
-                            onChange={(event) =>
-                                form.setData(
+                    <LinkedHotelDateField
+                        id="redeploy-source-check-out-date"
+                        label="Hotel Check-Out"
+                        checkboxLabel="Use Redeployment Date for Hotel Check-Out"
+                        value={form.data.source_check_out_date}
+                        linked={sourceCheckOutLinked}
+                        error={form.errors.source_check_out_date}
+                        onLinkedChange={(linked) =>
+                            form.setData((current) =>
+                                setHotelDateLink(
+                                    current,
                                     'source_check_out_date',
-                                    event.target.value,
-                                )
-                            }
-                        />
-                        <InputError
-                            message={form.errors.source_check_out_date}
-                        />
-                    </div>
+                                    'source_check_out_date_auto_synced',
+                                    linked,
+                                ),
+                            )
+                        }
+                        onValueChange={(value) =>
+                            form.setData((current) =>
+                                setManualHotelDate(
+                                    current,
+                                    'source_check_out_date',
+                                    'source_check_out_date_auto_synced',
+                                    value,
+                                ),
+                            )
+                        }
+                    />
                 </div>
             ) : null}
 
@@ -382,15 +375,29 @@ export function RedeployForm({
                     label={config.occurredAtLabel}
                     timezone={context.company_timezone}
                     schedulingMode={Boolean(schedulingMode)}
+                    allowsFutureDates={Boolean(allowsFutureDates)}
+                    preventPastSelection={Boolean(preventPastSelection)}
                     inputRef={
                         postSignoffAccommodation?.status === 'open_hotel'
                             ? undefined
                             : firstFieldRef
                     }
-                    onValueChange={(occurredAt) => {
-                        syncSourceCheckOutDate(occurredAt);
-                        syncDestinationCheckInDate(occurredAt);
-                    }}
+                    linkedHotelDates={[
+                        {
+                            dateKey: 'source_check_out_date',
+                            syncedKey: 'source_check_out_date_auto_synced',
+                            active:
+                                postSignoffAccommodation?.status ===
+                                'open_hotel',
+                        },
+                        {
+                            dateKey: 'check_in_date',
+                            syncedKey: 'check_in_date_auto_synced',
+                            active:
+                                showDestinationAccommodation &&
+                                !noDestinationHotelAccommodation,
+                        },
+                    ]}
                 />
             ) : null}
 
@@ -539,13 +546,13 @@ export function RedeployForm({
                                 <Select
                                     value={form.data.hotel_id?.toString() ?? ''}
                                     onValueChange={(value) =>
-                                        form.setData({
-                                            ...form.data,
+                                        form.setData((current) => ({
+                                            ...current,
                                             hotel_id: value
                                                 ? Number(value)
                                                 : null,
                                             room_type_id: null,
-                                        })
+                                        }))
                                     }
                                 >
                                     <SelectTrigger id="redeploy-destination-hotel">
@@ -607,26 +614,34 @@ export function RedeployForm({
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="redeploy-destination-check-in-date">
-                                    Check-in Date{' '}
-                                    <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                    id="redeploy-destination-check-in-date"
-                                    type="date"
-                                    value={form.data.check_in_date}
-                                    onChange={(event) =>
-                                        form.setData(
+                            <LinkedHotelDateField
+                                id="redeploy-destination-check-in-date"
+                                label="Hotel Check-In"
+                                checkboxLabel="Use Redeployment Date for Hotel Check-In"
+                                value={form.data.check_in_date}
+                                linked={destinationCheckInLinked}
+                                error={form.errors.check_in_date}
+                                onLinkedChange={(linked) =>
+                                    form.setData((current) =>
+                                        setHotelDateLink(
+                                            current,
                                             'check_in_date',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                                <InputError
-                                    message={form.errors.check_in_date}
-                                />
-                            </div>
+                                            'check_in_date_auto_synced',
+                                            linked,
+                                        ),
+                                    )
+                                }
+                                onValueChange={(value) =>
+                                    form.setData((current) =>
+                                        setManualHotelDate(
+                                            current,
+                                            'check_in_date',
+                                            'check_in_date_auto_synced',
+                                            value,
+                                        ),
+                                    )
+                                }
+                            />
                         </>
                     ) : null}
 

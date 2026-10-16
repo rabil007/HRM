@@ -361,6 +361,10 @@ class PerformCrewMovementActionRequest extends FormRequest
             $baseRules['check_out_date'] = ['nullable', 'date'];
         }
 
+        $baseRules['check_in_date_auto_synced'] = ['sometimes', 'boolean'];
+        $baseRules['check_out_date_auto_synced'] = ['sometimes', 'boolean'];
+        $baseRules['source_check_out_date_auto_synced'] = ['sometimes', 'boolean'];
+
         return $baseRules;
     }
 
