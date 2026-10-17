@@ -40,8 +40,8 @@ QA Progress:
 - [ ] 1. Requirement verification
 - [ ] 2. Backend verification
 - [ ] 3. Frontend verification
-- [ ] 4. Browser testing (or marked unavailable)
-- [ ] 5. Automated testing
+- [ ] 4. Browser testing (required UI | not required | unavailable)
+- [ ] 5. Automated testing (run or reuse same-commit successes)
 - [ ] 6. Regression review
 - [ ] 7. Failure handling (if any)
 - [ ] 8. Final QA report
@@ -50,10 +50,16 @@ QA Progress:
 ### 1. Requirement verification
 
 1. Restate the requested feature in one short paragraph.
-2. Extract **acceptance criteria** as a checklist (happy path, authz, validation, UI wiring, edge cases the user named).
+2. Extract **acceptance criteria** as a checklist (happy path, authz, validation, UI wiring, edge cases the user named). Mark which are **critical** vs nice-to-have.
 3. Diff the branch / changed files against that checklist.
-4. Mark each criterion: **pass** / **fail** / **missing** / **out of scope**.
-5. Stop and report missing requested behavior before calling the feature QA-complete.
+4. Mark each criterion with exactly one status:
+   - **verified** — evidence confirms the behavior (code review + tests and/or browser as applicable)
+   - **failed** — implemented but broken or incorrect
+   - **missing** — requested behavior not present in the change
+   - **unverified** — not yet proven (check not run, tools unavailable, or evidence insufficient)
+   - **out of scope** — explicitly excluded by the user
+5. Stop and report **missing** or **failed** requested behavior before calling the feature QA-complete.
+6. **Verdict rule:** never report overall **PASS** (or **PASS WITH LIMITATIONS**) when any **critical** criterion is **failed**, **missing**, or **unverified**. Those force **FAIL** (or keep the criterion unverified and the verdict non-passing).
 
 ### 2. Backend verification
 
@@ -77,7 +83,9 @@ Inspect the Inertia/React pages and feature components the change touches:
 
 ### 4. Browser testing
 
-When browser / computer-use tools are available (typically Cloud Agents):
+**When to run:** only if acceptance criteria involve user-facing UI (pages, forms, buttons, modals, navigation, visible states). Skip browser testing for backend-only / non-UI changes (Support/Services, pure Pest coverage, jobs, seeders with no UI). Record **Browser verification: not required** with a one-line reason.
+
+When UI criteria apply and browser / computer-use tools are available (typically Cloud Agents):
 
 1. Use `http://127.0.0.1:8000` (Herd is not in Cloud VMs).
 2. Prefer built assets (`npm run build`) over `npm run dev` when Vite HMR targets `oms-hrm.test`.
@@ -85,13 +93,15 @@ When browser / computer-use tools are available (typically Cloud Agents):
 4. Exercise the acceptance-criteria interactions only.
 5. Capture screenshots or short recordings under `/opt/cursor/artifacts/` when they prove a criterion.
 
-If browser tools are unavailable (Local without GUI tooling, missing executor, app not serving): state **Browser verification: unavailable** with the reason. Do **not** invent browser evidence.
+If UI criteria apply but browser tools are unavailable (Local without GUI tooling, missing executor, app not serving): state **Browser verification: unavailable** with the reason, mark affected UI criteria **unverified**, and do **not** invent browser evidence.
 
 ### 5. Automated testing
 
 Follow `.cursor/rules/pre-push-verification.mdc` on the feature’s changed files — do not invent a parallel suite.
 
-Minimum for a typical feature QA:
+**Reuse successful results** from the same unchanged commit when trustworthy: same commit SHA, same command/scope, exit 0 already recorded in this session (or clearly attributable CI for that SHA). Cite the prior result in the QA report instead of re-running. Re-run when the commit changed, the command/scope differs, the prior run failed or was flaky, or the failure-handling loop needs confirmation.
+
+Minimum for a typical feature QA (run or reuse as above):
 
 - Focused Pest: `php artisan test --compact <matching-test>`
 - Matching frontend unit tests when present: `node --experimental-strip-types --test path/to/*.test.ts`
@@ -132,18 +142,18 @@ End with this template (fill every section; use `n/a` when genuinely not applica
 - Branch / files reviewed:
 
 ### Acceptance criteria
-- [ ] Criterion — pass|fail|missing|n/a — evidence
+- [ ] Criterion (critical|nice-to-have) — verified|failed|missing|unverified|out of scope — evidence
 
 ### Automated checks
 | Check | Command | Result |
 | --- | --- | --- |
-| Pest | | pass/fail/not run |
-| Frontend unit | | pass/fail/not run |
-| Types / lint | | pass/fail/not run |
+| Pest | | pass/fail/reused (commit + prior evidence)/not run |
+| Frontend unit | | pass/fail/reused (commit + prior evidence)/not run |
+| Types / lint | | pass/fail/reused (commit + prior evidence)/not run |
 
 ### Browser verification
-- Status: completed | unavailable
-- Evidence: paths or reason unavailable
+- Status: completed | not required | unavailable
+- Evidence: paths, skip reason, or unavailable reason
 
 ### Bugs found and fixed
 - …
@@ -155,9 +165,9 @@ End with this template (fill every section; use `n/a` when genuinely not applica
 - …
 
 ### Verdict
-- **PASS** — ready for human review
-- **PASS WITH LIMITATIONS** — list limitations
-- **FAIL** — blocking gaps
+- **PASS** — every critical criterion is **verified**; ready for human review
+- **PASS WITH LIMITATIONS** — all critical criteria **verified**; only non-critical gaps/limitations remain
+- **FAIL** — any critical criterion is **failed**, **missing**, or **unverified**
 ```
 
 ## Complements
