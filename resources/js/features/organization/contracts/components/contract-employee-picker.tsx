@@ -2,11 +2,11 @@ import { useHttp } from '@inertiajs/react';
 import { Loader2, Search, User, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import ContractEmployeeSearchController from '@/actions/App/Http/Controllers/Organization/ContractEmployeeSearchController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import ContractEmployeeSearchController from '@/actions/App/Http/Controllers/Organization/ContractEmployeeSearchController';
 
 export type ContractEmployeeOption = {
     id: number;

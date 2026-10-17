@@ -50,7 +50,7 @@ test('production container resolves document AI service and extractor', function
 test('automatic mode is exposed to the document upload frontend', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload', 'documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.upload']);
     enableDocumentExtractionFor($company, $user, DocumentAiMode::Automatic);
 
     $this->actingAs($user)->get(route('organization.documents.library'))->assertOk()->assertInertia(
@@ -65,7 +65,6 @@ test('employee profile exposes document AI settings when permitted', function ()
         'employees.view',
         'documents.view',
         'documents.upload',
-        'documents.ai.use',
     ]);
     enableDocumentExtractionFor($company, $user, DocumentAiMode::Optional);
 
@@ -79,13 +78,12 @@ test('employee profile exposes document AI settings when permitted', function ()
             ->where('can.documents_ai_use', true));
 });
 
-test('employee profile hides document AI use without documents.ai.use', function () {
+test('employee profile hides document AI use without documents.upload', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
     grantCompanyPermissions($user, $company, [
         'employees.view',
         'documents.view',
-        'documents.upload',
     ]);
     enableDocumentExtractionFor($company, $user, DocumentAiMode::Optional);
 
@@ -101,7 +99,7 @@ test('employee profile hides document AI use without documents.ai.use', function
 test('provider unavailable returns a safe failure', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     DocumentAiSetting::query()->create(['company_id' => $company->id, 'mode' => DocumentAiMode::Optional, 'updated_by' => $user->id]);
 
     $this->actingAs($user)->postJson(route('organization.employees.documents.ai-extract', $employee), [
@@ -112,7 +110,7 @@ test('provider unavailable returns a safe failure', function () {
 test('optional mode extracts without persisting or mutating employee', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableDocumentExtractionFor($company, $user);
     $original = $employee->fresh()->only(['name', 'nationality_id', 'emirates_id', 'passport_number']);
     fakeDocumentExtractor(DocumentAiExtractionResult::fromDecoded([
@@ -131,7 +129,7 @@ test('optional mode extracts without persisting or mutating employee', function 
 test('provider failure is safe and does not expose its message', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableDocumentExtractionFor($company, $user);
     fakeDocumentExtractor(new RuntimeException('secret provider payload'));
 
@@ -143,7 +141,7 @@ test('provider failure is safe and does not expose its message', function () {
 test('extraction validates file type and size', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableDocumentExtractionFor($company, $user);
 
     $this->actingAs($user)->postJson(route('organization.employees.documents.ai-extract', $employee), [
@@ -158,7 +156,7 @@ test('cross-company employee is blocked and submitted company id cannot switch t
     $user = User::factory()->create();
     ['company' => $companyA] = makeDocumentFixtures();
     ['company' => $companyB, 'employee' => $employeeB] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $companyA, ['documents.ai.use']);
+    grantCompanyPermissions($user, $companyA, ['documents.upload']);
     enableDocumentExtractionFor($companyA, $user);
 
     $this->actingAs($user)->withSession(['current_company_id' => $companyA->id])->postJson(route('organization.employees.documents.ai-extract', $employeeB), [
@@ -167,13 +165,13 @@ test('cross-company employee is blocked and submitted company id cannot switch t
     ])->assertForbidden();
 });
 
-test('documents ai use permission does not grant upload permission', function () {
+test('document view permission alone cannot extract with AI', function () {
     $user = User::factory()->create();
-    ['company' => $company, 'employee' => $employee, 'passportType' => $type] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+    enableDocumentExtractionFor($company, $user);
 
-    $this->actingAs($user)->post(route('organization.employees.documents.store', $employee), [
-        'document_type_id' => $type->id,
+    $this->actingAs($user)->postJson(route('organization.employees.documents.ai-extract', $employee), [
         'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
     ])->assertForbidden();
 });

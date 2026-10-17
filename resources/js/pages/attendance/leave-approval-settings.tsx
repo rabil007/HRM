@@ -1,6 +1,8 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Info } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
+import { index as leaveApprovalPolicies } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalPolicyController';
+import { update as updateLeaveApprovalSettings } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalSettingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -16,8 +18,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { index as leaveApprovalPolicies } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalPolicyController';
-import { update as updateLeaveApprovalSettings } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalSettingController';
 
 type EmployeeOption = {
     id: number;

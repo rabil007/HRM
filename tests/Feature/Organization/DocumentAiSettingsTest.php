@@ -88,12 +88,12 @@ test('authorized users can update the company document ai mode', function () {
         ->and($activity?->company_id)->toBe($company->id);
 });
 
-test('documents ai use permission does not allow changing company ai settings', function () {
+test('documents upload permission does not allow changing company ai settings', function () {
     $user = User::factory()->create();
     ['company' => $company] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, [
-        'documents.ai.use',
+        'documents.upload',
     ]);
 
     $this->actingAs($user)
@@ -148,8 +148,15 @@ test('document ai settings remain isolated to the active company', function () {
         ->and(app(DocumentAiSettings::class)->modeForCompany($companyB->id))->toBe(DocumentAiMode::Off);
 });
 
-test('document ai permissions are part of the application permission registry', function () {
+test('document ai manage permission remains in the application permission registry', function () {
     $names = ApplicationPermissionRegistry::names();
 
-    expect($names)->toContain('documents.ai.use', 'documents.ai.manage');
+    expect($names)->toContain('documents.ai.manage')
+        ->and($names)->not->toContain('documents.ai.use');
+});
+
+test('documents.ai.use is not recreated by permission sync', function () {
+    ApplicationPermissionRegistry::sync();
+
+    expect(ApplicationPermissionRegistry::names())->not->toContain('documents.ai.use');
 });

@@ -90,7 +90,10 @@ export function useDocumentAiBatch(
                 !employeeId ||
                 files.length < minCount ||
                 startingRef.current ||
-                (state.status !== 'idle' && state.status !== 'failed')
+                isActiveBatchStatus(state.status) ||
+                (state.status !== 'idle' &&
+                    state.status !== 'failed' &&
+                    state.status !== 'cancelled')
             ) {
                 return;
             }
@@ -159,11 +162,23 @@ export function useDocumentAiBatch(
             return;
         }
 
-        const timer = window.setInterval(async () => {
+        const abortController = new AbortController();
+        let inFlight = false;
+
+        const poll = async () => {
+            if (inFlight || abortController.signal.aborted) {
+                return;
+            }
+
+            inFlight = true;
+
             try {
                 const r = await fetch(
                     BatchController.show.url({ batch: state.id! }),
-                    { headers: { Accept: 'application/json' } },
+                    {
+                        headers: { Accept: 'application/json' },
+                        signal: abortController.signal,
+                    },
                 );
 
                 if (r.ok) {
@@ -172,12 +187,29 @@ export function useDocumentAiBatch(
                         mapBatchResponse(p.batch, s, validDraftIds),
                     );
                 }
-            } catch {
+            } catch (error) {
+                if (
+                    abortController.signal.aborted ||
+                    (error instanceof DOMException &&
+                        error.name === 'AbortError')
+                ) {
+                    return;
+                }
+
                 // Polling retries on the next interval; manual upload remains available.
+            } finally {
+                inFlight = false;
             }
+        };
+
+        const timer = window.setInterval(() => {
+            void poll();
         }, 2500);
 
-        return () => window.clearInterval(timer);
+        return () => {
+            abortController.abort();
+            window.clearInterval(timer);
+        };
     }, [state.id, state.status, validDraftIds]);
 
     const retry = useCallback(

@@ -60,7 +60,7 @@ function ageTemporaryPath(string $path, int $secondsAgo): void
 function createQueuedBatch(User $user, $company, $employee, int $files = 1, ?string $requestId = null): DocumentAiBatch
 {
     Queue::fake();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
 
     $draftIds = [];
@@ -86,7 +86,7 @@ test('creates a tenant owned batch and dispatches parallel coordinator plus one 
     Queue::fake();
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
 
     $response = $this->actingAs($user)->postJson(
@@ -118,10 +118,10 @@ test('creates a tenant owned batch and dispatches parallel coordinator plus one 
         ->not->toContain('batch-test-key');
 });
 
-test('off mode and missing permission cannot create a batch', function () {
+test('off mode and missing upload permission cannot create a batch', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     $payload = [
         'batch_request_id' => batchRequestId(),
         'draft_ids' => ['11111111-1111-4111-8111-111111111111'],
@@ -142,7 +142,7 @@ test('duplicate batch request id reuses the existing batch and redispatches queu
     Queue::fake();
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
     $requestId = batchRequestId();
     $payload = [
@@ -258,7 +258,7 @@ test('same batch request id for a different employee creates an independent batc
         'name' => 'Other Employee',
         'status' => 'active',
     ]);
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
     $requestId = batchRequestId();
 
@@ -292,7 +292,7 @@ test('mixed supported and unsupported files partially accept', function () {
     Queue::fake();
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
 
     $response = $this->actingAs($user)->postJson(
@@ -321,7 +321,7 @@ test('mixed supported and unsupported files partially accept', function () {
 test('mismatched files and draft ids are rejected', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
 
     $this->actingAs($user)->postJson(
@@ -340,7 +340,7 @@ test('mismatched files and draft ids are rejected', function () {
 test('failed batch creation after temp storage removes written files', function () {
     $user = User::factory()->create();
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
     enableBatchAi($company, $user);
 
     $calls = 0;
@@ -511,7 +511,7 @@ test('batch progress is private to company and initiating user', function () {
     $batch = createQueuedBatch($owner, $company, $employee);
 
     $other = User::factory()->create();
-    grantCompanyPermissions($other, $company, ['documents.ai.use'], 'other-ai');
+    grantCompanyPermissions($other, $company, ['documents.upload'], 'other-ai');
     $this->actingAs($other)
         ->getJson(route('organization.documents.ai-batches.show', $batch))
         ->assertNotFound();
@@ -526,7 +526,7 @@ test('cross company users cannot access another company batch status retry or ca
 
     $intruder = User::factory()->create();
     ['company' => $companyB] = makeDocumentFixtures();
-    grantCompanyPermissions($intruder, $companyB, ['documents.ai.use'], 'company-b-ai');
+    grantCompanyPermissions($intruder, $companyB, ['documents.upload'], 'company-b-ai');
     enableBatchAi($companyB, $intruder);
 
     $this->actingAs($intruder)
@@ -549,7 +549,7 @@ test('company a cannot create a batch for a company b employee', function () {
     $user = User::factory()->create();
     ['company' => $companyA] = makeDocumentFixtures();
     ['company' => $companyB, 'employee' => $employeeB] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $companyA, ['documents.ai.use']);
+    grantCompanyPermissions($user, $companyA, ['documents.upload']);
     enableBatchAi($companyA, $user);
 
     $this->actingAs($user)

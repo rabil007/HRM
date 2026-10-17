@@ -105,7 +105,7 @@ test('employee document normalizes pdf mime types with charset suffixes', functi
         ->and($document->toBrowseArray()['mime_type'])->toBe('application/pdf');
 });
 
-test('document AI extraction is forbidden without the use permission', function () {
+test('document AI extraction is forbidden without upload permission', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
     ['employee' => $employee] = makeDocumentFixtures();
@@ -119,7 +119,7 @@ test('document AI extraction is disabled when company mode is off', function () 
     $user = User::factory()->create();
     $this->actingAs($user);
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    grantCompanyPermissions($user, $company, ['documents.ai.use']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $called = false;
     app()->instance(DocumentAiExtractor::class, new class($called) implements DocumentAiExtractor

@@ -165,7 +165,7 @@ class DocumentAiBatchController extends Controller
 
     private function authorizeBatch(Request $request, DocumentAiBatch $batch): void
     {
-        abort_unless($request->user()?->can('documents.ai.use'), 403);
+        abort_unless($request->user()?->can('documents.upload'), 403);
         abort_unless(
             $batch->company_id === (int) $request->attributes->get('current_company_id')
             && $batch->user_id === $request->user()->id,

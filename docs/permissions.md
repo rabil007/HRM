@@ -232,7 +232,7 @@ The request creator cannot review or approve their own workflow request (backend
 
 These flags do not authorize requests. Document routes enforce `documents.*` permissions and document support classes additionally verify company/employee ownership.
 
-Document AI uses two separate company-scoped permissions: `documents.ai.use` permits AI-assisted document intake when the active company has enabled it, while `documents.ai.manage` permits changing that company’s Document AI mode. New AI permissions are not implicitly copied to existing roles; assign them deliberately. `documents.ai.manage` is a privileged capability and its mutation route also requires `privileged.2fa`. Neither permission grants access to platform AI credentials. The mode is tenant-owned; OpenAI/OpenRouter provider keys and models remain platform-global and continue to require Platform Authority.
+Document AI extraction is available to users with `documents.upload` when the active company has enabled Document AI and the provider is configured. Users control AI Extraction ON/OFF in the Upload Document modal (preference persists per user on the server). `documents.ai.manage` permits changing that company’s Document AI mode and is a privileged capability; its mutation route also requires `privileged.2fa`. Document AI manage does not grant access to platform AI credentials. The mode is tenant-owned; OpenAI/OpenRouter provider keys and models remain platform-global and continue to require Platform Authority.
 
 Creating a login from an employee requires `users.create`. User–employee linking is otherwise managed through the user edit workflow.
 
