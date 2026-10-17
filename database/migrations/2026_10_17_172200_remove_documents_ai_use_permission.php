@@ -28,13 +28,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
-
-        Permission::query()->firstOrCreate([
-            'name' => self::PERMISSION,
-            'guard_name' => 'web',
-        ]);
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        // Intentionally a no-op: documents.ai.use is permanently retired in favor of
+        // documents.upload. Recreating the orphan permission on rollback would leave
+        // a registry-orphaned row that seeders do not prune.
     }
 };

@@ -154,3 +154,9 @@ test('document ai manage permission remains in the application permission regist
     expect($names)->toContain('documents.ai.manage')
         ->and($names)->not->toContain('documents.ai.use');
 });
+
+test('documents.ai.use is not recreated by permission sync', function () {
+    ApplicationPermissionRegistry::sync();
+
+    expect(ApplicationPermissionRegistry::names())->not->toContain('documents.ai.use');
+});

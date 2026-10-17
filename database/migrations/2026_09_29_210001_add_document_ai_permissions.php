@@ -11,10 +11,8 @@ return new class extends Migration
      * @var array<string, array{label: string, description: string}>
      */
     private const NEW_PERMISSIONS = [
-        'documents.ai.use' => [
-            'label' => 'Use Document AI',
-            'description' => 'Allows the user to use enabled Document AI assistance for employee document intake in the active company.',
-        ],
+        // documents.ai.use was retired; uploaders use documents.upload + the per-user
+        // AI Extraction preference. Keep only the administrative manage permission here.
         'documents.ai.manage' => [
             'label' => 'Manage Document AI',
             'description' => 'Allows the user to configure the company Document AI mode without changing platform AI provider credentials.',
