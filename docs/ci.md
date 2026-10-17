@@ -11,8 +11,11 @@ Detect changes (system PHP classifier + CI plan artifact)
     |
     +-- PHP Style (Pint)                 [if PHP changed]
     |
-    +-- Frontend Static                  [if frontend / Wayfinder inputs changed]
-    |     ESLint, Prettier, TypeScript, unit tests in parallel
+    +-- Frontend Lint                    [if JS/CSS/lint config changed]
+    |     ESLint + Prettier in parallel (Node-only job)
+    |
+    +-- Frontend Types                   [if frontend or Wayfinder inputs changed]
+    |     Wayfinder generate, then TypeScript + unit tests in parallel
     |
     +-- Frontend Build                   [if the production bundle is affected]
     |     Vite plugin generates Wayfinder; uploads public/build
@@ -32,19 +35,20 @@ Classification is fail-safe: empty or unreadable diffs run full CI. Unrecognized
 
 Independent flags (not a coarse backend→frontend coupling):
 
-| Change | Pint | Pest | Frontend static | Frontend build | PDF Renderer | Deploy |
-|--------|------|------|-----------------|----------------|--------------|--------|
-| `tests/**` only (non-PDF) | run | run | skip | skip | skip | skip |
-| Unrelated backend service | run | run | skip | skip | skip | run |
-| `routes/**` or `app/Http/Controllers/**` | run | run | run (Wayfinder) | run | skip | run |
-| `resources/js/**` / CSS / Vite / ESLint | skip | skip | run | run | skip | run |
-| PDF renderer / Browsershot / overlay preflight | run | run | skip | skip | run | run |
-| Dedicated PDF production test file | run | run | skip | skip | run | skip |
-| `package-lock.json` | skip | skip | run | run | run | run |
-| `docs/**`, root `*.md` | skip | skip | skip | skip | skip | skip |
-| `.github/workflows/ci.yml`, `ci.php` | run | run | run | run | run | skip |
-| `.github/ci/pest-timings.json` | skip | run | skip | skip | skip | skip |
-| Composer lock | run | run | run | run | run | run |
+| Change | Pint | Pest | Frontend lint | Frontend types | Frontend build | PDF Renderer | Deploy |
+|--------|------|------|---------------|----------------|----------------|--------------|--------|
+| `tests/**` only (non-PDF) | run | run | skip | skip | skip | skip | skip |
+| Unrelated backend service | run | run | skip | skip | skip | skip | run |
+| `routes/**` or `app/Http/Controllers/**` | run | run | skip | run (Wayfinder) | run | skip | run |
+| `resources/js/**` / CSS / Vite | skip | skip | run | run | run | skip | run |
+| ESLint / Prettier config only | skip | skip | run | skip | run | skip | skip |
+| PDF renderer / Browsershot / overlay preflight | run | run | skip | skip | skip | run | run |
+| Dedicated PDF production test file | run | run | skip | skip | skip | run | skip |
+| `package-lock.json` | skip | skip | run | run | run | run | run |
+| `docs/**`, root `*.md` | skip | skip | skip | skip | skip | skip | skip |
+| `.github/workflows/ci.yml`, `ci.php` | run | run | run | run | run | run | skip |
+| `.github/ci/pest-timings.json` | skip | run | skip | skip | skip | skip | skip |
+| Composer lock | run | run | run | run | run | run | run |
 
 Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-level `*.md`, and a short list of agent/tooling files.
 
@@ -54,10 +58,10 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 |------|------------|---------------|
 | PHP formatting | PHP Style (Pint) → `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
 | Pest | Pest 1/8 .. 8/8 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
-| ESLint | Frontend Static → `npm run lint:check` | `npm run lint:check` |
-| Prettier | Frontend Static → `npm run format:check` | `npm run format:check` |
-| Frontend tests | Frontend Static → `npm run test:frontend` | `npm run test:frontend` |
-| TypeScript | Frontend Static → TypeScript → `npm run types:check` | `npm run types:check` |
+| ESLint | Frontend Lint → `npm run lint:check` | `npm run lint:check` |
+| Prettier | Frontend Lint → `npm run format:check` | `npm run format:check` |
+| Frontend tests | Frontend Types → `npm run test:frontend` | `npm run test:frontend` |
+| TypeScript | Frontend Types → `npm run types:check` | `npm run types:check` |
 | Production build | Frontend Build → `npm run build` | `npm run build` |
 | PDF Chromium | PDF Renderer job | same three production test files with Puppeteer installed |
 
@@ -110,7 +114,7 @@ Project `postinstall` installs Chrome unless `CI_SKIP_PUPPETEER_BROWSER_INSTALL=
 
 ## Wayfinder
 
-`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. Frontend Static generates them before `tsc`. Frontend Build relies on the Vite Wayfinder plugin during `npm run build`.
+`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. Frontend Types generates them before `tsc`. Frontend Build relies on the Vite Wayfinder plugin during `npm run build`. Wayfinder-only route/controller changes skip Frontend Lint.
 
 ## Permissions
 

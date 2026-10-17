@@ -38,7 +38,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       pint: ${{ steps.classify.outputs.pint }}
-      frontend_static: ${{ steps.classify.outputs.frontend_static }}
+      frontend_lint: ${{ steps.classify.outputs.frontend_lint }}
+      frontend_types: ${{ steps.classify.outputs.frontend_types }}
       frontend_build: ${{ steps.classify.outputs.frontend_build }}
       pest: ${{ steps.classify.outputs.pest }}
       pdf_renderer: ${{ steps.classify.outputs.pdf_renderer }}
@@ -197,7 +198,8 @@ jobs:
             echo "pdf_renderer_required=${{ steps.classify.outputs.pdf_renderer }}"
             echo "pest_required=${{ steps.classify.outputs.pest }}"
             echo "pint_required=${{ steps.classify.outputs.pint }}"
-            echo "frontend_static_required=${{ steps.classify.outputs.frontend_static }}"
+            echo "frontend_lint_required=${{ steps.classify.outputs.frontend_lint }}"
+            echo "frontend_types_required=${{ steps.classify.outputs.frontend_types }}"
             echo "docs_only=${{ steps.classify.outputs.docs_only }}"
             echo "scope=${{ steps.classify.outputs.scope }}"
           } > ci-plan.txt
@@ -207,7 +209,8 @@ jobs:
             echo "## Change classification"
             echo "- Pest: ${{ steps.classify.outputs.pest }}"
             echo "- Pint: ${{ steps.classify.outputs.pint }}"
-            echo "- Frontend Static: ${{ steps.classify.outputs.frontend_static }}"
+            echo "- Frontend Lint: ${{ steps.classify.outputs.frontend_lint }}"
+            echo "- Frontend Types: ${{ steps.classify.outputs.frontend_types }}"
             echo "- Frontend Build: ${{ steps.classify.outputs.frontend_build }}"
             echo "- PDF Renderer: ${{ steps.classify.outputs.pdf_renderer }}"
             echo "- Deploy: ${{ steps.classify.outputs.deploy }}"
@@ -278,10 +281,87 @@ jobs:
             echo "- composer install: ${{ steps.composer-vendor.outputs.composer-installed }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  frontend_static:
-    name: Frontend Static
+  frontend_lint:
+    name: Frontend Lint
     needs: changes
-    if: needs.changes.outputs.frontend_static == 'true'
+    if: needs.changes.outputs.frontend_lint == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        id: setup-node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Restore Node modules
+        id: node-modules
+        uses: ./.github/actions/node-modules
+        with:
+          skip-puppeteer-browser: 'true'
+
+      - name: Cache ESLint
+        uses: actions/cache@v6
+        with:
+          path: .cache/.eslintcache
+          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
+          restore-keys: |
+            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
+
+      - name: Cache Prettier
+        uses: actions/cache@v6
+        with:
+          path: .cache/.prettiercache
+          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-${{ github.sha }}
+          restore-keys: |
+            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-
+
+      - name: Run ESLint and Prettier
+        run: |
+          set -uo pipefail
+
+          mkdir -p .cache
+
+          npx eslint . --cache --cache-strategy content --cache-location .cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
+          npx prettier --check resources/ --cache --cache-strategy content --cache-location .cache/.prettiercache > /tmp/prettier.log 2>&1 & pid_prettier=$!
+
+          status_eslint=0; wait $pid_eslint || status_eslint=$?
+          status_prettier=0; wait $pid_prettier || status_prettier=$?
+
+          echo "::group::ESLint ($( [ "${status_eslint:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/eslint.log
+          echo "::endgroup::"
+
+          echo "::group::Prettier ($( [ "${status_prettier:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
+          cat /tmp/prettier.log
+          echo "::endgroup::"
+
+          rm -f /tmp/eslint.log /tmp/prettier.log
+
+          if [[ ${status_eslint:-0} -ne 0 || ${status_prettier:-0} -ne 0 ]]; then
+            echo "One or more frontend lint checks failed: eslint=${status_eslint}, prettier=${status_prettier}"
+            exit 1
+          fi
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Lint"
+            echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
+            echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
+            echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  frontend_types:
+    name: Frontend Types
+    needs: changes
+    if: needs.changes.outputs.frontend_types == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -327,22 +407,6 @@ jobs:
         with:
           skip-puppeteer-browser: 'true'
 
-      - name: Cache ESLint
-        uses: actions/cache@v6
-        with:
-          path: .cache/.eslintcache
-          key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-${{ github.sha }}
-          restore-keys: |
-            eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'eslint.config.*') }}-
-
-      - name: Cache Prettier
-        uses: actions/cache@v6
-        with:
-          path: .cache/.prettiercache
-          key: prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-${{ github.sha }}
-          restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('package-lock.json', '.prettierrc', '.prettierignore', 'resources/css/app.css') }}-
-
       - name: Cache TypeScript build info
         uses: actions/cache@v6
         with:
@@ -359,29 +423,17 @@ jobs:
       - name: Generate Wayfinder types
         run: php artisan wayfinder:generate --with-form --no-interaction
 
-      - name: Run parallel frontend checks
+      - name: Run TypeScript and frontend unit tests
         run: |
           set -uo pipefail
 
           mkdir -p .cache
 
-          npx eslint . --cache --cache-strategy content --cache-location .cache/.eslintcache > /tmp/eslint.log 2>&1 & pid_eslint=$!
-          npx prettier --check resources/ --cache --cache-strategy content --cache-location .cache/.prettiercache > /tmp/prettier.log 2>&1 & pid_prettier=$!
           npm run types:check > /tmp/types.log 2>&1 & pid_types=$!
           npm run test:frontend > /tmp/frontend-test.log 2>&1 & pid_test=$!
 
-          status_eslint=0; wait $pid_eslint || status_eslint=$?
-          status_prettier=0; wait $pid_prettier || status_prettier=$?
           status_types=0; wait $pid_types || status_types=$?
           status_test=0; wait $pid_test || status_test=$?
-
-          echo "::group::ESLint ($( [ "${status_eslint:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/eslint.log
-          echo "::endgroup::"
-
-          echo "::group::Prettier ($( [ "${status_prettier:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/prettier.log
-          echo "::endgroup::"
 
           echo "::group::TypeScript ($( [ "${status_types:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
           cat /tmp/types.log
@@ -391,10 +443,10 @@ jobs:
           cat /tmp/frontend-test.log
           echo "::endgroup::"
 
-          rm -f /tmp/eslint.log /tmp/prettier.log /tmp/types.log /tmp/frontend-test.log
+          rm -f /tmp/types.log /tmp/frontend-test.log
 
-          if [[ ${status_eslint:-0} -ne 0 || ${status_prettier:-0} -ne 0 || ${status_types:-0} -ne 0 || ${status_test:-0} -ne 0 ]]; then
-            echo "One or more frontend checks failed: eslint=${status_eslint}, prettier=${status_prettier}, types=${status_types}, tests=${status_test}"
+          if [[ ${status_types:-0} -ne 0 || ${status_test:-0} -ne 0 ]]; then
+            echo "One or more frontend type checks failed: types=${status_types}, tests=${status_test}"
             exit 1
           fi
 
@@ -402,7 +454,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Frontend Static"
+            echo "## Frontend Types"
             echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
             echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
             echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
@@ -674,7 +726,8 @@ jobs:
     needs:
       - changes
       - pint
-      - frontend_static
+      - frontend_lint
+      - frontend_types
       - frontend_build
       - pdf_renderer
       - pest
@@ -686,12 +739,14 @@ jobs:
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           PINT_RESULT: ${{ needs.pint.result }}
-          FRONTEND_STATIC_RESULT: ${{ needs.frontend_static.result }}
+          FRONTEND_LINT_RESULT: ${{ needs.frontend_lint.result }}
+          FRONTEND_TYPES_RESULT: ${{ needs.frontend_types.result }}
           FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
           PEST_RESULT: ${{ needs.pest.result }}
           PDF_RENDERER_RESULT: ${{ needs.pdf_renderer.result }}
           RUN_PINT: ${{ needs.changes.outputs.pint }}
-          RUN_FRONTEND_STATIC: ${{ needs.changes.outputs.frontend_static }}
+          RUN_FRONTEND_LINT: ${{ needs.changes.outputs.frontend_lint }}
+          RUN_FRONTEND_TYPES: ${{ needs.changes.outputs.frontend_types }}
           RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
           RUN_PDF_RENDERER: ${{ needs.changes.outputs.pdf_renderer }}
           RUN_PEST: ${{ needs.changes.outputs.pest }}
@@ -704,7 +759,8 @@ jobs:
           echo "scope=${SCOPE}"
           echo "docs_only=${DOCS_ONLY}"
           echo "run_pint=${RUN_PINT} pint_result=${PINT_RESULT}"
-          echo "run_frontend_static=${RUN_FRONTEND_STATIC} frontend_static_result=${FRONTEND_STATIC_RESULT}"
+          echo "run_frontend_lint=${RUN_FRONTEND_LINT} frontend_lint_result=${FRONTEND_LINT_RESULT}"
+          echo "run_frontend_types=${RUN_FRONTEND_TYPES} frontend_types_result=${FRONTEND_TYPES_RESULT}"
           echo "run_frontend_build=${RUN_FRONTEND_BUILD} frontend_build_result=${FRONTEND_BUILD_RESULT}"
           echo "run_pdf_renderer=${RUN_PDF_RENDERER} pdf_renderer_result=${PDF_RENDERER_RESULT}"
           echo "run_pest=${RUN_PEST} pest_result=${PEST_RESULT}"
@@ -716,7 +772,8 @@ jobs:
             echo "- scope: ${SCOPE}"
             echo "- Pest: required=${RUN_PEST} result=${PEST_RESULT}"
             echo "- Pint: required=${RUN_PINT} result=${PINT_RESULT}"
-            echo "- Frontend Static: required=${RUN_FRONTEND_STATIC} result=${FRONTEND_STATIC_RESULT}"
+            echo "- Frontend Lint: required=${RUN_FRONTEND_LINT} result=${FRONTEND_LINT_RESULT}"
+            echo "- Frontend Types: required=${RUN_FRONTEND_TYPES} result=${FRONTEND_TYPES_RESULT}"
             echo "- Frontend Build: required=${RUN_FRONTEND_BUILD} result=${FRONTEND_BUILD_RESULT}"
             echo "- PDF Renderer: required=${RUN_PDF_RENDERER} result=${PDF_RENDERER_RESULT}"
             echo "- Deploy planned: ${RUN_DEPLOY}"
@@ -748,7 +805,8 @@ jobs:
           }
 
           check_job "PHP Style (Pint)" "${RUN_PINT}" "${PINT_RESULT}"
-          check_job "Frontend Static" "${RUN_FRONTEND_STATIC}" "${FRONTEND_STATIC_RESULT}"
+          check_job "Frontend Lint" "${RUN_FRONTEND_LINT}" "${FRONTEND_LINT_RESULT}"
+          check_job "Frontend Types" "${RUN_FRONTEND_TYPES}" "${FRONTEND_TYPES_RESULT}"
           check_job "Frontend Build" "${RUN_FRONTEND_BUILD}" "${FRONTEND_BUILD_RESULT}"
           check_job "PDF Renderer" "${RUN_PDF_RENDERER}" "${PDF_RENDERER_RESULT}"
           check_job "Pest" "${RUN_PEST}" "${PEST_RESULT}"

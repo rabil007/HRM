@@ -15,7 +15,8 @@ test('docs-only paths skip application jobs and deploy', function () {
 
     expect($result)->toMatchArray([
         'pint' => false,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pest' => false,
         'pdf_renderer' => false,
@@ -29,7 +30,8 @@ test('php test-only changes run pint and pest without frontend pdf or deploy', f
     expect(oms_ci_classify_paths(['tests/Feature/PayrollFooTest.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => false,
         'deploy' => false,
@@ -38,7 +40,8 @@ test('php test-only changes run pint and pest without frontend pdf or deploy', f
     ])->and(oms_ci_classify_paths(['tests/Feature/Organization/SomeBackendTest.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => false,
         'deploy' => false,
@@ -53,7 +56,8 @@ test('unrelated backend services run pint pest and deploy without frontend or pd
     ]))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => false,
         'deploy' => true,
@@ -62,11 +66,12 @@ test('unrelated backend services run pint pest and deploy without frontend or pd
     ]);
 });
 
-test('routes and controllers trigger wayfinder frontend static and build', function () {
+test('routes and controllers trigger wayfinder types and build without lint', function () {
     expect(oms_ci_classify_paths(['routes/web.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => true,
+        'frontend_lint' => false,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pdf_renderer' => false,
         'deploy' => true,
@@ -75,7 +80,8 @@ test('routes and controllers trigger wayfinder frontend static and build', funct
     ])->and(oms_ci_classify_paths(['app/Http/Controllers/Organization/EmployeeController.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => true,
+        'frontend_lint' => false,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pdf_renderer' => false,
         'deploy' => true,
@@ -88,16 +94,38 @@ test('frontend component changes skip pest and pdf', function () {
         'resources/js/foo.tsx',
         'resources/js/features/organization/branches/index.tsx',
         'resources/css/app.css',
-        'eslint.config.js',
-        '.prettierrc',
     ]))->toMatchArray([
         'pint' => false,
-        'frontend_static' => true,
+        'frontend_lint' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => false,
         'pdf_renderer' => false,
         'deploy' => true,
         'docs_only' => false,
+        'scope' => 'frontend-only',
+    ]);
+});
+
+test('eslint and prettier config changes run lint and build without types', function () {
+    expect(oms_ci_classify_paths(['eslint.config.js']))->toMatchArray([
+        'pint' => false,
+        'frontend_lint' => true,
+        'frontend_types' => false,
+        'frontend_build' => true,
+        'pest' => false,
+        'pdf_renderer' => false,
+        'deploy' => false,
+        'docs_only' => false,
+        'scope' => 'frontend-only',
+    ])->and(oms_ci_classify_paths(['.prettierrc']))->toMatchArray([
+        'pint' => false,
+        'frontend_lint' => true,
+        'frontend_types' => false,
+        'frontend_build' => true,
+        'pest' => false,
+        'pdf_renderer' => false,
+        'deploy' => false,
         'scope' => 'frontend-only',
     ]);
 });
@@ -116,7 +144,8 @@ test('undeployed application changes keep deploy true across a tests-only follow
         ->and(oms_ci_merge_immediate_with_undeployed($immediate, $sinceLastDeploy))->toMatchArray([
             'pint' => true,
             'pest' => true,
-            'frontend_static' => true,
+            'frontend_lint' => true,
+            'frontend_types' => true,
             'frontend_build' => true,
             'pdf_renderer' => false,
             'deploy' => true,
@@ -128,7 +157,8 @@ test('pdf overlay preflight changes run pest pint pdf and deploy without fronten
     expect(oms_ci_classify_paths(['app/Support/Documents/PdfOverlayLayoutPreflight.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => true,
         'deploy' => true,
@@ -141,7 +171,8 @@ test('pdf renderer production tests run pdf without frontend or deploy', functio
     expect(oms_ci_classify_paths(['tests/Feature/Documents/PdfOverlayTemplatePdfRendererTest.php']))->toMatchArray([
         'pint' => true,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => true,
         'deploy' => false,
@@ -153,7 +184,8 @@ test('package lock changes run frontend jobs pdf renderer and deploy', function 
     expect(oms_ci_classify_paths(['package-lock.json']))->toMatchArray([
         'pint' => false,
         'pest' => false,
-        'frontend_static' => true,
+        'frontend_lint' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pdf_renderer' => true,
         'deploy' => true,
@@ -175,7 +207,8 @@ test('pest timings updates run pest without forcing full ci or deploy', function
     expect(oms_ci_classify_paths(['.github/ci/pest-timings.json']))->toMatchArray([
         'pint' => false,
         'pest' => true,
-        'frontend_static' => false,
+        'frontend_lint' => false,
+        'frontend_types' => false,
         'frontend_build' => false,
         'pdf_renderer' => false,
         'deploy' => false,
@@ -214,7 +247,9 @@ test('classify CLI writes GitHub outputs including deploy', function () {
         ->and((string) file_get_contents($output))->toContain("docs_only=true\n")
         ->and((string) file_get_contents($output))->toContain("scope=docs-only\n")
         ->and((string) file_get_contents($output))->toContain("pest=false\n")
-        ->and((string) file_get_contents($output))->toContain("deploy=false\n");
+        ->and((string) file_get_contents($output))->toContain("deploy=false\n")
+        ->and((string) file_get_contents($output))->toContain("frontend_lint=false\n")
+        ->and((string) file_get_contents($output))->toContain("frontend_types=false\n");
 
     unlink($output);
 });
