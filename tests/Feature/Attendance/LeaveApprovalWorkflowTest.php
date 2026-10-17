@@ -16,6 +16,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveRequestApproval;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\Actions\ApproveLeaveRequestStep;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\LeaveApprovalResolutionException;
@@ -1147,7 +1148,7 @@ function makeHrOwnedDepartmentContext(): array
     return compact('company', 'hr', 'hrUser', 'department');
 }
 
-test('notify-only manager does not consume the authorized alternative for hr self-leave', function (bool $hasFallback) {
+test('notify-only manager does not consume the authorized alternative for hr self-leave', function (bool $hasFallback, LeaveApprovalMode $mode) {
     ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
     $managed = makeManagedDepartment($company);
     ['employee' => $hr] = makeActionableApprover($company, [
@@ -1157,7 +1158,7 @@ test('notify-only manager does not consume the authorized alternative for hr sel
     ensureDefaultLeaveApprovalPolicy($company, [
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
         ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
-    ]);
+    ], $mode);
     $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
 
     $leave = app(SubmitLeaveRequestWithApprovals::class)->handle(
@@ -1178,7 +1179,130 @@ test('notify-only manager does not consume the authorized alternative for hr sel
         ->and($leave->approvals->first()->status)->toBe(LeaveRequestApprovalStatus::Pending)
         ->and($leave->approvals->first()->approver_employee_id)->toBe($managed['manager']->id)
         ->and($leave->approvals->first()->approver_user_id)->not->toBe($hr->user_id);
-})->with([false, true]);
+})->with([false, true])->with([LeaveApprovalMode::AllRequired, LeaveApprovalMode::AnyRequired]);
+
+test('notify-only manager does not displace a later required natural manager', function (
+    LeaveApprovalApproverType $requiredType,
+    bool $hasFallback,
+    LeaveApprovalMode $mode,
+) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $fallback] = makeActionableApprover($company, ['name' => 'Maher']);
+    configureCompanyLeaveApprovalSettings($company, null, $hasFallback ? $fallback : null);
+    $policy = ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => $requiredType, 'required' => true],
+    ], $mode);
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    $leave = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ],
+        notify: false,
+    );
+
+    expect($leave->status)->toBe('pending')
+        ->and($leave->approvalMode())->toBe($mode)
+        ->and($leave->approvals)->toHaveCount(1)
+        ->and($leave->approvals[0]->is_required)->toBeTrue()
+        ->and($leave->approvals[0]->policy_step_id)->toBe($policy->steps->firstWhere('sequence', 2)->id)
+        ->and($leave->approvals[0]->approver_employee_id)->toBe($managed['manager']->id)
+        ->and($leave->approvals[0]->approver_user_id)->toBe($managed['managerUser']->id)
+        ->and($leave->approvals[0]->status)->toBe(LeaveRequestApprovalStatus::Pending);
+
+    $approved = app(ApproveLeaveRequestStep::class)->handle($leave, $managed['managerUser'], (int) $company->id);
+    expect($approved->status)->toBe('approved');
+})->with([LeaveApprovalApproverType::DepartmentManager, LeaveApprovalApproverType::ParentManager])
+    ->with([false, true])
+    ->with([LeaveApprovalMode::AllRequired, LeaveApprovalMode::AnyRequired]);
+
+test('required manager hierarchy and policy order survive an earlier notify-only manager', function (LeaveApprovalMode $mode) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company, withParent: true);
+    ['employee' => $firstApprover] = makeActionableApprover($company);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $firstApprover->id, 'required' => true],
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        ['type' => LeaveApprovalApproverType::ParentManager, 'required' => true],
+    ], $mode);
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    $leave = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ],
+        notify: false,
+    );
+
+    $steps = $leave->approvals->sortBy('sequence')->values();
+    expect($leave->status)->toBe('pending')
+        ->and($steps)->toHaveCount(3)
+        ->and($steps->pluck('approver_employee_id')->all())->toBe([$firstApprover->id, $managed['manager']->id, $managed['parentManager']->id])
+        ->and($steps->pluck('approver_user_id')->unique())->toHaveCount(3)
+        ->and($steps->pluck('is_required')->all())->toBe([true, true, true])
+        ->and($steps[0]->status)->toBe(LeaveRequestApprovalStatus::Pending)
+        ->and($steps[1]->status)->toBe($mode === LeaveApprovalMode::AllRequired ? LeaveRequestApprovalStatus::Waiting : LeaveRequestApprovalStatus::Pending)
+        ->and($steps[2]->status)->toBe($mode === LeaveApprovalMode::AllRequired ? LeaveRequestApprovalStatus::Waiting : LeaveRequestApprovalStatus::Pending);
+})->with([LeaveApprovalMode::AllRequired, LeaveApprovalMode::AnyRequired]);
+
+test('notify-only manager reuse still enforces requester identity tenancy and authorization', function (string $scenario) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+    if ($scenario === 'requester_employee') {
+        $managed['department']->update(['manager_id' => $employee->id]);
+    } elseif ($scenario === 'requester_user') {
+        $employee->update(['user_id' => $managed['managerUser']->id]);
+    } elseif ($scenario === 'foreign_company') {
+        $managed['manager']->update(['company_id' => makeLeaveApprovalWorkflowFixtures()['company']->id]);
+    } elseif ($scenario === 'inactive_user') {
+        $managed['managerUser']->update(['status' => 'inactive']);
+    } elseif ($scenario === 'missing_permission') {
+        $managed['managerUser']->roles()->detach();
+    } elseif ($scenario === 'visibility') {
+        grantCompanyPermissions($managed['managerUser'], $company, [
+            'attendance.leave-requests.view',
+            'attendance.leave-requests.view_all',
+            'attendance.leave-requests.approve',
+        ], 'restricted-manager');
+        $otherDepartment = Department::query()->create([
+            'company_id' => $company->id,
+            'name' => 'Other Visibility Department',
+            'code' => 'OTHER',
+            'status' => 'active',
+            'include_in_attendance_leave' => true,
+        ]);
+        restrictTestRoleEmployeeVisibility($managed['managerUser'], $company, [(int) $otherDepartment->id], 'restricted-manager');
+    }
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    expect(fn () => app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ],
+        notify: false,
+    ))->toThrow(ValidationException::class);
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse()
+        ->and(LeaveBalance::query()->where('employee_id', $employee->id)->where('year', 2026)->value('pending_days'))->toEqual(0.0);
+})->with(['requester_employee', 'requester_user', 'foreign_company', 'inactive_user', 'missing_permission', 'visibility']);
 
 test('self-leave failure gives configuration diagnostics only to settings viewers', function (string $access) {
     $administrator = $access === 'settings_viewer';

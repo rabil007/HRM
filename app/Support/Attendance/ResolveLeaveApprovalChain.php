@@ -406,6 +406,12 @@ final class ResolveLeaveApprovalChain
         array $usedRequiredApproverUserIds,
         CompanyLeaveApprovalSetting $settings,
     ): ?array {
+        // A required manager step must not advance past an earlier FYI assignment.
+        // Required employee/user identity checks still exclude mandatory approvers.
+        $managerExclusions = $step->is_required
+            ? array_intersect_key($usedManagerEmployeeIds, $usedRequiredApproverEmployeeIds)
+            : $usedManagerEmployeeIds;
+
         return match ($step->approver_type) {
             LeaveApprovalApproverType::DepartmentManager => $this->resolveDepartmentManager(
                 companyId: $companyId,
@@ -413,7 +419,7 @@ final class ResolveLeaveApprovalChain
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
-                usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                usedManagerEmployeeIds: $managerExclusions,
                 usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                 usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
                 settings: $settings,
@@ -424,7 +430,7 @@ final class ResolveLeaveApprovalChain
                 requesterEmployeeId: $requesterEmployeeId,
                 requesterUserId: $requesterUserId,
                 managementChain: $managementChain,
-                usedManagerEmployeeIds: $usedManagerEmployeeIds,
+                usedManagerEmployeeIds: $managerExclusions,
                 usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
                 usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
             ),
