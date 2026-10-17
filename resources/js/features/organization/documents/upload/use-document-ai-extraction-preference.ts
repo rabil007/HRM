@@ -1,5 +1,6 @@
-import { usePage } from '@inertiajs/react';
-import { useSyncExternalStore } from 'react';
+import { router, usePage } from '@inertiajs/react';
+import { useEffect, useRef, useState } from 'react';
+import { update as updateDocumentAiExtractionPreference } from '@/actions/App/Http/Controllers/Organization/DocumentAiExtractionPreferenceController';
 import {
     documentAiExtractionPreferenceStorageKey,
     parseDocumentAiExtractionPreference,
@@ -11,19 +12,7 @@ import type {
 } from '@/features/organization/documents/lib/document-ai-extraction-preference';
 import type { Auth } from '@/types';
 
-const listeners = new Set<() => void>();
-
-const subscribe = (callback: () => void) => {
-    listeners.add(callback);
-
-    return () => {
-        listeners.delete(callback);
-    };
-};
-
-const notify = (): void => listeners.forEach((listener) => listener());
-
-function readStoredPreference(
+function readLegacyLocalPreference(
     userId: number | null,
 ): DocumentAiExtractionPreferenceValue | null {
     if (userId === null || typeof localStorage === 'undefined') {
@@ -41,46 +30,98 @@ function readStoredPreference(
     }
 }
 
-function writeStoredPreference(
-    userId: number,
-    next: DocumentAiExtractionPreferenceValue,
-): void {
+function clearLegacyLocalPreference(userId: number): void {
+    if (typeof localStorage === 'undefined') {
+        return;
+    }
+
     try {
-        localStorage.setItem(
+        localStorage.removeItem(
             documentAiExtractionPreferenceStorageKey(userId),
-            next,
         );
-        notify();
     } catch {
-        // Private mode / blocked storage — preference is best-effort only.
+        // Private mode / blocked storage — best-effort only.
     }
 }
 
 /**
  * Persists the Document AI extraction ON/OFF preference per authenticated user
- * (localStorage), matching other UI preference hooks in the app.
+ * on the server (shared Inertia prop), matching navigation-favorites style UX
+ * prefs. Migrates a one-time legacy localStorage value when the server value
+ * is still unset.
  */
 export function useDocumentAiExtractionPreference(
     companyMode: DocumentAiCompanyMode,
 ) {
-    const userId = (usePage().props.auth as Auth | undefined)?.user?.id ?? null;
-
-    const getSnapshot = (): boolean =>
-        resolveDocumentAiExtractionEnabled(
-            readStoredPreference(userId),
-            companyMode,
-        );
-
-    const enabled = useSyncExternalStore(subscribe, getSnapshot, () =>
-        resolveDocumentAiExtractionEnabled(null, companyMode),
+    const page = usePage();
+    const userId = (page.props.auth as Auth | undefined)?.user?.id ?? null;
+    const sharedPreference = parseDocumentAiExtractionPreference(
+        page.props.document_ai_extraction_preference ?? null,
     );
+    const [pendingEnabled, setPendingEnabled] = useState<boolean | null>(null);
+    const migratedRef = useRef(false);
+
+    const legacyPreference =
+        sharedPreference === null ? readLegacyLocalPreference(userId) : null;
+    const storedPreference = sharedPreference ?? legacyPreference;
+    const resolvedEnabled = resolveDocumentAiExtractionEnabled(
+        storedPreference,
+        companyMode,
+    );
+    const enabled =
+        pendingEnabled !== null && pendingEnabled !== resolvedEnabled
+            ? pendingEnabled
+            : resolvedEnabled;
+
+    useEffect(() => {
+        if (
+            migratedRef.current ||
+            userId === null ||
+            sharedPreference !== null ||
+            legacyPreference === null
+        ) {
+            return;
+        }
+
+        migratedRef.current = true;
+
+        router.put(
+            updateDocumentAiExtractionPreference.url(),
+            { enabled: legacyPreference === 'on' },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    clearLegacyLocalPreference(userId);
+                },
+                onError: () => {
+                    migratedRef.current = false;
+                },
+            },
+        );
+    }, [legacyPreference, sharedPreference, userId]);
 
     const setEnabled = (next: boolean): void => {
         if (userId === null) {
             return;
         }
 
-        writeStoredPreference(userId, next ? 'on' : 'off');
+        setPendingEnabled(next);
+
+        router.put(
+            updateDocumentAiExtractionPreference.url(),
+            { enabled: next },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => {
+                    setPendingEnabled(null);
+                },
+                onError: () => {
+                    setPendingEnabled(null);
+                },
+            },
+        );
     };
 
     return [enabled, setEnabled] as const;

@@ -14,6 +14,7 @@ use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\Companies\ResolveCompanyAccess;
 use App\Support\Documents\MyTasks\MyTasksCounter;
+use App\Support\EmployeeDocuments\UpdateDocumentAiExtractionPreference;
 use App\Support\Navigation\NavigationDestinationCatalog;
 use App\Support\Platform\PlatformAuthorization;
 use App\Support\Users\UserAvatar;
@@ -251,6 +252,9 @@ class HandleInertiaRequests extends Middleware
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,
             'favorite_destination_keys' => $favoriteDestinationKeys,
+            'document_ai_extraction_preference' => UpdateDocumentAiExtractionPreference::normalize(
+                $user?->document_ai_extraction_preference,
+            ),
             'web_push' => [
                 'vapid_public_key' => $user ? (string) (config('webpush.vapid.public_key') ?? '') : '',
                 'enabled' => $user !== null

@@ -1,6 +1,10 @@
 export type DocumentAiCompanyMode = 'off' | 'optional' | 'automatic';
 export type DocumentAiExtractionPreferenceValue = 'on' | 'off';
 
+/**
+ * Legacy localStorage key used before server-side persistence.
+ * Kept for one-time migration of existing browser preferences.
+ */
 export function documentAiExtractionPreferenceStorageKey(
     userId: number,
 ): string {

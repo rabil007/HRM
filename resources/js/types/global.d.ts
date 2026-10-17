@@ -70,6 +70,7 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             sidebarStateSet: boolean;
             favorite_destination_keys: string[];
+            document_ai_extraction_preference: 'on' | 'off' | null;
             [key: string]: unknown;
         };
     }

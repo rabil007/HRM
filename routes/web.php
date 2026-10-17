@@ -95,6 +95,7 @@ use App\Http\Controllers\Organization\CurrentCrewOnboardVesselsExportController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentAiBatchController;
+use App\Http\Controllers\Organization\DocumentAiExtractionPreferenceController;
 use App\Http\Controllers\Organization\DocumentAiSettingsController;
 use App\Http\Controllers\Organization\DocumentBulkCompanyFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
@@ -407,6 +408,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:30,1')
         ->where('destination', '[a-z0-9._-]+')
         ->name('favorites.destroy');
+    Route::put('preferences/document-ai-extraction', [DocumentAiExtractionPreferenceController::class, 'update'])
+        ->middleware('throttle:30,1')
+        ->name('preferences.document-ai-extraction.update');
     Route::post('saved-views', [SavedViewController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('saved-views.store');
