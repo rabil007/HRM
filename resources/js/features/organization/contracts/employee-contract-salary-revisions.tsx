@@ -2,11 +2,6 @@ import { router, useForm } from '@inertiajs/react';
 import { History, Plus } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import {
-    destroy as destroySalaryRevision,
-    store as storeSalaryRevision,
-    update as updateSalaryRevision,
-} from '@/actions/App/Http/Controllers/Organization/ContractSalaryRevisionController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
@@ -22,6 +17,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { actions } from '@/lib/design-system';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
+import {
+    destroy as destroySalaryRevision,
+    store as storeSalaryRevision,
+    update as updateSalaryRevision,
+} from '../../../actions/App/Http/Controllers/Organization/ContractSalaryRevisionController';
 import { formatEffectiveMonth } from './format-effective-month';
 
 export type ContractSalaryRevisionItem = {

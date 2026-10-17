@@ -10,12 +10,6 @@ import {
 } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    destroy as destroyContract,
-    store as storeContract,
-    transferVisaCompany,
-    update as updateContract,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
@@ -67,6 +61,12 @@ import type {
     EmployeeContractDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
+import {
+    destroy as destroyContract,
+    store as storeContract,
+    transferVisaCompany,
+    update as updateContract,
+} from '../../../actions/App/Http/Controllers/Organization/EmployeeContractController';
 
 const CONTRACTS_RELOAD = {
     preserveScroll: true,

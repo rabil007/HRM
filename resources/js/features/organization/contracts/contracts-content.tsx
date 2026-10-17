@@ -1,6 +1,5 @@
 import { Loader2, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import * as OrganizationBulkRecordController from '@/actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -27,8 +26,9 @@ import { DepartmentFilterControls } from '@/features/organization/employees/comp
 import { OrganizationRecordBulkActions } from '@/features/organization/shared/organization-record-bulk-actions';
 import { RecordSelectionHead } from '@/features/organization/shared/record-selection-checkbox';
 import { cn } from '@/lib/utils';
-import { contracts } from '@/routes/organization';
-import { exportMethod as exportContracts } from '@/routes/organization/contracts';
+import * as OrganizationBulkRecordController from '../../../actions/App/Http/Controllers/Organization/OrganizationBulkRecordController';
+import { contracts } from '../../../routes/organization';
+import { exportMethod as exportContracts } from '../../../routes/organization/contracts';
 
 const LIFECYCLE_BADGE_STYLE: Record<string, string> = {
     active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
