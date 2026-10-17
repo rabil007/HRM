@@ -215,6 +215,48 @@ test('crew payroll salary sheet export includes salary structure column for mont
     @unlink($result['path']);
 });
 
+test('monthly crew salary sheet reports EOS separately from gross and net', function () {
+    [$user, $company] = makeCrewPayrollExportFixtures();
+    [$period, $employee] = createApprovedCrewExportFixture($company);
+
+    PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->update([
+            'basic_salary' => '55000.00',
+            'housing_allowance' => '2000.00',
+            'transport_allowance' => '500.00',
+            'other_allowances' => '0.00',
+            'total_deductions' => '0.00',
+            'gross_salary' => '57500.00',
+            'net_salary' => '57500.00',
+            'calculation_breakdown' => [
+                'salary_structure' => 'monthly',
+                'eos_monthly_provision' => 1500,
+                'lines' => [
+                    'basic' => 55000,
+                    'housing' => 2000,
+                    'transport' => 500,
+                    'other' => 0,
+                ],
+            ],
+        ]);
+
+    $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
+    $book = IOFactory::load($result['path']);
+    $dailySheet = $book->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+    $monthlySheet = $book->getSheetByName('Monthly Crew');
+
+    expect($dailySheet->getCell('B3')->getValue())->toBeNull()
+        ->and((string) $monthlySheet->getCell('J1')->getValue())->toBe('EOS PROVISION (NON-PAYABLE)')
+        ->and((float) $monthlySheet->getCell('C2')->getValue())->toBe(55000.0)
+        ->and((float) $monthlySheet->getCell('G2')->getValue())->toBe(57500.0)
+        ->and((float) $monthlySheet->getCell('I2')->getValue())->toBe(57500.0)
+        ->and((float) $monthlySheet->getCell('J2')->getValue())->toBe(1500.0);
+
+    @unlink($result['path']);
+});
+
 test('crew payroll salary sheet export includes arrears column and presentation line movement details', function () {
     [$user, $company] = makeCrewPayrollExportFixtures();
 

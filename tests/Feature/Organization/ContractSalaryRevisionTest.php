@@ -48,6 +48,165 @@ test('creating a contract with salary creates version 1 revision', function () {
         ->and($revision->lines)->toHaveCount(3);
 });
 
+test('monthly crew salary revision http stores EOS without adding it to payable salary', function () {
+    Carbon::setTestNow('2026-10-17');
+
+    try {
+        ['user' => $user, 'company' => $company] = makePayrollFixtures();
+        $this->actingAs($user);
+        grantCompanyPermissions($user, $company, ['contracts.salary_revisions.create']);
+
+        $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+        $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 5000,
+            'housing_allowance' => 1000,
+            'eos_monthly_amount' => 300,
+        ], createdBy: $user->id);
+
+        $this->withSession(['current_company_id' => $company->id])
+            ->post(route('organization.employees.contracts.salary-revisions.store', [
+                'employee' => $employee,
+                'employeeContract' => $contract,
+            ]), [
+                'effective_from' => '2026-09-01',
+                'reason' => 'EOS increase',
+                'basic_salary' => 5000,
+                'housing_allowance' => 1000,
+                'transport_allowance' => '',
+                'other_allowances' => '',
+                'eos_monthly_amount' => 450,
+                'supplementary_allowance' => '',
+                'site_allowance' => '',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $contract->refresh();
+        expect((float) $contract->eos_monthly_amount)->toBe(450.0)
+            ->and((float) $contract->basic_salary)->toBe(5000.0)
+            ->and((float) $contract->housing_allowance)->toBe(1000.0);
+
+        $resolver = app(ResolveEffectiveContractSalaryComponents::class);
+        $priorEos = $resolver->handle($contract, Carbon::parse('2026-02-01'))
+            ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision);
+        $currentEos = $resolver->handle($contract, Carbon::parse('2026-09-01'))
+            ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision);
+
+        expect((float) $priorEos->amount)->toBe(300.0)
+            ->and((float) $currentEos->amount)->toBe(450.0);
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+test('salary revision rejects EOS outside monthly crew and rejects an EOS-only package', function (string $scenario) {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['contracts.salary_revisions.create']);
+
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $monthly = $scenario === 'eos only';
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => $monthly ? 'monthly' : 'daily',
+        'basic_salary' => $monthly ? 5000 : 100,
+        'housing_allowance' => $monthly ? 1000 : null,
+        'eos_monthly_amount' => $monthly ? 300 : null,
+        'site_allowance' => $monthly ? null : 50,
+        'supplementary_allowance' => $monthly ? null : 25,
+    ], createdBy: $user->id);
+
+    $payload = $scenario === 'daily crew'
+        ? [
+            'effective_from' => '2026-09-01',
+            'basic_salary' => 120,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+            'eos_monthly_amount' => 300,
+        ]
+        : [
+            'effective_from' => '2026-09-01',
+            'basic_salary' => '',
+            'housing_allowance' => '',
+            'eos_monthly_amount' => 500,
+        ];
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->from(route('organization.employees.show', $employee))
+        ->post(route('organization.employees.contracts.salary-revisions.store', [
+            'employee' => $employee,
+            'employeeContract' => $contract,
+        ]), $payload)
+        ->assertRedirect()
+        ->assertSessionHasErrors($scenario === 'daily crew'
+            ? ['eos_monthly_amount' => 'EOS is only available for Monthly Crew contracts.']
+            : ['basic_salary' => 'At least one salary component with an amount greater than zero is required.']);
+
+    $fresh = $contract->fresh();
+    expect(ContractSalaryRevision::query()->where('contract_id', $contract->id)->count())->toBe(1)
+        ->and((float) $fresh->basic_salary)->toBe($monthly ? 5000.0 : 100.0)
+        ->and($fresh->eos_monthly_amount === null ? null : (float) $fresh->eos_monthly_amount)
+        ->toBe($monthly ? 300.0 : null);
+})->with([
+    'daily crew',
+    'eos only',
+]);
+
+test('blank EOS on a later monthly crew revision clears the live provision and keeps the earlier line', function () {
+    Carbon::setTestNow('2026-10-17');
+
+    try {
+        ['user' => $user, 'company' => $company] = makePayrollFixtures();
+        $this->actingAs($user);
+        grantCompanyPermissions($user, $company, ['contracts.salary_revisions.create']);
+
+        $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+        $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 5000,
+            'housing_allowance' => 1000,
+            'eos_monthly_amount' => 300,
+        ], createdBy: $user->id);
+
+        $this->withSession(['current_company_id' => $company->id])
+            ->post(route('organization.employees.contracts.salary-revisions.store', [
+                'employee' => $employee,
+                'employeeContract' => $contract,
+            ]), [
+                'effective_from' => '2026-09-01',
+                'basic_salary' => 5200,
+                'housing_allowance' => 1000,
+                'eos_monthly_amount' => '',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $contract->refresh();
+        expect((float) $contract->basic_salary)->toBe(5200.0)
+            ->and($contract->eos_monthly_amount)->toBeNull();
+
+        $resolver = app(ResolveEffectiveContractSalaryComponents::class);
+        $priorEos = $resolver->handle($contract, Carbon::parse('2026-02-01'))
+            ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision);
+        $currentEos = $resolver->handle($contract, Carbon::parse('2026-09-01'))
+            ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision);
+
+        expect((float) $priorEos->amount)->toBe(300.0)
+            ->and($currentEos)->toBeNull();
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
 test('monthly crew EOS salary revisions retain historically effective non-payable amounts', function () {
     Carbon::setTestNow('2026-03-15');
 

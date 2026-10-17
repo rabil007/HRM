@@ -1065,3 +1065,51 @@ test('monthly crew payslip includes manual unpaid leave salary input as real ded
         ->and($data['total_deductions'])->toBe('90.00')
         ->and($data['net_salary'])->toBe('2810.00');
 });
+
+test('monthly crew payslip shows EOS as a non-payable provision outside earnings and net salary', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-EOS-SLIP-1',
+    ]);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'basic_salary' => 55000,
+        'housing_allowance' => 2000,
+        'transport_allowance' => 500,
+        'other_allowances' => 0,
+        'overtime_pay' => 0,
+        'bonus' => 0,
+        'gross_salary' => 57500,
+        'net_salary' => 57500,
+        'total_deductions' => 0,
+        'status' => 'approved',
+        'calculation_breakdown' => [
+            'salary_structure' => 'monthly',
+            'eos_monthly_provision' => 1500,
+        ],
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+    $earningsTotal = collect($data['earnings'])->sum(fn (array $line): float => (float) $line['amount']);
+
+    expect($data['eos_monthly_provision'])->toBe('1500.00')
+        ->and($data['gross_salary'])->toBe('57500.00')
+        ->and($data['net_salary'])->toBe('57500.00')
+        ->and(collect($data['earnings'])->pluck('label')->all())->not->toContain('EOS')
+        ->and(number_format($earningsTotal, 2, '.', ''))->toBe('57500.00');
+
+    $html = view('payroll.payslip', $data)->render();
+    expect($html)
+        ->toContain('Non-Payable Provision')
+        ->toContain('EOS (End of Service) provision:')
+        ->toContain('1500.00')
+        ->toContain('Not included in earnings, deductions, net salary, or WPS.');
+});
