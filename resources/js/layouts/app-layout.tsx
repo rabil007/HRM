@@ -6,6 +6,7 @@ import { AppRefreshSync } from '@/components/app-refresh-sync';
 import { ApplicationBrandingSync } from '@/components/application-branding-sync';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { ConfigDrawer } from '@/components/config-drawer';
+import { ImpersonationBanner } from '@/components/impersonation-banner';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
 import { getTopNavLinks } from '@/components/layout/data/top-nav-data';
 import { Header } from '@/components/layout/header';
@@ -40,6 +41,7 @@ export default function AppLayout({
                 <AppRefreshSync versionUrl={appVersion.url()} />
                 <ApplicationBrandingSync />
                 <PlatformDateFormatSync />
+                <ImpersonationBanner />
                 <Header>
                     {breadcrumbs.length > 0 && (
                         <div className="mr-4 hidden md:block">

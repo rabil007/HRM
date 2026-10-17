@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\UserInvitation;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\AppRefresh\AuthorizationRevision;
+use App\Support\Auth\ImpersonationService;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\UpdateOrganizationUser;
 use App\Support\Users\GlobalIdentityAccessGuard;
@@ -96,7 +97,7 @@ class UserController extends Controller
             ->all();
     }
 
-    public function index(UserDirectoryQuery $query)
+    public function index(UserDirectoryQuery $query, ImpersonationService $impersonationService)
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
@@ -152,7 +153,7 @@ class UserController extends Controller
 
         $requestUser = request()->user();
         $users->setCollection(
-            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload, $onlineThreshold, $recentThreshold, $companyId, $requestUser) {
+            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload, $onlineThreshold, $recentThreshold, $companyId, $requestUser, $impersonationService) {
                 $role = $roleByUserId->get($user->id);
                 $latestActivity = $user->latest_activity ? (int) $user->latest_activity : null;
                 $isHomeCompanyUser = (int) $user->company_id === $companyId;
@@ -193,6 +194,7 @@ class UserController extends Controller
                         'can_password_reset' => $isHomeCompanyUser && ($requestUser?->can('users.password_reset') ?? false),
                         'can_revoke_sessions' => $isHomeCompanyUser && ($requestUser?->can('users.sessions.revoke') ?? false),
                         'can_manage_membership' => true,
+                        'can_impersonate' => $impersonationService->canImpersonate($requestUser, $user, $companyId),
                     ],
                 ];
             })

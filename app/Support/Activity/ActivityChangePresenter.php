@@ -47,6 +47,7 @@ final class ActivityChangePresenter
         'event',
         'company_id',
         'occurred_at',
+        'impersonation',
     ];
 
     /**
@@ -94,11 +95,21 @@ final class ActivityChangePresenter
     }
 
     /**
-     * @return array{id: int, event: string|null, description: string|null, causer: array{id: int, name: string, email: string}|null, old_values: mixed, new_values: mixed, created_at: mixed}
+     * @return array{id: int, event: string|null, description: string|null, causer: array{id: int, name: string, email: string}|null, impersonator: array{id: int, name: string, email: string}|null, old_values: mixed, new_values: mixed, created_at: mixed}
      */
     public static function toRecentActivityArray(Activity $log): array
     {
         $causer = $log->relationLoaded('causer') ? $log->causer : null;
+        $impersonation = $log->properties?->get('impersonation');
+        $impersonator = null;
+
+        if (is_array($impersonation) && ($impersonation['impersonated'] ?? false)) {
+            $impersonator = [
+                'id' => (int) ($impersonation['original_user_id'] ?? 0),
+                'name' => (string) ($impersonation['original_user_name'] ?? 'User'),
+                'email' => (string) ($impersonation['original_user_email'] ?? ''),
+            ];
+        }
 
         return [
             'id' => $log->id,
@@ -109,6 +120,7 @@ final class ActivityChangePresenter
                 'name' => $causer->name,
                 'email' => $causer->email,
             ] : null,
+            'impersonator' => $impersonator,
             'old_values' => $log->getAttribute('presented_old_values')
                 ?? (is_array($log->attribute_changes?->get('old')) ? $log->attribute_changes->get('old') : null),
             'new_values' => $log->getAttribute('presented_new_values')

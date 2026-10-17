@@ -10,6 +10,7 @@ use App\Services\SalaryDeclaration\RendersSalaryDeclarationPdf;
 use App\Services\SalaryDeclaration\SalaryDeclarationPdfRenderer;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
+use App\Support\Auth\ImpersonationService;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\BulkDocuments\ConfiguresBrowsershotEnvironment;
 use App\Support\EmployeeFiles\TransactionScopedPrivateFileCompensation;
@@ -18,6 +19,7 @@ use App\Support\Security\ProductionSecurityDefaults;
 use App\Support\Settings\PlatformDateFormatter;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
@@ -34,6 +36,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Spatie\Activitylog\Models\Activity;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -83,6 +86,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureMailViews();
         $this->configurePasswordResetNotifications();
         $this->configureJobRunRecording();
+        $this->configureImpersonationLifecycle();
     }
 
     protected function configureJobRunRecording(): void
@@ -288,5 +292,84 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : Password::min(8),
         );
+    }
+
+    protected function configureImpersonationLifecycle(): void
+    {
+        Activity::creating(function (Activity $activity): void {
+            if (! app()->bound('request')) {
+                return;
+            }
+
+            $request = request();
+            if (! $request->hasSession()) {
+                return;
+            }
+
+            $impersonationService = app(ImpersonationService::class);
+            if (! $impersonationService->isImpersonating($request)) {
+                return;
+            }
+
+            $impersonator = $impersonationService->getImpersonator($request);
+            if (! $impersonator) {
+                return;
+            }
+
+            $properties = $activity->properties ? $activity->properties->toArray() : [];
+            if (! isset($properties['impersonation'])) {
+                $properties['impersonation'] = [
+                    'impersonated' => true,
+                    'original_user_id' => $impersonator->id,
+                    'original_user_name' => $impersonator->name,
+                    'original_user_email' => $impersonator->email,
+                    'correlation_id' => $impersonationService->getCorrelationId($request),
+                ];
+                $activity->properties = collect($properties);
+            }
+
+            if (! $activity->company_id) {
+                $currentCompanyId = $request->attributes->get('current_company_id') ?? $request->session()->get('current_company_id');
+                if ($currentCompanyId) {
+                    $activity->company_id = (int) $currentCompanyId;
+                }
+            }
+        });
+
+        Event::listen(Logout::class, function (Logout $event): void {
+            if (! app()->bound('request')) {
+                return;
+            }
+
+            $request = request();
+            if (! $request->hasSession()) {
+                return;
+            }
+
+            $impersonationService = app(ImpersonationService::class);
+            if ($impersonationService->isImpersonating($request)) {
+                $data = $request->session()->get('impersonation');
+                $originalUserId = $data['original_user_id'] ?? null;
+                $originalUser = $originalUserId ? User::find($originalUserId) : null;
+                $targetUser = $event->user;
+
+                activity('impersonation')
+                    ->causedBy($originalUser ?: $targetUser)
+                    ->performedOn($targetUser ?: ($originalUser ?: null))
+                    ->event('terminated')
+                    ->withProperties([
+                        'reason' => 'logout',
+                        'initiator_id' => $originalUserId,
+                        'target_id' => $targetUser?->id,
+                        'company_id' => $data['original_company_id'] ?? null,
+                        'correlation_id' => $data['correlation_id'] ?? null,
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ])
+                    ->log('Impersonation terminated on logout');
+
+                $request->session()->forget('impersonation');
+            }
+        });
     }
 }
