@@ -19,7 +19,7 @@ enum SalaryComponentCode: string
     {
         return match ($this) {
             self::Basic => 'Basic salary',
-            self::EosProvision => 'EOS provision (non-payable)',
+            self::EosProvision => 'EOS (Monthly)',
             self::Housing => 'Housing allowance',
             self::Transport => 'Transport allowance',
             self::Other => 'Other allowances',

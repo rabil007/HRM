@@ -121,18 +121,18 @@ final class WpsExportValidator
             return 'Bank routing code is missing.';
         }
 
-        if ($record->payroll_category === PayrollCategory::Crew && ! $this->hasCrewBasicDailyRate($record)) {
-            return 'Active basic daily rate is missing.';
+        if ($record->payroll_category === PayrollCategory::Crew) {
+            $breakdown = $record->calculation_breakdown ?? [];
+            $monthly = ($breakdown['salary_structure'] ?? 'daily') === 'monthly';
+            $rate = $monthly ? 'basic_monthly' : 'basic_daily';
+
+            if ((float) ($breakdown['rates'][$rate] ?? 0) <= 0) {
+                return $monthly
+                    ? 'Active basic monthly salary is missing.'
+                    : 'Active basic daily rate is missing.';
+            }
         }
 
         return null;
-    }
-
-    private function hasCrewBasicDailyRate(PayrollRecord $record): bool
-    {
-        $breakdown = $record->calculation_breakdown ?? [];
-        $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
-
-        return (float) ($rates['basic_daily'] ?? 0) > 0;
     }
 }

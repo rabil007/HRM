@@ -336,7 +336,7 @@ export function ContractsContent({
                                         </DataTableHead>
                                         {showMonthlyCrewColumns ? (
                                             <DataTableHead className="text-right">
-                                                EOS provision
+                                                EOS (Monthly)
                                             </DataTableHead>
                                         ) : null}
                                         <DataTableHead className="text-right">

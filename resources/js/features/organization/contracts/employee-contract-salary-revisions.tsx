@@ -85,13 +85,11 @@ function formatMoney(value: number | string | null | undefined): string {
 }
 
 function revisionTotal(revision: ContractSalaryRevisionItem): number {
-    return revision.lines
-        .filter((line) => line.component_code !== 'EOS_PROVISION')
-        .reduce((sum, line) => {
-            const numeric = Number(line.amount);
+    return revision.lines.reduce((sum, line) => {
+        const numeric = Number(line.amount);
 
-            return sum + (Number.isNaN(numeric) ? 0 : numeric);
-        }, 0);
+        return sum + (Number.isNaN(numeric) ? 0 : numeric);
+    }, 0);
 }
 
 function currentMonthValue(): string {
@@ -315,8 +313,11 @@ export function EmployeeContractSalaryRevisions({
                                         <div className="space-y-0.5">
                                             {revision.lines.map((line) => (
                                                 <div key={line.component_code}>
-                                                    {line.component_name}:{' '}
-                                                    {formatMoney(line.amount)}
+                                                    {line.component_code ===
+                                                    'EOS_PROVISION'
+                                                        ? 'EOS (Monthly)'
+                                                        : line.component_name}
+                                                    : {formatMoney(line.amount)}
                                                 </div>
                                             ))}
                                         </div>
@@ -478,7 +479,7 @@ export function EmployeeContractSalaryRevisions({
                         contract.salary_structure === 'monthly' ? (
                             <div className="space-y-1.5 sm:col-span-2">
                                 <Label htmlFor="revision_eos">
-                                    EOS provision (non-payable, optional)
+                                    EOS (Monthly, optional)
                                 </Label>
                                 <Input
                                     id="revision_eos"

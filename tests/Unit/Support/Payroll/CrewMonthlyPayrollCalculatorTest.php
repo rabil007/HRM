@@ -113,22 +113,34 @@ test('crew monthly payroll calculator still applies other deductions after unpai
         ->and($result['net_salary'])->toBe('2500.00');
 });
 
-test('monthly EOS provision is reported but never added to crew earnings or net salary', function () {
-    $timesheet = new CrewTimesheet(['unpaid_leave_days' => 0]);
-
+test('monthly crew pays the signed salary including EOS exactly once', function (float $unpaidDays, ?float $eos, string $gross, float $paidEos) {
     $components = Collection::make([
-        makeMonthlyCalculatorComponent('BASIC', 55000),
-        makeMonthlyCalculatorComponent('HOUSING', 2000),
-        makeMonthlyCalculatorComponent('TRANSPORT', 500),
-        makeMonthlyCalculatorComponent('EOS_PROVISION', 1500),
+        makeMonthlyCalculatorComponent('BASIC', 15000),
+        makeMonthlyCalculatorComponent('HOUSING', 10000),
+        makeMonthlyCalculatorComponent('TRANSPORT', 5000),
+        makeMonthlyCalculatorComponent('OTHER', 24125),
     ]);
+    if ($eos !== null) {
+        $components->push(makeMonthlyCalculatorComponent('EOS_PROVISION', $eos));
+    }
 
-    $result = (new CrewMonthlyPayrollCalculator)->calculate($timesheet, $components, 30);
+    $result = (new CrewMonthlyPayrollCalculator)->calculate(
+        new CrewTimesheet(['unpaid_leave_days' => $unpaidDays]), $components, 30,
+    );
 
-    expect($result['gross_salary'])->toBe('57500.00')
-        ->and($result['net_salary'])->toBe('57500.00')
-        ->and($result['calculation_breakdown']['eos_monthly_provision'])->toBe(1500.0);
-});
+    expect($result['gross_salary'])->toBe($gross)
+        ->and($result['net_salary'])->toBe($gross)
+        ->and($result['total_deductions'])->toBe('0.00')
+        ->and($result['calculation_breakdown']['eos_monthly_paid'])->toBe($paidEos)
+        ->and($result['calculation_breakdown']['lines']['eos'])->toBe($paidEos)
+        ->and($result['calculation_breakdown'])->not->toHaveKey('eos_monthly_provision');
+})->with([
+    'Vinod full month' => [0, 875, '55000.00', 875.0],
+    'null EOS' => [0, null, '54125.00', 0.0],
+    'zero EOS' => [0, 0, '54125.00', 0.0],
+    'three unpaid days' => [3, 875, '49500.00', 787.5],
+    'full month unpaid' => [30, 875, '0.00', 0.0],
+]);
 
 function makeMonthlyCalculatorComponent(string $code, float $amount): ContractSalaryComponent
 {

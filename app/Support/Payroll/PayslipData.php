@@ -335,9 +335,19 @@ final class PayslipData
             ['label' => 'Other allowances', 'amount' => self::formatAmount($record->other_allowances)],
         ];
 
+        $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
         $optionalRows = [
+            ['label' => $unpaidDays > 0 ? 'EOS (Monthly, prorated)' : 'EOS (Monthly)',
+                'amount' => self::formatAmount($breakdown['eos_monthly_paid'] ?? 0)],
             ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
         ];
+
+        // The base timesheet addition is distinct from salary-input additions.
+        if (array_key_exists('eos_monthly_paid', $breakdown)
+            && $salaryInputLines !== [] && (float) ($breakdown['base']['bonus'] ?? 0) > 0) {
+            $optionalRows[] = ['label' => 'Timesheet addition',
+                'amount' => self::formatAmount($breakdown['base']['bonus'])];
+        }
 
         foreach ($salaryInputLines as $input) {
             if (! ($input['is_addition'] ?? false)) {

@@ -185,6 +185,7 @@ function contractTotalSalary(row: EmployeeContractDetails): number {
               row.housing_allowance,
               row.transport_allowance,
               row.other_allowances,
+              row.payroll_category === 'crew' ? row.eos_monthly_amount : 0,
           ];
 
     return components.reduce<number>(
@@ -912,7 +913,7 @@ export function EmployeeContractTab({
                             {hasMonthlyCrewContracts &&
                             showField('eos_monthly_amount') ? (
                                 <th className={employeeRecordsTableThClass()}>
-                                    EOS provision
+                                    EOS (Monthly)
                                 </th>
                             ) : null}
                             {showCompensationSection ? (
@@ -1898,8 +1899,7 @@ export function EmployeeContractTab({
                                             htmlFor="contract_eos_monthly_amount"
                                             className="text-xs"
                                         >
-                                            EOS provision (optional,
-                                            non-payable)
+                                            EOS (Monthly, optional)
                                         </Label>
                                         <CurrencyInput
                                             id="contract_eos_monthly_amount"
@@ -2050,6 +2050,11 @@ export function EmployeeContractTab({
                                           contractForm.data.housing_allowance,
                                           contractForm.data.transport_allowance,
                                           contractForm.data.other_allowances,
+                                          isCrewMonthly &&
+                                          showField('eos_monthly_amount')
+                                              ? contractForm.data
+                                                    .eos_monthly_amount
+                                              : '',
                                       ];
                                 const hasAnyValue = fields.some(
                                     (f) => f.trim() !== '',
@@ -2560,7 +2565,7 @@ export function EmployeeContractTab({
                                         htmlFor="transfer_eos_monthly_amount"
                                         className="text-xs"
                                     >
-                                        EOS provision (optional, non-payable)
+                                        EOS (Monthly, optional)
                                     </Label>
                                     <CurrencyInput
                                         id="transfer_eos_monthly_amount"

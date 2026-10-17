@@ -56,7 +56,7 @@ class ContractsExport implements FromQuery, WithHeadings, WithMapping, WithStric
         }
 
         if ($monthlyCrew) {
-            $headings[] = 'EOS Provision (Non-Payable)';
+            $headings[] = 'EOS (Monthly)';
         }
 
         $headings[] = 'Total Salary';

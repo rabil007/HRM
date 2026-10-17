@@ -51,6 +51,8 @@ final class PayrollRecordResource
                     'housing_allowance' => self::formatAmount($record->housing_allowance),
                     'transport_allowance' => self::formatAmount($record->transport_allowance),
                     'other_allowances' => self::formatAmount($record->other_allowances),
+                    'eos_monthly_paid' => isset($breakdown['eos_monthly_paid'])
+                        ? self::formatAmount($breakdown['eos_monthly_paid']) : null,
                     'eos_monthly_provision' => isset($breakdown['eos_monthly_provision'])
                         ? self::formatAmount($breakdown['eos_monthly_provision']) : null,
                     'deduction_amount' => self::formatAmount($record->total_deductions),

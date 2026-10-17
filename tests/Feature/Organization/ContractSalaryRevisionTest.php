@@ -48,7 +48,7 @@ test('creating a contract with salary creates version 1 revision', function () {
         ->and($revision->lines)->toHaveCount(3);
 });
 
-test('monthly crew EOS salary revisions retain historically effective non-payable amounts', function () {
+test('monthly crew EOS salary revisions retain historically effective EOS amounts', function () {
     Carbon::setTestNow('2026-03-15');
 
     try {

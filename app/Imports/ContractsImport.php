@@ -166,7 +166,7 @@ final class ContractsImport
                 'Housing Allowance',
                 'Transport Allowance',
                 'Other Allowances',
-                'EOS Provision (Non-Payable)',
+                'EOS (Monthly)',
                 'Note',
                 'Sponsor',
             ];
@@ -204,6 +204,11 @@ final class ContractsImport
                 chr(ord('A') + $index),
                 1,
             ) ?? '')));
+
+            // Keep previously downloaded Monthly Crew templates importable.
+            if ($header === 'EOS (Monthly)' && $actual === 'eos provision (non-payable)') {
+                continue;
+            }
 
             if ($actual !== mb_strtolower($header)) {
                 throw new \InvalidArgumentException('The uploaded file does not match the '.$payrollCategory->label().' contracts template.');

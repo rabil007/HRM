@@ -81,6 +81,11 @@ final class WpsExportRows
             ? (int) $startDate->diffInDays($endDate) + 1
             : 0;
 
+        $net = self::integerAmount((float) $record->net_salary);
+        $monthlyCrew = $record->payroll_category === PayrollCategory::Crew
+            && ($breakdown['salary_structure'] ?? 'daily') === 'monthly';
+        $fixed = $monthlyCrew ? min($net, self::integerAmount($this->fixedIncome($record))) : $net;
+
         return [
             'EDR',
             (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
@@ -89,8 +94,8 @@ final class WpsExportRows
             $startDate?->format('Y-m-d') ?? '',
             $endDate?->format('Y-m-d') ?? '',
             $inclusiveDays,
-            self::integerAmount((float) $record->net_salary),
-            0,
+            $fixed,
+            $net - $fixed,
             (int) round((float) $record->leave_days),
             (string) ($record->employee?->name ?? ''),
         ];
@@ -133,6 +138,17 @@ final class WpsExportRows
     {
         if ($record->payroll_category === PayrollCategory::Crew) {
             $breakdown = $record->calculation_breakdown ?? [];
+            if (($breakdown['salary_structure'] ?? 'daily') === 'monthly') {
+                $earnedFixed = (float) $record->basic_salary
+                    + (float) $record->housing_allowance
+                    + (float) $record->transport_allowance
+                    + (float) $record->other_allowances
+                    + (float) ($breakdown['eos_monthly_paid'] ?? 0);
+
+                // Deductions reduce the fixed payment when net is below earned fixed salary.
+                return round(max(0, min((float) $record->net_salary, $earnedFixed)), 2);
+            }
+
             $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
 
             return (float) ($lines['total_standby_pay'] ?? 0) + (float) ($lines['onsite_pay'] ?? 0);

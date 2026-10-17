@@ -279,7 +279,7 @@ export function ContractsShowContent({
                             {isCrewMonthly ? (
                                 <div className="sm:col-span-2">
                                     <DetailField
-                                        label="EOS provision (non-payable)"
+                                        label="EOS (Monthly)"
                                         value={formatContractMoney(
                                             contract.eos_monthly_amount,
                                         )}

@@ -166,12 +166,14 @@ final class CrewPayrollSalarySheetExporter
             'G' => 'GROSS',
             'H' => 'DEDUCTIONS',
             'I' => 'NET',
-            'J' => 'EOS PROVISION (NON-PAYABLE)',
+            'J' => 'EOS (MONTHLY PAID)',
+            'K' => 'ADDITIONS',
+            'L' => 'EOS PROVISION (HISTORICAL NON-PAYABLE)',
         ];
         foreach ($headers as $column => $label) {
             $sheet->setCellValue("{$column}1", $label);
         }
-        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:L1')->getFont()->setBold(true);
         $row = 2;
         foreach ($monthlyRecords as $record) {
             $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
@@ -185,7 +187,9 @@ final class CrewPayrollSalarySheetExporter
                 'G' => $record->gross_salary,
                 'H' => $record->total_deductions,
                 'I' => $record->net_salary,
-                'J' => $breakdown['eos_monthly_provision'] ?? null,
+                'J' => $breakdown['eos_monthly_paid'] ?? null,
+                'K' => (float) $record->bonus + (float) $record->overtime_pay,
+                'L' => $breakdown['eos_monthly_provision'] ?? null,
             ];
             foreach ($values as $column => $value) {
                 if ($value !== null) {
@@ -195,12 +199,12 @@ final class CrewPayrollSalarySheetExporter
             $row++;
         }
         $lastRow = max(2, $row - 1);
-        $sheet->getStyle("C2:J{$lastRow}")
+        $sheet->getStyle("C2:L{$lastRow}")
             ->getNumberFormat()
             ->setFormatCode('#,##0.00');
         $sheet->freezePane('C2');
-        $sheet->setAutoFilter("A1:J{$lastRow}");
-        foreach (range('A', 'J') as $column) {
+        $sheet->setAutoFilter("A1:L{$lastRow}");
+        foreach (range('A', 'L') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
     }

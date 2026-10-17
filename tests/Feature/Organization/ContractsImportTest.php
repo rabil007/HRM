@@ -382,7 +382,7 @@ test('contracts import rejects inactive company visa type names', function () {
         ->assertJsonPath('rows.0.errors.0.field', 'company_visa_type');
 });
 
-test('crew monthly import template uses monthly allowances and preserves EOS provision', function () {
+test('crew monthly import template uses monthly allowances and preserves monthly EOS', function () {
     ['company' => $company, 'crewEmployee' => $crewEmployee] = makeContractsImportFixtures();
 
     EmployeeContract::query()->where('employee_id', $crewEmployee->id)->update([
@@ -397,7 +397,7 @@ test('crew monthly import template uses monthly allowances and preserves EOS pro
     $sheet = IOFactory::load($result['path'])->getSheetByName('Crew Monthly Contracts');
 
     expect($sheet)->not->toBeNull()
-        ->and((string) $sheet->getCell('K1')->getValue())->toBe('EOS Provision (Non-Payable)')
+        ->and((string) $sheet->getCell('K1')->getValue())->toBe('EOS (Monthly)')
         ->and((float) $sheet->getCell('G2')->getValue())->toBe(55000.0)
         ->and((float) $sheet->getCell('H2')->getValue())->toBe(2000.0)
         ->and((float) $sheet->getCell('K2')->getValue())->toBe(1500.0);
@@ -482,7 +482,7 @@ test('monthly crew import previews effective values and keeps blank metadata and
         ->assertJsonPath('rows.0.start_date', '2025-01-01')
         ->assertJsonPath('rows.0.end_date', '2027-12-31')
         ->assertJsonPath('rows.0.labor_contract_id', 'PRESERVE-MONTHLY-1')
-        ->assertJsonPath('rows.0.total_salary', 58800)
+        ->assertJsonPath('rows.0.total_salary', 60300)
         ->assertJsonPath('rows.0.eos_monthly_amount', '1500.00');
 
     $this->actingAs($user)
@@ -661,3 +661,15 @@ function makeContractsImportFile(PayrollCategory $payrollCategory, array $rows, 
 
     return new UploadedFile($path, 'contracts-import.xlsx', null, null, true);
 }
+
+test('previously downloaded monthly crew EOS templates remain importable', function () {
+    $file = makeContractsImportFile(PayrollCategory::Crew, [[
+        'employee_no' => 'LEGACY-EOS', 'name' => 'Legacy Monthly Crew',
+        'basic_salary' => 15000, 'eos_monthly_amount' => 875,
+    ]], 'monthly');
+    $book = IOFactory::load($file->getRealPath());
+    $book->getSheetByName('Crew Monthly Contracts')->setCellValue('K1', 'EOS Provision (Non-Payable)');
+    (new Xlsx($book))->save($file->getRealPath());
+    $rows = app(ContractsImport::class)->parse($file, PayrollCategory::Crew, 'monthly');
+    expect((float) $rows[0]['eos_monthly_amount'])->toBe(875.0);
+});

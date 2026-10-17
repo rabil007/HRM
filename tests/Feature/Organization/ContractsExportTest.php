@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Exports\ContractsExport;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
@@ -462,4 +463,16 @@ test('export shows zero totals when contract has no salary components', function
     expect($row)->not->toBeNull()
         ->and($row[array_search('Total Salary', $headers, true)])->toBe('0')
         ->and($row[array_search('Total Salary (USD)', $headers, true)])->toBe('0');
+});
+
+test('monthly crew contract export includes payable EOS in the signed salary total', function () {
+    ['company' => $company, 'contract' => $contract] = makeContractExportFixtures();
+    $contract->update([
+        'payroll_category' => 'crew', 'salary_structure' => 'monthly',
+        'basic_salary' => 15000, 'housing_allowance' => 10000,
+        'transport_allowance' => 5000, 'other_allowances' => 24125, 'eos_monthly_amount' => 875,
+    ]);
+    $export = new ContractsExport(EmployeeContract::query()->where('company_id', $company->id), 'crew', 'monthly');
+    $row = array_combine($export->headings(), $export->map($contract->fresh()));
+    expect((float) $row['EOS (Monthly)'])->toBe(875.0)->and($row['Total Salary'])->toBe(55000.0);
 });

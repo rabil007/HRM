@@ -553,7 +553,7 @@ export function ContractsImportDialog({
                                             {payrollCategory === 'crew' &&
                                             salaryStructure === 'monthly' ? (
                                                 <TableHead className="text-right">
-                                                    EOS (non-payable)
+                                                    EOS (Monthly)
                                                 </TableHead>
                                             ) : null}
                                             <TableHead className="text-right">
