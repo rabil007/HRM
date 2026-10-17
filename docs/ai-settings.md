@@ -68,13 +68,14 @@ Smart Search is a fast, automatic filter box. Interpretation runs after a short 
 
 Announcement **AI Assist** is a separate product capability. It reuses the same Application AI provider credentials via `AiSettingsService::isProviderConfigured()` / `applySelectedProviderToRuntime()`, and does **not** require Smart Employee Search to be enabled. See [Announcements](./announcements.md#ai-assist).
 
-**Document AI** reuses these installation-wide provider credentials independently of the Smart Employee Search enable switch. Each company owns only its Document AI mode (`off`, `optional`, or `automatic`) in `document_ai_settings`; provider credentials remain platform-global. Document extraction has its own application-level performance profile so changing it does not silently change Smart Search or Announcement AI Assist: OpenAI uses `gpt-6-luna`, OpenRouter uses `openai/gpt-6-luna`, and supported providers request `low` reasoning effort. `off` is the default and preserves the existing manual Documents workflow. `documents.ai.manage` changes the company mode (with `privileged.2fa`), while `documents.ai.use` permits single-file and bulk extraction in the existing employee document upload dialog. Supported categories are Passport, Emirates ID, and UAE Visa only; extraction never creates an `EmployeeDocument`, updates employee master data, or replaces the final user review/save step. Uploaded files are sent through private request/temporary storage paths and provider failures fall back to manual upload.
+**Document AI** reuses these installation-wide provider credentials independently of the Smart Employee Search enable switch. Each company owns only its Document AI mode (`off`, `optional`, or `automatic`) in `document_ai_settings`; provider credentials remain platform-global. Document extraction has its own application-level performance profile so changing it does not silently change Smart Search or Announcement AI Assist: OpenAI uses `gpt-6-luna`, OpenRouter uses `openai/gpt-6-luna`, and supported providers request `low` reasoning effort. `off` is the default and preserves the existing manual Documents workflow. `documents.ai.manage` changes the company mode (with `privileged.2fa`). Users with `documents.upload` may enable or disable AI Extraction in the Upload Document modal; that per-user preference persists across sessions and AI OFF never initiates extraction. Supported categories are Passport, Emirates ID, and UAE Visa only; extraction never creates an `EmployeeDocument`, updates employee master data, or replaces the final user review/save step. Uploaded files are sent through private request/temporary storage paths and provider failures fall back to manual upload.
 
-The upload experience depends on company mode:
+The upload experience depends on company mode and the user's AI Extraction toggle:
 
-- **Off:** normal manual document workflow with no AI provider calls.
-- **Optional:** the user chooses **Extract with AI** (single) or **Extract all with AI** (multi-file), reviews or edits suggestions and warnings, then uses the existing Upload action.
-- **Automatic:** extraction starts for eligible files after the employee context is known; the review panel appears, but the user still reviews and presses Upload. Automatic means auto-start extraction, never auto-save.
+- **Off:** normal manual document workflow with no AI provider calls (toggle hidden).
+- **Optional + user AI ON:** the user chooses **Extract with AI** (single) or **Extract all with AI** (multi-file), reviews or edits suggestions and warnings, then uses the existing Upload action.
+- **Automatic + user AI ON:** extraction starts for eligible files after the employee context is known; the review panel appears, but the user still reviews and presses Upload. Automatic means auto-start extraction, never auto-save.
+- **User AI OFF** (optional or automatic company mode): manual upload only; no extract requests are sent.
 
 AI-filled document number and date fields are visibly marked until the user edits them. Existing user values are never overwritten; conflicting suggestions remain available through **Use suggestion**. Confidence is review guidance only, and low-confidence or document-type mismatch warnings do not silently change the selected type or block manual upload. AI suggestions can be incorrect. Document AI does not update employee master data or automatically save/upload documents.
 
@@ -188,7 +189,7 @@ Malformed, empty, unstructured, or structurally incomplete provider output fails
 | Test selected provider | `platform:manage` |
 | View / change Document AI mode (active company) | `documents.ai.manage` (+ `privileged.2fa` to mutate) |
 | Use Smart Employee Search | `employees.view` (existing) |
-| Use Document AI extraction | `documents.ai.use` + company mode + configured provider |
+| Use Document AI extraction | `documents.upload` + company mode enabled + configured provider + user AI Extraction preference ON |
 
 Frontend `can` flags are UX only. Backend middleware is authoritative. A single page may show both scopes, but the server remains authoritative about which props each user receives.
 

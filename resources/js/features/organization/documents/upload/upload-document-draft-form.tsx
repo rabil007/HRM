@@ -129,7 +129,7 @@ export function UploadDocumentDraftForm({
                             {aiReview.status === 'extracting'
                                 ? 'Extracting…'
                                 : aiReview.status === 'failed'
-                                  ? 'Failed'
+                                  ? 'Failed — continue manually'
                                   : 'Needs review'}
                         </span>
                     </div>

@@ -12,6 +12,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { isDocumentAiExtractionActive } from '@/features/organization/documents/lib/document-ai-extraction-preference';
 import {
     applyAiFieldsWithoutOverwrite,
     applyManualDraftPatch,
@@ -57,6 +60,7 @@ import type {
 import { UploadEmployeeSelector } from '@/features/organization/documents/upload/upload-employee-selector';
 import type { DocumentUploadEmployeeOption } from '@/features/organization/documents/upload/upload-employee-selector';
 import { useDocumentAiBatch } from '@/features/organization/documents/upload/use-document-ai-batch';
+import { useDocumentAiExtractionPreference } from '@/features/organization/documents/upload/use-document-ai-extraction-preference';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
@@ -182,6 +186,20 @@ export function UploadDocumentDialog({
     const [aiReview, setAiReview] =
         useState<DocumentAiReviewState>(idleDocumentAiReview);
     const appliedBulkAiRef = useRef(new Set<string>());
+    const extractAbortRef = useRef<AbortController | null>(null);
+    const companyAiMode = documentAiSettings?.mode ?? 'off';
+    const [aiExtractionPreferenceEnabled, setAiExtractionPreferenceEnabled] =
+        useDocumentAiExtractionPreference(companyAiMode);
+    const companyAiToggleVisible =
+        canUseDocumentAi &&
+        !!documentAiSettings &&
+        documentAiSettings.mode !== 'off';
+    const aiExtractionActive = isDocumentAiExtractionActive({
+        canUpload: canUseDocumentAi,
+        companyMode: companyAiMode,
+        providerAvailable: documentAiSettings?.provider_available ?? false,
+        userPreferenceEnabled: aiExtractionPreferenceEnabled,
+    });
 
     const uploadProgressPhase = resolveDocumentUploadPhase({
         isPreparing: isCompressingFiles,
@@ -209,6 +227,8 @@ export function UploadDocumentDialog({
     );
 
     const resetUploadDialog = useCallback(() => {
+        extractAbortRef.current?.abort();
+        extractAbortRef.current = null;
         setDrafts([]);
         setSelectedDraftId(null);
         setFieldErrorsByIndex(new Map());
@@ -226,12 +246,7 @@ export function UploadDocumentDialog({
     }, [allowEmployeeSelection, clearMissingRequired]);
 
     const aiAvailable =
-        canUseDocumentAi &&
-        !!documentAiSettings &&
-        documentAiSettings.mode !== 'off' &&
-        documentAiSettings.provider_available &&
-        drafts.length === 1 &&
-        !!effectiveEmployeeId;
+        aiExtractionActive && drafts.length === 1 && !!effectiveEmployeeId;
 
     const aiContextKey = documentAiContextKey(
         effectiveEmployeeId,
@@ -254,12 +269,7 @@ export function UploadDocumentDialog({
         abandon: abandonBulkAi,
     } = useDocumentAiBatch(drafts, effectiveEmployeeId);
     const bulkAiAvailable =
-        canUseDocumentAi &&
-        !!documentAiSettings &&
-        documentAiSettings.mode !== 'off' &&
-        documentAiSettings.provider_available &&
-        drafts.length > 1 &&
-        !!effectiveEmployeeId;
+        aiExtractionActive && drafts.length > 1 && !!effectiveEmployeeId;
 
     const previousDraftCountRef = useRef(drafts.length);
 
@@ -364,8 +374,24 @@ export function UploadDocumentDialog({
         }
     }, [aiContextKey, aiReview.contextKey]);
 
+    useEffect(() => {
+        if (aiExtractionActive) {
+            return;
+        }
+
+        extractAbortRef.current?.abort();
+        extractAbortRef.current = null;
+        setAiReview(idleDocumentAiReview());
+        void abandonBulkAi();
+    }, [abandonBulkAi, aiExtractionActive]);
+
     const extractWithAi = useCallback(async () => {
-        if (!selectedDraft || !effectiveEmployeeId || aiBusy) {
+        if (
+            !aiExtractionActive ||
+            !selectedDraft ||
+            !effectiveEmployeeId ||
+            aiBusy
+        ) {
             return;
         }
 
@@ -373,6 +399,16 @@ export function UploadDocumentDialog({
             effectiveEmployeeId,
             selectedDraft,
         );
+
+        // Skip duplicate work when this file/context already has a ready review.
+        if (aiReview.status === 'ready' && aiReview.contextKey === contextKey) {
+            return;
+        }
+
+        extractAbortRef.current?.abort();
+        const abortController = new AbortController();
+        extractAbortRef.current = abortController;
+
         setAiReview({
             ...idleDocumentAiReview(),
             status: 'extracting',
@@ -396,6 +432,7 @@ export function UploadDocumentDialog({
                         Accept: 'application/json',
                     },
                     body: data,
+                    signal: abortController.signal,
                 },
             );
 
@@ -440,7 +477,10 @@ export function UploadDocumentDialog({
                 }
             }
 
-            if (aiContextRef.current !== contextKey) {
+            if (
+                abortController.signal.aborted ||
+                aiContextRef.current !== contextKey
+            ) {
                 return;
             }
 
@@ -465,8 +505,13 @@ export function UploadDocumentDialog({
                 ),
             );
             setAiReview(review);
-        } catch {
-            if (aiContextRef.current !== contextKey) {
+        } catch (error) {
+            if (
+                abortController.signal.aborted ||
+                (error instanceof DOMException &&
+                    error.name === 'AbortError') ||
+                aiContextRef.current !== contextKey
+            ) {
                 return;
             }
 
@@ -476,8 +521,20 @@ export function UploadDocumentDialog({
                 contextKey,
                 warnings: ['AI extraction failed. You can continue manually.'],
             });
+        } finally {
+            if (extractAbortRef.current === abortController) {
+                extractAbortRef.current = null;
+            }
         }
-    }, [aiBusy, documentTypes, effectiveEmployeeId, selectedDraft]);
+    }, [
+        aiBusy,
+        aiExtractionActive,
+        aiReview.contextKey,
+        aiReview.status,
+        documentTypes,
+        effectiveEmployeeId,
+        selectedDraft,
+    ]);
 
     useEffect(() => {
         if (
@@ -885,6 +942,40 @@ export function UploadDocumentDialog({
                         onFocusField={focusMissingField}
                     />
 
+                    {companyAiToggleVisible ? (
+                        <div className="mt-2 flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/20 px-4 py-3">
+                            <div className="min-w-0 space-y-1">
+                                <Label
+                                    htmlFor="document-ai-extraction-toggle"
+                                    className="text-sm font-semibold"
+                                >
+                                    AI Extraction
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {documentAiSettings?.provider_available
+                                        ? aiExtractionPreferenceEnabled
+                                            ? documentAiSettings.mode ===
+                                              'automatic'
+                                                ? 'ON — eligible files extract automatically for your review before upload.'
+                                                : 'ON — use Extract with AI to pre-fill fields, then review before upload.'
+                                            : 'OFF — upload with manual entry only. No AI requests will be sent.'
+                                        : 'Document AI is temporarily unavailable. You can still upload manually.'}
+                                </p>
+                            </div>
+                            <Switch
+                                id="document-ai-extraction-toggle"
+                                checked={aiExtractionPreferenceEnabled}
+                                disabled={
+                                    isBusy ||
+                                    !documentAiSettings?.provider_available
+                                }
+                                onCheckedChange={
+                                    setAiExtractionPreferenceEnabled
+                                }
+                            />
+                        </div>
+                    ) : null}
+
                     <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
                         <div className="space-y-4">
                             <div
@@ -988,7 +1079,8 @@ export function UploadDocumentDialog({
                                     {bulkAiAvailable &&
                                     documentAiSettings?.mode === 'optional' &&
                                     (bulkAiState.status === 'idle' ||
-                                        bulkAiState.status === 'failed') ? (
+                                        bulkAiState.status === 'failed' ||
+                                        bulkAiState.status === 'cancelled') ? (
                                         <Button
                                             variant="outline"
                                             size="sm"
