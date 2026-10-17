@@ -6,7 +6,7 @@
  * Invoked from .github/workflows/ci.yml and covered by tests/Unit/Ci.
  */
 
-const OMS_CI_PEST_SHARD_COUNT = 8;
+const OMS_CI_PEST_SHARD_COUNT = 12;
 
 const OMS_CI_PEST_TIMINGS_RELATIVE = '.github/ci/pest-timings.json';
 
@@ -781,6 +781,7 @@ function oms_ci_evaluate_quality_gates(array $state): array
         'pint' => 'PHP Style (Pint)',
         'frontend_lint' => 'Frontend Lint',
         'frontend_types' => 'Frontend Types',
+        'frontend_unit' => 'Frontend Unit',
         'frontend_build' => 'Frontend Build',
         'pdf_renderer' => 'PDF Renderer',
         'pest' => 'Pest',
@@ -1060,12 +1061,14 @@ function oms_ci_cli_quality_gates(): int
         'pint_result' => getenv('PINT_RESULT') ?: '',
         'frontend_lint_result' => getenv('FRONTEND_LINT_RESULT') ?: '',
         'frontend_types_result' => getenv('FRONTEND_TYPES_RESULT') ?: '',
+        'frontend_unit_result' => getenv('FRONTEND_UNIT_RESULT') ?: '',
         'frontend_build_result' => getenv('FRONTEND_BUILD_RESULT') ?: '',
         'pdf_renderer_result' => getenv('PDF_RENDERER_RESULT') ?: '',
         'pest_result' => getenv('PEST_RESULT') ?: '',
         'run_pint' => getenv('RUN_PINT') ?: 'false',
         'run_frontend_lint' => getenv('RUN_FRONTEND_LINT') ?: 'false',
         'run_frontend_types' => getenv('RUN_FRONTEND_TYPES') ?: 'false',
+        'run_frontend_unit' => getenv('RUN_FRONTEND_UNIT') ?: 'false',
         'run_frontend_build' => getenv('RUN_FRONTEND_BUILD') ?: 'false',
         'run_pdf_renderer' => getenv('RUN_PDF_RENDERER') ?: 'false',
         'run_pest' => getenv('RUN_PEST') ?: 'false',
@@ -1084,6 +1087,7 @@ function oms_ci_cli_quality_gates(): int
     fwrite(STDOUT, 'run_pint='.(getenv('RUN_PINT') ?: '').' pint_result='.(getenv('PINT_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_lint='.(getenv('RUN_FRONTEND_LINT') ?: '').' frontend_lint_result='.(getenv('FRONTEND_LINT_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_types='.(getenv('RUN_FRONTEND_TYPES') ?: '').' frontend_types_result='.(getenv('FRONTEND_TYPES_RESULT') ?: '')."\n");
+    fwrite(STDOUT, 'run_frontend_unit='.(getenv('RUN_FRONTEND_UNIT') ?: '').' frontend_unit_result='.(getenv('FRONTEND_UNIT_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_build='.(getenv('RUN_FRONTEND_BUILD') ?: '').' frontend_build_result='.(getenv('FRONTEND_BUILD_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pdf_renderer='.(getenv('RUN_PDF_RENDERER') ?: '').' pdf_renderer_result='.(getenv('PDF_RENDERER_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pest='.(getenv('RUN_PEST') ?: '').' pest_result='.(getenv('PEST_RESULT') ?: '')."\n");

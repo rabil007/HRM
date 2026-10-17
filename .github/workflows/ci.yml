@@ -25,7 +25,7 @@ concurrency:
 env:
   PHP_VERSION: '8.4'
   NODE_VERSION: '22'
-  PEST_SHARD_TOTAL: 8
+  PEST_SHARD_TOTAL: 12
   PUPPETEER_SKIP_DOWNLOAD: 'true'
   CI_SKIP_PUPPETEER_BROWSER_INSTALL: '1'
   VITE_BUILD_ARTIFACT: vite-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -423,38 +423,87 @@ jobs:
       - name: Generate Wayfinder types
         run: php artisan wayfinder:generate --with-form --no-interaction
 
-      - name: Run TypeScript and frontend unit tests
-        run: |
-          set -uo pipefail
-
-          mkdir -p .cache
-
-          npm run types:check > /tmp/types.log 2>&1 & pid_types=$!
-          npm run test:frontend > /tmp/frontend-test.log 2>&1 & pid_test=$!
-
-          status_types=0; wait $pid_types || status_types=$?
-          status_test=0; wait $pid_test || status_test=$?
-
-          echo "::group::TypeScript ($( [ "${status_types:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/types.log
-          echo "::endgroup::"
-
-          echo "::group::Frontend Unit Tests ($( [ "${status_test:-0}" -eq 0 ] && echo 'PASSED' || echo 'FAILED' ))"
-          cat /tmp/frontend-test.log
-          echo "::endgroup::"
-
-          rm -f /tmp/types.log /tmp/frontend-test.log
-
-          if [[ ${status_types:-0} -ne 0 || ${status_test:-0} -ne 0 ]]; then
-            echo "One or more frontend type checks failed: types=${status_types}, tests=${status_test}"
-            exit 1
-          fi
+      - name: TypeScript
+        run: npm run types:check
 
       - name: Job summary
         if: always()
         run: |
           {
             echo "## Frontend Types"
+            echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
+            echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
+            echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
+            echo "- Composer download cache hit: ${{ steps.composer-downloads.outputs.cache-hit }}"
+            echo "- vendor cache hit: ${{ steps.composer-vendor.outputs.cache-hit }}"
+            echo "- composer install: ${{ steps.composer-vendor.outputs.composer-installed }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  frontend_unit:
+    name: Frontend Unit
+    needs: changes
+    if: needs.changes.outputs.frontend_types == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          tools: composer:v2
+          coverage: none
+          ini-values: memory_limit=1G
+
+      - name: Setup Node
+        id: setup-node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        id: composer-downloads
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ env.PHP_VERSION }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-${{ env.PHP_VERSION }}-
+
+      - name: Restore Composer vendor
+        id: composer-vendor
+        uses: ./.github/actions/composer-vendor
+
+      - name: Restore Node modules
+        id: node-modules
+        uses: ./.github/actions/node-modules
+        with:
+          skip-puppeteer-browser: 'true'
+
+      - name: Prepare Laravel environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Generate Wayfinder types
+        run: php artisan wayfinder:generate --with-form --no-interaction
+
+      - name: Frontend unit tests
+        run: npm run test:frontend
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Frontend Unit"
             echo "- node_modules cache hit: ${{ steps.node-modules.outputs.cache-hit }}"
             echo "- npm ci: ${{ steps.node-modules.outputs.npm-installed }}"
             echo "- npm download cache hit: ${{ steps.setup-node.outputs.cache-hit }}"
@@ -658,7 +707,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   pest:
-    name: Pest ${{ matrix.shard }}/8
+    name: Pest ${{ matrix.shard }}/12
     needs:
       - changes
     if: needs.changes.outputs.pest == 'true'
@@ -667,7 +716,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -702,7 +751,7 @@ jobs:
           cp .env.example .env
           php artisan key:generate --no-interaction
 
-      - name: Pest shard ${{ matrix.shard }}/8
+      - name: Pest shard ${{ matrix.shard }}/12
         env:
           SHARD: ${{ matrix.shard }}
         run: |
@@ -728,6 +777,7 @@ jobs:
       - pint
       - frontend_lint
       - frontend_types
+      - frontend_unit
       - frontend_build
       - pdf_renderer
       - pest
@@ -741,12 +791,14 @@ jobs:
           PINT_RESULT: ${{ needs.pint.result }}
           FRONTEND_LINT_RESULT: ${{ needs.frontend_lint.result }}
           FRONTEND_TYPES_RESULT: ${{ needs.frontend_types.result }}
+          FRONTEND_UNIT_RESULT: ${{ needs.frontend_unit.result }}
           FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
           PEST_RESULT: ${{ needs.pest.result }}
           PDF_RENDERER_RESULT: ${{ needs.pdf_renderer.result }}
           RUN_PINT: ${{ needs.changes.outputs.pint }}
           RUN_FRONTEND_LINT: ${{ needs.changes.outputs.frontend_lint }}
           RUN_FRONTEND_TYPES: ${{ needs.changes.outputs.frontend_types }}
+          RUN_FRONTEND_UNIT: ${{ needs.changes.outputs.frontend_types }}
           RUN_FRONTEND_BUILD: ${{ needs.changes.outputs.frontend_build }}
           RUN_PDF_RENDERER: ${{ needs.changes.outputs.pdf_renderer }}
           RUN_PEST: ${{ needs.changes.outputs.pest }}
@@ -761,6 +813,7 @@ jobs:
           echo "run_pint=${RUN_PINT} pint_result=${PINT_RESULT}"
           echo "run_frontend_lint=${RUN_FRONTEND_LINT} frontend_lint_result=${FRONTEND_LINT_RESULT}"
           echo "run_frontend_types=${RUN_FRONTEND_TYPES} frontend_types_result=${FRONTEND_TYPES_RESULT}"
+          echo "run_frontend_unit=${RUN_FRONTEND_UNIT} frontend_unit_result=${FRONTEND_UNIT_RESULT}"
           echo "run_frontend_build=${RUN_FRONTEND_BUILD} frontend_build_result=${FRONTEND_BUILD_RESULT}"
           echo "run_pdf_renderer=${RUN_PDF_RENDERER} pdf_renderer_result=${PDF_RENDERER_RESULT}"
           echo "run_pest=${RUN_PEST} pest_result=${PEST_RESULT}"
@@ -774,6 +827,7 @@ jobs:
             echo "- Pint: required=${RUN_PINT} result=${PINT_RESULT}"
             echo "- Frontend Lint: required=${RUN_FRONTEND_LINT} result=${FRONTEND_LINT_RESULT}"
             echo "- Frontend Types: required=${RUN_FRONTEND_TYPES} result=${FRONTEND_TYPES_RESULT}"
+            echo "- Frontend Unit: required=${RUN_FRONTEND_UNIT} result=${FRONTEND_UNIT_RESULT}"
             echo "- Frontend Build: required=${RUN_FRONTEND_BUILD} result=${FRONTEND_BUILD_RESULT}"
             echo "- PDF Renderer: required=${RUN_PDF_RENDERER} result=${PDF_RENDERER_RESULT}"
             echo "- Deploy planned: ${RUN_DEPLOY}"
@@ -807,6 +861,7 @@ jobs:
           check_job "PHP Style (Pint)" "${RUN_PINT}" "${PINT_RESULT}"
           check_job "Frontend Lint" "${RUN_FRONTEND_LINT}" "${FRONTEND_LINT_RESULT}"
           check_job "Frontend Types" "${RUN_FRONTEND_TYPES}" "${FRONTEND_TYPES_RESULT}"
+          check_job "Frontend Unit" "${RUN_FRONTEND_UNIT}" "${FRONTEND_UNIT_RESULT}"
           check_job "Frontend Build" "${RUN_FRONTEND_BUILD}" "${FRONTEND_BUILD_RESULT}"
           check_job "PDF Renderer" "${RUN_PDF_RENDERER}" "${PDF_RENDERER_RESULT}"
           check_job "Pest" "${RUN_PEST}" "${PEST_RESULT}"
