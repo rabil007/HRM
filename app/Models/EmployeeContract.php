@@ -104,12 +104,18 @@ class EmployeeContract extends Model
 
     public function resolvedSalaryStructure(): ContractSalaryStructure
     {
+        $category = $this->payroll_category ?? PayrollCategory::Office;
+
+        // Office payroll is always monthly. Ignore any stale/default daily column
+        // value left by the schema default when the category is Office.
+        if ($category === PayrollCategory::Office) {
+            return ContractSalaryStructure::Monthly;
+        }
+
         if ($this->salary_structure !== null) {
             return $this->salary_structure;
         }
 
-        return ContractSalaryStructure::defaultFor(
-            $this->payroll_category ?? PayrollCategory::Office,
-        );
+        return ContractSalaryStructure::defaultFor($category);
     }
 }

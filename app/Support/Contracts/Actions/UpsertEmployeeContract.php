@@ -90,6 +90,16 @@ final class UpsertEmployeeContract
         ?bool $revisionApplyToPayroll = null,
         ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
+        // Classification guards must run before ending sibling contracts or
+        // mutating this row so rejected updates leave no partial side effects.
+        if ($existing !== null) {
+            $this->assertSalaryStructureChangeAllowed->assert(
+                $existing,
+                $attributes,
+                $revisionEffectiveFrom,
+            );
+        }
+
         $becomesActive = ($attributes['status'] ?? $existing?->status ?? 'active') === 'active';
 
         if ($becomesActive) {
@@ -119,8 +129,6 @@ final class UpsertEmployeeContract
 
             return $contract->fresh();
         }
-
-        $this->assertSalaryStructureChangeAllowed->assert($existing, $attributes);
 
         $beforeAmounts = ApplyContractSalaryRevision::amountsFromContract($existing);
         $hasRevisions = $existing->salaryRevisions()->exists();

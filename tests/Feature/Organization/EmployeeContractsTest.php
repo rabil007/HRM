@@ -905,3 +905,348 @@ test('legacy monthly crew contract without history may correct salary structure 
         ->and($updated->salaryRevisions()->count())->toBe(1)
         ->and($updated->salaryRevisions()->first()->apply_to_payroll)->toBeTrue();
 });
+
+test('monthly crew to office is rejected even when both resolve to monthly structure', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 2000,
+        'eos_monthly_amount' => 500,
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
+        'status' => PayrollPeriodStatus::Approved,
+    ]);
+    PayrollRecord::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'contract_id' => $contract->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'approved',
+        'gross_salary' => 17500,
+        'net_salary' => 17500,
+    ]);
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Office->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+        ],
+        $contract->fresh(),
+        revisionEffectiveFrom: '2026-10-01',
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::PAYROLL_HISTORY_MESSAGE,
+    );
+
+    $fresh = $contract->fresh();
+    expect($fresh->payroll_category)->toBe(PayrollCategory::Crew)
+        ->and($fresh->resolvedSalaryStructure()->value)->toBe('monthly')
+        ->and((float) $fresh->basic_salary)->toBe(15000.0)
+        ->and((float) $fresh->eos_monthly_amount)->toBe(500.0);
+});
+
+test('office to monthly crew is rejected when historical office payroll exists', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office->value,
+        'basic_salary' => 8000,
+        'housing_allowance' => 2000,
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Office,
+        'start_date' => '2026-02-01',
+        'end_date' => '2026-02-28',
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+    PayrollRecord::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'contract_id' => $contract->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'draft',
+        'gross_salary' => 10000,
+        'net_salary' => 10000,
+    ]);
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 8000,
+            'housing_allowance' => 2000,
+            'eos_monthly_amount' => 300,
+        ],
+        $contract->fresh(),
+        revisionEffectiveFrom: '2026-10-01',
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::PAYROLL_HISTORY_MESSAGE,
+    );
+
+    expect($contract->fresh()->payroll_category)->toBe(PayrollCategory::Office);
+});
+
+test('monthly crew to office is rejected when only salary revision history exists', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'eos_monthly_amount' => 500,
+    ]);
+
+    expect($contract->salaryRevisions()->count())->toBe(1);
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Office->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+        ],
+        $contract->fresh(),
+        revisionEffectiveFrom: '2026-10-01',
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::REVISION_HISTORY_MESSAGE,
+    );
+
+    expect($contract->fresh()->payroll_category)->toBe(PayrollCategory::Crew)
+        ->and($contract->salaryRevisions()->count())->toBe(1);
+});
+
+test('ordinary monthly crew salary revisions within the same category remain allowed', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 2000,
+        'eos_monthly_amount' => 500,
+    ]);
+
+    $updated = app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 16000,
+            'housing_allowance' => 2000,
+            'eos_monthly_amount' => 500,
+        ],
+        $contract->fresh(),
+        revisionEffectiveFrom: '2026-10-01',
+        revisionApplyToPayroll: true,
+        revisionPayrollEffectiveFrom: '2026-10-01',
+    );
+
+    expect($updated->payroll_category)->toBe(PayrollCategory::Crew)
+        ->and($updated->resolvedSalaryStructure()->value)->toBe('monthly')
+        ->and((float) $updated->basic_salary)->toBe(16000.0)
+        ->and($updated->salaryRevisions()->count())->toBe(2);
+});
+
+test('later-month legacy structure and category transitions are rejected without history', function (array $from, array $to) {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        ...$from,
+    ]);
+
+    expect($contract->salaryRevisions()->exists())->toBeFalse();
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            ...$to,
+        ],
+        $contract,
+        revisionEffectiveFrom: '2026-10-01',
+        revisionApplyToPayroll: true,
+        revisionPayrollEffectiveFrom: '2026-10-01',
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::LATER_MONTH_MESSAGE,
+    );
+
+    $fresh = $contract->fresh();
+    expect($fresh->payroll_category->value)->toBe($from['payroll_category'] instanceof PayrollCategory
+        ? $from['payroll_category']->value
+        : $from['payroll_category'])
+        ->and($fresh->salaryRevisions()->count())->toBe(0);
+})->with([
+    'monthly crew to daily' => [
+        [
+            'payroll_category' => PayrollCategory::Crew,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+            'eos_monthly_amount' => 500,
+        ],
+        [
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'daily',
+            'basic_salary' => 200,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+    ],
+    'daily crew to monthly' => [
+        [
+            'payroll_category' => PayrollCategory::Crew,
+            'salary_structure' => 'daily',
+            'basic_salary' => 200,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        [
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+        ],
+    ],
+    'monthly crew to office' => [
+        [
+            'payroll_category' => PayrollCategory::Crew,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+            'eos_monthly_amount' => 500,
+        ],
+        [
+            'payroll_category' => PayrollCategory::Office->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+        ],
+    ],
+]);
+
+test('ambiguous category or structure change without revision effective month is rejected', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-10-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 5000,
+        'housing_allowance' => 1000,
+    ]);
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'daily',
+            'basic_salary' => 200,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        $contract,
+        // No revisionEffectiveFrom — cannot prove this is only an initial correction.
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::AMBIGUOUS_EFFECTIVE_MONTH_MESSAGE,
+    );
+
+    expect($contract->fresh()->resolvedSalaryStructure()->value)->toBe('monthly')
+        ->and($contract->fresh()->salaryRevisions()->count())->toBe(0);
+});
+
+test('rejected classification change does not end sibling active contracts', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+
+    $older = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2025-01-01',
+        'end_date' => null,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => 'daily',
+        'basic_salary' => 180,
+        'site_allowance' => 40,
+        'supplementary_allowance' => 20,
+    ]);
+
+    $current = EmployeeContract::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 2000,
+        'eos_monthly_amount' => 500,
+    ]);
+
+    expect(fn () => app(UpsertEmployeeContract::class)->handle(
+        (int) $company->id,
+        $employee,
+        [
+            'status' => 'active',
+            'payroll_category' => PayrollCategory::Office->value,
+            'salary_structure' => 'monthly',
+            'basic_salary' => 15000,
+            'housing_allowance' => 2000,
+            'start_date' => '2026-01-01',
+        ],
+        $current,
+        revisionEffectiveFrom: '2026-10-01',
+    ))->toThrow(
+        ValidationException::class,
+        AssertContractSalaryStructureChangeAllowed::LATER_MONTH_MESSAGE,
+    );
+
+    expect($older->fresh()->status)->toBe('active')
+        ->and($older->fresh()->end_date)->toBeNull()
+        ->and($current->fresh()->payroll_category)->toBe(PayrollCategory::Crew);
+});
