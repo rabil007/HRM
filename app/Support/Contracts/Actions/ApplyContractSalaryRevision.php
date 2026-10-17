@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 final class ApplyContractSalaryRevision
 {
+    public const SAME_MONTH_PAYROLL_DISABLED_MESSAGE = 'Cannot create a payroll-disabled salary revision in the contract\'s original effective month because it would remove the applicable payroll baseline. Choose a later revision month or use the authorized contract correction workflow.';
+
     public function __construct(
         private readonly MirrorLatestContractSalaryRevision $mirrorLatestRevision,
         private readonly AssertContractSalaryRevisionEditable $assertEditable,
@@ -94,6 +96,21 @@ final class ApplyContractSalaryRevision
             $baselineDate = $lockedContract->start_date !== null
                 ? SalaryRevisionEffectiveMonth::normalize($lockedContract->start_date->toDateString())
                 : null;
+
+            if (
+                ! $hasRevisionHistory
+                && $baselineDate !== null
+                && $baselineDate === $effectiveDate
+                && ! $applyToPayroll
+            ) {
+                // Unique effective_from prevents a payroll-applicable baseline and a
+                // payroll-disabled revision from sharing the start month. Allowing
+                // only the disabled revision would leave payroll with
+                // missing_historical_salary_revision for that month.
+                throw ValidationException::withMessages([
+                    'apply_to_payroll' => self::SAME_MONTH_PAYROLL_DISABLED_MESSAGE,
+                ]);
+            }
 
             if (! $hasRevisionHistory && $baselineDate !== null && $baselineDate < $effectiveDate) {
                 // Contract updates persist the new package before the revision is
