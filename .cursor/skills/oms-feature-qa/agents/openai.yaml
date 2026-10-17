@@ -1,0 +1,4 @@
+interface:
+  display_name: "OMS Feature QA"
+  short_description: "Verify a completed OMS-HRM feature against acceptance criteria."
+  default_prompt: "QA this completed OMS-HRM feature: extract acceptance criteria, verify backend and frontend behavior, run focused automated checks, browser-test when available, and produce a final QA report before human review."
