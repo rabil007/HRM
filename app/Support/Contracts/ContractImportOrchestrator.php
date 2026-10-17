@@ -7,6 +7,7 @@ use App\Imports\ContractsImport;
 use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -16,9 +17,23 @@ use Illuminate\Validation\ValidationException;
 
 final class ContractImportOrchestrator
 {
+    /**
+     * @var list<string>
+     */
+    private const COMPENSATION_COLUMNS = [
+        'basic_salary',
+        'housing_allowance',
+        'transport_allowance',
+        'other_allowances',
+        'eos_monthly_amount',
+        'supplementary_allowance',
+        'site_allowance',
+    ];
+
     public function __construct(
         private readonly ContractsImport $import,
         private readonly UpsertEmployeeContract $upsertEmployeeContract,
+        private readonly ApplyContractSalaryRevision $applySalaryRevision,
     ) {}
 
     /**
@@ -89,7 +104,7 @@ final class ContractImportOrchestrator
                 /** @var Employee $employee */
                 $employee = $row['employee'];
 
-                $this->upsertEmployeeContract->handle(
+                $this->persistImportRow(
                     $companyId,
                     $employee,
                     $row['contract_attributes'],
@@ -105,6 +120,69 @@ final class ContractImportOrchestrator
             'skipped' => $skipped,
             'errors' => $evaluation['errors'],
         ];
+    }
+
+    /**
+     * Create/update contract metadata via upsert. Compensation changes on an
+     * existing contract go through Salary Revisions so import stays aligned with
+     * the ordinary edit guard that rejects direct package mutations.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function persistImportRow(
+        int $companyId,
+        Employee $employee,
+        array $attributes,
+        ?EmployeeContract $existing,
+    ): void {
+        if ($existing === null) {
+            $this->upsertEmployeeContract->handle(
+                $companyId,
+                $employee,
+                $attributes,
+            );
+
+            return;
+        }
+
+        $beforeAmounts = ApplyContractSalaryRevision::amountsFromContract($existing);
+        $proposedAmounts = $beforeAmounts;
+        $metadataAttributes = $attributes;
+
+        foreach (self::COMPENSATION_COLUMNS as $column) {
+            if (! array_key_exists($column, $attributes)) {
+                continue;
+            }
+
+            $proposedAmounts[$column] = $attributes[$column];
+            unset($metadataAttributes[$column]);
+        }
+
+        $contract = $this->upsertEmployeeContract->handle(
+            $companyId,
+            $employee,
+            $metadataAttributes,
+            $existing,
+        );
+
+        if (! ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $proposedAmounts)) {
+            return;
+        }
+
+        $category = $contract->payroll_category ?? PayrollCategory::Office;
+        $applyToPayroll = $category !== PayrollCategory::Crew;
+        $effectiveFrom = now()->toDateString();
+
+        $this->applySalaryRevision->handle(
+            $contract,
+            $proposedAmounts,
+            $effectiveFrom,
+            'Contract import',
+            null,
+            $applyToPayroll,
+            $applyToPayroll ? $effectiveFrom : null,
+            historicalBaselineAmounts: $beforeAmounts,
+        );
     }
 
     /**
