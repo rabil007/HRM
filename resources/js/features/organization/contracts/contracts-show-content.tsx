@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
-import { destroy as destroyContract } from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -35,6 +34,7 @@ import { buildEmployeeShowUrl } from '@/features/organization/employees/build-em
 import { EmployeeProfileLink } from '@/features/organization/employees/components/employee-profile-link';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
+import { destroy as destroyContract } from '../../../actions/App/Http/Controllers/Organization/EmployeeContractController';
 
 type Props = {
     contract: ContractListItem;
@@ -279,7 +279,7 @@ export function ContractsShowContent({
                             {isCrewMonthly ? (
                                 <div className="sm:col-span-2">
                                     <DetailField
-                                        label="EOS provision (non-payable)"
+                                        label="EOS (Monthly)"
                                         value={formatContractMoney(
                                             contract.eos_monthly_amount,
                                         )}

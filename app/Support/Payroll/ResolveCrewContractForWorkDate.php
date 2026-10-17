@@ -135,11 +135,13 @@ final class ResolveCrewContractForWorkDate
     }
 
     /**
-     * Latest non-deleted revision with effective_from <= work date.
+     * Latest non-deleted payroll-applicable revision with
+     * payroll_effective_from <= work date.
      *
-     * Baseline components may be used only when the contract has never had a
-     * salary revision. Deleted revision history must not reactivate potentially
-     * mirrored current contract components as a historical fallback.
+     * Revisions saved without Apply revised salary to payroll are ignored for
+     * payable rates. Baseline components may be used only when the contract has
+     * never had a salary revision. Deleted revision history must not reactivate
+     * potentially mirrored current contract components as a historical fallback.
      *
      * @return array{revision: ?ContractSalaryRevision, issue: ?array{code: string, message: string}}
      */

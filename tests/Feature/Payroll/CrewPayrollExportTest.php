@@ -185,6 +185,7 @@ test('crew payroll salary sheet export includes salary structure column for mont
             'housing_allowance' => '2000.00',
             'calculation_breakdown' => [
                 'salary_structure' => 'monthly',
+                'eos_monthly_provision' => 875,
                 'unpaid_leave_days' => 5,
                 'rates' => [
                     'basic_monthly' => 5000,
@@ -210,7 +211,9 @@ test('crew payroll salary sheet export includes salary structure column for mont
     expect($dailySheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
         ->and($dailySheet->getCell('B3')->getValue())->toBeNull()
         ->and($monthlySheet)->not->toBeNull()
-        ->and((string) $monthlySheet->getCell('A2')->getValue())->toBe((string) $employee->employee_no);
+        ->and((string) $monthlySheet->getCell('A2')->getValue())->toBe((string) $employee->employee_no)
+        ->and($monthlySheet->getCell('J2')->getValue())->toBeNull()
+        ->and((float) $monthlySheet->getCell('L2')->getValue())->toBe(875.0);
 
     @unlink($result['path']);
 });

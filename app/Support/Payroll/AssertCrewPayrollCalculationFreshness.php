@@ -2,11 +2,13 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\SalaryComponentCode;
 use App\Enums\SalaryComponentStatus;
 use App\Models\ContractSalaryComponent;
 use App\Models\CrewTimesheet;
 use App\Models\CrewTimesheetSegment;
+use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\PayrollWorkAllocation;
@@ -16,12 +18,15 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Fingerprints Daily Crew calculation inputs so approve rejects stale snapshots.
+ * Also blocks Monthly Crew approval when the period crosses a salary boundary or
+ * stored monthly rates no longer match the payroll-applicable package.
  */
 final class AssertCrewPayrollCalculationFreshness
 {
     public function __construct(
         private readonly ResolveCrewContractForWorkDate $resolveContractForWorkDate,
         private readonly ResolveEffectiveContractSalaryComponents $resolveEffectiveComponents,
+        private readonly AssertMonthlyCrewSalaryStableAcrossPeriod $assertMonthlySalaryStable,
     ) {}
 
     /**
@@ -96,6 +101,8 @@ final class AssertCrewPayrollCalculationFreshness
             ->keyBy('id');
 
         foreach ($records as $record) {
+            $this->assertMonthlyRecordStillFresh($period, $record);
+
             $recordAllocations = $allocations->get($record->id);
 
             if ($recordAllocations === null || $recordAllocations->isEmpty()) {
@@ -257,5 +264,51 @@ final class AssertCrewPayrollCalculationFreshness
         }
 
         return (float) $component->amount;
+    }
+
+    private function assertMonthlyRecordStillFresh(PayrollPeriod $period, PayrollRecord $record): void
+    {
+        $breakdown = is_array($record->calculation_breakdown) ? $record->calculation_breakdown : [];
+
+        if (($breakdown['salary_structure'] ?? null) !== 'monthly') {
+            return;
+        }
+
+        if ($record->contract_id === null || $period->start_date === null) {
+            return;
+        }
+
+        $contract = EmployeeContract::query()
+            ->where('company_id', $period->company_id)
+            ->whereKey($record->contract_id)
+            ->with(['salaryComponents', 'salaryRevisionHistory.lines'])
+            ->first();
+
+        if ($contract === null || $contract->resolvedSalaryStructure() !== ContractSalaryStructure::Monthly) {
+            return;
+        }
+
+        $this->assertMonthlySalaryStable->assert($contract, $period);
+
+        $components = $this->resolveEffectiveComponents->handle($contract, $period->start_date);
+        $storedRates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
+
+        $currentRates = [
+            'basic_monthly' => $this->activeAmount($components, SalaryComponentCode::Basic) ?? 0.0,
+            'housing_monthly' => $this->activeAmount($components, SalaryComponentCode::Housing) ?? 0.0,
+            'transport_monthly' => $this->activeAmount($components, SalaryComponentCode::Transport) ?? 0.0,
+            'other_monthly' => $this->activeAmount($components, SalaryComponentCode::Other) ?? 0.0,
+            'eos_monthly' => $this->activeAmount($components, SalaryComponentCode::EosProvision) ?? 0.0,
+        ];
+
+        foreach ($currentRates as $key => $amount) {
+            $stored = round((float) ($storedRates[$key] ?? 0), 2);
+
+            if ($stored !== round((float) $amount, 2)) {
+                throw ValidationException::withMessages([
+                    'period_id' => 'Payroll must be regenerated before approval because monthly contract rates changed since generation.',
+                ]);
+            }
+        }
     }
 }

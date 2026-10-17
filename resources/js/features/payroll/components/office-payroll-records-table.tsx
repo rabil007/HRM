@@ -110,7 +110,7 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>Transport</DataTableHead>
                     <DataTableHead>Other</DataTableHead>
                     {isMonthlyCrew ? (
-                        <DataTableHead>EOS (non-payable)</DataTableHead>
+                        <DataTableHead>EOS (Monthly)</DataTableHead>
                     ) : null}
                     {showSalaryInputsColumn ? (
                         <DataTableHead>Salary inputs</DataTableHead>
@@ -214,12 +214,20 @@ export function OfficePayrollRecordsTable({
                             </TableCell>
                             {isMonthlyCrew ? (
                                 <TableCell className={dataTableCellClass()}>
-                                    {record.eos_monthly_provision !== null &&
-                                    record.eos_monthly_provision !== undefined
-                                        ? formatTimesheetAmount(
-                                              record.eos_monthly_provision,
-                                          )
-                                        : '—'}
+                                    {record.eos_monthly_paid != null ? (
+                                        formatTimesheetAmount(
+                                            record.eos_monthly_paid,
+                                        )
+                                    ) : record.eos_monthly_provision != null ? (
+                                        <span title="Historical provision, excluded from earnings">
+                                            {formatTimesheetAmount(
+                                                record.eos_monthly_provision,
+                                            )}{' '}
+                                            (non-payable)
+                                        </span>
+                                    ) : (
+                                        '—'
+                                    )}
                                 </TableCell>
                             ) : null}
                             {showSalaryInputsColumn ? (

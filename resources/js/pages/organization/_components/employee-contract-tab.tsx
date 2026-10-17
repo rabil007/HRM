@@ -10,15 +10,10 @@ import {
 } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-    destroy as destroyContract,
-    store as storeContract,
-    transferVisaCompany,
-    update as updateContract,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -67,6 +62,12 @@ import type {
     EmployeeContractDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
+import {
+    destroy as destroyContract,
+    store as storeContract,
+    transferVisaCompany,
+    update as updateContract,
+} from '../../../actions/App/Http/Controllers/Organization/EmployeeContractController';
 
 const CONTRACTS_RELOAD = {
     preserveScroll: true,
@@ -185,12 +186,27 @@ function contractTotalSalary(row: EmployeeContractDetails): number {
               row.housing_allowance,
               row.transport_allowance,
               row.other_allowances,
+              row.payroll_category === 'crew' ? row.eos_monthly_amount : 0,
           ];
 
     return components.reduce<number>(
         (sum, value) => sum + (Number(value) || 0),
         0,
     );
+}
+
+function currentMonthValue(): string {
+    const now = new Date();
+
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function toMonthStartDate(monthValue: string): string {
+    if (/^\d{4}-\d{2}$/.test(monthValue)) {
+        return `${monthValue}-01`;
+    }
+
+    return monthValue;
 }
 
 function buildContractPayload(
@@ -210,10 +226,17 @@ function buildContractPayload(
         supplementary_allowance: string;
         site_allowance: string;
         note: string;
+        revision_effective_from: string;
+        revision_apply_to_payroll: boolean;
+        revision_payroll_effective_from: string;
+        revision_reason: string;
     },
     templateFields: Record<string, TemplateFieldConfig> | null | undefined,
+    options?: {
+        includeCrewRevisionPayrollControls?: boolean;
+    },
 ): Record<string, unknown> {
-    return omitHiddenTemplateRecordFields(
+    const payload = omitHiddenTemplateRecordFields(
         {
             payroll_category: data.payroll_category,
             salary_structure:
@@ -252,6 +275,28 @@ function buildContractPayload(
         },
         templateFields,
     );
+
+    if (options?.includeCrewRevisionPayrollControls) {
+        const applyToPayroll = Boolean(data.revision_apply_to_payroll);
+
+        payload.revision_effective_from = toMonthStartDate(
+            data.revision_effective_from || currentMonthValue(),
+        );
+        payload.revision_apply_to_payroll = applyToPayroll;
+        payload.revision_payroll_effective_from = applyToPayroll
+            ? toMonthStartDate(
+                  data.revision_payroll_effective_from ||
+                      data.revision_effective_from ||
+                      currentMonthValue(),
+              )
+            : null;
+        payload.revision_reason =
+            data.revision_reason.trim() === ''
+                ? null
+                : data.revision_reason.trim();
+    }
+
+    return payload;
 }
 
 function contractStatusClass(status: string | null | undefined): string {
@@ -604,6 +649,10 @@ export function EmployeeContractTab({
         supplementary_allowance: '',
         site_allowance: '',
         note: '',
+        revision_effective_from: currentMonthValue(),
+        revision_apply_to_payroll: false,
+        revision_payroll_effective_from: currentMonthValue(),
+        revision_reason: '',
     });
 
     const isCrewContract = contractForm.data.payroll_category === 'crew';
@@ -658,6 +707,10 @@ export function EmployeeContractTab({
             supplementary_allowance: '',
             site_allowance: '',
             note: '',
+            revision_effective_from: currentMonthValue(),
+            revision_apply_to_payroll: false,
+            revision_payroll_effective_from: currentMonthValue(),
+            revision_reason: '',
         });
         setEditingContract(null);
         setDialogOpen(true);
@@ -713,6 +766,10 @@ export function EmployeeContractTab({
                         ? ''
                         : String(row.site_allowance),
                 note: row.note ?? '',
+                revision_effective_from: currentMonthValue(),
+                revision_apply_to_payroll: false,
+                revision_payroll_effective_from: currentMonthValue(),
+                revision_reason: '',
             });
             setEditingContract(row);
             setDialogOpen(true);
@@ -786,6 +843,12 @@ export function EmployeeContractTab({
         const payload = buildContractPayload(
             contractForm.data,
             templateContractFields,
+            {
+                includeCrewRevisionPayrollControls: Boolean(
+                    editingContract &&
+                    contractForm.data.payroll_category === 'crew',
+                ),
+            },
         );
 
         const url = editingContract
@@ -912,7 +975,7 @@ export function EmployeeContractTab({
                             {hasMonthlyCrewContracts &&
                             showField('eos_monthly_amount') ? (
                                 <th className={employeeRecordsTableThClass()}>
-                                    EOS provision
+                                    EOS (Monthly)
                                 </th>
                             ) : null}
                             {showCompensationSection ? (
@@ -1898,8 +1961,7 @@ export function EmployeeContractTab({
                                             htmlFor="contract_eos_monthly_amount"
                                             className="text-xs"
                                         >
-                                            EOS provision (optional,
-                                            non-payable)
+                                            EOS (Monthly, optional)
                                         </Label>
                                         <CurrencyInput
                                             id="contract_eos_monthly_amount"
@@ -1915,8 +1977,9 @@ export function EmployeeContractTab({
                                             }
                                         />
                                         <p className="text-[11px] text-muted-foreground">
-                                            Monthly end-of-service provision,
-                                            not included in salary or WPS.
+                                            Monthly EOS is included in salary
+                                            payments and prorated for unpaid
+                                            leave when applicable.
                                         </p>
                                         {contractForm.errors
                                             .eos_monthly_amount ? (
@@ -2050,6 +2113,11 @@ export function EmployeeContractTab({
                                           contractForm.data.housing_allowance,
                                           contractForm.data.transport_allowance,
                                           contractForm.data.other_allowances,
+                                          isCrewMonthly &&
+                                          showField('eos_monthly_amount')
+                                              ? contractForm.data
+                                                    .eos_monthly_amount
+                                              : '',
                                       ];
                                 const hasAnyValue = fields.some(
                                     (f) => f.trim() !== '',
@@ -2087,6 +2155,126 @@ export function EmployeeContractTab({
                                     </div>
                                 );
                             })()}
+
+                            {editingContract && isCrewContract ? (
+                                <div className="space-y-3 rounded-xl border border-border/60 p-3">
+                                    <div className="space-y-1">
+                                        <p className="text-xs font-medium">
+                                            Salary revision for this edit
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Changing Crew compensation creates a
+                                            salary revision. Payroll rates
+                                            change only when you enable Apply
+                                            revised salary to payroll.
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="contract_revision_effective_from">
+                                            Revision effective month
+                                        </Label>
+                                        <Input
+                                            id="contract_revision_effective_from"
+                                            type="month"
+                                            value={
+                                                contractForm.data
+                                                    .revision_effective_from
+                                            }
+                                            onChange={(e) =>
+                                                contractForm.setData(
+                                                    'revision_effective_from',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        {contractForm.errors
+                                            .revision_effective_from ? (
+                                            <p className="text-xs text-destructive">
+                                                {
+                                                    contractForm.errors
+                                                        .revision_effective_from
+                                                }
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <label
+                                        htmlFor="contract_revision_apply_to_payroll"
+                                        className="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2"
+                                    >
+                                        <Checkbox
+                                            id="contract_revision_apply_to_payroll"
+                                            checked={
+                                                contractForm.data
+                                                    .revision_apply_to_payroll
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                contractForm.setData(
+                                                    'revision_apply_to_payroll',
+                                                    checked === true,
+                                                )
+                                            }
+                                            className="mt-0.5"
+                                        />
+                                        <span className="space-y-0.5">
+                                            <span className="block text-sm font-medium">
+                                                Apply revised salary to payroll
+                                            </span>
+                                            <span className="block text-xs text-muted-foreground">
+                                                Leave unchecked to keep history
+                                                without changing payable rates.
+                                            </span>
+                                        </span>
+                                    </label>
+                                    {contractForm.data
+                                        .revision_apply_to_payroll ? (
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="contract_revision_payroll_effective_from">
+                                                Payroll Effective Month
+                                            </Label>
+                                            <Input
+                                                id="contract_revision_payroll_effective_from"
+                                                type="month"
+                                                value={
+                                                    contractForm.data
+                                                        .revision_payroll_effective_from
+                                                }
+                                                onChange={(e) =>
+                                                    contractForm.setData(
+                                                        'revision_payroll_effective_from',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                            {contractForm.errors
+                                                .revision_payroll_effective_from ? (
+                                                <p className="text-xs text-destructive">
+                                                    {
+                                                        contractForm.errors
+                                                            .revision_payroll_effective_from
+                                                    }
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                    {(
+                                        contractForm.errors as Record<
+                                            string,
+                                            string | undefined
+                                        >
+                                    ).salary_revision ? (
+                                        <p className="text-xs text-destructive">
+                                            {
+                                                (
+                                                    contractForm.errors as Record<
+                                                        string,
+                                                        string | undefined
+                                                    >
+                                                ).salary_revision
+                                            }
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
                         </div>
                     ) : null}
 
@@ -2560,7 +2748,7 @@ export function EmployeeContractTab({
                                         htmlFor="transfer_eos_monthly_amount"
                                         className="text-xs"
                                     >
-                                        EOS provision (optional, non-payable)
+                                        EOS (Monthly, optional)
                                     </Label>
                                     <CurrencyInput
                                         id="transfer_eos_monthly_amount"

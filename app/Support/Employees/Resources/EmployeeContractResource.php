@@ -56,6 +56,8 @@ final class EmployeeContractResource
             'id' => $revision->id,
             'version' => $revision->version,
             'effective_from' => $revision->effective_from?->toDateString(),
+            'apply_to_payroll' => (bool) $revision->apply_to_payroll,
+            'payroll_effective_from' => $revision->payroll_effective_from?->toDateString(),
             'reason' => $revision->reason,
             'created_at' => $revision->created_at?->toDateTimeString(),
             'lines' => $revision->lines

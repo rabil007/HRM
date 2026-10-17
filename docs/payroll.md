@@ -82,15 +82,44 @@ Enforced by unique `regular_period_key` plus create-time validation. Off-cycle o
 
 Payroll salary is resolved from the earning or payment period date, not from the date payroll happens to be generated. A future salary revision therefore never changes an older payroll period.
 
-- Office and Monthly Crew payroll use the contract covering the payroll period start, then the latest non-deleted salary revision whose `effective_from` is on or before that date.
-- Office contract selection is company-, employee-, category-, and date-scoped. A missing or overlapping Office contract blocks that employee instead of selecting the present-day active contract.
-- Daily Crew movement pay continues to resolve the exact contract and salary revision independently for every work date. Prior-period arrears keep those day-level contract, revision, and rate snapshots.
-- Daily Crew overtime has no separate earned date, so it remains rated from the salary package applicable to the payment period. Additions and deductions remain direct payment-period amounts.
-- Current contract salary mirroring remains the source for current employee/profile displays, but mirrored contract fields are never treated as evidence of historical salary.
-- A contract that has never had salary revision history may use its legacy baseline salary components. Once any revision history exists, including soft-deleted history, payroll blocks with `missing_historical_salary_revision` when no non-deleted revision covers the historical date.
-- Revision lines are the complete salary package for their effective month. A missing historical component is shown as unavailable and is not filled from a current/future contract column.
+#### Revision effective month vs payroll effective month
 
-When a legacy contract with reliable salary values receives its first revision for a later month, the existing package is preserved as a baseline revision effective from the contract start month before the requested revision is created. Both rows are written atomically. No baseline is invented when the contract has no reliable salary values or start date, and contracts that already have revision history never receive another baseline.
+Salary revisions keep two separate dates:
+
+- **Revision effective month (`effective_from`)** — the revision’s history/effective record. Current or past months can mirror onto the contract’s current salary columns for profile/display. Future months still mirror only when that month starts.
+- **Payroll Effective Month (`payroll_effective_from`)** — when payroll calculations begin using the revised package. Always stored as the first day of the selected month (for example October 2026 → `2026-10-01`).
+
+Crew salary-revision history does **not** automatically change payable rates. New Daily Crew and Monthly Crew operator-created revisions default to **Apply revised salary to payroll = OFF**. When unchecked, the revision is saved in history (and may still mirror the contract) while payroll continues using the previously payroll-applicable package. When checked, the operator must choose a Payroll Effective Month that does not precede the revision effective month, and the **entire** revised package applies from that month until a later payroll-applicable revision supersedes it.
+
+Office salary revisions retain the previous behavior: every Office revision applies to payroll using the revision effective month.
+
+#### Compatibility and baselines
+
+- Existing historical revisions are migrated with `apply_to_payroll = true` and `payroll_effective_from = effective_from`, so prior payroll behavior is unchanged.
+- System-created initial/baseline/backfill revisions remain payroll-applicable so the original contractual package stays available to payroll.
+- Soft-deleted revision history continues to block unsafe fallback to mutable current contract columns.
+
+#### Resolution rules
+
+- Office and Monthly Crew payroll use the contract covering the payroll period start, then the latest non-deleted **payroll-applicable** revision whose `payroll_effective_from` is on or before that date.
+- Office contract selection is company-, employee-, category-, and date-scoped. A missing or overlapping Office contract blocks that employee instead of selecting the present-day active contract.
+- Daily Crew movement pay continues to resolve the exact contract and payroll-applicable salary revision independently for every work date. Prior-period arrears keep those day-level contract, revision, and rate snapshots.
+- Daily Crew overtime has no separate earned date, so it remains rated from the salary package applicable to the payment period. Additions and deductions remain direct payment-period amounts.
+- Non-calendar-month / off-cycle periods (when used) resolve one package from the period start date; they do not silently split mid-period across revisions.
+- Current contract salary mirroring remains the source for current employee/profile displays, but mirrored contract fields are never treated as evidence of historical salary. Mirroring uses revision `effective_from` and cannot bypass the payroll application flag.
+- A contract that has never had salary revision history may use its legacy baseline salary components. Once any revision history exists, including soft-deleted history, payroll blocks with `missing_historical_salary_revision` when no non-deleted **payroll-applicable** revision covers the historical date.
+- Revision lines are the complete salary package for their payroll-effective month. A missing historical component is shown as unavailable and is not filled from a current/future contract column.
+- Multiple salary revisions stay under the same employment contract. Competing payroll-applicable revisions for the same payroll month are rejected. Unchecked revisions between two applied revisions never affect payable rates.
+- Creating, editing, enabling/disabling, moving, or deleting a payroll-applicable revision is validated against the **proposed** rate history. If any approved/paid Daily Crew work date or Monthly Crew period start/end would resolve to a different package, the change is rejected. Use the authorized correction workflow for historical corrections. Draft/processing payroll that becomes stale must be regenerated explicitly—never silently rewritten.
+- Editing an existing Crew contract’s compensation creates a salary revision that defaults to payroll OFF unless the operator enables Apply revised salary to payroll and chooses a Payroll Effective Month. New contract baselines and Office revisions remain payroll-applicable.
+- Monthly Crew generation/preview/approval blocks periods that contain any payroll-applicable revision boundary whose complete payable package differs from the period-start package (including intermediate months, not only start/end). Full calendar months and ranges with an identical component package throughout remain supported. Daily Crew continues to resolve rates per work date.
+- Approved/paid Daily Crew work allocations keep an immutable `salary_revision_id` source. Referenced revisions cannot be deleted, disabled, retargeted, or have their component lines changed—even when another revision has identical rates.
+
+When a legacy contract with reliable salary values receives its first revision for a later month, the existing package is preserved as a baseline revision effective from the contract start month before the requested revision is created. Both rows are written atomically. No baseline is invented when the contract has no reliable salary values or start date, and contracts that already have revision history never receive another baseline. Contract edits that overwrite salary columns before recording the revision must pass the **pre-update** package into baseline creation; otherwise the baseline would copy the new rates back to the start date and rewrite historical payroll. The historical baseline remains payroll-applicable; the new Crew revision still defaults to Apply to Payroll OFF unless the operator enables it.
+- A payroll-disabled revision in the contract’s **original effective month** is rejected on legacy contracts: unique `effective_from` cannot hold both a payroll-applicable baseline and a disabled revision, and a lone disabled revision would leave payroll with `missing_historical_salary_revision`. Choose a later revision month, or enable Apply to Payroll for a same-month replacement when finalized payroll allows it.
+- In-place `payroll_category` or `salary_structure` changes (including Monthly Crew ↔ Office when both are Monthly) are blocked when the contract already has payroll records/allocations or salary revision history. Later-month transitions on legacy contracts without history are also blocked—only an initial setup correction in the contract’s original effective month is allowed. Create a new effective-dated contract (no overlapping dates) for genuine transitions so historical periods keep their classification.
+
+Monthly Crew EOS remains a single payable salary component on the selected payroll-applicable package and is never paid twice when a revision is applied.
 
 ## Office payroll
 
@@ -139,19 +168,31 @@ Legacy parent flat-field pairs with only one date set (for example Sign-On Stand
 - Missing or overlapping historical Daily Crew contracts and missing historical salary revisions remain **blocking**.
 - Preview exposes `warning_issues` / `warning_count` separately from `blocking_issues` / `blocking_count`. `can_generate` depends only on true blockers and ready employees.
 
-For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days.
+For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, other, and EOS components, then prorates them by `unpaid_leave_days` over the period working days.
 
-### Monthly Crew EOS provision (non-payable)
+### Monthly Crew EOS paid with salary
 
-Monthly Crew contracts may optionally store `eos_monthly_amount`, an informational End-of-Service provision. This is **not** a salary allowance, an automatic gratuity settlement, or a payroll payment. Only Crew contracts with `salary_structure = monthly` can have this component; Office and Daily Crew are unchanged.
+Monthly Crew contracts use one optional `eos_monthly_amount`, paid automatically with regular monthly salary. Blank/null/zero pays AED 0. Only Crew contracts with `salary_structure = monthly` support EOS. The entered contract amount is authoritative; generation does not calculate a second gratuity amount from basic salary. Office and Daily Crew formulas are unchanged. The persisted `EOS_PROVISION` component code and all revision history remain compatible; the current label is **EOS (Monthly)**.
 
-The `EOS_PROVISION` salary component participates in versioned contract salary revisions and is resolved for the payroll period's historical effective month. Generation snapshots its value to `calculation_breakdown.eos_monthly_provision`. It is excluded from `gross_salary`, `net_salary`, salary input additions, deductions, payslip earnings, and WPS. Monthly Crew records and payslips may display the separately labelled non-payable reference; historical approved payroll is not recalculated.
+New generation resolves the contract and latest payroll-applicable salary revision as of the payroll period start. Each monthly earning (Basic + Housing + Transport + Other + EOS) is rounded individually after applying `(calendar days − unpaid leave days) / calendar days`, floored at zero paid days. Timesheet additions and salary-input additions increase gross; legitimate monetary deductions reduce net. The automatic unpaid-leave impact includes EOS but is informational because earnings are already prorated; it is never deducted twice. Explicit monetary unpaid-leave salary inputs remain real deductions.
 
-Monthly Crew contract imports use a distinct **Crew Monthly Contracts** template and worksheet with Basic, Housing, Transport, Other, and EOS. Legacy **Crew Contracts** (Daily) and **Office Contracts** templates remain supported. Import preview rejects mismatched Crew salary structures instead of silently changing an active contract. Blank salary cells in updates preserve existing salary values; an explicit zero changes the selected component to zero.
+New records store the actual prorated EOS at `calculation_breakdown.eos_monthly_paid` and `lines.eos`, and the full contractual rate at `rates.eos_monthly`. Salary-input recalculation uses the recorded base gross and never reloads current contract amounts or adds EOS again. Regeneration in an editable period replaces the snapshot. Payslips show EOS as a separate earning and reconcile to gross/net. The separate Monthly Crew salary worksheet includes paid EOS, additions, and an independently labelled historical provision column; Daily Crew worksheet layout is unchanged.
 
-For Monthly Crew payroll, unpaid leave is reflected through prorated earnings. The calculated unpaid-leave impact is informational and is not included again in total deductions.
+Historical snapshots containing only `eos_monthly_provision` retain their **non-payable** meaning, including on recalculation of an editable historical period. Their payslips/exports identify the provision separately from earnings. There is no automatic payout backfill or snapshot conversion. Approved/paid periods remain locked under the existing correction workflows. Monthly salary payments do not establish discharge of statutory gratuity entitlements: `gratuity_accrued`, `gratuity_total`, and the settlement workflow are separate and unchanged.
 
-Salary inputs for monthly crew records use `ApplyMonthlyCrewSalaryInputs`: legitimate monetary deductions (loan, late, other, and manual unpaid-leave adjustment inputs) are applied to `total_deductions`, while the base informational unpaid-leave amount is preserved for audit/breakdown reporting and is never subtracted from net pay again. On monthly crew payslips, `PayslipData` displays the informational unpaid-leave impact under the Attendance / Proration section with a clear note ("Already reflected in prorated earnings"), and only legitimate monetary deductions appear in the deductions table, guaranteeing that visible deduction rows strictly reconcile with `total_deductions`.
+WPS validates Monthly Crew using the recorded positive `rates.basic_monthly`, while Daily Crew still requires `rates.basic_daily`. Monthly fixed income consists of earned Basic + Housing + Transport + Other + paid EOS, limited to the exported net payment (and floored at zero). The remainder is variable income; fixed + variable equals net. Excel retains its existing whole-AED precision; SIF retains cents. Exports use the recorded payment once and do not add EOS to net again. Existing bank, labor ID, status, authorization, employee visibility, and tenancy checks still apply.
+
+Monthly Crew contract imports use the distinct **Crew Monthly Contracts** template and worksheet with Basic, Housing, Transport, Other, and **EOS (Monthly)**. Previously downloaded templates with the old EOS heading remain importable. Import previews, contract totals, and employee export compensation totals include EOS. Legacy **Crew Contracts** (Daily) and **Office Contracts** templates remain supported. Import preview rejects mismatched Crew salary structures instead of silently changing an active contract. Blank salary cells in updates preserve existing salary values; an explicit zero changes the selected component to zero.
+
+**Signed-agreement example:** Basic 15,000 + Housing 10,000 + Transport 5,000 + Other 24,125 + EOS 875 = **AED 55,000 gross and net** for a fully paid month without additions/deductions. Previously the same inputs paid AED 54,125. EOS is included once; Other Allowances is not automatically adjusted.
+
+#### Required operations review before production rollout
+
+Run a read-only review against the production company before deploying/generating payroll with this behavior. This development workspace does not establish production contract counts. Identify active Monthly Crew contracts for active employees, resolve their current effective revision (rather than future salary), and report all nonzero EOS amounts. For each employee include contract ID, effective month, Basic/Housing/Transport/Other, EOS, previous payable total, new payable total, and monthly increase. Aggregate affected contract count and total increase by company. Review upcoming effective revisions separately.
+
+Use the existing `ResolveEffectiveContractSalaryComponents` with the intended payroll period start for exact payroll impact; contract columns alone can be stale relative to effective-dated revisions. Operations must compare the signed agreement and allowances for every affected employee to check whether EOS was already folded into Other Allowances. **Do not automatically reduce allowances.** Resolve corrections through authorized effective-dated revisions before rollout. Historical approved/paid payments are unchanged; any historical correction requires the existing authorized workflow. Deployment and this production data review are separate actions from merging the code.
+
+Salary inputs for monthly crew records use `ApplyMonthlyCrewSalaryInputs`: legitimate monetary deductions (loan, late, other, and manual unpaid-leave adjustment inputs) enter `total_deductions`; the base unpaid-leave impact stays informational. Payslips show that impact under Attendance / Proration with “Already reflected in prorated earnings”. Timesheet additions and salary-input additions remain separately traceable and together reconcile with gross.
 
 Daily crew uses only Sign-On Standby → Onsite → Sign-Off Standby. Monthly crew uses `unpaid_leave_days`. The legacy generic standby columns (`standby_from`, `standby_to`, `standby_days`) were intentionally removed by migration `2026_07_21_100000_replace_legacy_standby_fields_on_crew_timesheets` before any production payroll data existed; no compatibility bridge, mirroring, or source-based fallback remains.
 

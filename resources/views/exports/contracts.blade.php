@@ -46,7 +46,7 @@
                 <th class="text-right">Other</th>
             @endif
             @if($monthlyCrew)
-                <th class="text-right">EOS Provision (Non-Payable)</th>
+                <th class="text-right">EOS (Monthly)</th>
             @endif
             <th class="text-right">Total</th>
             <th class="text-right">Total (USD)</th>

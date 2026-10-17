@@ -15,6 +15,7 @@ use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
 use App\Models\User;
 use App\Support\Payroll\AssertCrewPayrollCalculationFreshness;
+use App\Support\Payroll\AssertMonthlyCrewSalaryStableAcrossPeriod;
 use App\Support\Payroll\BuildCrewPayrollGenerationPreview;
 use App\Support\Payroll\BuildDailyCrewPayrollAllocationPlan;
 use App\Support\Payroll\CrewMonthlyPayrollCalculator;
@@ -47,6 +48,7 @@ final class GenerateCrewPayroll
         private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
         private readonly PersistPayrollWorkAllocations $persistAllocations,
         private readonly AssertCrewPayrollCalculationFreshness $calculationFreshness,
+        private readonly AssertMonthlyCrewSalaryStableAcrossPeriod $assertMonthlySalaryStable,
     ) {}
 
     public function handle(
@@ -543,6 +545,8 @@ final class GenerateCrewPayroll
         PayrollPeriod $period,
         ?string $currencyCode = null,
     ): array {
+        $this->assertMonthlySalaryStable->assert($contract, $period);
+
         $calculated = $this->monthlyCalculator->calculate(
             $timesheet,
             $this->resolveEffectiveComponents->handle($contract, $period->start_date),

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryComponentCode;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\ContractSalaryRevision;
@@ -12,6 +13,8 @@ use App\Models\User;
 use App\Support\Contracts\Actions\ApplyContractSalaryRevision;
 use App\Support\Contracts\Actions\TransferEmployeeVisaCompanyContract;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
+use App\Support\Payroll\ResolveEffectiveContractSalaryComponents;
+use Carbon\Carbon;
 use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
@@ -280,6 +283,87 @@ test('transfer action rejects tenant mismatched employee and contract', function
         transferDate: '2026-07-07',
         newContractAttributes: [],
     ))->toThrow(ValidationException::class);
+});
+
+test('visa company transfer rejects EOS when the new contract is not monthly crew', function () {
+    ['user' => $user, 'company' => $company] = makeVisaTransferFixtures();
+    $this->actingAs($user);
+    ['employee' => $employee, 'contract' => $oldContract, 'companyB' => $companyB] = makeAhmadStyleTransferSetup($company);
+
+    grantCompanyPermissions($user, $company, ['contracts.create']);
+
+    $this->from(route('organization.employees.show', $employee))
+        ->post(route('organization.employees.contracts.transfer-visa-company', [$employee, $oldContract]), [
+            'company_visa_type_id' => $companyB->id,
+            'transfer_date' => '2026-07-07',
+            'payroll_category' => PayrollCategory::Crew->value,
+            'salary_structure' => 'daily',
+            'basic_salary' => 220,
+            'eos_monthly_amount' => 500,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors([
+            'eos_monthly_amount' => 'EOS provision is only available for Monthly Crew contracts.',
+        ]);
+
+    expect($oldContract->fresh()->status)->toBe('active')
+        ->and($oldContract->fresh()->end_date)->toBeNull()
+        ->and(EmployeeContract::query()->where('employee_id', $employee->id)->count())->toBe(1);
+});
+
+test('monthly crew visa transfer stores submitted EOS on the new contract and leaves the ended contract provision intact', function () {
+    ['user' => $user, 'company' => $company] = makeVisaTransferFixtures();
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['contracts.create']);
+
+    $companyA = CompanyVisaType::query()->create(['name' => 'Monthly Sponsor A '.uniqid(), 'is_active' => true]);
+    $companyB = CompanyVisaType::query()->create(['name' => 'Monthly Sponsor B '.uniqid(), 'is_active' => true]);
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create([
+        'status' => 'active',
+        'company_visa_type_id' => $companyA->id,
+    ]);
+    $oldContract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-02-03',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'company_visa_type_id' => $companyA->id,
+        'basic_salary' => 5000,
+        'housing_allowance' => 1000,
+        'eos_monthly_amount' => 300,
+    ], createdBy: $user->id);
+
+    $this->post(route('organization.employees.contracts.transfer-visa-company', [$employee, $oldContract]), [
+        'company_visa_type_id' => $companyB->id,
+        'transfer_date' => '2026-07-07',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 5200,
+        'housing_allowance' => 1000,
+        'eos_monthly_amount' => 450,
+        'reason' => 'Sponsor change',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($oldContract->fresh()->status)->toBe('ended')
+        ->and((float) $oldContract->fresh()->eos_monthly_amount)->toBe(300.0);
+
+    $newContract = EmployeeContract::query()
+        ->where('employee_id', $employee->id)
+        ->where('status', 'active')
+        ->first();
+
+    expect($newContract)->not->toBeNull()
+        ->and($newContract->resolvedSalaryStructure()->value)->toBe('monthly')
+        ->and((float) $newContract->eos_monthly_amount)->toBe(450.0)
+        ->and((float) $newContract->basic_salary)->toBe(5200.0)
+        ->and($newContract->company_visa_type_id)->toBe($companyB->id);
+
+    $oldEos = app(ResolveEffectiveContractSalaryComponents::class)
+        ->handle($oldContract->fresh(), Carbon::parse('2026-03-01'))
+        ->first(fn ($component) => $component->component_code === SalaryComponentCode::EosProvision);
+
+    expect($oldEos)->not->toBeNull()
+        ->and((float) $oldEos->amount)->toBe(300.0);
 });
 
 test('transfer via http route succeeds for authorized users and records activity log', function () {

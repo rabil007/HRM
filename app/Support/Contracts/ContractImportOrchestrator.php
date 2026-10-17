@@ -255,6 +255,9 @@ final class ContractImportOrchestrator
             $salaryComponents = $monthlySalary
                 ? ['basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances']
                 : ['basic_salary', 'supplementary_allowance', 'site_allowance'];
+            if ($payrollCategory === PayrollCategory::Crew && $salaryStructure === 'monthly') {
+                $salaryComponents[] = 'eos_monthly_amount';
+            }
             $totalSalary = array_sum(array_map(
                 fn (string $field): float => (float) ($effectiveAttributes[$field] ?? 0),
                 $salaryComponents,

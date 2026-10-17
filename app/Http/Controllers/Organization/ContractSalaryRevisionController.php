@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\PayrollCategory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Contracts\StoreContractSalaryRevisionRequest;
 use App\Models\ContractSalaryRevision;
@@ -39,6 +40,7 @@ class ContractSalaryRevisionController extends Controller
         ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validated();
+        $applyToPayroll = $this->resolveApplyToPayroll($employeeContract, $validated);
 
         $this->applySalaryRevision->handle(
             $employeeContract,
@@ -46,6 +48,8 @@ class ContractSalaryRevisionController extends Controller
             $validated['effective_from'],
             $validated['reason'] ?? null,
             $request->user()?->id,
+            $applyToPayroll,
+            $applyToPayroll ? ($validated['payroll_effective_from'] ?? $validated['effective_from']) : null,
         );
 
         return back()->with('success', 'Salary revision applied.');
@@ -71,6 +75,7 @@ class ContractSalaryRevisionController extends Controller
         ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
         $validated = $request->validated();
+        $applyToPayroll = $this->resolveApplyToPayroll($employeeContract, $validated);
 
         $this->updateSalaryRevision->handle(
             $employeeContract,
@@ -78,6 +83,8 @@ class ContractSalaryRevisionController extends Controller
             $this->amountsFromValidated($validated),
             $validated['effective_from'],
             $validated['reason'] ?? null,
+            $applyToPayroll,
+            $applyToPayroll ? ($validated['payroll_effective_from'] ?? $validated['effective_from']) : null,
         );
 
         return back()->with('success', 'Salary revision updated.');
@@ -122,5 +129,20 @@ class ContractSalaryRevisionController extends Controller
             'supplementary_allowance' => $validated['supplementary_allowance'] ?? null,
             'site_allowance' => $validated['site_allowance'] ?? null,
         ];
+    }
+
+    /**
+     * Office revisions always apply to payroll. Crew operator-created revisions
+     * default off unless the operator explicitly enables payroll application.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveApplyToPayroll(EmployeeContract $contract, array $validated): bool
+    {
+        if (($contract->payroll_category ?? PayrollCategory::Office) === PayrollCategory::Office) {
+            return true;
+        }
+
+        return (bool) ($validated['apply_to_payroll'] ?? false);
     }
 }

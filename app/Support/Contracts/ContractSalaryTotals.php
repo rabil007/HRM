@@ -15,7 +15,7 @@ final class ContractSalaryTotals
 
         return match ($category) {
             'crew' => $contract->resolvedSalaryStructure()->value === 'monthly'
-                ? self::officeTotal($contract)
+                ? self::officeTotal($contract) + (float) $contract->eos_monthly_amount
                 : self::crewTotal($contract),
             'office' => self::officeTotal($contract),
             default => 0.0,

@@ -18,7 +18,9 @@ final class ApplyMonthlyCrewSalaryInputs
         $base = $this->resolveBase($record, $breakdown);
         $totals = $this->sumByType($inputs);
 
-        $bonus = round($totals['bonus'] + $totals['commission'], 2);
+        $inputAdditions = round($totals['bonus'] + $totals['commission'], 2);
+        $baseBonus = array_key_exists('eos_monthly_paid', $breakdown) ? (float) $base['bonus'] : 0.0;
+        $bonus = round($baseBonus + $inputAdditions, 2);
 
         // Base unpaid leave is informational for monthly crew because gross earnings
         // are already prorated by unpaid leave days during generation.
@@ -32,7 +34,7 @@ final class ApplyMonthlyCrewSalaryInputs
         $lateDeduction = round($totals['late'], 2);
         $loanDeduction = round($totals['loan'], 2);
         $otherDeductions = round($baseOtherDeductions + $totals['other'], 2);
-        $additions = round($bonus, 2);
+        $additions = $inputAdditions;
 
         // Only legitimate monetary deductions (loan, late, other, manual unpaid-leave adjustment)
         // are summed into total_deductions. The informational base unpaid-leave impact is excluded.
@@ -105,7 +107,8 @@ final class ApplyMonthlyCrewSalaryInputs
             + (float) $record->housing_allowance
             + (float) $record->transport_allowance
             + (float) $record->other_allowances
-            + (float) $record->overtime_pay,
+            + (float) $record->overtime_pay
+            + (float) ($breakdown['eos_monthly_paid'] ?? 0),
             2,
         );
 

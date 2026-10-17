@@ -82,6 +82,9 @@ function contractMoneyValue(value: number | null | undefined): number {
 }
 
 export function contractOfficeSalaryTotal(contract: {
+    payroll_category?: string | null;
+    salary_structure?: string | null;
+    eos_monthly_amount?: number | null;
     basic_salary: number | null;
     housing_allowance?: number | null;
     transport_allowance?: number | null;
@@ -91,7 +94,11 @@ export function contractOfficeSalaryTotal(contract: {
         contractMoneyValue(contract.basic_salary) +
         contractMoneyValue(contract.housing_allowance) +
         contractMoneyValue(contract.transport_allowance) +
-        contractMoneyValue(contract.other_allowances)
+        contractMoneyValue(contract.other_allowances) +
+        (contract.payroll_category === 'crew' &&
+        contract.salary_structure === 'monthly'
+            ? contractMoneyValue(contract.eos_monthly_amount)
+            : 0)
     );
 }
 

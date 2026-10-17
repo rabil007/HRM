@@ -30,6 +30,8 @@ class ContractSalaryRevision extends Model
                 'employee_id',
                 'version',
                 'effective_from',
+                'apply_to_payroll',
+                'payroll_effective_from',
                 'reason',
                 'created_by',
             ])
@@ -41,7 +43,20 @@ class ContractSalaryRevision extends Model
         return [
             'version' => 'integer',
             'effective_from' => 'date',
+            'apply_to_payroll' => 'boolean',
+            'payroll_effective_from' => 'date',
         ];
+    }
+
+    public function appliesToPayroll(): bool
+    {
+        return (bool) $this->apply_to_payroll;
+    }
+
+    public function payrollEffectiveDateString(): ?string
+    {
+        return $this->payroll_effective_from?->toDateString()
+            ?? ($this->appliesToPayroll() ? $this->effective_from?->toDateString() : null);
     }
 
     public function company(): BelongsTo

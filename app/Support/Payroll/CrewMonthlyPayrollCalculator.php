@@ -44,7 +44,7 @@ final class CrewMonthlyPayrollCalculator
         $monthlyHousing = $this->activeAmount($components, SalaryComponentCode::Housing) ?? 0.0;
         $monthlyTransport = $this->activeAmount($components, SalaryComponentCode::Transport) ?? 0.0;
         $monthlyOther = $this->activeAmount($components, SalaryComponentCode::Other) ?? 0.0;
-        $monthlyEosProvision = $this->activeAmount($components, SalaryComponentCode::EosProvision);
+        $monthlyEos = $this->activeAmount($components, SalaryComponentCode::EosProvision) ?? 0.0;
 
         $unpaidLeaveDays = (float) ($timesheet->unpaid_leave_days ?? 0);
 
@@ -62,8 +62,9 @@ final class CrewMonthlyPayrollCalculator
         $earnedHousing = round($monthlyHousing * $prorateRatio, 2);
         $earnedTransport = round($monthlyTransport * $prorateRatio, 2);
         $earnedOther = round($monthlyOther * $prorateRatio, 2);
+        $earnedEos = round($monthlyEos * $prorateRatio, 2);
 
-        $monthlyBase = $monthlyBasic + $monthlyHousing + $monthlyTransport + $monthlyOther;
+        $monthlyBase = $monthlyBasic + $monthlyHousing + $monthlyTransport + $monthlyOther + $monthlyEos;
         $dailyRate = $workingDays > 0 ? ($monthlyBase / $workingDays) : 0.0;
         $unpaidLeaveDeduction = round($dailyRate * $unpaidLeaveDays, 2);
 
@@ -71,7 +72,7 @@ final class CrewMonthlyPayrollCalculator
         $deductionAmount = round((float) ($timesheet->deduction_amount ?? 0), 2);
 
         $grossSalary = round(
-            $earnedBasic + $earnedHousing + $earnedTransport + $earnedOther + $additionalAmount,
+            $earnedBasic + $earnedHousing + $earnedTransport + $earnedOther + $earnedEos + $additionalAmount,
             2,
         );
 
@@ -103,8 +104,8 @@ final class CrewMonthlyPayrollCalculator
             'overtime_hours' => 0.0,
             'calculation_breakdown' => [
                 'salary_structure' => 'monthly',
-                // Reference only: EOS is never regular payable earnings.
-                'eos_monthly_provision' => $monthlyEosProvision,
+                // Explicit paid snapshot: legacy eos_monthly_provision remains non-payable.
+                'eos_monthly_paid' => $earnedEos,
                 'unpaid_leave_days' => $unpaidLeaveDays,
                 'working_days' => $workingDays,
                 'present_days' => $presentDays,
@@ -115,7 +116,7 @@ final class CrewMonthlyPayrollCalculator
                     'housing_monthly' => $monthlyHousing,
                     'transport_monthly' => $monthlyTransport,
                     'other_monthly' => $monthlyOther,
-                    'eos_monthly_provision' => $monthlyEosProvision,
+                    'eos_monthly' => $monthlyEos,
                     'daily_rate' => round($dailyRate, 2),
                 ],
                 'lines' => [
@@ -123,6 +124,7 @@ final class CrewMonthlyPayrollCalculator
                     'housing' => $earnedHousing,
                     'transport' => $earnedTransport,
                     'other' => $earnedOther,
+                    'eos' => $earnedEos,
                     'overtime' => 0.0,
                     'bonus' => $additionalAmount,
                     'unpaid_leave_deduction' => $unpaidLeaveDeduction,

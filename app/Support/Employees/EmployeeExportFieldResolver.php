@@ -2,7 +2,11 @@
 
 namespace App\Support\Employees;
 
+use App\Enums\ContractSalaryStructure;
+use App\Enums\PayrollCategory;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
+use App\Support\Contracts\ContractSalaryTotals;
 use App\Support\Departments\DepartmentManagerExportContext;
 use Throwable;
 
@@ -99,35 +103,31 @@ final class EmployeeExportFieldResolver
             'contract_note' => $contract?->note,
             'contract_status' => $contract?->status,
             'contract_total_compensation_aed' => $contract !== null
-                ? round(
-                    (float) ($contract->basic_salary ?? 0)
-                    + (float) ($contract->housing_allowance ?? 0)
-                    + (float) ($contract->transport_allowance ?? 0)
-                    + (float) ($contract->other_allowances ?? 0)
-                    + (float) ($contract->supplementary_allowance ?? 0)
-                    + (float) ($contract->site_allowance ?? 0),
-                    2,
-                )
-                : null,
+                ? round($this->contractTotal($contract), 2) : null,
             'contract_total_compensation_usd' => $contract !== null
-                ? round(
-                    (
-                        (float) ($contract->basic_salary ?? 0)
-                        + (float) ($contract->housing_allowance ?? 0)
-                        + (float) ($contract->transport_allowance ?? 0)
-                        + (float) ($contract->other_allowances ?? 0)
-                        + (float) ($contract->supplementary_allowance ?? 0)
-                        + (float) ($contract->site_allowance ?? 0)
-                    ) / EmployeeExportFieldRegistry::AED_PER_USD,
-                    2,
-                )
-                : null,
+                ? round($this->contractTotal($contract) / EmployeeExportFieldRegistry::AED_PER_USD, 2) : null,
             'bank_name' => $bankAccount?->bank?->name,
             'bank_iban' => $bankAccount?->iban,
             'bank_account_name' => $bankAccount?->account_name,
             'bank_is_primary' => $bankAccount?->is_primary,
             default => null,
         };
+    }
+
+    private function contractTotal(EmployeeContract $contract): float
+    {
+        if ($contract->payroll_category === PayrollCategory::Crew
+            && $contract->resolvedSalaryStructure() === ContractSalaryStructure::Monthly) {
+            return ContractSalaryTotals::total($contract);
+        }
+
+        // Preserve the legacy employee export formula for Office and Daily Crew.
+        return (float) $contract->basic_salary
+            + (float) $contract->housing_allowance
+            + (float) $contract->transport_allowance
+            + (float) $contract->other_allowances
+            + (float) $contract->supplementary_allowance
+            + (float) $contract->site_allowance;
     }
 
     /**

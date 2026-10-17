@@ -5,6 +5,8 @@ namespace App\Support\Contracts\Actions;
 use App\Enums\PayrollCategory;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\AssertContractSalaryStructureChangeAllowed;
+use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -16,6 +18,7 @@ final class UpsertEmployeeContract
     public function __construct(
         private readonly SyncContractSalaryComponentsFromContract $syncSalaryComponents,
         private readonly ApplyContractSalaryRevision $applySalaryRevision,
+        private readonly AssertContractSalaryStructureChangeAllowed $assertSalaryStructureChangeAllowed,
     ) {}
 
     /**
@@ -29,6 +32,8 @@ final class UpsertEmployeeContract
         ?int $createdBy = null,
         ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
+        ?bool $revisionApplyToPayroll = null,
+        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
         if ($this->participatesInCrewPayrollSource($attributes, $existing)) {
             return DB::transaction(function () use (
@@ -39,6 +44,8 @@ final class UpsertEmployeeContract
                 $createdBy,
                 $revisionEffectiveFrom,
                 $revisionReason,
+                $revisionApplyToPayroll,
+                $revisionPayrollEffectiveFrom,
             ): EmployeeContract {
                 $this->lockEmployeeForContract($companyId, (int) $employee->id);
 
@@ -50,6 +57,8 @@ final class UpsertEmployeeContract
                     $createdBy,
                     $revisionEffectiveFrom,
                     $revisionReason,
+                    $revisionApplyToPayroll,
+                    $revisionPayrollEffectiveFrom,
                 );
             });
         }
@@ -62,6 +71,8 @@ final class UpsertEmployeeContract
             $createdBy,
             $revisionEffectiveFrom,
             $revisionReason,
+            $revisionApplyToPayroll,
+            $revisionPayrollEffectiveFrom,
         );
     }
 
@@ -76,7 +87,19 @@ final class UpsertEmployeeContract
         ?int $createdBy = null,
         ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
+        ?bool $revisionApplyToPayroll = null,
+        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
+        // Classification guards must run before ending sibling contracts or
+        // mutating this row so rejected updates leave no partial side effects.
+        if ($existing !== null) {
+            $this->assertSalaryStructureChangeAllowed->assert(
+                $existing,
+                $attributes,
+                $revisionEffectiveFrom,
+            );
+        }
+
         $becomesActive = ($attributes['status'] ?? $existing?->status ?? 'active') === 'active';
 
         if ($becomesActive) {
@@ -100,39 +123,96 @@ final class UpsertEmployeeContract
                 $contract->start_date?->toDateString() ?? now()->toDateString(),
                 $revisionReason ?? 'Initial contract salary',
                 $createdBy,
+                applyToPayroll: true,
+                payrollEffectiveFrom: null,
             );
 
             return $contract->fresh();
         }
 
         $beforeAmounts = ApplyContractSalaryRevision::amountsFromContract($existing);
+        $hasRevisions = $existing->salaryRevisions()->exists();
+        $proposedAfterAmounts = $this->proposedAmountsAfterUpdate($existing, $attributes);
+        $salaryChanged = ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $proposedAfterAmounts);
+
+        if (! $hasRevisions && $salaryChanged) {
+            [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
+                $existing,
+                $attributes,
+                $revisionEffectiveFrom,
+                $revisionApplyToPayroll,
+                $revisionPayrollEffectiveFrom,
+            );
+
+            $this->assertLegacySameMonthPayrollDisabledIsSafe(
+                $existing,
+                $effectiveFrom,
+                $applyToPayroll,
+            );
+        }
+
         $existing->update($attributes);
         $contract = $existing->fresh();
         $afterAmounts = ApplyContractSalaryRevision::amountsFromContract($contract);
 
         $this->syncEmployeeCurrentVisaCompany($employee, $contract);
 
-        $hasRevisions = $contract->salaryRevisions()->exists();
-
         if (! $hasRevisions) {
-            $this->createRevisionIfNeeded(
-                $contract,
-                $afterAmounts,
-                $contract->start_date?->toDateString() ?? now()->toDateString(),
-                $revisionReason ?? 'Initial contract salary',
-                $createdBy,
-            );
+            if ($salaryChanged) {
+                // A legacy contract has no revision rows. Record the package that
+                // was already in force from the start date, then the new package
+                // from its own effective month. Backdating the new package to the
+                // start date would make every earlier payroll month use the new pay.
+                [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
+                    $contract,
+                    $attributes,
+                    $revisionEffectiveFrom,
+                    $revisionApplyToPayroll,
+                    $revisionPayrollEffectiveFrom,
+                );
+
+                $this->createRevisionIfNeeded(
+                    $contract,
+                    $afterAmounts,
+                    $effectiveFrom,
+                    $revisionReason,
+                    $createdBy,
+                    applyToPayroll: $applyToPayroll,
+                    payrollEffectiveFrom: $payrollEffectiveFrom,
+                    historicalBaselineAmounts: $beforeAmounts,
+                );
+            } else {
+                $this->createRevisionIfNeeded(
+                    $contract,
+                    $afterAmounts,
+                    $contract->start_date?->toDateString() ?? now()->toDateString(),
+                    $revisionReason ?? 'Initial contract salary',
+                    $createdBy,
+                    applyToPayroll: true,
+                    payrollEffectiveFrom: null,
+                );
+            }
 
             return $contract->fresh();
         }
 
-        if (ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $afterAmounts)) {
+        if ($salaryChanged) {
+            [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
+                $contract,
+                $attributes,
+                $revisionEffectiveFrom,
+                $revisionApplyToPayroll,
+                $revisionPayrollEffectiveFrom,
+            );
+
             $this->createRevisionIfNeeded(
                 $contract,
                 $afterAmounts,
-                $revisionEffectiveFrom ?? now()->toDateString(),
+                $effectiveFrom,
                 $revisionReason,
                 $createdBy,
+                applyToPayroll: $applyToPayroll,
+                payrollEffectiveFrom: $payrollEffectiveFrom,
             );
 
             return $contract->fresh();
@@ -144,7 +224,80 @@ final class UpsertEmployeeContract
     }
 
     /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, float|int|string|null>
+     */
+    private function proposedAmountsAfterUpdate(EmployeeContract $existing, array $attributes): array
+    {
+        $before = ApplyContractSalaryRevision::amountsFromContract($existing);
+        $proposed = $before;
+
+        foreach ([
+            'basic_salary',
+            'housing_allowance',
+            'transport_allowance',
+            'other_allowances',
+            'eos_monthly_amount',
+            'supplementary_allowance',
+            'site_allowance',
+        ] as $column) {
+            if (array_key_exists($column, $attributes)) {
+                $proposed[$column] = $attributes[$column];
+            }
+        }
+
+        return $proposed;
+    }
+
+    private function assertLegacySameMonthPayrollDisabledIsSafe(
+        EmployeeContract $existing,
+        string $effectiveFrom,
+        bool $applyToPayroll,
+    ): void {
+        if ($applyToPayroll || $existing->start_date === null) {
+            return;
+        }
+
+        $baselineDate = SalaryRevisionEffectiveMonth::normalize($existing->start_date->toDateString());
+        $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
+
+        if ($baselineDate === $effectiveDate) {
+            throw ValidationException::withMessages([
+                'apply_to_payroll' => ApplyContractSalaryRevision::SAME_MONTH_PAYROLL_DISABLED_MESSAGE,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array{0: bool, 1: string, 2: ?string}
+     */
+    private function resolveRevisionPayrollFlags(
+        EmployeeContract $contract,
+        array $attributes,
+        ?string $revisionEffectiveFrom,
+        ?bool $revisionApplyToPayroll,
+        ?string $revisionPayrollEffectiveFrom,
+    ): array {
+        $rawCategory = $attributes['payroll_category'] ?? $contract->payroll_category;
+        $category = $rawCategory instanceof PayrollCategory
+            ? $rawCategory
+            : (PayrollCategory::tryFrom((string) ($rawCategory ?? '')) ?? PayrollCategory::Office);
+        $isCrew = $category === PayrollCategory::Crew;
+        $applyToPayroll = $isCrew
+            ? (bool) ($revisionApplyToPayroll ?? false)
+            : true;
+        $effectiveFrom = $revisionEffectiveFrom ?? now()->toDateString();
+        $payrollEffectiveFrom = $applyToPayroll
+            ? ($revisionPayrollEffectiveFrom ?? $effectiveFrom)
+            : null;
+
+        return [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom];
+    }
+
+    /**
      * @param  array<string, float|int|string|null>  $amounts
+     * @param  array<string, float|int|string|null>|null  $historicalBaselineAmounts
      */
     private function createRevisionIfNeeded(
         EmployeeContract $contract,
@@ -152,6 +305,9 @@ final class UpsertEmployeeContract
         string $effectiveFrom,
         ?string $reason,
         ?int $createdBy,
+        bool $applyToPayroll = true,
+        ?string $payrollEffectiveFrom = null,
+        ?array $historicalBaselineAmounts = null,
     ): void {
         $hasPositiveAmount = collect($amounts)->except('eos_monthly_amount')->contains(
             fn (mixed $amount): bool => $amount !== null && $amount !== '' && (float) $amount > 0,
@@ -169,6 +325,9 @@ final class UpsertEmployeeContract
             $effectiveFrom,
             $reason,
             $createdBy,
+            $applyToPayroll,
+            $payrollEffectiveFrom,
+            $historicalBaselineAmounts,
         );
     }
 
