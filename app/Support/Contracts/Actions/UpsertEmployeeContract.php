@@ -6,7 +6,6 @@ use App\Enums\PayrollCategory;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\Contracts\AssertContractSalaryStructureChangeAllowed;
-use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -15,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 final class UpsertEmployeeContract
 {
+    public const COMPENSATION_VIA_REVISION_MESSAGE = 'Compensation changes must be made through Salary Revisions.';
+
     public function __construct(
         private readonly SyncContractSalaryComponentsFromContract $syncSalaryComponents,
         private readonly ApplyContractSalaryRevision $applySalaryRevision,
@@ -30,10 +31,7 @@ final class UpsertEmployeeContract
         array $attributes,
         ?EmployeeContract $existing = null,
         ?int $createdBy = null,
-        ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
-        ?bool $revisionApplyToPayroll = null,
-        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
         if ($this->participatesInCrewPayrollSource($attributes, $existing)) {
             return DB::transaction(function () use (
@@ -42,10 +40,7 @@ final class UpsertEmployeeContract
                 $attributes,
                 $existing,
                 $createdBy,
-                $revisionEffectiveFrom,
                 $revisionReason,
-                $revisionApplyToPayroll,
-                $revisionPayrollEffectiveFrom,
             ): EmployeeContract {
                 $this->lockEmployeeForContract($companyId, (int) $employee->id);
 
@@ -55,10 +50,7 @@ final class UpsertEmployeeContract
                     $attributes,
                     $existing,
                     $createdBy,
-                    $revisionEffectiveFrom,
                     $revisionReason,
-                    $revisionApplyToPayroll,
-                    $revisionPayrollEffectiveFrom,
                 );
             });
         }
@@ -69,10 +61,7 @@ final class UpsertEmployeeContract
             $attributes,
             $existing,
             $createdBy,
-            $revisionEffectiveFrom,
             $revisionReason,
-            $revisionApplyToPayroll,
-            $revisionPayrollEffectiveFrom,
         );
     }
 
@@ -85,10 +74,7 @@ final class UpsertEmployeeContract
         array $attributes,
         ?EmployeeContract $existing = null,
         ?int $createdBy = null,
-        ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
-        ?bool $revisionApplyToPayroll = null,
-        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
         // Classification guards must run before ending sibling contracts or
         // mutating this row so rejected updates leave no partial side effects.
@@ -96,7 +82,7 @@ final class UpsertEmployeeContract
             $this->assertSalaryStructureChangeAllowed->assert(
                 $existing,
                 $attributes,
-                $revisionEffectiveFrom,
+                $existing->start_date?->toDateString(),
             );
         }
 
@@ -131,24 +117,12 @@ final class UpsertEmployeeContract
         }
 
         $beforeAmounts = ApplyContractSalaryRevision::amountsFromContract($existing);
-        $hasRevisions = $existing->salaryRevisions()->exists();
         $proposedAfterAmounts = $this->proposedAmountsAfterUpdate($existing, $attributes);
-        $salaryChanged = ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $proposedAfterAmounts);
 
-        if (! $hasRevisions && $salaryChanged) {
-            [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
-                $existing,
-                $attributes,
-                $revisionEffectiveFrom,
-                $revisionApplyToPayroll,
-                $revisionPayrollEffectiveFrom,
-            );
-
-            $this->assertLegacySameMonthPayrollDisabledIsSafe(
-                $existing,
-                $effectiveFrom,
-                $applyToPayroll,
-            );
+        if (ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $proposedAfterAmounts)) {
+            throw ValidationException::withMessages([
+                'basic_salary' => self::COMPENSATION_VIA_REVISION_MESSAGE,
+            ]);
         }
 
         $existing->update($attributes);
@@ -157,62 +131,18 @@ final class UpsertEmployeeContract
 
         $this->syncEmployeeCurrentVisaCompany($employee, $contract);
 
-        if (! $hasRevisions) {
-            if ($salaryChanged) {
-                // A legacy contract has no revision rows. Record the package that
-                // was already in force from the start date, then the new package
-                // from its own effective month. Backdating the new package to the
-                // start date would make every earlier payroll month use the new pay.
-                [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
-                    $contract,
-                    $attributes,
-                    $revisionEffectiveFrom,
-                    $revisionApplyToPayroll,
-                    $revisionPayrollEffectiveFrom,
-                );
-
-                $this->createRevisionIfNeeded(
-                    $contract,
-                    $afterAmounts,
-                    $effectiveFrom,
-                    $revisionReason,
-                    $createdBy,
-                    applyToPayroll: $applyToPayroll,
-                    payrollEffectiveFrom: $payrollEffectiveFrom,
-                    historicalBaselineAmounts: $beforeAmounts,
-                );
-            } else {
-                $this->createRevisionIfNeeded(
-                    $contract,
-                    $afterAmounts,
-                    $contract->start_date?->toDateString() ?? now()->toDateString(),
-                    $revisionReason ?? 'Initial contract salary',
-                    $createdBy,
-                    applyToPayroll: true,
-                    payrollEffectiveFrom: null,
-                );
-            }
-
-            return $contract->fresh();
-        }
-
-        if ($salaryChanged) {
-            [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom] = $this->resolveRevisionPayrollFlags(
-                $contract,
-                $attributes,
-                $revisionEffectiveFrom,
-                $revisionApplyToPayroll,
-                $revisionPayrollEffectiveFrom,
-            );
-
+        // Metadata-only updates never create a new salary revision. Seed a
+        // single initial baseline only when the contract still has no history
+        // so payroll has a reliable package for legacy rows.
+        if (! $contract->salaryRevisions()->exists()) {
             $this->createRevisionIfNeeded(
                 $contract,
                 $afterAmounts,
-                $effectiveFrom,
-                $revisionReason,
+                $contract->start_date?->toDateString() ?? now()->toDateString(),
+                $revisionReason ?? 'Initial contract salary',
                 $createdBy,
-                applyToPayroll: $applyToPayroll,
-                payrollEffectiveFrom: $payrollEffectiveFrom,
+                applyToPayroll: true,
+                payrollEffectiveFrom: null,
             );
 
             return $contract->fresh();
@@ -247,52 +177,6 @@ final class UpsertEmployeeContract
         }
 
         return $proposed;
-    }
-
-    private function assertLegacySameMonthPayrollDisabledIsSafe(
-        EmployeeContract $existing,
-        string $effectiveFrom,
-        bool $applyToPayroll,
-    ): void {
-        if ($applyToPayroll || $existing->start_date === null) {
-            return;
-        }
-
-        $baselineDate = SalaryRevisionEffectiveMonth::normalize($existing->start_date->toDateString());
-        $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
-
-        if ($baselineDate === $effectiveDate) {
-            throw ValidationException::withMessages([
-                'apply_to_payroll' => ApplyContractSalaryRevision::SAME_MONTH_PAYROLL_DISABLED_MESSAGE,
-            ]);
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     * @return array{0: bool, 1: string, 2: ?string}
-     */
-    private function resolveRevisionPayrollFlags(
-        EmployeeContract $contract,
-        array $attributes,
-        ?string $revisionEffectiveFrom,
-        ?bool $revisionApplyToPayroll,
-        ?string $revisionPayrollEffectiveFrom,
-    ): array {
-        $rawCategory = $attributes['payroll_category'] ?? $contract->payroll_category;
-        $category = $rawCategory instanceof PayrollCategory
-            ? $rawCategory
-            : (PayrollCategory::tryFrom((string) ($rawCategory ?? '')) ?? PayrollCategory::Office);
-        $isCrew = $category === PayrollCategory::Crew;
-        $applyToPayroll = $isCrew
-            ? (bool) ($revisionApplyToPayroll ?? false)
-            : true;
-        $effectiveFrom = $revisionEffectiveFrom ?? now()->toDateString();
-        $payrollEffectiveFrom = $applyToPayroll
-            ? ($revisionPayrollEffectiveFrom ?? $effectiveFrom)
-            : null;
-
-        return [$applyToPayroll, $effectiveFrom, $payrollEffectiveFrom];
     }
 
     /**

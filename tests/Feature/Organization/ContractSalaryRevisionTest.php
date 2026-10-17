@@ -119,8 +119,22 @@ test('legacy same-month payroll-disabled salary edit is rejected and leaves the 
                 'eos_monthly_amount' => 400,
             ],
             $contract,
-            revisionEffectiveFrom: '2026-10-01',
-            revisionApplyToPayroll: false,
+        ))->toThrow(
+            ValidationException::class,
+            UpsertEmployeeContract::COMPENSATION_VIA_REVISION_MESSAGE,
+        );
+
+        expect(fn () => app(ApplyContractSalaryRevision::class)->handle(
+            $contract->fresh(),
+            [
+                'basic_salary' => 9000,
+                'housing_allowance' => 1500,
+                'eos_monthly_amount' => 400,
+            ],
+            '2026-10-01',
+            'Same-month disabled attempt',
+            null,
+            false,
         ))->toThrow(
             ValidationException::class,
             ApplyContractSalaryRevision::SAME_MONTH_PAYROLL_DISABLED_MESSAGE,
@@ -163,21 +177,18 @@ test('legacy same-month payroll-enabled salary edit replaces the package for the
             'eos_monthly_amount' => 300,
         ]);
 
-        app(UpsertEmployeeContract::class)->handle(
-            (int) $company->id,
-            $employee,
+        app(ApplyContractSalaryRevision::class)->handle(
+            $contract->fresh(),
             [
-                'status' => 'active',
-                'payroll_category' => PayrollCategory::Crew->value,
-                'salary_structure' => 'monthly',
                 'basic_salary' => 9000,
                 'housing_allowance' => 1500,
                 'eos_monthly_amount' => 400,
             ],
-            $contract,
-            revisionEffectiveFrom: '2026-10-01',
-            revisionApplyToPayroll: true,
-            revisionPayrollEffectiveFrom: '2026-10-01',
+            '2026-10-01',
+            'Same-month correction',
+            null,
+            true,
+            '2026-10-01',
         );
 
         $revisions = $contract->salaryRevisions()->with('lines')->orderBy('version')->get();
@@ -227,20 +238,17 @@ test('updating a legacy monthly crew contract keeps the previous package for ear
 
         expect($contract->salaryRevisions()->withTrashed()->exists())->toBeFalse();
 
-        app(UpsertEmployeeContract::class)->handle(
-            (int) $company->id,
-            $employee,
+        app(ApplyContractSalaryRevision::class)->handle(
+            $contract->fresh(),
             [
-                'status' => 'active',
-                'payroll_category' => PayrollCategory::Crew->value,
-                'salary_structure' => 'monthly',
                 'basic_salary' => 9000,
                 'housing_allowance' => 1500,
                 'eos_monthly_amount' => 400,
             ],
-            $contract,
-            revisionEffectiveFrom: '2026-10-01',
-            revisionApplyToPayroll: false,
+            '2026-10-01',
+            'October package (payroll off)',
+            null,
+            false,
         );
 
         $revisions = $contract->salaryRevisions()->with('lines')->orderBy('version')->get();
@@ -301,21 +309,18 @@ test('updating a legacy monthly crew contract applies the new package from the p
             'eos_monthly_amount' => 300,
         ]);
 
-        app(UpsertEmployeeContract::class)->handle(
-            (int) $company->id,
-            $employee,
+        app(ApplyContractSalaryRevision::class)->handle(
+            $contract->fresh(),
             [
-                'status' => 'active',
-                'payroll_category' => PayrollCategory::Crew->value,
-                'salary_structure' => 'monthly',
                 'basic_salary' => 9000,
                 'housing_allowance' => 1500,
                 'eos_monthly_amount' => 400,
             ],
-            $contract,
-            revisionEffectiveFrom: '2026-10-01',
-            revisionApplyToPayroll: true,
-            revisionPayrollEffectiveFrom: '2026-10-01',
+            '2026-10-01',
+            'October package',
+            null,
+            true,
+            '2026-10-01',
         );
 
         $resolver = app(ResolveEffectiveContractSalaryComponents::class);

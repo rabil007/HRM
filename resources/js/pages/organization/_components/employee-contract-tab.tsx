@@ -4,16 +4,14 @@ import {
     ArrowLeftRight,
     Banknote,
     CalendarDays,
-    FileText,
     MessageSquare,
     Plus,
 } from 'lucide-react';
-import type { ReactElement, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactElement } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -25,16 +23,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { buildContractShowUrl } from '@/features/organization/contracts/build-contract-show-url';
+import { CurrencyInput } from '@/features/organization/contracts/components/contract-form-fields';
+import { ContractFormSheet } from '@/features/organization/contracts/components/contract-form-sheet';
 import { formatSalaryStructure } from '@/features/organization/contracts/contracts-format';
-import { EmployeeContractSalaryRevisions } from '@/features/organization/contracts/employee-contract-salary-revisions';
+import {
+    contractRowTotalSalary,
+    formatContractFormMoney,
+    isDailyCrewContractRow,
+} from '@/features/organization/contracts/lib/contract-form-data';
+import type { ContractEmployeeSummary } from '@/features/organization/contracts/types';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
-import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CompanyVisaTypeOption } from '@/features/organization/employees/types';
 import { previousIsoCalendarDay } from '@/lib/calendar-date';
 import { actions } from '@/lib/design-system';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
@@ -45,28 +47,16 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { applyRecordFormErrors } from '@/pages/organization/_lib/apply-record-form-errors';
-import {
-    employeeFieldMissingHighlightClass,
-    employeeFieldMissingLabelClass,
-} from '@/pages/organization/_lib/employee-required-field-labels';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { normalizeDecimalFieldValue } from '@/pages/organization/_lib/normalize-decimal-field-value';
-import {
-    createTemplateFieldVisibility,
-    getTemplateRequiredFieldKeys,
-    isEmptyTemplateFieldValue,
-    isTemplateFieldRequired,
-    omitHiddenTemplateRecordFields,
-} from '@/pages/organization/_lib/template-field-visibility';
+import { createTemplateFieldVisibility } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     EmployeeContractDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
 import {
     destroy as destroyContract,
-    store as storeContract,
     transferVisaCompany,
-    update as updateContract,
 } from '../../../actions/App/Http/Controllers/Organization/EmployeeContractController';
 
 const CONTRACTS_RELOAD = {
@@ -83,43 +73,6 @@ const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
     office: 'Office',
     crew: 'Crew',
 };
-
-const DEFAULT_CONTRACT_REQUIRED_FIELDS = ['start_date', 'status'] as const;
-
-type ContractFormFieldProps = {
-    field: string;
-    highlightMissing: boolean;
-    children: ReactNode;
-};
-
-function ContractFormField({
-    field,
-    highlightMissing,
-    children,
-}: ContractFormFieldProps): ReactElement {
-    return (
-        <div
-            data-contract-field={field}
-            className={cn(
-                'space-y-1.5 rounded-xl',
-                highlightMissing && employeeFieldMissingHighlightClass,
-            )}
-        >
-            {children}
-            {highlightMissing ? (
-                <p className="text-xs text-rose-400">Required</p>
-            ) : null}
-        </div>
-    );
-}
-
-function RequiredIndicator({ show }: { show: boolean }): ReactElement | null {
-    if (!show) {
-        return null;
-    }
-
-    return <span className="text-red-400"> *</span>;
-}
 
 export type EmployeeContractTabProps = {
     employeeId: number | null;
@@ -154,151 +107,6 @@ function formatPayrollCategory(value: string | null | undefined): string {
     return PAYROLL_CATEGORY_LABELS[value] ?? value;
 }
 
-function formatMoney(value: number | null | undefined): string {
-    if (value === null || value === undefined) {
-        return '—';
-    }
-
-    const numeric = Number(value);
-
-    if (Number.isNaN(numeric)) {
-        return String(value);
-    }
-
-    return numeric.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    });
-}
-
-function isDailyCrewContract(row: EmployeeContractDetails): boolean {
-    return (
-        row.payroll_category === 'crew' &&
-        (row.salary_structure ?? 'daily') !== 'monthly'
-    );
-}
-
-function contractTotalSalary(row: EmployeeContractDetails): number {
-    const components = isDailyCrewContract(row)
-        ? [row.basic_salary, row.supplementary_allowance, row.site_allowance]
-        : [
-              row.basic_salary,
-              row.housing_allowance,
-              row.transport_allowance,
-              row.other_allowances,
-              row.payroll_category === 'crew' ? row.eos_monthly_amount : 0,
-          ];
-
-    return components.reduce<number>(
-        (sum, value) => sum + (Number(value) || 0),
-        0,
-    );
-}
-
-function currentMonthValue(): string {
-    const now = new Date();
-
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function toMonthStartDate(monthValue: string): string {
-    if (/^\d{4}-\d{2}$/.test(monthValue)) {
-        return `${monthValue}-01`;
-    }
-
-    return monthValue;
-}
-
-function buildContractPayload(
-    data: {
-        payroll_category: string;
-        salary_structure: string;
-        company_visa_type_id: string;
-        start_date: string;
-        end_date: string;
-        labor_contract_id: string;
-        status: string;
-        basic_salary: string;
-        housing_allowance: string;
-        transport_allowance: string;
-        other_allowances: string;
-        eos_monthly_amount: string;
-        supplementary_allowance: string;
-        site_allowance: string;
-        note: string;
-        revision_effective_from: string;
-        revision_apply_to_payroll: boolean;
-        revision_payroll_effective_from: string;
-        revision_reason: string;
-    },
-    templateFields: Record<string, TemplateFieldConfig> | null | undefined,
-    options?: {
-        includeCrewRevisionPayrollControls?: boolean;
-    },
-): Record<string, unknown> {
-    const payload = omitHiddenTemplateRecordFields(
-        {
-            payroll_category: data.payroll_category,
-            salary_structure:
-                data.payroll_category === 'crew'
-                    ? data.salary_structure
-                    : 'monthly',
-            company_visa_type_id:
-                data.company_visa_type_id === ''
-                    ? null
-                    : Number(data.company_visa_type_id),
-            start_date: data.start_date,
-            end_date: data.end_date === '' ? null : data.end_date,
-            labor_contract_id:
-                data.labor_contract_id.trim() === ''
-                    ? null
-                    : data.labor_contract_id.trim(),
-            status: data.status,
-            basic_salary: normalizeDecimalFieldValue(data.basic_salary),
-            housing_allowance: normalizeDecimalFieldValue(
-                data.housing_allowance,
-            ),
-            transport_allowance: normalizeDecimalFieldValue(
-                data.transport_allowance,
-            ),
-            other_allowances: normalizeDecimalFieldValue(data.other_allowances),
-            eos_monthly_amount:
-                data.payroll_category === 'crew' &&
-                data.salary_structure === 'monthly'
-                    ? normalizeDecimalFieldValue(data.eos_monthly_amount)
-                    : null,
-            supplementary_allowance: normalizeDecimalFieldValue(
-                data.supplementary_allowance,
-            ),
-            site_allowance: normalizeDecimalFieldValue(data.site_allowance),
-            note: data.note.trim() === '' ? null : data.note.trim(),
-        },
-        templateFields,
-    );
-
-    if (options?.includeCrewRevisionPayrollControls) {
-        const applyToPayroll = Boolean(data.revision_apply_to_payroll);
-
-        payload.revision_effective_from = toMonthStartDate(
-            data.revision_effective_from || currentMonthValue(),
-        );
-        payload.revision_apply_to_payroll = applyToPayroll;
-        payload.revision_payroll_effective_from = applyToPayroll
-            ? toMonthStartDate(
-                  data.revision_payroll_effective_from ||
-                      data.revision_effective_from ||
-                      currentMonthValue(),
-              )
-            : null;
-        payload.revision_reason =
-            data.revision_reason.trim() === ''
-                ? null
-                : data.revision_reason.trim();
-    }
-
-    return payload;
-}
-
 function contractStatusClass(status: string | null | undefined): string {
     if (status === 'active') {
         return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
@@ -311,37 +119,12 @@ function contractStatusClass(status: string | null | undefined): string {
     return 'border-zinc-500/25 bg-zinc-500/10 text-muted-foreground';
 }
 
-function CurrencyInput({
-    id,
-    value,
-    onChange,
-    placeholder,
-    className,
-}: {
-    id: string;
-    value: string;
-    onChange: (v: string) => void;
-    placeholder?: string;
-    className?: string;
-}): ReactElement {
-    return (
-        <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[11px] font-medium text-muted-foreground select-none">
-                AED
-            </span>
-            <Input
-                id={id}
-                inputMode="decimal"
-                placeholder={placeholder}
-                className={cn(
-                    'h-10 rounded-xl border-border/60 bg-muted/50 pl-10 text-sm tabular-nums',
-                    className,
-                )}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-            />
-        </div>
-    );
+function RequiredIndicator({ show }: { show: boolean }): ReactElement | null {
+    if (!show) {
+        return null;
+    }
+
+    return <span className="text-red-400"> *</span>;
 }
 
 export function EmployeeContractTab({
@@ -350,9 +133,6 @@ export function EmployeeContractTab({
     canCreate,
     canUpdate,
     canDelete,
-    canCreateSalaryRevisions = false,
-    canUpdateSalaryRevisions = false,
-    canDeleteSalaryRevisions = false,
     contractShowFrom = 'profile',
     initialEditContractId = null,
     ensureEmployee,
@@ -366,52 +146,6 @@ export function EmployeeContractTab({
         [templateContractFields],
     );
 
-    const requiredFields = useMemo(
-        () =>
-            getTemplateRequiredFieldKeys(templateContractFields, [
-                ...DEFAULT_CONTRACT_REQUIRED_FIELDS,
-            ]),
-        [templateContractFields],
-    );
-
-    const isFieldRequired = useCallback(
-        (fieldKey: string) =>
-            isTemplateFieldRequired(templateContractFields, fieldKey, [
-                ...DEFAULT_CONTRACT_REQUIRED_FIELDS,
-            ]),
-        [templateContractFields],
-    );
-
-    const [missingRequiredFields, setMissingRequiredFields] = useState<
-        Set<string>
-    >(() => new Set());
-
-    const isMissingRequired = useCallback(
-        (field: string) => missingRequiredFields.has(field),
-        [missingRequiredFields],
-    );
-
-    const missingRequiredFieldsList = useMemo(
-        () => Array.from(missingRequiredFields),
-        [missingRequiredFields],
-    );
-
-    const focusMissingField = useCallback((field: string) => {
-        requestAnimationFrame(() => {
-            document
-                .querySelector(`[data-contract-field="${field}"]`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-    }, []);
-
-    const showContractDetailsSection =
-        showField('payroll_category') ||
-        showField('salary_structure') ||
-        showField('status') ||
-        showField('labor_contract_id') ||
-        showField('company_visa_type_id');
-    const showDurationSection =
-        showField('start_date') || showField('end_date');
     const showCompensationSection =
         showField('basic_salary') ||
         showField('housing_allowance') ||
@@ -420,21 +154,49 @@ export function EmployeeContractTab({
         showField('eos_monthly_amount') ||
         showField('supplementary_allowance') ||
         showField('site_allowance');
-    const showNoteSection = showField('note');
-    const hasDailyCrewContracts = contracts.some(isDailyCrewContract);
+    const hasDailyCrewContracts = contracts.some(isDailyCrewContractRow);
     const hasMonthlyContracts = contracts.some(
-        (row) => !isDailyCrewContract(row),
+        (row) => !isDailyCrewContractRow(row),
     );
     const hasMonthlyCrewContracts = contracts.some(
-        (row) => row.payroll_category === 'crew' && !isDailyCrewContract(row),
+        (row) =>
+            row.payroll_category === 'crew' && !isDailyCrewContractRow(row),
     );
 
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingContract, setEditingContract] =
-        useState<EmployeeContractDetails | null>(null);
+    const [sheetOpen, setSheetOpen] = useState(false);
+    const [editingContractId, setEditingContractId] = useState<number | null>(
+        null,
+    );
     const [deleteContractId, setDeleteContractId] = useState<number | null>(
         null,
     );
+    const [handledInitialEditId, setHandledInitialEditId] = useState<
+        number | null
+    >(null);
+
+    const editingContract = useMemo(() => {
+        if (editingContractId === null) {
+            return null;
+        }
+
+        return contracts.find((row) => row.id === editingContractId) ?? null;
+    }, [contracts, editingContractId]);
+
+    if (
+        initialEditContractId &&
+        canUpdate &&
+        handledInitialEditId !== initialEditContractId
+    ) {
+        const row = contracts.find(
+            (contract) => contract.id === initialEditContractId,
+        );
+
+        if (row) {
+            setHandledInitialEditId(initialEditContractId);
+            setEditingContractId(row.id);
+            setSheetOpen(true);
+        }
+    }
 
     const [transferDialogOpen, setTransferDialogOpen] = useState(false);
     const [transferringContract, setTransferringContract] =
@@ -602,281 +364,28 @@ export function EmployeeContractTab({
         );
     };
 
-    useEffect(() => {
-        if (!editingContract) {
-            return;
-        }
-
-        const fresh = contracts.find((row) => row.id === editingContract.id);
-
-        if (fresh && fresh !== editingContract) {
-            setEditingContract(fresh);
-        }
-    }, [contracts, editingContract]);
-
-    // Ctrl/Cmd+Enter keyboard shortcut to submit the form
-    useEffect(() => {
-        if (!dialogOpen) {
-            return;
-        }
-
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                e.preventDefault();
-                submitContract();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-
-        return () => window.removeEventListener('keydown', handleKeyDown);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dialogOpen]);
-
-    const contractForm = useForm({
-        payroll_category: 'office',
-        salary_structure: 'monthly',
-        company_visa_type_id: '',
-        start_date: '',
-        end_date: '',
-        labor_contract_id: '',
-        status: 'active',
-        basic_salary: '',
-        housing_allowance: '',
-        transport_allowance: '',
-        other_allowances: '',
-        eos_monthly_amount: '',
-        supplementary_allowance: '',
-        site_allowance: '',
-        note: '',
-        revision_effective_from: currentMonthValue(),
-        revision_apply_to_payroll: false,
-        revision_payroll_effective_from: currentMonthValue(),
-        revision_reason: '',
-    });
-
-    const isCrewContract = contractForm.data.payroll_category === 'crew';
-    const isCrewMonthly =
-        isCrewContract && contractForm.data.salary_structure === 'monthly';
-    const isCrewDaily =
-        isCrewContract && contractForm.data.salary_structure !== 'monthly';
-
-    useEffect(() => {
-        if (missingRequiredFields.size === 0) {
-            return;
-        }
-
-        setMissingRequiredFields((current) => {
-            const next = new Set(current);
-            let changed = false;
-
-            for (const field of current) {
-                const value =
-                    contractForm.data[field as keyof typeof contractForm.data];
-
-                if (!isEmptyTemplateFieldValue(value)) {
-                    next.delete(field);
-                    changed = true;
-                }
-            }
-
-            return changed ? next : current;
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
-    }, [contractForm.data]);
-
-    const openCreateDialog = () => {
-        contractForm.reset();
-        contractForm.clearErrors();
-        setMissingRequiredFields(new Set());
-        contractForm.setData({
-            payroll_category: 'office',
-            salary_structure: 'monthly',
-            company_visa_type_id: employeeCompanyVisaTypeId
-                ? String(employeeCompanyVisaTypeId)
-                : '',
-            start_date: '',
-            end_date: '',
-            labor_contract_id: '',
-            status: 'active',
-            basic_salary: '',
-            housing_allowance: '',
-            transport_allowance: '',
-            other_allowances: '',
-            eos_monthly_amount: '',
-            supplementary_allowance: '',
-            site_allowance: '',
-            note: '',
-            revision_effective_from: currentMonthValue(),
-            revision_apply_to_payroll: false,
-            revision_payroll_effective_from: currentMonthValue(),
-            revision_reason: '',
-        });
-        setEditingContract(null);
-        setDialogOpen(true);
+    const openCreateSheet = () => {
+        setEditingContractId(null);
+        setSheetOpen(true);
     };
 
-    const openEditDialog = useCallback(
-        (row: EmployeeContractDetails) => {
-            contractForm.clearErrors();
-            setMissingRequiredFields(new Set());
-            contractForm.setData({
-                payroll_category: row.payroll_category ?? 'office',
-                salary_structure:
-                    row.salary_structure ??
-                    (row.payroll_category === 'crew' ? 'daily' : 'monthly'),
-                company_visa_type_id: row.company_visa_type_id
-                    ? String(row.company_visa_type_id)
-                    : '',
-                start_date: row.start_date ?? '',
-                end_date: row.end_date ?? '',
-                labor_contract_id: row.labor_contract_id ?? '',
-                status: row.status ?? 'active',
-                basic_salary:
-                    row.basic_salary === null || row.basic_salary === undefined
-                        ? ''
-                        : String(row.basic_salary),
-                housing_allowance:
-                    row.housing_allowance === null ||
-                    row.housing_allowance === undefined
-                        ? ''
-                        : String(row.housing_allowance),
-                transport_allowance:
-                    row.transport_allowance === null ||
-                    row.transport_allowance === undefined
-                        ? ''
-                        : String(row.transport_allowance),
-                other_allowances:
-                    row.other_allowances === null ||
-                    row.other_allowances === undefined
-                        ? ''
-                        : String(row.other_allowances),
-                eos_monthly_amount:
-                    row.eos_monthly_amount == null
-                        ? ''
-                        : String(row.eos_monthly_amount),
-                supplementary_allowance:
-                    row.supplementary_allowance === null ||
-                    row.supplementary_allowance === undefined
-                        ? ''
-                        : String(row.supplementary_allowance),
-                site_allowance:
-                    row.site_allowance === null ||
-                    row.site_allowance === undefined
-                        ? ''
-                        : String(row.site_allowance),
-                note: row.note ?? '',
-                revision_effective_from: currentMonthValue(),
-                revision_apply_to_payroll: false,
-                revision_payroll_effective_from: currentMonthValue(),
-                revision_reason: '',
-            });
-            setEditingContract(row);
-            setDialogOpen(true);
-        },
-        [contractForm],
-    );
+    const openEditSheet = useCallback((row: EmployeeContractDetails) => {
+        setEditingContractId(row.id);
+        setSheetOpen(true);
+    }, []);
 
-    const didOpenInitialEdit = useRef(false);
+    const employeeSummary: ContractEmployeeSummary | null = employeeId
+        ? {
+              id: employeeId,
+              name: '',
+              employee_no: '',
+              company_visa_type_id: employeeCompanyVisaTypeId ?? null,
+          }
+        : null;
 
-    useEffect(() => {
-        if (
-            didOpenInitialEdit.current ||
-            !initialEditContractId ||
-            !canUpdate
-        ) {
-            return;
-        }
-
-        const row = contracts.find(
-            (contract) => contract.id === initialEditContractId,
-        );
-
-        if (!row) {
-            return;
-        }
-
-        didOpenInitialEdit.current = true;
-        openEditDialog(row);
-    }, [initialEditContractId, canUpdate, contracts, openEditDialog]);
-
-    const submitContract = async () => {
-        let resolvedEmployeeId: number;
-
-        try {
-            resolvedEmployeeId = await resolveEmployeeIdForSave(
-                employeeId,
-                ensureEmployee,
-            );
-        } catch {
-            return;
-        }
-
-        const missing: string[] = [];
-
-        for (const field of requiredFields) {
-            if (!showField(field)) {
-                continue;
-            }
-
-            const value =
-                contractForm.data[field as keyof typeof contractForm.data];
-
-            if (isEmptyTemplateFieldValue(value)) {
-                missing.push(field);
-            }
-        }
-
-        if (missing.length > 0) {
-            setMissingRequiredFields(new Set(missing));
-            toast.error(
-                'Please fill the highlighted required fields before saving.',
-            );
-            focusMissingField(missing[0]);
-
-            return;
-        }
-
-        setMissingRequiredFields(new Set());
-        contractForm.clearErrors();
-
-        const payload = buildContractPayload(
-            contractForm.data,
-            templateContractFields,
-            {
-                includeCrewRevisionPayrollControls: Boolean(
-                    editingContract &&
-                    contractForm.data.payroll_category === 'crew',
-                ),
-            },
-        );
-
-        const url = editingContract
-            ? updateContract.url({
-                  employee: resolvedEmployeeId,
-                  employeeContract: editingContract.id,
-              })
-            : storeContract.url({ employee: resolvedEmployeeId });
-
-        const options = {
-            ...CONTRACTS_RELOAD,
-            onSuccess: () => {
-                setDialogOpen(false);
-                contractForm.reset();
-                setEditingContract(null);
-                setMissingRequiredFields(new Set());
-            },
-            onError: (errors: Record<string, string | string[]>) => {
-                applyRecordFormErrors(contractForm, errors);
-            },
-        };
-
-        if (editingContract) {
-            router.put(url, payload as RequestPayload, options);
-        } else {
-            router.post(url, payload as RequestPayload, options);
-        }
-    };
+    const formatMoney = formatContractFormMoney;
+    const isDailyCrewContract = isDailyCrewContractRow;
+    const contractTotalSalary = contractRowTotalSalary;
 
     return (
         <div>
@@ -891,7 +400,7 @@ export function EmployeeContractTab({
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
                             type="button"
-                            onClick={openCreateDialog}
+                            onClick={openCreateSheet}
                         >
                             <Plus className="size-3.5" aria-hidden />
                             Add contract
@@ -975,7 +484,7 @@ export function EmployeeContractTab({
                             {hasMonthlyCrewContracts &&
                             showField('eos_monthly_amount') ? (
                                 <th className={employeeRecordsTableThClass()}>
-                                    EOS (Monthly)
+                                    EOS
                                 </th>
                             ) : null}
                             {showCompensationSection ? (
@@ -1232,7 +741,7 @@ export function EmployeeContractTab({
                                             }
                                             onEdit={
                                                 canUpdate
-                                                    ? () => openEditDialog(row)
+                                                    ? () => openEditSheet(row)
                                                     : undefined
                                             }
                                             onDelete={
@@ -1271,1116 +780,26 @@ export function EmployeeContractTab({
                     </tbody>
                 </EmployeeRecordsTable>
             </EmployeeRecordsPanel>
+            <ContractFormSheet
+                open={sheetOpen}
+                onOpenChange={(open) => {
+                    setSheetOpen(open);
 
-            <Dialog
-                open={dialogOpen}
-                onOpenChange={(openDialog) => {
-                    setDialogOpen(openDialog);
-
-                    if (!openDialog) {
-                        contractForm.reset();
-                        contractForm.clearErrors();
-                        setEditingContract(null);
-                        setMissingRequiredFields(new Set());
+                    if (!open) {
+                        setEditingContractId(null);
                     }
                 }}
-            >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingContract ? 'Edit contract' : 'Add contract'}
-                        </DialogTitle>
-                        <p className="text-xs text-muted-foreground">
-                            Fill in the contract details. Fields marked required
-                            in your profile template must be completed.
-                        </p>
-                    </DialogHeader>
-
-                    <EmployeeMissingRequiredFieldsAlert
-                        missingFields={missingRequiredFieldsList}
-                        onFocusField={focusMissingField}
-                    />
-
-                    {showContractDetailsSection ? (
-                        <div className="space-y-4 py-1">
-                            <div className="flex items-center gap-2">
-                                <FileText
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden
-                                />
-                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                                    Contract details
-                                </span>
-                                <div className="h-px flex-1 bg-muted/50" />
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {showField('payroll_category') ? (
-                                    <ContractFormField
-                                        field="payroll_category"
-                                        highlightMissing={isMissingRequired(
-                                            'payroll_category',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_payroll_category"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'payroll_category',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Payroll category
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'payroll_category',
-                                                )}
-                                            />
-                                        </Label>
-                                        <AppSelect
-                                            value={
-                                                contractForm.data
-                                                    .payroll_category
-                                            }
-                                            onValueChange={(v) =>
-                                                contractForm.setData(
-                                                    (data) => ({
-                                                        ...data,
-                                                        payroll_category: v,
-                                                        salary_structure:
-                                                            v === 'crew'
-                                                                ? 'daily'
-                                                                : 'monthly',
-                                                    }),
-                                                )
-                                            }
-                                            variant="dark"
-                                        >
-                                            <AppSelectItem value="office">
-                                                Office
-                                            </AppSelectItem>
-                                            <AppSelectItem value="crew">
-                                                Crew
-                                            </AppSelectItem>
-                                        </AppSelect>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Office uses monthly salary; crew
-                                            uses daily or monthly structures
-                                            with timesheets
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('salary_structure') &&
-                                isCrewContract ? (
-                                    <ContractFormField
-                                        field="salary_structure"
-                                        highlightMissing={isMissingRequired(
-                                            'salary_structure',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_salary_structure"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'salary_structure',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Salary structure
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'salary_structure',
-                                                )}
-                                            />
-                                        </Label>
-                                        <AppSelect
-                                            value={
-                                                contractForm.data
-                                                    .salary_structure
-                                            }
-                                            onValueChange={(v) =>
-                                                contractForm.setData(
-                                                    'salary_structure',
-                                                    v,
-                                                )
-                                            }
-                                            variant="dark"
-                                        >
-                                            <AppSelectItem value="daily">
-                                                Daily
-                                            </AppSelectItem>
-                                            <AppSelectItem value="monthly">
-                                                Monthly
-                                            </AppSelectItem>
-                                        </AppSelect>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Daily crew uses site and
-                                            supplementary rates; monthly crew
-                                            uses housing, transport, and other
-                                            allowances
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('status') ? (
-                                    <ContractFormField
-                                        field="status"
-                                        highlightMissing={isMissingRequired(
-                                            'status',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_status"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired('status') &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Status
-                                            <RequiredIndicator
-                                                show={isFieldRequired('status')}
-                                            />
-                                        </Label>
-                                        <div className="flex items-center gap-2">
-                                            <AppSelect
-                                                value={contractForm.data.status}
-                                                onValueChange={(v) =>
-                                                    contractForm.setData(
-                                                        'status',
-                                                        v,
-                                                    )
-                                                }
-                                                variant="dark"
-                                            >
-                                                <AppSelectItem value="active">
-                                                    Active
-                                                </AppSelectItem>
-                                                <AppSelectItem value="ended">
-                                                    Ended
-                                                </AppSelectItem>
-                                            </AppSelect>
-                                            <span
-                                                className={cn(
-                                                    'inline-flex shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium',
-                                                    contractStatusClass(
-                                                        contractForm.data
-                                                            .status,
-                                                    ),
-                                                )}
-                                            >
-                                                {formatStatus(
-                                                    contractForm.data.status,
-                                                )}
-                                            </span>
-                                        </div>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Current state of this contract
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                            </div>
-                            {showField('labor_contract_id') ? (
-                                <ContractFormField
-                                    field="labor_contract_id"
-                                    highlightMissing={isMissingRequired(
-                                        'labor_contract_id',
-                                    )}
-                                >
-                                    <Label
-                                        htmlFor="contract_labor_contract_id"
-                                        className={cn(
-                                            'text-xs',
-                                            isMissingRequired(
-                                                'labor_contract_id',
-                                            ) && employeeFieldMissingLabelClass,
-                                        )}
-                                    >
-                                        Labor contract ID
-                                        <RequiredIndicator
-                                            show={isFieldRequired(
-                                                'labor_contract_id',
-                                            )}
-                                        />
-                                    </Label>
-                                    <Input
-                                        id="contract_labor_contract_id"
-                                        className={cn(
-                                            'h-10 rounded-xl border-border/60 bg-muted/50 font-mono text-sm tracking-wide',
-                                            isMissingRequired(
-                                                'labor_contract_id',
-                                            ) && 'border-rose-500/50',
-                                        )}
-                                        placeholder="e.g. MOL-2024-00123"
-                                        value={
-                                            contractForm.data.labor_contract_id
-                                        }
-                                        onChange={(e) =>
-                                            contractForm.setData(
-                                                'labor_contract_id',
-                                                e.target.value,
-                                            )
-                                        }
-                                    />
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Reference number from the labor
-                                        authority
-                                        {isFieldRequired('labor_contract_id')
-                                            ? ''
-                                            : ' (optional)'}
-                                    </p>
-                                </ContractFormField>
-                            ) : null}
-                            {showField('company_visa_type_id') ? (
-                                <ContractFormField
-                                    field="company_visa_type_id"
-                                    highlightMissing={isMissingRequired(
-                                        'company_visa_type_id',
-                                    )}
-                                >
-                                    <Label
-                                        htmlFor="contract_company_visa_type_id"
-                                        className={cn(
-                                            'text-xs',
-                                            isMissingRequired(
-                                                'company_visa_type_id',
-                                            ) && employeeFieldMissingLabelClass,
-                                        )}
-                                    >
-                                        Sponsor
-                                        <RequiredIndicator
-                                            show={isFieldRequired(
-                                                'company_visa_type_id',
-                                            )}
-                                        />
-                                    </Label>
-                                    <AppSelect
-                                        value={
-                                            contractForm.data
-                                                .company_visa_type_id
-                                        }
-                                        onValueChange={(v) =>
-                                            contractForm.setData(
-                                                'company_visa_type_id',
-                                                v,
-                                            )
-                                        }
-                                        variant="dark"
-                                        placeholder="Not set"
-                                    >
-                                        <AppSelectItem value="">
-                                            Not set
-                                        </AppSelectItem>
-                                        {companyVisaTypes.map((option) => (
-                                            <AppSelectItem
-                                                key={option.id}
-                                                value={String(option.id)}
-                                            >
-                                                {option.name}
-                                            </AppSelectItem>
-                                        ))}
-                                    </AppSelect>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        The sponsor that applies during this
-                                        contract's effective period
-                                        {isFieldRequired('company_visa_type_id')
-                                            ? ''
-                                            : ' (optional)'}
-                                    </p>
-                                </ContractFormField>
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    {showDurationSection ? (
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center gap-2">
-                                <CalendarDays
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden
-                                />
-                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                                    Duration
-                                </span>
-                                <div className="h-px flex-1 bg-muted/50" />
-                            </div>
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {showField('start_date') ? (
-                                    <ContractFormField
-                                        field="start_date"
-                                        highlightMissing={isMissingRequired(
-                                            'start_date',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_start_date"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'start_date',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Start date
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'start_date',
-                                                )}
-                                            />
-                                        </Label>
-                                        <Input
-                                            id="contract_start_date"
-                                            type="date"
-                                            className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
-                                                isMissingRequired(
-                                                    'start_date',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={contractForm.data.start_date}
-                                            onChange={(e) =>
-                                                contractForm.setData(
-                                                    'start_date',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        {contractForm.errors.start_date ? (
-                                            <p className="text-xs text-destructive">
-                                                {contractForm.errors.start_date}
-                                            </p>
-                                        ) : (
-                                            <p className="text-[11px] text-muted-foreground">
-                                                When the contract becomes
-                                                effective
-                                            </p>
-                                        )}
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('end_date') ? (
-                                    <ContractFormField
-                                        field="end_date"
-                                        highlightMissing={isMissingRequired(
-                                            'end_date',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_end_date"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired('end_date') &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            End date
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'end_date',
-                                                )}
-                                            />
-                                        </Label>
-                                        <Input
-                                            id="contract_end_date"
-                                            type="date"
-                                            className={cn(
-                                                'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
-                                                isMissingRequired('end_date') &&
-                                                    'border-rose-500/50',
-                                            )}
-                                            value={contractForm.data.end_date}
-                                            onChange={(e) =>
-                                                contractForm.setData(
-                                                    'end_date',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Leave blank for unlimited contracts
-                                            {isFieldRequired('end_date')
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {showCompensationSection ? (
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center gap-2">
-                                <Banknote
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden
-                                />
-                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                                    Compensation
-                                </span>
-                                <div className="h-px flex-1 bg-muted/50" />
-                            </div>
-                            {isCrewMonthly &&
-                            [
-                                'housing_allowance',
-                                'transport_allowance',
-                                'other_allowances',
-                                'eos_monthly_amount',
-                            ].some((field) => !showField(field)) ? (
-                                <p className="text-xs text-amber-600 sm:col-span-2">
-                                    Some monthly compensation fields are hidden
-                                    by this employee's profile template. Enable
-                                    them in the Contract fields of the employee
-                                    profile template to edit their values.
-                                </p>
-                            ) : null}
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                {showField('basic_salary') ? (
-                                    <ContractFormField
-                                        field="basic_salary"
-                                        highlightMissing={isMissingRequired(
-                                            'basic_salary',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_basic_salary"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'basic_salary',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Basic salary
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'basic_salary',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_basic_salary"
-                                            placeholder="5,000.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'basic_salary',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data.basic_salary
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'basic_salary',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            {isCrewDaily
-                                                ? 'Daily basic rate for crew payroll'
-                                                : 'Monthly base salary'}
-                                            {isFieldRequired('basic_salary')
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('housing_allowance') &&
-                                (!isCrewContract || isCrewMonthly) ? (
-                                    <ContractFormField
-                                        field="housing_allowance"
-                                        highlightMissing={isMissingRequired(
-                                            'housing_allowance',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_housing_allowance"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'housing_allowance',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Housing allowance
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'housing_allowance',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_housing_allowance"
-                                            placeholder="1,500.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'housing_allowance',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data
-                                                    .housing_allowance
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'housing_allowance',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Monthly housing benefit
-                                            {isFieldRequired(
-                                                'housing_allowance',
-                                            )
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('transport_allowance') &&
-                                (!isCrewContract || isCrewMonthly) ? (
-                                    <ContractFormField
-                                        field="transport_allowance"
-                                        highlightMissing={isMissingRequired(
-                                            'transport_allowance',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_transport_allowance"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'transport_allowance',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Transport allowance
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'transport_allowance',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_transport_allowance"
-                                            placeholder="500.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'transport_allowance',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data
-                                                    .transport_allowance
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'transport_allowance',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Monthly transport benefit
-                                            {isFieldRequired(
-                                                'transport_allowance',
-                                            )
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('other_allowances') &&
-                                (!isCrewContract || isCrewMonthly) ? (
-                                    <ContractFormField
-                                        field="other_allowances"
-                                        highlightMissing={isMissingRequired(
-                                            'other_allowances',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_other_allowances"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'other_allowances',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Other allowances
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'other_allowances',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_other_allowances"
-                                            placeholder="200.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'other_allowances',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data
-                                                    .other_allowances
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'other_allowances',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Any additional monthly allowances
-                                            {isFieldRequired('other_allowances')
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {isCrewMonthly &&
-                                showField('eos_monthly_amount') ? (
-                                    <ContractFormField
-                                        field="eos_monthly_amount"
-                                        highlightMissing={isMissingRequired(
-                                            'eos_monthly_amount',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_eos_monthly_amount"
-                                            className="text-xs"
-                                        >
-                                            EOS (Monthly, optional)
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_eos_monthly_amount"
-                                            value={
-                                                contractForm.data
-                                                    .eos_monthly_amount
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'eos_monthly_amount',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Monthly EOS is included in salary
-                                            payments and prorated for unpaid
-                                            leave when applicable.
-                                        </p>
-                                        {contractForm.errors
-                                            .eos_monthly_amount ? (
-                                            <p className="text-xs text-destructive">
-                                                {
-                                                    contractForm.errors
-                                                        .eos_monthly_amount
-                                                }
-                                            </p>
-                                        ) : null}
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('supplementary_allowance') &&
-                                (!isCrewContract || isCrewDaily) ? (
-                                    <ContractFormField
-                                        field="supplementary_allowance"
-                                        highlightMissing={isMissingRequired(
-                                            'supplementary_allowance',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_supplementary_allowance"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'supplementary_allowance',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Supplementary allowance
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'supplementary_allowance',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_supplementary_allowance"
-                                            placeholder="428.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'supplementary_allowance',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data
-                                                    .supplementary_allowance
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'supplementary_allowance',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Daily supplementary rate (crewing)
-                                            {isFieldRequired(
-                                                'supplementary_allowance',
-                                            )
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                                {showField('site_allowance') &&
-                                (!isCrewContract || isCrewDaily) ? (
-                                    <ContractFormField
-                                        field="site_allowance"
-                                        highlightMissing={isMissingRequired(
-                                            'site_allowance',
-                                        )}
-                                    >
-                                        <Label
-                                            htmlFor="contract_site_allowance"
-                                            className={cn(
-                                                'text-xs',
-                                                isMissingRequired(
-                                                    'site_allowance',
-                                                ) &&
-                                                    employeeFieldMissingLabelClass,
-                                            )}
-                                        >
-                                            Site allowance
-                                            <RequiredIndicator
-                                                show={isFieldRequired(
-                                                    'site_allowance',
-                                                )}
-                                            />
-                                        </Label>
-                                        <CurrencyInput
-                                            id="contract_site_allowance"
-                                            placeholder="715.00"
-                                            className={cn(
-                                                isMissingRequired(
-                                                    'site_allowance',
-                                                ) && 'border-rose-500/50',
-                                            )}
-                                            value={
-                                                contractForm.data.site_allowance
-                                            }
-                                            onChange={(v) =>
-                                                contractForm.setData(
-                                                    'site_allowance',
-                                                    v,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Daily site rate (on-site days)
-                                            {isFieldRequired('site_allowance')
-                                                ? ''
-                                                : ' (optional)'}
-                                        </p>
-                                    </ContractFormField>
-                                ) : null}
-                            </div>
-
-                            {/* Live total compensation banner */}
-                            {(() => {
-                                const fields = isCrewDaily
-                                    ? [
-                                          contractForm.data.basic_salary,
-                                          contractForm.data
-                                              .supplementary_allowance,
-                                          contractForm.data.site_allowance,
-                                      ]
-                                    : [
-                                          contractForm.data.basic_salary,
-                                          contractForm.data.housing_allowance,
-                                          contractForm.data.transport_allowance,
-                                          contractForm.data.other_allowances,
-                                          isCrewMonthly &&
-                                          showField('eos_monthly_amount')
-                                              ? contractForm.data
-                                                    .eos_monthly_amount
-                                              : '',
-                                      ];
-                                const hasAnyValue = fields.some(
-                                    (f) => f.trim() !== '',
-                                );
-
-                                if (!hasAnyValue) {
-                                    return (
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Enter at least one compensation
-                                            value to calculate the total.
-                                        </p>
-                                    );
-                                }
-
-                                const total = fields.reduce((sum, f) => {
-                                    const n = parseFloat(f);
-
-                                    return sum + (Number.isNaN(n) ? 0 : n);
-                                }, 0);
-
-                                return (
-                                    <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5">
-                                        <span className="text-xs text-muted-foreground">
-                                            {isCrewDaily
-                                                ? 'Total daily rate'
-                                                : 'Total monthly salary'}
-                                        </span>
-                                        <span className="font-mono text-sm font-semibold tabular-nums">
-                                            AED{' '}
-                                            {total.toLocaleString(undefined, {
-                                                minimumFractionDigits: 2,
-                                                maximumFractionDigits: 2,
-                                            })}
-                                        </span>
-                                    </div>
-                                );
-                            })()}
-
-                            {editingContract && isCrewContract ? (
-                                <div className="space-y-3 rounded-xl border border-border/60 p-3">
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-medium">
-                                            Salary revision for this edit
-                                        </p>
-                                        <p className="text-[11px] text-muted-foreground">
-                                            Changing Crew compensation creates a
-                                            salary revision. Payroll rates
-                                            change only when you enable Apply
-                                            revised salary to payroll.
-                                        </p>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label htmlFor="contract_revision_effective_from">
-                                            Revision effective month
-                                        </Label>
-                                        <Input
-                                            id="contract_revision_effective_from"
-                                            type="month"
-                                            value={
-                                                contractForm.data
-                                                    .revision_effective_from
-                                            }
-                                            onChange={(e) =>
-                                                contractForm.setData(
-                                                    'revision_effective_from',
-                                                    e.target.value,
-                                                )
-                                            }
-                                        />
-                                        {contractForm.errors
-                                            .revision_effective_from ? (
-                                            <p className="text-xs text-destructive">
-                                                {
-                                                    contractForm.errors
-                                                        .revision_effective_from
-                                                }
-                                            </p>
-                                        ) : null}
-                                    </div>
-                                    <label
-                                        htmlFor="contract_revision_apply_to_payroll"
-                                        className="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2"
-                                    >
-                                        <Checkbox
-                                            id="contract_revision_apply_to_payroll"
-                                            checked={
-                                                contractForm.data
-                                                    .revision_apply_to_payroll
-                                            }
-                                            onCheckedChange={(checked) =>
-                                                contractForm.setData(
-                                                    'revision_apply_to_payroll',
-                                                    checked === true,
-                                                )
-                                            }
-                                            className="mt-0.5"
-                                        />
-                                        <span className="space-y-0.5">
-                                            <span className="block text-sm font-medium">
-                                                Apply revised salary to payroll
-                                            </span>
-                                            <span className="block text-xs text-muted-foreground">
-                                                Leave unchecked to keep history
-                                                without changing payable rates.
-                                            </span>
-                                        </span>
-                                    </label>
-                                    {contractForm.data
-                                        .revision_apply_to_payroll ? (
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="contract_revision_payroll_effective_from">
-                                                Payroll Effective Month
-                                            </Label>
-                                            <Input
-                                                id="contract_revision_payroll_effective_from"
-                                                type="month"
-                                                value={
-                                                    contractForm.data
-                                                        .revision_payroll_effective_from
-                                                }
-                                                onChange={(e) =>
-                                                    contractForm.setData(
-                                                        'revision_payroll_effective_from',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                            {contractForm.errors
-                                                .revision_payroll_effective_from ? (
-                                                <p className="text-xs text-destructive">
-                                                    {
-                                                        contractForm.errors
-                                                            .revision_payroll_effective_from
-                                                    }
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                    ) : null}
-                                    {(
-                                        contractForm.errors as Record<
-                                            string,
-                                            string | undefined
-                                        >
-                                    ).salary_revision ? (
-                                        <p className="text-xs text-destructive">
-                                            {
-                                                (
-                                                    contractForm.errors as Record<
-                                                        string,
-                                                        string | undefined
-                                                    >
-                                                ).salary_revision
-                                            }
-                                        </p>
-                                    ) : null}
-                                </div>
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    {editingContract && employeeId ? (
-                        <EmployeeContractSalaryRevisions
-                            employeeId={employeeId}
-                            contract={editingContract}
-                            canCreate={canCreateSalaryRevisions}
-                            canUpdate={canUpdateSalaryRevisions}
-                            canDelete={canDeleteSalaryRevisions}
-                            isCrewDaily={isCrewDaily}
-                            isOfficeOrCrewMonthly={
-                                !isCrewContract || isCrewMonthly
-                            }
-                        />
-                    ) : null}
-
-                    {showNoteSection ? (
-                        <div className="space-y-4 pt-2">
-                            <div className="flex items-center gap-2">
-                                <MessageSquare
-                                    className="size-3.5 text-muted-foreground"
-                                    aria-hidden
-                                />
-                                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                                    Note
-                                </span>
-                                <div className="h-px flex-1 bg-muted/50" />
-                            </div>
-                            <ContractFormField
-                                field="note"
-                                highlightMissing={isMissingRequired('note')}
-                            >
-                                <Label
-                                    htmlFor="contract_note"
-                                    className={cn(
-                                        'text-xs',
-                                        isMissingRequired('note') &&
-                                            employeeFieldMissingLabelClass,
-                                    )}
-                                >
-                                    Note
-                                    <RequiredIndicator
-                                        show={isFieldRequired('note')}
-                                    />
-                                </Label>
-                                <Textarea
-                                    id="contract_note"
-                                    rows={3}
-                                    placeholder="Reason for this contract or contract change…"
-                                    className={cn(
-                                        'min-h-[88px] resize-y rounded-xl border-border/60 bg-muted/50 text-sm',
-                                        isMissingRequired('note') &&
-                                            'border-rose-500/50',
-                                    )}
-                                    value={contractForm.data.note}
-                                    onChange={(e) =>
-                                        contractForm.setData(
-                                            'note',
-                                            e.target.value,
-                                        )
-                                    }
-                                />
-                                {contractForm.errors.note ? (
-                                    <p className="text-xs text-destructive">
-                                        {contractForm.errors.note}
-                                    </p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Context for new contracts or amendments
-                                        {isFieldRequired('note')
-                                            ? ''
-                                            : ' (optional)'}
-                                    </p>
-                                )}
-                            </ContractFormField>
-                        </div>
-                    ) : null}
-
-                    <DialogFooter className="border-t border-border/60 pt-4">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className={actions.dialogSecondary}
-                            onClick={() => setDialogOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <div className="flex items-center gap-2">
-                            <span className="hidden text-[10px] text-muted-foreground sm:block">
-                                ⌘↵
-                            </span>
-                            <Button
-                                type="button"
-                                size="sm"
-                                className={actions.dialogPrimary}
-                                disabled={contractForm.processing}
-                                onClick={submitContract}
-                            >
-                                {contractForm.processing ? 'Saving…' : 'Save'}
-                            </Button>
-                        </div>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                mode={editingContract ? 'edit' : 'create'}
+                employee={employeeSummary}
+                editingContract={editingContract}
+                templateContractFields={templateContractFields}
+                companyVisaTypes={companyVisaTypes}
+                canCreate={canCreate}
+                canUpdate={canUpdate}
+                employeeId={employeeId}
+                ensureEmployee={ensureEmployee}
+                reloadOnly={['contracts', 'employee']}
+            />
 
             <EmployeeRecordDeleteDialog
                 open={!!deleteContractId}
@@ -2748,7 +1167,7 @@ export function EmployeeContractTab({
                                         htmlFor="transfer_eos_monthly_amount"
                                         className="text-xs"
                                     >
-                                        EOS (Monthly, optional)
+                                        EOS
                                     </Label>
                                     <CurrencyInput
                                         id="transfer_eos_monthly_amount"

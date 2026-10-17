@@ -10,7 +10,6 @@ use App\Models\EmployeeContract;
 use App\Support\Contracts\Actions\TransferEmployeeVisaCompanyContract;
 use App\Support\Contracts\Actions\UpsertEmployeeContract;
 use App\Support\Contracts\ContractAccess;
-use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
@@ -80,12 +79,6 @@ class EmployeeContractController extends Controller
             $attributes,
             $employeeContract,
             createdBy: $request->user()?->id,
-            revisionEffectiveFrom: $validated['revision_effective_from'] ?? null,
-            revisionReason: $validated['revision_reason'] ?? null,
-            revisionApplyToPayroll: array_key_exists('revision_apply_to_payroll', $validated)
-                ? (bool) $validated['revision_apply_to_payroll']
-                : null,
-            revisionPayrollEffectiveFrom: $validated['revision_payroll_effective_from'] ?? null,
         );
 
         return back()->with('success', 'Contract updated.');
@@ -196,56 +189,9 @@ class EmployeeContractController extends Controller
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
-            'revision_effective_from' => ['nullable', 'date'],
-            'revision_reason' => ['nullable', 'string', 'max:2000'],
-            'revision_apply_to_payroll' => ['sometimes', 'boolean'],
-            'revision_payroll_effective_from' => ['nullable', 'date'],
         ]);
 
         $this->assertValidEosForStructure($validated, $existing);
-
-        $revisionEffectiveFrom = SalaryRevisionEffectiveMonth::tryNormalize(
-            $validated['revision_effective_from'] ?? null,
-        );
-
-        if ($revisionEffectiveFrom !== null) {
-            $validated['revision_effective_from'] = $revisionEffectiveFrom;
-        }
-
-        $isCrew = (($validated['payroll_category'] ?? $existing?->payroll_category?->value ?? PayrollCategory::Office->value) === PayrollCategory::Crew->value);
-        $applyRevisionToPayroll = $isCrew
-            ? $request->boolean('revision_apply_to_payroll')
-            : true;
-
-        $validated['revision_apply_to_payroll'] = $applyRevisionToPayroll;
-
-        if (! $applyRevisionToPayroll) {
-            $validated['revision_payroll_effective_from'] = null;
-
-            return $validated;
-        }
-
-        $payrollEffective = SalaryRevisionEffectiveMonth::tryNormalize(
-            $validated['revision_payroll_effective_from']
-                ?? $validated['revision_effective_from']
-                ?? null,
-        );
-
-        if ($isCrew && $existing !== null && $request->boolean('revision_apply_to_payroll') && $payrollEffective === null) {
-            throw ValidationException::withMessages([
-                'revision_payroll_effective_from' => 'Payroll Effective Month is required when applying the revised salary to payroll.',
-            ]);
-        }
-
-        if ($payrollEffective !== null) {
-            $validated['revision_payroll_effective_from'] = $payrollEffective;
-
-            if ($revisionEffectiveFrom !== null && $payrollEffective < $revisionEffectiveFrom) {
-                throw ValidationException::withMessages([
-                    'revision_payroll_effective_from' => 'Payroll effective month cannot precede the revision effective month.',
-                ]);
-            }
-        }
 
         return $validated;
     }

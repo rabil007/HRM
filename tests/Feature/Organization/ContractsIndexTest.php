@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -449,6 +450,126 @@ test('contracts index scopes data to current company', function () {
     $this->get(route('organization.contracts', ['payroll_category' => 'office']))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('contracts', 1));
+});
+
+test('contracts index returns contract_form for create_for and edit', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeContractFixtures();
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.create', 'contracts.update']);
+
+    $officeDepartment = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+        'include_in_attendance_leave' => true,
+    ]);
+
+    $employee->update(['department_id' => $officeDepartment->id]);
+
+    $contract = EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'payroll_category' => PayrollCategory::Office->value,
+        'salary_structure' => 'monthly',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 5000,
+    ]);
+
+    $this->get(route('organization.contracts', [
+        'create_for' => $employee->id,
+        'payroll_category' => 'office',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/contracts/index')
+            ->where('contract_form.mode', 'create')
+            ->where('contract_form.employee.id', $employee->id)
+            ->where('contract_form.employee.name', $employee->name)
+            ->where('contract_form.contract', null)
+            ->has('contract_form.company_visa_types'));
+
+    $this->get(route('organization.contracts', [
+        'edit' => $contract->id,
+        'payroll_category' => 'office',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/contracts/index')
+            ->where('contract_form.mode', 'edit')
+            ->where('contract_form.employee.id', $employee->id)
+            ->where('contract_form.contract.id', $contract->id)
+            ->where('contract_form.contract.basic_salary', '5000.00'));
+});
+
+test('contract employee search respects company', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'branch' => $branch] = makeContractFixtures();
+
+    $otherCountry = Country::query()->firstOrCreate(
+        ['code' => 'CT3'],
+        ['name' => 'Search Other Land', 'dial_code' => '+903', 'is_active' => true],
+    );
+
+    $otherCurrency = Currency::query()->firstOrCreate(
+        ['code' => 'CT3'],
+        ['name' => 'Search Other Currency', 'symbol' => 'S$', 'is_active' => true],
+    );
+
+    $otherCompany = Company::query()->create([
+        'name' => 'SearchOtherCo',
+        'slug' => 'search-otherco-'.uniqid(),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $otherCountry->id,
+        'currency_id' => $otherCurrency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherBranch = Branch::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Other HQ',
+        'code' => 'OHQ',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['contracts.view', 'contracts.create']);
+
+    $inCompany = Employee::query()->create([
+        'company_id' => $company->id,
+        'branch_id' => $branch->id,
+        'employee_no' => 'SRC-100',
+        'name' => 'Searchable Same Co',
+        'status' => 'active',
+    ]);
+
+    Employee::query()->create([
+        'company_id' => $otherCompany->id,
+        'branch_id' => $otherBranch->id,
+        'employee_no' => 'SRC-200',
+        'name' => 'Searchable Other Co',
+        'status' => 'active',
+    ]);
+
+    $this->getJson(route('organization.contracts.employees.search', ['q' => 'Searchable']))
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonFragment([
+            'id' => $inCompany->id,
+            'name' => 'Searchable Same Co',
+            'employee_no' => 'SRC-100',
+        ])
+        ->assertJsonMissing([
+            'name' => 'Searchable Other Co',
+        ]);
 });
 
 test('users can view employees without contracts on no-contract page with position and department loaded', function () {
