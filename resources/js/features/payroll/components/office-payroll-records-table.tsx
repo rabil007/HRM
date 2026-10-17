@@ -42,6 +42,7 @@ import {
 
 export function OfficePayrollRecordsTable({
     records,
+    isMonthlyCrew = false,
     salaryInputsByEmployee,
     canManageSalaryInputs,
     canRemove,
@@ -51,6 +52,7 @@ export function OfficePayrollRecordsTable({
     isPayslipGenerationLive = false,
 }: {
     records: OfficePayrollRecordListItem[];
+    isMonthlyCrew?: boolean;
     salaryInputsByEmployee: Record<string, SalaryInput[]>;
     canManageSalaryInputs: boolean;
     canRemove: boolean;
@@ -107,6 +109,9 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
                     <DataTableHead>Other</DataTableHead>
+                    {isMonthlyCrew ? (
+                        <DataTableHead>EOS (non-payable)</DataTableHead>
+                    ) : null}
                     {showSalaryInputsColumn ? (
                         <DataTableHead>Salary inputs</DataTableHead>
                     ) : null}
@@ -207,6 +212,16 @@ export function OfficePayrollRecordsTable({
                             <TableCell className={dataTableCellClass()}>
                                 {formatTimesheetAmount(record.other_allowances)}
                             </TableCell>
+                            {isMonthlyCrew ? (
+                                <TableCell className={dataTableCellClass()}>
+                                    {record.eos_monthly_provision !== null &&
+                                    record.eos_monthly_provision !== undefined
+                                        ? formatTimesheetAmount(
+                                              record.eos_monthly_provision,
+                                          )
+                                        : '—'}
+                                </TableCell>
+                            ) : null}
                             {showSalaryInputsColumn ? (
                                 <PayrollRecordSalaryInputsCell
                                     inputs={

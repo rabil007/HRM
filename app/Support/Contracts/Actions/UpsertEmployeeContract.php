@@ -153,7 +153,7 @@ final class UpsertEmployeeContract
         ?string $reason,
         ?int $createdBy,
     ): void {
-        $hasPositiveAmount = collect($amounts)->contains(
+        $hasPositiveAmount = collect($amounts)->except('eos_monthly_amount')->contains(
             fn (mixed $amount): bool => $amount !== null && $amount !== '' && (float) $amount > 0,
         );
 

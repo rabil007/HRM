@@ -886,7 +886,8 @@ test('dynamic html in placeholder values is escaped in recipient email body', fu
 });
 
 test('recipient email expiry uses company timezone calendar day not app timezone', function (string $companyTimezone, string $expectedDateFragment) {
-    // Freeze before the fixed expiry so delivery is not suppressed as expired.
+    // Freeze before the fixture expires_at so delivery is not suppressed as expired
+    // when wall-clock passes that absolute UTC instant (regression after 2026-10-16).
     Carbon::setTestNow(Carbon::parse('2026-10-16 12:00:00', 'UTC'));
 
     try {

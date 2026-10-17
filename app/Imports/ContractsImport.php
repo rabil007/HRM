@@ -35,6 +35,12 @@ final class ContractsImport
 
     private const COL_OFFICE_OTHER = 'J';
 
+    private const COL_MONTHLY_EOS = 'K';
+
+    private const COL_MONTHLY_NOTE = 'L';
+
+    private const COL_MONTHLY_SPONSOR = 'M';
+
     private const COL_CREW_SUPPLEMENTARY = 'H';
 
     private const COL_CREW_SITE = 'I';
@@ -50,10 +56,11 @@ final class ContractsImport
     /**
      * @return list<array<string, mixed>>
      */
-    public function parse(UploadedFile $file, PayrollCategory $payrollCategory): array
+    public function parse(UploadedFile $file, PayrollCategory $payrollCategory, string $salaryStructure = 'daily'): array
     {
-        $sheet = $this->resolveSheet($file, $payrollCategory);
-        $this->assertValidTemplate($sheet, $payrollCategory);
+        $sheet = $this->resolveSheet($file, $payrollCategory, $salaryStructure);
+        $this->assertValidTemplate($sheet, $payrollCategory, $salaryStructure);
+        $monthlyCrew = $payrollCategory === PayrollCategory::Crew && $salaryStructure === 'monthly';
 
         $rows = [];
         $highestRow = min($sheet->getHighestDataRow(), self::DATA_START_ROW + self::MAX_ROWS - 1);
@@ -76,14 +83,15 @@ final class ContractsImport
                 'basic_salary' => $this->numericValue($sheet, self::COL_BASIC_SALARY, $rowNumber),
                 'note' => $this->stringValue(
                     $sheet,
-                    $payrollCategory === PayrollCategory::Office ? self::COL_OFFICE_NOTE : self::COL_CREW_NOTE,
+                    $payrollCategory === PayrollCategory::Office ? self::COL_OFFICE_NOTE
+                        : ($monthlyCrew ? self::COL_MONTHLY_NOTE : self::COL_CREW_NOTE),
                     $rowNumber,
                 ),
                 'company_visa_type' => $this->stringValue(
                     $sheet,
                     $payrollCategory === PayrollCategory::Office
                         ? self::COL_OFFICE_COMPANY_VISA_TYPE
-                        : self::COL_CREW_COMPANY_VISA_TYPE,
+                        : ($monthlyCrew ? self::COL_MONTHLY_SPONSOR : self::COL_CREW_COMPANY_VISA_TYPE),
                     $rowNumber,
                 ),
             ];
@@ -92,9 +100,18 @@ final class ContractsImport
                 $row['housing_allowance'] = $this->numericValue($sheet, self::COL_OFFICE_HOUSING, $rowNumber);
                 $row['transport_allowance'] = $this->numericValue($sheet, self::COL_OFFICE_TRANSPORT, $rowNumber);
                 $row['other_allowances'] = $this->numericValue($sheet, self::COL_OFFICE_OTHER, $rowNumber);
+                $row['eos_monthly_amount'] = null;
+                $row['supplementary_allowance'] = null;
+                $row['site_allowance'] = null;
+            } elseif ($monthlyCrew) {
+                $row['housing_allowance'] = $this->numericValue($sheet, self::COL_OFFICE_HOUSING, $rowNumber);
+                $row['transport_allowance'] = $this->numericValue($sheet, self::COL_OFFICE_TRANSPORT, $rowNumber);
+                $row['other_allowances'] = $this->numericValue($sheet, self::COL_OFFICE_OTHER, $rowNumber);
+                $row['eos_monthly_amount'] = $this->numericValue($sheet, self::COL_MONTHLY_EOS, $rowNumber);
                 $row['supplementary_allowance'] = null;
                 $row['site_allowance'] = null;
             } else {
+                $row['eos_monthly_amount'] = null;
                 $row['housing_allowance'] = null;
                 $row['transport_allowance'] = null;
                 $row['other_allowances'] = null;
@@ -108,17 +125,19 @@ final class ContractsImport
         return $rows;
     }
 
-    public function sheetName(PayrollCategory $payrollCategory): string
+    public function sheetName(PayrollCategory $payrollCategory, string $salaryStructure = 'daily'): string
     {
-        return $payrollCategory === PayrollCategory::Office
-            ? 'Office Contracts'
-            : 'Crew Contracts';
+        return match (true) {
+            $payrollCategory === PayrollCategory::Office => 'Office Contracts',
+            $salaryStructure === 'monthly' => 'Crew Monthly Contracts',
+            default => 'Crew Contracts',
+        };
     }
 
     /**
      * @return list<string>
      */
-    public function headers(PayrollCategory $payrollCategory): array
+    public function headers(PayrollCategory $payrollCategory, string $salaryStructure = 'daily'): array
     {
         $shared = [
             'Employee No',
@@ -141,6 +160,18 @@ final class ContractsImport
             ];
         }
 
+        if ($salaryStructure === 'monthly') {
+            return [
+                ...$shared,
+                'Housing Allowance',
+                'Transport Allowance',
+                'Other Allowances',
+                'EOS Provision (Non-Payable)',
+                'Note',
+                'Sponsor',
+            ];
+        }
+
         return [
             ...$shared,
             'Supplementary Allowance',
@@ -150,10 +181,10 @@ final class ContractsImport
         ];
     }
 
-    private function resolveSheet(UploadedFile $file, PayrollCategory $payrollCategory): Worksheet
+    private function resolveSheet(UploadedFile $file, PayrollCategory $payrollCategory, string $salaryStructure): Worksheet
     {
         $spreadsheet = IOFactory::load($file->getRealPath());
-        $sheetName = $this->sheetName($payrollCategory);
+        $sheetName = $this->sheetName($payrollCategory, $salaryStructure);
         $sheet = $spreadsheet->getSheetByName($sheetName);
 
         if ($sheet === null) {
@@ -163,9 +194,9 @@ final class ContractsImport
         return $sheet;
     }
 
-    private function assertValidTemplate(Worksheet $sheet, PayrollCategory $payrollCategory): void
+    private function assertValidTemplate(Worksheet $sheet, PayrollCategory $payrollCategory, string $salaryStructure): void
     {
-        $expectedHeaders = $this->headers($payrollCategory);
+        $expectedHeaders = $this->headers($payrollCategory, $salaryStructure);
 
         foreach ($expectedHeaders as $index => $header) {
             $actual = mb_strtolower(trim((string) ($this->stringValue(

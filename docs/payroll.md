@@ -141,6 +141,14 @@ Legacy parent flat-field pairs with only one date set (for example Sign-On Stand
 
 For a monthly structure, `CrewMonthlyPayrollCalculator` uses monthly basic, housing, transport, and other components, then prorates them by `unpaid_leave_days` over the period working days.
 
+### Monthly Crew EOS provision (non-payable)
+
+Monthly Crew contracts may optionally store `eos_monthly_amount`, an informational End-of-Service provision. This is **not** a salary allowance, an automatic gratuity settlement, or a payroll payment. Only Crew contracts with `salary_structure = monthly` can have this component; Office and Daily Crew are unchanged.
+
+The `EOS_PROVISION` salary component participates in versioned contract salary revisions and is resolved for the payroll period's historical effective month. Generation snapshots its value to `calculation_breakdown.eos_monthly_provision`. It is excluded from `gross_salary`, `net_salary`, salary input additions, deductions, payslip earnings, and WPS. Monthly Crew records and payslips may display the separately labelled non-payable reference; historical approved payroll is not recalculated.
+
+Monthly Crew contract imports use a distinct **Crew Monthly Contracts** template and worksheet with Basic, Housing, Transport, Other, and EOS. Legacy **Crew Contracts** (Daily) and **Office Contracts** templates remain supported. Import preview rejects mismatched Crew salary structures instead of silently changing an active contract. Blank salary cells in updates preserve existing salary values; an explicit zero changes the selected component to zero.
+
 For Monthly Crew payroll, unpaid leave is reflected through prorated earnings. The calculated unpaid-leave impact is informational and is not included again in total deductions.
 
 Salary inputs for monthly crew records use `ApplyMonthlyCrewSalaryInputs`: legitimate monetary deductions (loan, late, other, and manual unpaid-leave adjustment inputs) are applied to `total_deductions`, while the base informational unpaid-leave amount is preserved for audit/breakdown reporting and is never subtracted from net pay again. On monthly crew payslips, `PayslipData` displays the informational unpaid-leave impact under the Attendance / Proration section with a clear note ("Already reflected in prorated earnings"), and only legitimate monetary deductions appear in the deductions table, guaranteeing that visible deduction rows strictly reconcile with `total_deductions`.

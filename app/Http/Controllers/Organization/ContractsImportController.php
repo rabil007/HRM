@@ -19,11 +19,12 @@ class ContractsImportController extends Controller
     {
         $validated = $request->validate([
             'payroll_category' => ['required', Rule::in(PayrollCategory::values())],
+            'salary_structure' => ['nullable', Rule::in(['daily', 'monthly'])],
         ]);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $payrollCategory = PayrollCategory::from($validated['payroll_category']);
-        $result = $exporter->export($companyId, $payrollCategory);
+        $result = $exporter->export($companyId, $payrollCategory, (string) ($validated['salary_structure'] ?? 'daily'));
 
         return response()
             ->download($result['path'], $result['filename'])
@@ -41,6 +42,7 @@ class ContractsImportController extends Controller
                 $companyId,
                 PayrollCategory::from($request->string('payroll_category')->toString()),
                 $request->file('file'),
+                (string) $request->input('salary_structure', 'daily'),
             );
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
@@ -62,6 +64,7 @@ class ContractsImportController extends Controller
                 $companyId,
                 PayrollCategory::from($request->string('payroll_category')->toString()),
                 $request->file('file'),
+                (string) $request->input('salary_structure', 'daily'),
             );
         } catch (\InvalidArgumentException $exception) {
             throw ValidationException::withMessages([

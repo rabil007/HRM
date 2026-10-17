@@ -203,10 +203,14 @@ test('crew payroll salary sheet export includes salary structure column for mont
         ]);
 
     $result = app(CrewPayrollSalarySheetExporter::class)->export($company->id, $period->fresh(), $user);
-    $sheet = IOFactory::load($result['path'])->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+    $book = IOFactory::load($result['path']);
+    $dailySheet = $book->getSheetByName(CrewPayrollSalarySheetExporter::SHEET_NAME);
+    $monthlySheet = $book->getSheetByName('Monthly Crew');
 
-    expect($sheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
-        ->and($sheet->getCell('V3')->getValue())->toBe('Monthly');
+    expect($dailySheet->getCell('V2')->getValue())->toBe('SALARY STRUCTURE')
+        ->and($dailySheet->getCell('B3')->getValue())->toBeNull()
+        ->and($monthlySheet)->not->toBeNull()
+        ->and((string) $monthlySheet->getCell('A2')->getValue())->toBe((string) $employee->employee_no);
 
     @unlink($result['path']);
 });

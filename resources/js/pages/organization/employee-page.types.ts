@@ -140,6 +140,7 @@ export type EmployeeContractDetails = {
     housing_allowance: number | null;
     transport_allowance: number | null;
     other_allowances: number | null;
+    eos_monthly_amount?: number | null;
     supplementary_allowance: number | null;
     site_allowance: number | null;
     note: string | null;

@@ -85,11 +85,13 @@ function formatMoney(value: number | string | null | undefined): string {
 }
 
 function revisionTotal(revision: ContractSalaryRevisionItem): number {
-    return revision.lines.reduce((sum, line) => {
-        const numeric = Number(line.amount);
+    return revision.lines
+        .filter((line) => line.component_code !== 'EOS_PROVISION')
+        .reduce((sum, line) => {
+            const numeric = Number(line.amount);
 
-        return sum + (Number.isNaN(numeric) ? 0 : numeric);
-    }, 0);
+            return sum + (Number.isNaN(numeric) ? 0 : numeric);
+        }, 0);
 }
 
 function currentMonthValue(): string {
@@ -141,6 +143,7 @@ export function EmployeeContractSalaryRevisions({
         housing_allowance: amountToFormValue(contract.housing_allowance),
         transport_allowance: amountToFormValue(contract.transport_allowance),
         other_allowances: amountToFormValue(contract.other_allowances),
+        eos_monthly_amount: amountToFormValue(contract.eos_monthly_amount),
         supplementary_allowance: amountToFormValue(
             contract.supplementary_allowance,
         ),
@@ -158,6 +161,7 @@ export function EmployeeContractSalaryRevisions({
                 contract.transport_allowance,
             ),
             other_allowances: amountToFormValue(contract.other_allowances),
+            eos_monthly_amount: amountToFormValue(contract.eos_monthly_amount),
             supplementary_allowance: amountToFormValue(
                 contract.supplementary_allowance,
             ),
@@ -176,6 +180,7 @@ export function EmployeeContractSalaryRevisions({
             housing_allowance: lineAmount(revision, 'HOUSING'),
             transport_allowance: lineAmount(revision, 'TRANSPORT'),
             other_allowances: lineAmount(revision, 'OTHER'),
+            eos_monthly_amount: lineAmount(revision, 'EOS_PROVISION'),
             supplementary_allowance: lineAmount(
                 revision,
                 'SUPPLEMENTARY_ALLOWANCE',
@@ -467,6 +472,35 @@ export function EmployeeContractSalaryRevisions({
                                     />
                                 </div>
                             </>
+                        ) : null}
+
+                        {contract.payroll_category === 'crew' &&
+                        contract.salary_structure === 'monthly' ? (
+                            <div className="space-y-1.5 sm:col-span-2">
+                                <Label htmlFor="revision_eos">
+                                    EOS provision (non-payable, optional)
+                                </Label>
+                                <Input
+                                    id="revision_eos"
+                                    inputMode="decimal"
+                                    value={form.data.eos_monthly_amount}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'eos_monthly_amount',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Informational monthly provision; not
+                                    included in salary or WPS.
+                                </p>
+                                {form.errors.eos_monthly_amount ? (
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.eos_monthly_amount}
+                                    </p>
+                                ) : null}
+                            </div>
                         ) : null}
 
                         {isCrewDaily ? (

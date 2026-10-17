@@ -40,6 +40,7 @@ class EmployeeContract extends Model
                 'housing_allowance',
                 'transport_allowance',
                 'other_allowances',
+                'eos_monthly_amount',
                 'supplementary_allowance',
                 'site_allowance',
                 'note',
@@ -59,6 +60,7 @@ class EmployeeContract extends Model
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',
             'other_allowances' => 'decimal:2',
+            'eos_monthly_amount' => 'decimal:2',
             'supplementary_allowance' => 'decimal:2',
             'site_allowance' => 'decimal:2',
         ];

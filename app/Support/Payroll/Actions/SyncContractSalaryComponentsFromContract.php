@@ -36,6 +36,7 @@ final class SyncContractSalaryComponentsFromContract
         SalaryComponentCode::Housing,
         SalaryComponentCode::Transport,
         SalaryComponentCode::Other,
+        SalaryComponentCode::EosProvision,
     ];
 
     public function handle(EmployeeContract $contract): void

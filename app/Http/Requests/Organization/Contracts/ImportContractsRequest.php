@@ -21,6 +21,7 @@ class ImportContractsRequest extends FormRequest
     {
         return [
             'payroll_category' => ['required', Rule::in(PayrollCategory::values())],
+            'salary_structure' => ['nullable', Rule::in(['daily', 'monthly'])],
             'file' => [
                 'required',
                 'file',

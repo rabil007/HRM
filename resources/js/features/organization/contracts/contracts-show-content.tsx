@@ -77,6 +77,7 @@ export function ContractsShowContent({
     const isCrewDaily =
         isCrew && (contract.salary_structure ?? 'daily') !== 'monthly';
     const isOfficeOrCrewMonthly = !isCrew || !isCrewDaily;
+    const isCrewMonthly = isCrew && !isCrewDaily;
     const total = isCrewDaily
         ? contractCrewSalaryTotal(contract)
         : contractOfficeSalaryTotal(contract);
@@ -267,10 +268,24 @@ export function ContractsShowContent({
                             ) : null}
                             <div className="sm:col-span-2">
                                 <DetailField
-                                    label="Total"
+                                    label={
+                                        isCrewDaily
+                                            ? 'Total daily rate'
+                                            : 'Total monthly salary'
+                                    }
                                     value={formatContractMoney(total)}
                                 />
                             </div>
+                            {isCrewMonthly ? (
+                                <div className="sm:col-span-2">
+                                    <DetailField
+                                        label="EOS provision (non-payable)"
+                                        value={formatContractMoney(
+                                            contract.eos_monthly_amount,
+                                        )}
+                                    />
+                                </div>
+                            ) : null}
                             {contract.note ? (
                                 <div className="sm:col-span-2">
                                     <DetailField

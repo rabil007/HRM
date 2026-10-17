@@ -124,6 +124,7 @@ final class TransferEmployeeVisaCompanyContract
                 'housing_allowance' => $newContractAttributes['housing_allowance'] ?? null,
                 'transport_allowance' => $newContractAttributes['transport_allowance'] ?? null,
                 'other_allowances' => $newContractAttributes['other_allowances'] ?? null,
+                'eos_monthly_amount' => $newContractAttributes['eos_monthly_amount'] ?? null,
                 'supplementary_allowance' => $newContractAttributes['supplementary_allowance'] ?? null,
                 'site_allowance' => $newContractAttributes['site_allowance'] ?? null,
                 'note' => $newContractAttributes['note'] ?? null,

@@ -447,6 +447,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     housing_allowance?: string;
     transport_allowance?: string;
     other_allowances?: string;
+    eos_monthly_provision?: string | null;
     rates?: CrewPayrollDailyRates;
     overtime_hours?: string;
     overtime?: CrewOvertimeBreakdown;
@@ -472,6 +473,7 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     housing_allowance?: string;
     transport_allowance?: string;
     other_allowances?: string;
+    eos_monthly_provision?: string | null;
     primary_account: OfficePrimaryAccount | null;
     overtime_pay: string;
     additional_amount: string;
