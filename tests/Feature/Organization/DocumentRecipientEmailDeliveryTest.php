@@ -886,48 +886,56 @@ test('dynamic html in placeholder values is escaped in recipient email body', fu
 });
 
 test('recipient email expiry uses company timezone calendar day not app timezone', function (string $companyTimezone, string $expectedDateFragment) {
-    Mail::fake();
-    configureDocumentRecipientEmailSmtp();
-    app(SettingService::class)->set(SettingKey::DateFormat, 'Y-m-d');
+    // Freeze before the fixture expires_at so delivery is not suppressed as expired
+    // when wall-clock passes that absolute UTC instant (regression after 2026-10-16).
+    Carbon::setTestNow(Carbon::parse('2026-10-16 12:00:00', 'UTC'));
 
-    $created = createQueuedSubjectSignRequest();
-    $created['company']->forceFill(['timezone' => $companyTimezone])->save();
+    try {
+        Mail::fake();
+        configureDocumentRecipientEmailSmtp();
+        app(SettingService::class)->set(SettingKey::DateFormat, 'Y-m-d');
 
-    // Store via app timezone wall-clock for the UTC instant 2026-10-16 22:30Z
-    // (Asia/Dubai 02:30 on 17 Oct). NY (EDT) displays as 16 Oct 18:30.
-    $created['request']->forceFill([
-        'expires_at' => Carbon::parse('2026-10-16 22:30:00', 'UTC')
-            ->timezone(config('app.timezone')),
-    ])->save();
-    $created['request']->refresh();
+        $created = createQueuedSubjectSignRequest();
+        $created['company']->forceFill(['timezone' => $companyTimezone])->save();
 
-    $expectedLabel = PlatformDateFormatter::make()->dateTime(
-        $created['request']->expires_at?->copy()->timezone($companyTimezone),
-        '',
-    );
+        // Store via app timezone wall-clock for the UTC instant 2026-10-16 22:30Z
+        // (Asia/Dubai 02:30 on 17 Oct). NY (EDT) displays as 16 Oct 18:30.
+        $created['request']->forceFill([
+            'expires_at' => Carbon::parse('2026-10-16 22:30:00', 'UTC')
+                ->timezone(config('app.timezone')),
+        ])->save();
+        $created['request']->refresh();
 
-    expect($expectedLabel)->toContain($expectedDateFragment);
+        $expectedLabel = PlatformDateFormatter::make()->dateTime(
+            $created['request']->expires_at?->copy()->timezone($companyTimezone),
+            '',
+        );
 
-    /** @var DeliverDocumentRecipientRequestEmailJob $job */
-    $job = null;
-    Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
-        $job = $pushed;
+        expect($expectedLabel)->toContain($expectedDateFragment);
 
-        return true;
-    });
+        /** @var DeliverDocumentRecipientRequestEmailJob $job */
+        $job = null;
+        Queue::assertPushed(DeliverDocumentRecipientRequestEmailJob::class, function (DeliverDocumentRecipientRequestEmailJob $pushed) use (&$job): bool {
+            $job = $pushed;
 
-    $job->handle(
-        app(MailSettingsService::class),
-        app(DocumentRecipientRequestLinkService::class),
-        app(DocumentSigningInternalSignerEligibility::class),
-    );
+            return true;
+        });
 
-    Mail::assertSent(DocumentRecipientRequestActionMail::class, function (DocumentRecipientRequestActionMail $mail) use ($expectedLabel, $expectedDateFragment): bool {
-        expect($mail->bodyHtml)->toContain(e((string) $expectedLabel))
-            ->and($mail->bodyHtml)->toContain($expectedDateFragment);
+        $job->handle(
+            app(MailSettingsService::class),
+            app(DocumentRecipientRequestLinkService::class),
+            app(DocumentSigningInternalSignerEligibility::class),
+        );
 
-        return true;
-    });
+        Mail::assertSent(DocumentRecipientRequestActionMail::class, function (DocumentRecipientRequestActionMail $mail) use ($expectedLabel, $expectedDateFragment): bool {
+            expect($mail->bodyHtml)->toContain(e((string) $expectedLabel))
+                ->and($mail->bodyHtml)->toContain($expectedDateFragment);
+
+            return true;
+        });
+    } finally {
+        Carbon::setTestNow();
+    }
 })->with([
     'asia dubai next calendar day' => ['Asia/Dubai', '2026-10-17'],
     'america new york same calendar day' => ['America/New_York', '2026-10-16'],
