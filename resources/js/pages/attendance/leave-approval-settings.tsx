@@ -257,7 +257,10 @@ export default function LeaveApprovalSettings({
                                             Approver defaults
                                         </p>
                                         <p>Default HR Approver: Rima</p>
-                                        <p>Department Manager Fallback: Sara</p>
+                                        <p>
+                                            Alternative / Fallback Approver:
+                                            Sara
+                                        </p>
                                     </div>
                                 </div>
                                 <p>
@@ -265,6 +268,9 @@ export default function LeaveApprovalSettings({
                                     Adam: Adam → Rima, and Maher receives an FYI
                                     notification. Sara is not used because the
                                     department manager resolved successfully.
+                                    When Rima submits her own leave, Sara can
+                                    approve the HR step instead — employees
+                                    never approve their own requests.
                                 </p>
                             </AlertDescription>
                         </Alert>
@@ -331,7 +337,7 @@ export default function LeaveApprovalSettings({
 
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">
-                                Department Manager Fallback
+                                Alternative / Fallback Approver
                             </Label>
                             <AppSelect
                                 value={String(
@@ -359,21 +365,25 @@ export default function LeaveApprovalSettings({
                                 ))}
                             </AppSelect>
                             <ApproverFieldHelp
-                                description="Used when a Leave Approval Policy requires a Department Manager, but the system cannot find a valid actionable manager from the employee's department management chain. This is not a universal fallback for Parent Manager, Specific Employee, or other step types."
-                                example="Example: If an employee's department has no valid manager, this employee can be used instead so the approval workflow does not get stuck."
+                                description="Used when a Leave Approval Policy requires a Department Manager but no valid manager exists in the employee's department management chain. Also used first as the exceptional alternative when a required HR Approver or Specific Employee step resolves to the requesting employee (or shares their linked user), so natural department managers stay available for later manager steps. The substitute must be a different actionable approver/user and cannot reuse someone already assigned to another required step."
+                                example="Example: Policy ordered HR → Department Manager, Rima as HR, Adam as manager, Sara as this fallback: Rima's self-request resolves to Sara then Adam. If an employee's department has no valid manager, Sara can also fill the Department Manager step."
                                 resolution={
                                     <>
                                         <p>
                                             Department Manager missing →
-                                            Department Manager Fallback
+                                            Alternative / Fallback Approver
                                         </p>
                                         <p>
                                             HR Approver not selected → Default
                                             HR Approver
                                         </p>
                                         <p>
-                                            Parent Manager / Specific Employee →
-                                            no company fallback
+                                            HR / Specific self-conflict → this
+                                            fallback first, then hierarchy
+                                        </p>
+                                        <p>
+                                            Parent Manager (non-self) → no
+                                            company fallback
                                         </p>
                                     </>
                                 }

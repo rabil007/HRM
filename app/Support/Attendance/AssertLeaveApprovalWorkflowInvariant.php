@@ -264,8 +264,16 @@ final class AssertLeaveApprovalWorkflowInvariant
     private function assertSharedApproverIdentityIntegrity(LeaveRequest $leaveRequest, Collection $ordered): void
     {
         $seenApproverEmployeeIds = [];
+        $seenApproverUserIds = [];
         $requesterEmployeeId = (int) $leaveRequest->employee_id;
         $companyId = (int) $leaveRequest->company_id;
+
+        $requester = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($requesterEmployeeId)
+            ->first(['id', 'company_id', 'user_id']);
+
+        $requesterUserId = $requester?->user_id !== null ? (int) $requester->user_id : null;
 
         foreach ($ordered as $step) {
             if ((int) $step->company_id !== $companyId) {
@@ -280,6 +288,16 @@ final class AssertLeaveApprovalWorkflowInvariant
                 ]);
             }
 
+            if (
+                $requesterUserId !== null
+                && $step->approver_user_id !== null
+                && (int) $step->approver_user_id === $requesterUserId
+            ) {
+                throw ValidationException::withMessages([
+                    'leave_request' => 'This leave request has a corrupted approval workflow (requester cannot be an approver).',
+                ]);
+            }
+
             if ($step->approver_employee_id !== null) {
                 $employeeId = (int) $step->approver_employee_id;
                 if (isset($seenApproverEmployeeIds[$employeeId])) {
@@ -288,6 +306,16 @@ final class AssertLeaveApprovalWorkflowInvariant
                     ]);
                 }
                 $seenApproverEmployeeIds[$employeeId] = true;
+            }
+
+            if ($step->approver_user_id !== null) {
+                $userId = (int) $step->approver_user_id;
+                if (isset($seenApproverUserIds[$userId])) {
+                    throw ValidationException::withMessages([
+                        'leave_request' => 'This leave request has a corrupted approval workflow (duplicate approvers).',
+                    ]);
+                }
+                $seenApproverUserIds[$userId] = true;
             }
         }
     }
