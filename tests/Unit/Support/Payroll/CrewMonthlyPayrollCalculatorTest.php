@@ -113,6 +113,23 @@ test('crew monthly payroll calculator still applies other deductions after unpai
         ->and($result['net_salary'])->toBe('2500.00');
 });
 
+test('monthly EOS provision is reported but never added to crew earnings or net salary', function () {
+    $timesheet = new CrewTimesheet(['unpaid_leave_days' => 0]);
+
+    $components = Collection::make([
+        makeMonthlyCalculatorComponent('BASIC', 55000),
+        makeMonthlyCalculatorComponent('HOUSING', 2000),
+        makeMonthlyCalculatorComponent('TRANSPORT', 500),
+        makeMonthlyCalculatorComponent('EOS_PROVISION', 1500),
+    ]);
+
+    $result = (new CrewMonthlyPayrollCalculator)->calculate($timesheet, $components, 30);
+
+    expect($result['gross_salary'])->toBe('57500.00')
+        ->and($result['net_salary'])->toBe('57500.00')
+        ->and($result['calculation_breakdown']['eos_monthly_provision'])->toBe(1500.0);
+});
+
 function makeMonthlyCalculatorComponent(string $code, float $amount): ContractSalaryComponent
 {
     return new ContractSalaryComponent([

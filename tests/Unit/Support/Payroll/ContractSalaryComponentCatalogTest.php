@@ -40,20 +40,22 @@ test('crew daily catalog exposes daily rate components only', function () {
     expect($basicDefinition['rate_type'])->toBe(SalaryComponentRateType::Daily->value);
 });
 
-test('crew monthly catalog exposes monthly salary components', function () {
+test('crew monthly catalog exposes monthly salary components and a separate EOS provision', function () {
     $definitions = ContractSalaryComponentCatalog::definitionsFor(
         PayrollCategory::Crew,
         ContractSalaryStructure::Monthly,
     );
 
-    expect($definitions)->toHaveCount(4)
+    expect($definitions)->toHaveCount(5)
         ->and(collect($definitions)->pluck('component_code')->all())->toBe([
             SalaryComponentCode::Basic,
             SalaryComponentCode::Housing,
             SalaryComponentCode::Transport,
             SalaryComponentCode::Other,
+            SalaryComponentCode::EosProvision,
         ])
-        ->and($definitions[0]['rate_type'])->toBe(SalaryComponentRateType::Monthly->value);
+        ->and($definitions[0]['rate_type'])->toBe(SalaryComponentRateType::Monthly->value)
+        ->and($definitions[4]['rate_type'])->toBe(SalaryComponentRateType::Monthly->value);
 });
 
 test('legacy column map differs by payroll category and crew salary structure', function () {

@@ -182,6 +182,8 @@ final class PayslipData
                 }
 
                 return array_merge($base, [
+                    'eos_monthly_provision' => isset($breakdown['eos_monthly_provision'])
+                        ? self::formatAmount($breakdown['eos_monthly_provision']) : null,
                     'salary_structure' => 'monthly',
                     'earnings' => self::monthlyCrewEarnings($record, $salaryInputLines, $unpaidLeaveDays),
                     'deductions' => self::monthlyCrewDeductions($record, $breakdown, $salaryInputLines),

@@ -32,6 +32,8 @@ final class EmployeeContractResource
             'housing_allowance' => $contract->housing_allowance,
             'transport_allowance' => $contract->transport_allowance,
             'other_allowances' => $contract->other_allowances,
+            'eos_monthly_amount' => $contract->payroll_category?->value === 'crew' && $contract->resolvedSalaryStructure()->value === 'monthly'
+                ? $contract->eos_monthly_amount : null,
             'supplementary_allowance' => $contract->supplementary_allowance,
             'site_allowance' => $contract->site_allowance,
             'note' => $contract->note,

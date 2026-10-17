@@ -93,6 +93,7 @@ export function ContractsTableRow({
     showHref,
     showOfficeColumns,
     showCrewColumns,
+    showMonthlyCrewColumns,
     selected = false,
     onToggleSelection,
 }: {
@@ -100,6 +101,7 @@ export function ContractsTableRow({
     showHref: string;
     showOfficeColumns: boolean;
     showCrewColumns: boolean;
+    showMonthlyCrewColumns: boolean;
     selected?: boolean;
     onToggleSelection?: () => void;
 }) {
@@ -179,6 +181,13 @@ export function ContractsTableRow({
                     >
                         {formatContractMoney(contract.other_allowances)}
                     </TableCell>
+                    {showMonthlyCrewColumns ? (
+                        <TableCell
+                            className={cn(dataTableCellClass(), 'text-right')}
+                        >
+                            {formatContractMoney(contract.eos_monthly_amount)}
+                        </TableCell>
+                    ) : null}
                     <TableCell
                         className={cn(
                             dataTableCellClass(),

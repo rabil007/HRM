@@ -16,6 +16,7 @@ use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeContractController extends Controller
 {
@@ -36,7 +37,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'eos_monthly_amount', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -63,13 +64,13 @@ class EmployeeContractController extends Controller
 
         ContractAccess::assertEmployeeInCompany($employee, $companyId, 403, $request->user());
 
-        $validated = $this->validateContract($request, $employee);
+        $validated = $this->validateContract($request, $employee, $employeeContract);
 
         $attributes = $this->contractAttributes($validated, $employeeContract, $employee);
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'salary_structure', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'eos_monthly_amount', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -110,11 +111,14 @@ class EmployeeContractController extends Controller
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'eos_monthly_amount' => ['nullable', 'numeric', 'min:0'],
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'reason' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $this->assertValidEosForStructure($validated, $employeeContract);
 
         $this->transferVisaCompany->handle(
             companyId: $companyId,
@@ -131,6 +135,7 @@ class EmployeeContractController extends Controller
                 'housing_allowance' => $validated['housing_allowance'] ?? null,
                 'transport_allowance' => $validated['transport_allowance'] ?? null,
                 'other_allowances' => $validated['other_allowances'] ?? null,
+                'eos_monthly_amount' => $validated['eos_monthly_amount'] ?? null,
                 'supplementary_allowance' => $validated['supplementary_allowance'] ?? null,
                 'site_allowance' => $validated['site_allowance'] ?? null,
                 'note' => $validated['note'] ?? null,
@@ -169,7 +174,7 @@ class EmployeeContractController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function validateContract(Request $request, Employee $employee): array
+    private function validateContract(Request $request, Employee $employee, ?EmployeeContract $existing = null): array
     {
         $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_contracts', [
             'start_date' => ['required', 'date'],
@@ -183,12 +188,15 @@ class EmployeeContractController extends Controller
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'eos_monthly_amount' => ['nullable', 'numeric', 'min:0'],
             'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
             'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'revision_effective_from' => ['nullable', 'date'],
             'revision_reason' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $this->assertValidEosForStructure($validated, $existing);
 
         $revisionEffectiveFrom = SalaryRevisionEffectiveMonth::tryNormalize(
             $validated['revision_effective_from'] ?? null,
@@ -252,6 +260,11 @@ class EmployeeContractController extends Controller
             'other_allowances' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'other_allowances')
                 ? ($validated['other_allowances'] ?? null)
                 : $existing?->other_allowances,
+            'eos_monthly_amount' => $this->isMonthlyCrew($validated, $existing)
+                ? (array_key_exists('eos_monthly_amount', $validated)
+                    ? ($validated['eos_monthly_amount'] ?? null)
+                    : $existing?->eos_monthly_amount)
+                : null,
             'supplementary_allowance' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'supplementary_allowance')
                 ? ($validated['supplementary_allowance'] ?? null)
                 : $existing?->supplementary_allowance,
@@ -269,6 +282,25 @@ class EmployeeContractController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      */
+    private function isMonthlyCrew(array $validated, ?EmployeeContract $existing): bool
+    {
+        $category = $validated['payroll_category'] ?? $existing?->payroll_category?->value ?? PayrollCategory::Office->value;
+
+        return $category === PayrollCategory::Crew->value
+            && $this->resolvedSalaryStructureValue($validated, $existing) === ContractSalaryStructure::Monthly->value;
+    }
+
+    private function assertValidEosForStructure(array $validated, ?EmployeeContract $existing): void
+    {
+        $value = $validated['eos_monthly_amount'] ?? null;
+
+        if ($value !== null && $value !== '' && ! $this->isMonthlyCrew($validated, $existing)) {
+            throw ValidationException::withMessages([
+                'eos_monthly_amount' => 'EOS provision is only available for Monthly Crew contracts.',
+            ]);
+        }
+    }
+
     private function resolvedSalaryStructureValue(array $validated, ?EmployeeContract $existing): string
     {
         $payrollCategory = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'payroll_category')

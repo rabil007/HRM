@@ -117,6 +117,7 @@ final class EmployeeProfileTemplateFieldRegistry
                 'housing_allowance' => 'Housing allowance',
                 'transport_allowance' => 'Transport allowance',
                 'other_allowances' => 'Other allowances',
+                'eos_monthly_amount' => 'EOS provision (non-payable)',
                 'supplementary_allowance' => 'Supplementary allowance',
                 'site_allowance' => 'Site allowance',
                 'note' => 'Note',

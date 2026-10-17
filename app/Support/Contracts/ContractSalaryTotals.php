@@ -9,13 +9,16 @@ final class ContractSalaryTotals
 {
     public static function total(EmployeeContract $contract, string $payrollCategory = ''): float
     {
-        return match ($payrollCategory) {
-            'crew' => self::crewTotal($contract),
+        $category = $payrollCategory !== ''
+            ? $payrollCategory
+            : ($contract->payroll_category?->value ?? 'crew');
+
+        return match ($category) {
+            'crew' => $contract->resolvedSalaryStructure()->value === 'monthly'
+                ? self::officeTotal($contract)
+                : self::crewTotal($contract),
             'office' => self::officeTotal($contract),
-            default => self::crewTotal($contract)
-                + (float) $contract->housing_allowance
-                + (float) $contract->transport_allowance
-                + (float) $contract->other_allowances,
+            default => 0.0,
         };
     }
 

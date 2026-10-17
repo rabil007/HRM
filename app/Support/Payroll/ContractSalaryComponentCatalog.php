@@ -58,6 +58,7 @@ final class ContractSalaryComponentCatalog
                 'housing_allowance' => SalaryComponentCode::Housing,
                 'transport_allowance' => SalaryComponentCode::Transport,
                 'other_allowances' => SalaryComponentCode::Other,
+                'eos_monthly_amount' => SalaryComponentCode::EosProvision,
             ];
         }
 
@@ -87,6 +88,7 @@ final class ContractSalaryComponentCatalog
                 SalaryComponentCode::Housing,
                 SalaryComponentCode::Transport,
                 SalaryComponentCode::Other,
+                SalaryComponentCode::EosProvision,
             ],
             ContractSalaryStructure::Daily => [
                 SalaryComponentCode::Basic,
