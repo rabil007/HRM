@@ -78,7 +78,7 @@ class DocumentPagePermissions
             'download' => $user?->can('documents.download') ?? false,
             'share' => $user?->can('documents.share') ?? false,
             'upload' => $user?->can('documents.upload') ?? false,
-            'ai_use' => $user?->can('documents.ai.use') ?? false,
+            'ai_use' => $user?->can('documents.upload') ?? false,
             'delete' => $user?->can('documents.delete') ?? false,
             'request_approval' => $user?->can('documents.requests.create') ?? false,
             'whatsapp_template' => ($user?->can('documents.share') ?? false)

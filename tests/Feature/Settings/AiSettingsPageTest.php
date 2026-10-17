@@ -101,7 +101,7 @@ test('unauthorized user cannot access the centralized AI settings page', functio
     $user = User::factory()->create();
     setupCompanyWithApplicationSettingsPermissions($user, [
         'settings.security.view',
-        'documents.ai.use',
+        'documents.upload',
     ]);
 
     $this->actingAs($user)

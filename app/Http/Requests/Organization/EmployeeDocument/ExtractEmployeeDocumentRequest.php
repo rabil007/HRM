@@ -8,7 +8,7 @@ class ExtractEmployeeDocumentRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('documents.ai.use') ?? false;
+        return $this->user()?->can('documents.upload') ?? false;
     }
 
     public function rules(): array
