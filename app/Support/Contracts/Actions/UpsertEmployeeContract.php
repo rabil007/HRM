@@ -29,6 +29,8 @@ final class UpsertEmployeeContract
         ?int $createdBy = null,
         ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
+        ?bool $revisionApplyToPayroll = null,
+        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
         if ($this->participatesInCrewPayrollSource($attributes, $existing)) {
             return DB::transaction(function () use (
@@ -39,6 +41,8 @@ final class UpsertEmployeeContract
                 $createdBy,
                 $revisionEffectiveFrom,
                 $revisionReason,
+                $revisionApplyToPayroll,
+                $revisionPayrollEffectiveFrom,
             ): EmployeeContract {
                 $this->lockEmployeeForContract($companyId, (int) $employee->id);
 
@@ -50,6 +54,8 @@ final class UpsertEmployeeContract
                     $createdBy,
                     $revisionEffectiveFrom,
                     $revisionReason,
+                    $revisionApplyToPayroll,
+                    $revisionPayrollEffectiveFrom,
                 );
             });
         }
@@ -62,6 +68,8 @@ final class UpsertEmployeeContract
             $createdBy,
             $revisionEffectiveFrom,
             $revisionReason,
+            $revisionApplyToPayroll,
+            $revisionPayrollEffectiveFrom,
         );
     }
 
@@ -76,6 +84,8 @@ final class UpsertEmployeeContract
         ?int $createdBy = null,
         ?string $revisionEffectiveFrom = null,
         ?string $revisionReason = null,
+        ?bool $revisionApplyToPayroll = null,
+        ?string $revisionPayrollEffectiveFrom = null,
     ): EmployeeContract {
         $becomesActive = ($attributes['status'] ?? $existing?->status ?? 'active') === 'active';
 
@@ -100,6 +110,8 @@ final class UpsertEmployeeContract
                 $contract->start_date?->toDateString() ?? now()->toDateString(),
                 $revisionReason ?? 'Initial contract salary',
                 $createdBy,
+                applyToPayroll: true,
+                payrollEffectiveFrom: null,
             );
 
             return $contract->fresh();
@@ -121,18 +133,31 @@ final class UpsertEmployeeContract
                 $contract->start_date?->toDateString() ?? now()->toDateString(),
                 $revisionReason ?? 'Initial contract salary',
                 $createdBy,
+                applyToPayroll: true,
+                payrollEffectiveFrom: null,
             );
 
             return $contract->fresh();
         }
 
         if (ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $afterAmounts)) {
+            $isCrew = ($contract->payroll_category ?? PayrollCategory::Office) === PayrollCategory::Crew;
+            $applyToPayroll = $isCrew
+                ? (bool) ($revisionApplyToPayroll ?? false)
+                : true;
+            $effectiveFrom = $revisionEffectiveFrom ?? now()->toDateString();
+            $payrollEffectiveFrom = $applyToPayroll
+                ? ($revisionPayrollEffectiveFrom ?? $effectiveFrom)
+                : null;
+
             $this->createRevisionIfNeeded(
                 $contract,
                 $afterAmounts,
-                $revisionEffectiveFrom ?? now()->toDateString(),
+                $effectiveFrom,
                 $revisionReason,
                 $createdBy,
+                applyToPayroll: $applyToPayroll,
+                payrollEffectiveFrom: $payrollEffectiveFrom,
             );
 
             return $contract->fresh();
@@ -152,6 +177,8 @@ final class UpsertEmployeeContract
         string $effectiveFrom,
         ?string $reason,
         ?int $createdBy,
+        bool $applyToPayroll = true,
+        ?string $payrollEffectiveFrom = null,
     ): void {
         $hasPositiveAmount = collect($amounts)->except('eos_monthly_amount')->contains(
             fn (mixed $amount): bool => $amount !== null && $amount !== '' && (float) $amount > 0,
@@ -169,6 +196,8 @@ final class UpsertEmployeeContract
             $effectiveFrom,
             $reason,
             $createdBy,
+            $applyToPayroll,
+            $payrollEffectiveFrom,
         );
     }
 
