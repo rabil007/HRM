@@ -1,10 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import {
-    store as storeContract,
-    update as updateContract,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { Button } from '@/components/ui/button';
 import {
     Sheet,
@@ -35,6 +31,10 @@ import type {
     EmployeeContractDetails,
     TemplateFieldConfig,
 } from '@/pages/organization/employee-page.types';
+import {
+    store as storeContract,
+    update as updateContract,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 
 const DEFAULT_CONTRACT_REQUIRED_FIELDS = ['start_date', 'status'] as const;
 
