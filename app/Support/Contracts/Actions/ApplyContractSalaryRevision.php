@@ -7,6 +7,7 @@ use App\Enums\SalaryComponentCode;
 use App\Models\ContractSalaryRevision;
 use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\AssertContractSalaryRevisionEditable;
 use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\ContractSalaryComponentCatalog;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ final class ApplyContractSalaryRevision
 {
     public function __construct(
         private readonly MirrorLatestContractSalaryRevision $mirrorLatestRevision,
+        private readonly AssertContractSalaryRevisionEditable $assertEditable,
     ) {}
 
     /**
@@ -107,6 +109,20 @@ final class ApplyContractSalaryRevision
                     );
                 }
             }
+
+            $nextVersion = (int) ContractSalaryRevision::query()
+                ->withTrashed()
+                ->where('company_id', $lockedContract->company_id)
+                ->where('contract_id', $lockedContract->id)
+                ->max('version') + 1;
+
+            $this->assertEditable->assertCreateWouldNotAlterFinalizedPayroll(
+                $lockedContract,
+                $applyToPayroll,
+                $payrollEffectiveDate,
+                $lines,
+                $nextVersion,
+            );
 
             $revision = $this->createRevision(
                 $lockedContract,

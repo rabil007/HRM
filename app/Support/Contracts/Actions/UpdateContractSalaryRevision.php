@@ -37,8 +37,6 @@ final class UpdateContractSalaryRevision
             404,
         );
 
-        $this->assertEditable->assertCanMutate($revision);
-
         $category = $contract->payroll_category ?? PayrollCategory::Office;
         $structure = $contract->resolvedSalaryStructure();
         $columnMap = ContractSalaryComponentCatalog::legacyColumnMap($category, $structure);
@@ -85,20 +83,6 @@ final class UpdateContractSalaryRevision
                     'payroll_effective_from' => 'Payroll effective month cannot precede the revision effective month.',
                 ]);
             }
-
-            $conflictingPayrollMonth = ContractSalaryRevision::query()
-                ->where('company_id', $contract->company_id)
-                ->where('contract_id', $contract->id)
-                ->where('apply_to_payroll', true)
-                ->whereDate('payroll_effective_from', $payrollEffectiveDate)
-                ->whereKeyNot($revision->id)
-                ->exists();
-
-            if ($conflictingPayrollMonth) {
-                throw ValidationException::withMessages([
-                    'payroll_effective_from' => 'Another payroll-applicable salary revision already uses this payroll effective month.',
-                ]);
-            }
         }
 
         return DB::transaction(function () use (
@@ -110,7 +94,44 @@ final class UpdateContractSalaryRevision
             $applyToPayroll,
             $payrollEffectiveDate,
         ): ContractSalaryRevision {
-            $revision->update([
+            $lockedContract = EmployeeContract::query()
+                ->whereKey($contract->id)
+                ->where('company_id', $contract->company_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $lockedRevision = ContractSalaryRevision::query()
+                ->whereKey($revision->id)
+                ->where('company_id', $lockedContract->company_id)
+                ->where('contract_id', $lockedContract->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($applyToPayroll && $payrollEffectiveDate !== null) {
+                $conflictingPayrollMonth = ContractSalaryRevision::query()
+                    ->where('company_id', $lockedContract->company_id)
+                    ->where('contract_id', $lockedContract->id)
+                    ->where('apply_to_payroll', true)
+                    ->whereDate('payroll_effective_from', $payrollEffectiveDate)
+                    ->whereKeyNot($lockedRevision->id)
+                    ->exists();
+
+                if ($conflictingPayrollMonth) {
+                    throw ValidationException::withMessages([
+                        'payroll_effective_from' => 'Another payroll-applicable salary revision already uses this payroll effective month.',
+                    ]);
+                }
+            }
+
+            $this->assertEditable->assertUpdateWouldNotAlterFinalizedPayroll(
+                $lockedContract,
+                $lockedRevision,
+                $applyToPayroll,
+                $payrollEffectiveDate,
+                $lines,
+            );
+
+            $lockedRevision->update([
                 'effective_from' => $effectiveDate,
                 'apply_to_payroll' => $applyToPayroll,
                 'payroll_effective_from' => $payrollEffectiveDate,
@@ -118,20 +139,20 @@ final class UpdateContractSalaryRevision
             ]);
 
             ContractSalaryRevisionLine::query()
-                ->where('revision_id', $revision->id)
+                ->where('revision_id', $lockedRevision->id)
                 ->delete();
 
             foreach ($lines as $line) {
                 ContractSalaryRevisionLine::query()->create([
-                    'company_id' => $contract->company_id,
-                    'revision_id' => $revision->id,
+                    'company_id' => $lockedContract->company_id,
+                    'revision_id' => $lockedRevision->id,
                     ...$line,
                 ]);
             }
 
-            $this->mirrorLatestRevision->handle($contract->fresh());
+            $this->mirrorLatestRevision->handle($lockedContract->fresh());
 
-            return $revision->fresh(['lines']);
+            return $lockedRevision->fresh(['lines']);
         });
     }
 }
