@@ -19,13 +19,39 @@ class StoreContractSalaryRevisionRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $normalized = SalaryRevisionEffectiveMonth::tryNormalize($this->input('effective_from'));
+        /** @var EmployeeContract|null $contract */
+        $contract = $this->route('employeeContract');
+        $isOffice = $contract instanceof EmployeeContract
+            && ($contract->payroll_category ?? PayrollCategory::Office) === PayrollCategory::Office;
 
-        if ($normalized !== null) {
-            $this->merge([
-                'effective_from' => $normalized,
-            ]);
+        $normalizedEffective = SalaryRevisionEffectiveMonth::tryNormalize($this->input('effective_from'));
+        $applyToPayroll = $isOffice ? true : $this->boolean('apply_to_payroll');
+
+        $payload = [
+            'apply_to_payroll' => $applyToPayroll,
+        ];
+
+        if ($normalizedEffective !== null) {
+            $payload['effective_from'] = $normalizedEffective;
         }
+
+        if (! $applyToPayroll) {
+            $payload['payroll_effective_from'] = null;
+        } elseif ($isOffice) {
+            if ($normalizedEffective !== null) {
+                $payload['payroll_effective_from'] = $normalizedEffective;
+            }
+        } else {
+            $normalizedPayroll = SalaryRevisionEffectiveMonth::tryNormalize(
+                $this->input('payroll_effective_from'),
+            );
+
+            if ($normalizedPayroll !== null) {
+                $payload['payroll_effective_from'] = $normalizedPayroll;
+            }
+        }
+
+        $this->merge($payload);
     }
 
     /**
@@ -35,6 +61,8 @@ class StoreContractSalaryRevisionRequest extends FormRequest
     {
         return [
             'effective_from' => ['required', 'date'],
+            'apply_to_payroll' => ['sometimes', 'boolean'],
+            'payroll_effective_from' => ['nullable', 'date', 'required_if:apply_to_payroll,true'],
             'reason' => ['nullable', 'string', 'max:2000'],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
@@ -57,6 +85,7 @@ class StoreContractSalaryRevisionRequest extends FormRequest
             }
 
             $this->validateUniqueMonth($validator, $contract);
+            $this->validatePayrollApplication($validator, $contract);
             $this->validatePositiveAmounts($validator, $contract);
 
             if ($this->filled('eos_monthly_amount') && ! (
@@ -96,6 +125,48 @@ class StoreContractSalaryRevisionRequest extends FormRequest
             $validator->errors()->add(
                 'effective_from',
                 'A salary revision already exists for this month.',
+            );
+        }
+    }
+
+    private function validatePayrollApplication(Validator $validator, EmployeeContract $contract): void
+    {
+        if (! $this->boolean('apply_to_payroll')) {
+            return;
+        }
+
+        $effectiveFrom = SalaryRevisionEffectiveMonth::tryNormalize($this->input('effective_from'));
+        $payrollEffectiveFrom = SalaryRevisionEffectiveMonth::tryNormalize($this->input('payroll_effective_from'));
+
+        if ($effectiveFrom === null || $payrollEffectiveFrom === null) {
+            return;
+        }
+
+        if ($payrollEffectiveFrom < $effectiveFrom) {
+            $validator->errors()->add(
+                'payroll_effective_from',
+                'Payroll effective month cannot precede the revision effective month.',
+            );
+        }
+
+        /** @var ContractSalaryRevision|null $currentRevision */
+        $currentRevision = $this->route('salaryRevision');
+
+        $exists = ContractSalaryRevision::query()
+            ->where('company_id', $contract->company_id)
+            ->where('contract_id', $contract->id)
+            ->where('apply_to_payroll', true)
+            ->whereDate('payroll_effective_from', $payrollEffectiveFrom)
+            ->when(
+                $currentRevision instanceof ContractSalaryRevision,
+                fn ($query) => $query->whereKeyNot($currentRevision->id),
+            )
+            ->exists();
+
+        if ($exists) {
+            $validator->errors()->add(
+                'payroll_effective_from',
+                'Another payroll-applicable salary revision already uses this payroll effective month.',
             );
         }
     }

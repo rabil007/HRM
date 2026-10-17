@@ -5,6 +5,7 @@ import type { ReactElement } from 'react';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -28,6 +29,8 @@ export type ContractSalaryRevisionItem = {
     id: number;
     version: number;
     effective_from: string | null;
+    apply_to_payroll?: boolean;
+    payroll_effective_from?: string | null;
     reason: string | null;
     created_at: string | null;
     lines: Array<{
@@ -114,6 +117,20 @@ function toMonthStartDate(monthValue: string): string {
     return monthValue;
 }
 
+function payrollApplicationLabel(revision: ContractSalaryRevisionItem): string {
+    if (!revision.apply_to_payroll) {
+        return 'Not applied to payroll';
+    }
+
+    const monthLabel = formatEffectiveMonth(
+        revision.payroll_effective_from ?? revision.effective_from,
+    );
+
+    return monthLabel === '—'
+        ? 'Applies to payroll'
+        : `Applies to payroll from ${monthLabel}`;
+}
+
 export function EmployeeContractSalaryRevisions({
     employeeId,
     contract,
@@ -133,9 +150,12 @@ export function EmployeeContractSalaryRevisions({
     const revisions = contract.salary_revisions ?? [];
     const canDeleteRevision = canDelete && revisions.length > 1;
     const showActions = canUpdate || canDeleteRevision;
+    const isCrewContract = contract.payroll_category === 'crew';
 
     const form = useForm({
         effective_from: currentMonthValue(),
+        apply_to_payroll: false,
+        payroll_effective_from: currentMonthValue(),
         reason: '',
         basic_salary: amountToFormValue(contract.basic_salary),
         housing_allowance: amountToFormValue(contract.housing_allowance),
@@ -152,6 +172,8 @@ export function EmployeeContractSalaryRevisions({
         setEditingRevision(null);
         form.setData({
             effective_from: currentMonthValue(),
+            apply_to_payroll: false,
+            payroll_effective_from: currentMonthValue(),
             reason: '',
             basic_salary: amountToFormValue(contract.basic_salary),
             housing_allowance: amountToFormValue(contract.housing_allowance),
@@ -173,6 +195,10 @@ export function EmployeeContractSalaryRevisions({
         setEditingRevision(revision);
         form.setData({
             effective_from: toMonthInputValue(revision.effective_from),
+            apply_to_payroll: Boolean(revision.apply_to_payroll),
+            payroll_effective_from: toMonthInputValue(
+                revision.payroll_effective_from ?? revision.effective_from,
+            ),
             reason: revision.reason ?? '',
             basic_salary: lineAmount(revision, 'BASIC'),
             housing_allowance: lineAmount(revision, 'HOUSING'),
@@ -200,10 +226,22 @@ export function EmployeeContractSalaryRevisions({
             },
         };
 
-        form.transform((data) => ({
-            ...data,
-            effective_from: toMonthStartDate(data.effective_from),
-        }));
+        form.transform((data) => {
+            const applyToPayroll = isCrewContract
+                ? Boolean(data.apply_to_payroll)
+                : true;
+
+            return {
+                ...data,
+                effective_from: toMonthStartDate(data.effective_from),
+                apply_to_payroll: applyToPayroll,
+                payroll_effective_from: applyToPayroll
+                    ? toMonthStartDate(
+                          data.payroll_effective_from || data.effective_from,
+                      )
+                    : null,
+            };
+        });
 
         if (editingRevision) {
             form.put(
@@ -285,6 +323,11 @@ export function EmployeeContractSalaryRevisions({
                                     Package
                                 </th>
                                 <th className="px-3 py-2 font-medium">Total</th>
+                                {isCrewContract ? (
+                                    <th className="px-3 py-2 font-medium">
+                                        Payroll
+                                    </th>
+                                ) : null}
                                 <th className="px-3 py-2 font-medium">
                                     Reason
                                 </th>
@@ -325,6 +368,22 @@ export function EmployeeContractSalaryRevisions({
                                     <td className="px-3 py-2 font-mono font-semibold tabular-nums">
                                         {formatMoney(revisionTotal(revision))}
                                     </td>
+                                    {isCrewContract ? (
+                                        <td className="px-3 py-2">
+                                            <div className="space-y-0.5">
+                                                <div>
+                                                    {revision.apply_to_payroll
+                                                        ? 'Yes'
+                                                        : 'No'}
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {payrollApplicationLabel(
+                                                        revision,
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                    ) : null}
                                     <td className="px-3 py-2 text-muted-foreground">
                                         {revision.reason || '—'}
                                     </td>
@@ -375,8 +434,9 @@ export function EmployeeContractSalaryRevisions({
                                 : 'Add salary revision'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
-                            Current or past months update the contract now.
-                            Future months apply when that month starts.
+                            Revision effective month updates salary history and
+                            can mirror the contract. Crew payroll uses a
+                            separate Payroll Effective Month only when enabled.
                         </p>
                     </DialogHeader>
 
@@ -402,6 +462,75 @@ export function EmployeeContractSalaryRevisions({
                                 </p>
                             ) : null}
                         </div>
+
+                        {isCrewContract ? (
+                            <div className="space-y-3 sm:col-span-2">
+                                <label
+                                    htmlFor="revision_apply_to_payroll"
+                                    className="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2"
+                                >
+                                    <Checkbox
+                                        id="revision_apply_to_payroll"
+                                        checked={form.data.apply_to_payroll}
+                                        onCheckedChange={(checked) =>
+                                            form.setData(
+                                                'apply_to_payroll',
+                                                checked === true,
+                                            )
+                                        }
+                                        className="mt-0.5"
+                                    />
+                                    <span className="space-y-0.5">
+                                        <span className="block text-sm font-medium">
+                                            Apply revised salary to payroll
+                                        </span>
+                                        <span className="block text-xs text-muted-foreground">
+                                            Leave unchecked to keep the revision
+                                            in history without changing payable
+                                            rates.
+                                        </span>
+                                    </span>
+                                </label>
+                                {form.errors.apply_to_payroll ? (
+                                    <p className="text-xs text-destructive">
+                                        {form.errors.apply_to_payroll}
+                                    </p>
+                                ) : null}
+
+                                {form.data.apply_to_payroll ? (
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="revision_payroll_effective_from">
+                                            Payroll Effective Month
+                                        </Label>
+                                        <Input
+                                            id="revision_payroll_effective_from"
+                                            type="month"
+                                            value={
+                                                form.data.payroll_effective_from
+                                            }
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'payroll_effective_from',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Applies the full revised package
+                                            from the first day of this month.
+                                        </p>
+                                        {form.errors.payroll_effective_from ? (
+                                            <p className="text-xs text-destructive">
+                                                {
+                                                    form.errors
+                                                        .payroll_effective_from
+                                                }
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
 
                         <div className="space-y-1.5">
                             <Label htmlFor="revision_basic_salary">

@@ -150,6 +150,8 @@ export type EmployeeContractDetails = {
         id: number;
         version: number;
         effective_from: string | null;
+        apply_to_payroll?: boolean;
+        payroll_effective_from?: string | null;
         reason: string | null;
         created_at: string | null;
         lines: Array<{
