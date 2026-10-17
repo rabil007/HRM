@@ -2,6 +2,7 @@
 
 namespace App\Support\Contracts\Actions;
 
+use App\Enums\ContractSalaryStructure;
 use App\Enums\PayrollCategory;
 use App\Enums\SalaryComponentCode;
 use App\Models\ContractSalaryRevision;
@@ -22,6 +23,7 @@ final class ApplyContractSalaryRevision
 
     /**
      * @param  array<string, float|int|string|null>  $amountsByColumn
+     * @param  array<string, float|int|string|null>|null  $historicalBaselineAmounts
      */
     public function handle(
         EmployeeContract $contract,
@@ -31,6 +33,7 @@ final class ApplyContractSalaryRevision
         ?int $createdBy = null,
         bool $applyToPayroll = true,
         ?string $payrollEffectiveFrom = null,
+        ?array $historicalBaselineAmounts = null,
     ): ContractSalaryRevision {
         $lines = $this->linesFromAmounts($contract, $amountsByColumn);
 
@@ -55,6 +58,7 @@ final class ApplyContractSalaryRevision
             $lines,
             $applyToPayroll,
             $payrollEffectiveDate,
+            $historicalBaselineAmounts,
         ): ContractSalaryRevision {
             $lockedContract = EmployeeContract::query()
                 ->whereKey($contract->id)
@@ -92,10 +96,15 @@ final class ApplyContractSalaryRevision
                 : null;
 
             if (! $hasRevisionHistory && $baselineDate !== null && $baselineDate < $effectiveDate) {
-                $baselineLines = $this->linesFromAmounts(
-                    $lockedContract,
-                    self::amountsFromContract($lockedContract),
-                );
+                // Contract updates persist the new package before the revision is
+                // recorded. Callers that already overwrote the row must pass the
+                // previous package, or the baseline would copy the new salary
+                // back to the contract start and rewrite historical payroll.
+                $baselineSourceAmounts = $historicalBaselineAmounts
+                    ?? self::amountsFromContract($lockedContract);
+                $baselineLines = $historicalBaselineAmounts !== null
+                    ? $this->linesFromHistoricalBaselineAmounts($lockedContract, $baselineSourceAmounts)
+                    : $this->linesFromAmounts($lockedContract, $baselineSourceAmounts);
 
                 if ($baselineLines !== []) {
                     $this->createRevision(
@@ -196,10 +205,69 @@ final class ApplyContractSalaryRevision
     {
         $category = $contract->payroll_category ?? PayrollCategory::Office;
         $structure = $contract->resolvedSalaryStructure();
-        $columnMap = ContractSalaryComponentCatalog::legacyColumnMap($category, $structure);
+
+        return $this->linesFromColumnMap(
+            $category,
+            $structure,
+            ContractSalaryComponentCatalog::legacyColumnMap($category, $structure),
+            $amountsByColumn,
+        );
+    }
+
+    /**
+     * Build baseline lines from a pre-update package. Uses the union of Crew
+     * monthly/daily column maps so a live structure change cannot drop
+     * historical housing/EOS/site components from the preserved baseline.
+     *
+     * @param  array<string, float|int|string|null>  $amountsByColumn
+     * @return list<array{component_code: SalaryComponentCode, component_name: string, rate_type: string, amount: float}>
+     */
+    private function linesFromHistoricalBaselineAmounts(
+        EmployeeContract $contract,
+        array $amountsByColumn,
+    ): array {
+        $category = $contract->payroll_category ?? PayrollCategory::Office;
+
+        if ($category !== PayrollCategory::Crew) {
+            return $this->linesFromAmounts($contract, $amountsByColumn);
+        }
+
+        $monthlyStructure = ContractSalaryStructure::Monthly;
+        $dailyStructure = ContractSalaryStructure::Daily;
+        $monthlyMap = ContractSalaryComponentCatalog::legacyColumnMap($category, $monthlyStructure);
+        $dailyMap = ContractSalaryComponentCatalog::legacyColumnMap($category, $dailyStructure);
+
+        $monthlyHits = $this->positiveColumnHits($amountsByColumn, $monthlyMap);
+        $dailyHits = $this->positiveColumnHits($amountsByColumn, $dailyMap);
+        $structure = $dailyHits > $monthlyHits ? $dailyStructure : $monthlyStructure;
+        // Union of maps so a live structure change cannot drop historical
+        // housing/EOS/site components that still exist on the prior package.
+        $columnMap = array_merge($dailyMap, $monthlyMap);
+
+        return $this->linesFromColumnMap($category, $structure, $columnMap, $amountsByColumn);
+    }
+
+    /**
+     * @param  array<string, SalaryComponentCode>  $columnMap
+     * @param  array<string, float|int|string|null>  $amountsByColumn
+     * @return list<array{component_code: SalaryComponentCode, component_name: string, rate_type: string, amount: float}>
+     */
+    private function linesFromColumnMap(
+        PayrollCategory $category,
+        ContractSalaryStructure $structure,
+        array $columnMap,
+        array $amountsByColumn,
+    ): array {
         $lines = [];
+        $seenCodes = [];
 
         foreach ($columnMap as $column => $componentCode) {
+            $codeKey = $componentCode->value;
+
+            if (isset($seenCodes[$codeKey])) {
+                continue;
+            }
+
             $rawAmount = $amountsByColumn[$column] ?? null;
 
             if ($rawAmount === null || $rawAmount === '') {
@@ -212,6 +280,7 @@ final class ApplyContractSalaryRevision
                 continue;
             }
 
+            $seenCodes[$codeKey] = true;
             $lines[] = [
                 'component_code' => $componentCode,
                 'component_name' => $componentCode->label(),
@@ -221,6 +290,29 @@ final class ApplyContractSalaryRevision
         }
 
         return $lines;
+    }
+
+    /**
+     * @param  array<string, float|int|string|null>  $amountsByColumn
+     * @param  array<string, SalaryComponentCode>  $columnMap
+     */
+    private function positiveColumnHits(array $amountsByColumn, array $columnMap): int
+    {
+        $hits = 0;
+
+        foreach (array_keys($columnMap) as $column) {
+            $rawAmount = $amountsByColumn[$column] ?? null;
+
+            if ($rawAmount === null || $rawAmount === '') {
+                continue;
+            }
+
+            if (round((float) $rawAmount, 2) > 0) {
+                $hits++;
+            }
+        }
+
+        return $hits;
     }
 
     /**
