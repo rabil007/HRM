@@ -493,8 +493,9 @@ export function EmployeeContractSalaryRevisions({
                                     }
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Informational monthly provision; not
-                                    included in salary or WPS.
+                                    Monthly EOS is included in salary payments
+                                    and prorated for unpaid leave when
+                                    applicable.
                                 </p>
                                 {form.errors.eos_monthly_amount ? (
                                     <p className="text-xs text-destructive">

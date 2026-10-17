@@ -1915,8 +1915,9 @@ export function EmployeeContractTab({
                                             }
                                         />
                                         <p className="text-[11px] text-muted-foreground">
-                                            Monthly end-of-service provision,
-                                            not included in salary or WPS.
+                                            Monthly EOS is included in salary
+                                            payments and prorated for unpaid
+                                            leave when applicable.
                                         </p>
                                         {contractForm.errors
                                             .eos_monthly_amount ? (
