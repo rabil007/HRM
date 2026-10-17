@@ -20,6 +20,7 @@ final class ApplyContractSalaryRevision
 
     /**
      * @param  array<string, float|int|string|null>  $amountsByColumn
+     * @param  array<string, float|int|string|null>|null  $historicalBaselineAmounts
      */
     public function handle(
         EmployeeContract $contract,
@@ -27,6 +28,7 @@ final class ApplyContractSalaryRevision
         string $effectiveFrom,
         ?string $reason = null,
         ?int $createdBy = null,
+        ?array $historicalBaselineAmounts = null,
     ): ContractSalaryRevision {
         $lines = $this->linesFromAmounts($contract, $amountsByColumn);
 
@@ -44,6 +46,7 @@ final class ApplyContractSalaryRevision
             $reason,
             $createdBy,
             $lines,
+            $historicalBaselineAmounts,
         ): ContractSalaryRevision {
             $lockedContract = EmployeeContract::query()
                 ->whereKey($contract->id)
@@ -74,9 +77,13 @@ final class ApplyContractSalaryRevision
                 : null;
 
             if (! $hasRevisionHistory && $baselineDate !== null && $baselineDate < $effectiveDate) {
+                // Contract updates persist the new package before the revision is
+                // recorded. Callers that already overwrote the row must pass the
+                // previous package, or the baseline would copy the new salary
+                // back to the contract start and rewrite historical payroll.
                 $baselineLines = $this->linesFromAmounts(
                     $lockedContract,
-                    self::amountsFromContract($lockedContract),
+                    $historicalBaselineAmounts ?? self::amountsFromContract($lockedContract),
                 );
 
                 if ($baselineLines !== []) {

@@ -113,20 +113,36 @@ final class UpsertEmployeeContract
         $this->syncEmployeeCurrentVisaCompany($employee, $contract);
 
         $hasRevisions = $contract->salaryRevisions()->exists();
+        $salaryChanged = ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $afterAmounts);
 
         if (! $hasRevisions) {
-            $this->createRevisionIfNeeded(
-                $contract,
-                $afterAmounts,
-                $contract->start_date?->toDateString() ?? now()->toDateString(),
-                $revisionReason ?? 'Initial contract salary',
-                $createdBy,
-            );
+            if ($salaryChanged) {
+                // A legacy contract has no revision rows. Record the package that
+                // was already in force from the start date, then the new package
+                // from its own effective month. Backdating the new package to the
+                // start date would make every earlier payroll month use the new pay.
+                $this->createRevisionIfNeeded(
+                    $contract,
+                    $afterAmounts,
+                    $revisionEffectiveFrom ?? now()->toDateString(),
+                    $revisionReason,
+                    $createdBy,
+                    $beforeAmounts,
+                );
+            } else {
+                $this->createRevisionIfNeeded(
+                    $contract,
+                    $afterAmounts,
+                    $contract->start_date?->toDateString() ?? now()->toDateString(),
+                    $revisionReason ?? 'Initial contract salary',
+                    $createdBy,
+                );
+            }
 
             return $contract->fresh();
         }
 
-        if (ApplyContractSalaryRevision::salaryPackageChanged($beforeAmounts, $afterAmounts)) {
+        if ($salaryChanged) {
             $this->createRevisionIfNeeded(
                 $contract,
                 $afterAmounts,
@@ -145,6 +161,7 @@ final class UpsertEmployeeContract
 
     /**
      * @param  array<string, float|int|string|null>  $amounts
+     * @param  array<string, float|int|string|null>|null  $historicalBaselineAmounts
      */
     private function createRevisionIfNeeded(
         EmployeeContract $contract,
@@ -152,6 +169,7 @@ final class UpsertEmployeeContract
         string $effectiveFrom,
         ?string $reason,
         ?int $createdBy,
+        ?array $historicalBaselineAmounts = null,
     ): void {
         $hasPositiveAmount = collect($amounts)->except('eos_monthly_amount')->contains(
             fn (mixed $amount): bool => $amount !== null && $amount !== '' && (float) $amount > 0,
@@ -169,6 +187,7 @@ final class UpsertEmployeeContract
             $effectiveFrom,
             $reason,
             $createdBy,
+            $historicalBaselineAmounts,
         );
     }
 
