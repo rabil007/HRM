@@ -14,7 +14,8 @@ const OMS_CI_PEST_TIMINGS_RELATIVE = '.github/ci/pest-timings.json';
  * @param  list<string>  $paths
  * @return array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -32,7 +33,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
     }
 
     $pint = false;
-    $frontendStatic = false;
+    $frontendLint = false;
+    $frontendTypes = false;
     $frontendBuild = false;
     $pest = false;
     $pdfRenderer = false;
@@ -69,8 +71,12 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
             $pest = true;
         }
 
-        if (oms_ci_is_frontend_static_path($path)) {
-            $frontendStatic = true;
+        if (oms_ci_is_frontend_lint_path($path)) {
+            $frontendLint = true;
+        }
+
+        if (oms_ci_is_frontend_types_path($path)) {
+            $frontendTypes = true;
         }
 
         if (oms_ci_is_frontend_build_path($path)) {
@@ -89,7 +95,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
     if (! $sawApplicationPath) {
         return [
             'pint' => false,
-            'frontend_static' => false,
+            'frontend_lint' => false,
+            'frontend_types' => false,
             'frontend_build' => false,
             'pest' => false,
             'pdf_renderer' => false,
@@ -108,7 +115,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
 
     $result = [
         'pint' => $pint,
-        'frontend_static' => $frontendStatic,
+        'frontend_lint' => $frontendLint,
+        'frontend_types' => $frontendTypes,
         'frontend_build' => $frontendBuild,
         'pest' => $pest,
         'pdf_renderer' => $pdfRenderer,
@@ -128,7 +136,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
  *
  * @param  array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -138,7 +147,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
  * }  $immediate
  * @param  array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -148,7 +158,8 @@ function oms_ci_classify_paths(array $paths, bool $detectionFailed = false): arr
  * }  $sinceLastDeploy
  * @return array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -163,7 +174,8 @@ function oms_ci_merge_immediate_with_undeployed(array $immediate, array $sinceLa
 
     $result = [
         'pint' => (bool) $immediate['pint'] || ($deploy && (bool) $sinceLastDeploy['pint']),
-        'frontend_static' => (bool) $immediate['frontend_static'] || ($deploy && (bool) $sinceLastDeploy['frontend_static']),
+        'frontend_lint' => (bool) $immediate['frontend_lint'] || ($deploy && (bool) $sinceLastDeploy['frontend_lint']),
+        'frontend_types' => (bool) $immediate['frontend_types'] || ($deploy && (bool) $sinceLastDeploy['frontend_types']),
         'frontend_build' => (bool) $immediate['frontend_build'] || ($deploy && (bool) $sinceLastDeploy['frontend_build']),
         'pest' => (bool) $immediate['pest'] || ($deploy && (bool) $sinceLastDeploy['pest']),
         'pdf_renderer' => (bool) $immediate['pdf_renderer'] || ($deploy && (bool) $sinceLastDeploy['pdf_renderer']),
@@ -187,7 +199,8 @@ function oms_ci_merge_immediate_with_undeployed(array $immediate, array $sinceLa
 /**
  * @return array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -200,7 +213,8 @@ function oms_ci_full_classification(): array
 {
     return [
         'pint' => true,
-        'frontend_static' => true,
+        'frontend_lint' => true,
+        'frontend_types' => true,
         'frontend_build' => true,
         'pest' => true,
         'pdf_renderer' => true,
@@ -213,7 +227,8 @@ function oms_ci_full_classification(): array
 /**
  * @param  array{
  *     pint: bool,
- *     frontend_static: bool,
+ *     frontend_lint: bool,
+ *     frontend_types: bool,
  *     frontend_build: bool,
  *     pest: bool,
  *     pdf_renderer: bool,
@@ -223,25 +238,26 @@ function oms_ci_full_classification(): array
 function oms_ci_scope_from_flags(array $flags): string
 {
     $pint = $flags['pint'];
-    $frontendStatic = $flags['frontend_static'];
+    $frontendLint = $flags['frontend_lint'];
+    $frontendTypes = $flags['frontend_types'];
     $frontendBuild = $flags['frontend_build'];
     $pest = $flags['pest'];
     $pdf = $flags['pdf_renderer'];
     $deploy = $flags['deploy'];
 
-    if ($pint && $frontendStatic && $frontendBuild && $pest && $pdf && $deploy) {
+    if ($pint && $frontendLint && $frontendTypes && $frontendBuild && $pest && $pdf && $deploy) {
         return 'full';
     }
 
-    if ($pest && $pint && ! $frontendStatic && ! $frontendBuild && ! $pdf && ! $deploy) {
+    if ($pest && $pint && ! $frontendLint && ! $frontendTypes && ! $frontendBuild && ! $pdf && ! $deploy) {
         return 'tests-only';
     }
 
-    if ($pest && $pint && $deploy && ! $frontendStatic && ! $frontendBuild && ! $pdf) {
+    if ($pest && $pint && $deploy && ! $frontendLint && ! $frontendTypes && ! $frontendBuild && ! $pdf) {
         return 'backend-only';
     }
 
-    if ($frontendStatic && $frontendBuild && ! $pint && ! $pest && ! $pdf) {
+    if (($frontendLint || $frontendTypes) && $frontendBuild && ! $pint && ! $pest && ! $pdf) {
         return 'frontend-only';
     }
 
@@ -330,7 +346,41 @@ function oms_ci_is_wayfinder_input_path(string $path): bool
         || str_starts_with($path, 'app/Http/Controllers/');
 }
 
-function oms_ci_is_frontend_static_path(string $path): bool
+function oms_ci_is_frontend_lint_path(string $path): bool
+{
+    foreach ([
+        'resources/js/',
+        'resources/css/',
+    ] as $prefix) {
+        if (str_starts_with($path, $prefix)) {
+            return true;
+        }
+    }
+
+    if (in_array($path, [
+        'package.json',
+        'package-lock.json',
+        '.npmrc',
+        '.prettierrc',
+        '.prettierignore',
+        'eslint.config.js',
+    ], true)) {
+        return true;
+    }
+
+    foreach ([
+        'eslint.config.',
+        '.prettierrc.',
+    ] as $prefix) {
+        if (str_starts_with($path, $prefix)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function oms_ci_is_frontend_types_path(string $path): bool
 {
     if (oms_ci_is_wayfinder_input_path($path)) {
         return true;
@@ -351,9 +401,6 @@ function oms_ci_is_frontend_static_path(string $path): bool
         'tsconfig.json',
         'components.json',
         '.npmrc',
-        '.prettierrc',
-        '.prettierignore',
-        'eslint.config.js',
         'scripts/install-puppeteer-browser.mjs',
     ], true)) {
         return true;
@@ -361,8 +408,6 @@ function oms_ci_is_frontend_static_path(string $path): bool
 
     foreach ([
         'vite.config.',
-        'eslint.config.',
-        '.prettierrc.',
         'tsconfig.',
     ] as $prefix) {
         if (str_starts_with($path, $prefix)) {
@@ -375,7 +420,7 @@ function oms_ci_is_frontend_static_path(string $path): bool
 
 function oms_ci_is_frontend_build_path(string $path): bool
 {
-    if (oms_ci_is_frontend_static_path($path)) {
+    if (oms_ci_is_frontend_lint_path($path) || oms_ci_is_frontend_types_path($path)) {
         return true;
     }
 
@@ -482,7 +527,8 @@ function oms_ci_is_recognized_path(string $path): bool
         || oms_ci_is_ci_infra_path($path)
         || oms_ci_is_pint_path($path)
         || oms_ci_is_pest_path($path)
-        || oms_ci_is_frontend_static_path($path)
+        || oms_ci_is_frontend_lint_path($path)
+        || oms_ci_is_frontend_types_path($path)
         || oms_ci_is_frontend_build_path($path)
         || oms_ci_is_pdf_renderer_path($path)
         || oms_ci_is_deploy_path($path)
@@ -733,7 +779,8 @@ function oms_ci_evaluate_quality_gates(array $state): array
 
     $jobs = [
         'pint' => 'PHP Style (Pint)',
-        'frontend_static' => 'Frontend Static',
+        'frontend_lint' => 'Frontend Lint',
+        'frontend_types' => 'Frontend Types',
         'frontend_build' => 'Frontend Build',
         'pdf_renderer' => 'PDF Renderer',
         'pest' => 'Pest',
@@ -884,7 +931,8 @@ function oms_ci_cli_classify(array $argv): int
 
     oms_ci_emit_outputs([
         'pint' => oms_ci_bool_string($result['pint']),
-        'frontend_static' => oms_ci_bool_string($result['frontend_static']),
+        'frontend_lint' => oms_ci_bool_string($result['frontend_lint']),
+        'frontend_types' => oms_ci_bool_string($result['frontend_types']),
         'frontend_build' => oms_ci_bool_string($result['frontend_build']),
         'pest' => oms_ci_bool_string($result['pest']),
         'pdf_renderer' => oms_ci_bool_string($result['pdf_renderer']),
@@ -894,10 +942,11 @@ function oms_ci_cli_classify(array $argv): int
     ]);
 
     fwrite(STDOUT, sprintf(
-        "CI scope=%s pint=%s frontend_static=%s frontend_build=%s pest=%s pdf_renderer=%s deploy=%s docs_only=%s\n",
+        "CI scope=%s pint=%s frontend_lint=%s frontend_types=%s frontend_build=%s pest=%s pdf_renderer=%s deploy=%s docs_only=%s\n",
         $result['scope'],
         oms_ci_bool_string($result['pint']),
-        oms_ci_bool_string($result['frontend_static']),
+        oms_ci_bool_string($result['frontend_lint']),
+        oms_ci_bool_string($result['frontend_types']),
         oms_ci_bool_string($result['frontend_build']),
         oms_ci_bool_string($result['pest']),
         oms_ci_bool_string($result['pdf_renderer']),
@@ -1009,12 +1058,14 @@ function oms_ci_cli_quality_gates(): int
     $evaluation = oms_ci_evaluate_quality_gates([
         'changes_result' => getenv('CHANGES_RESULT') ?: '',
         'pint_result' => getenv('PINT_RESULT') ?: '',
-        'frontend_static_result' => getenv('FRONTEND_STATIC_RESULT') ?: '',
+        'frontend_lint_result' => getenv('FRONTEND_LINT_RESULT') ?: '',
+        'frontend_types_result' => getenv('FRONTEND_TYPES_RESULT') ?: '',
         'frontend_build_result' => getenv('FRONTEND_BUILD_RESULT') ?: '',
         'pdf_renderer_result' => getenv('PDF_RENDERER_RESULT') ?: '',
         'pest_result' => getenv('PEST_RESULT') ?: '',
         'run_pint' => getenv('RUN_PINT') ?: 'false',
-        'run_frontend_static' => getenv('RUN_FRONTEND_STATIC') ?: 'false',
+        'run_frontend_lint' => getenv('RUN_FRONTEND_LINT') ?: 'false',
+        'run_frontend_types' => getenv('RUN_FRONTEND_TYPES') ?: 'false',
         'run_frontend_build' => getenv('RUN_FRONTEND_BUILD') ?: 'false',
         'run_pdf_renderer' => getenv('RUN_PDF_RENDERER') ?: 'false',
         'run_pest' => getenv('RUN_PEST') ?: 'false',
@@ -1031,7 +1082,8 @@ function oms_ci_cli_quality_gates(): int
     fwrite(STDOUT, "scope={$scope}\n");
     fwrite(STDOUT, "docs_only={$docsOnly}\n");
     fwrite(STDOUT, 'run_pint='.(getenv('RUN_PINT') ?: '').' pint_result='.(getenv('PINT_RESULT') ?: '')."\n");
-    fwrite(STDOUT, 'run_frontend_static='.(getenv('RUN_FRONTEND_STATIC') ?: '').' frontend_static_result='.(getenv('FRONTEND_STATIC_RESULT') ?: '')."\n");
+    fwrite(STDOUT, 'run_frontend_lint='.(getenv('RUN_FRONTEND_LINT') ?: '').' frontend_lint_result='.(getenv('FRONTEND_LINT_RESULT') ?: '')."\n");
+    fwrite(STDOUT, 'run_frontend_types='.(getenv('RUN_FRONTEND_TYPES') ?: '').' frontend_types_result='.(getenv('FRONTEND_TYPES_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_frontend_build='.(getenv('RUN_FRONTEND_BUILD') ?: '').' frontend_build_result='.(getenv('FRONTEND_BUILD_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pdf_renderer='.(getenv('RUN_PDF_RENDERER') ?: '').' pdf_renderer_result='.(getenv('PDF_RENDERER_RESULT') ?: '')."\n");
     fwrite(STDOUT, 'run_pest='.(getenv('RUN_PEST') ?: '').' pest_result='.(getenv('PEST_RESULT') ?: '')."\n");
