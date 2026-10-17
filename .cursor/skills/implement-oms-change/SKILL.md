@@ -13,5 +13,6 @@ description: Implement or refactor an end-to-end OMS-HRM feature across Laravel,
 6. Add or update the smallest targeted Pest test. Cover unauthorized and cross-company behavior when the change touches tenant-owned data.
 7. Run the targeted tests. After PHP edits: `vendor/bin/pint --dirty --format agent`. After any `resources/` frontend edit: **always** run `npx prettier --write` on the changed files (CI `prettier --check` fails otherwise), then the narrowest relevant `eslint` / `npm run types:check`.
 8. Review the final diff for unrelated changes, generated files, exposed secrets, and stale documentation.
+9. Finish delivery with `.cursor/rules/autonomous-workflow.mdc` (root-cause fix loop, security/self-review, draft PR, CI follow-up, honest blockers). Do not restate that rule here.
 
 For broad architecture decisions, read `AI_GUIDE.md`. For preferred examples, read `docs/architecture/golden-files.md`.

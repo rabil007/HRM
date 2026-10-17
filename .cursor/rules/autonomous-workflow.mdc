@@ -1,0 +1,45 @@
+---
+description: End-to-end autonomous feature delivery — complete, verify, self-review, draft PR, fix CI, report blockers
+alwaysApply: true
+---
+
+# Autonomous feature delivery
+
+Applies to **Cursor Local** and **Cursor Cloud Agents**. Complements (does not replace) `project-rules.mdc`, `pre-push-verification.mdc`, `database-safety.mdc`, and domain skills.
+
+Use this when implementing a feature, bugfix, or multi-file change that the user expects to be finished without step-by-step prompting. Skip only when the user asks for research/advice only, explicitly scopes a partial task, or overrides delivery steps.
+
+## Delivery loop
+
+Work until the change is complete or honestly blocked:
+
+1. **Requirements** — Implement the approved scope fully (happy path, authz, tenancy, validation, UI wiring, and the smallest matching tests). Do not stop at a partial backend-only or UI-only slice unless the user asked for that slice.
+2. **Verify** — Run the narrowest checks in `.cursor/rules/pre-push-verification.mdc` for the files you changed. Do not invent parallel checklists.
+3. **Fix failures** — On any failing Pest, Pint, Prettier, ESLint, TypeScript, or frontend unit check: find the root cause, fix it, and **rerun the same focused command**. Do not broaden to a full-suite run on the first failure.
+4. **Self-review** — Before presenting the work, review the final diff for security, permissions, tenant isolation (`current_company_id`), business-logic correctness, and regression risk. For auth, secrets, private files, webhooks, imports/exports, or privileged actions, follow `.cursor/skills/review-oms-security/SKILL.md`. Fix review findings before asking for approval.
+5. **Draft PR** — After applicable verification passes and the branch is pushed, open or update a **draft** pull request for human review. Prefer the repo’s PR tooling (`ManagePullRequest` in Cloud Agents). Do not mark ready-for-review unless the user asks.
+6. **CI follow-up** — When GitHub Actions fails on the PR and logs are readable, diagnose the failed job, apply a focused fix, push, and re-check. Prefer the `ci-investigator` subagent (or equivalent) for a single failing check summary when available.
+
+## Retry and scope budget
+
+- Cap fix iterations at **three** focused attempts per distinct failure signature. If still failing, stop and report the exact error, what you tried, and the blocker.
+- Do not run unbounded “fix → full suite → fix → full suite” loops.
+- Do not scan the whole repository, reload every rule/skill/doc, or re-read unrelated modules for a narrow task. Follow the context budget in `project-rules.mdc` / `AGENTS.md`.
+- Escalate verification only when a focused check fails in a way that implies wider breakage, the change is cross-domain, or the user asks for broader validation.
+
+## Hard stops (never do these)
+
+Unless the user **explicitly** requests the action in the current message:
+
+- Do not merge pull requests or enable auto-merge.
+- Do not deploy, trigger production release workflows, or change production configuration.
+- Do not access or mutate production data.
+- Do not run destructive database resets against the application DB (`migrate:fresh`, `migrate:refresh`, `db:wipe`, truncating “reset” scripts). See `database-safety.mdc`.
+
+## Honesty when blocked
+
+If environment limits, missing credentials, unavailable MCP/tools, flaky infra, or unclear requirements prevent completion:
+
+- State the **exact** blocker and what remains undone.
+- Do **not** claim the feature is complete, verified, or ready for approval.
+- Do **not** invent green check results for commands that were not run successfully.

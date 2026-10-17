@@ -74,3 +74,7 @@ Run the narrowest relevant checks first.
 - Run `npm run build` only when the changed scope warrants it (Vite/Wayfinder-wide impact).
 
 Never claim a command passed unless it actually ran successfully. Review the final diff for unrelated changes, generated files, exposed secrets, stale docs, tenancy, and backend authorization before finishing.
+
+## Autonomous delivery
+
+For feature work the user expects to be finished without step-by-step prompting, follow `.cursor/rules/autonomous-workflow.mdc`: complete the approved scope, verify with the existing changed-file ladder, fix failures at the root cause, self-review (use `review-oms-security` when security-sensitive), open a **draft** PR, investigate readable CI failures within a small retry budget, and report exact blockers instead of claiming completion. Never merge, deploy, touch production data, or run destructive app-DB resets unless explicitly requested.
