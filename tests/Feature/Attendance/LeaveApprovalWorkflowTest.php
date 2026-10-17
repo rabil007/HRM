@@ -185,18 +185,24 @@ test('manager then hr policy creates ordered steps and advances on approve', fun
     expect($leaveRequest->fresh()->status)->toBe('approved');
 });
 
-test('store leave request surfaces specific error when hr approver lacks approve permission', function () {
+test('store leave request surfaces specific error when hr approver lacks approve permission', function (
+    LeaveApprovalMode $mode,
+) {
     ['user' => $user, 'company' => $company] = makeLeaveApprovalWorkflowFixtures();
-    $managed = makeManagedDepartment($company);
+    $managed = makeManagedDepartment($company, withParent: true);
     ['employee' => $hr, 'user' => $hrUser] = makeActionableApprover($company, [
         'name' => 'HR Without Approve',
     ]);
-    configureCompanyLeaveApprovalSettings($company, $hr);
+    ['employee' => $fallback] = makeActionableApprover($company, [
+        'name' => 'Unused Fallback For Invalid Hr',
+        'work_email' => 'unused-fallback-invalid-hr@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
 
     ensureDefaultLeaveApprovalPolicy($company, [
         ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
         ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
-    ]);
+    ], $mode);
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
     $hrRole = $hrUser->roles->first();
@@ -228,7 +234,120 @@ test('store leave request surfaces specific error when hr approver lacks approve
     expect($message)
         ->toContain('HR Approver')
         ->toContain('leave-request approve permission')
+        ->not->toContain(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE)
         ->and(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+})->with([
+    'all_required' => [LeaveApprovalMode::AllRequired],
+    'any_required' => [LeaveApprovalMode::AnyRequired],
+]);
+
+test('ineligible designated specific employee fails instead of silent substitute', function (
+    LeaveApprovalMode $mode,
+) {
+    ['user' => $user, 'company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company, withParent: true);
+
+    ['employee' => $maher, 'user' => $maherUser] = makeActionableApprover($company, [
+        'name' => 'Maher',
+        'work_email' => 'maher-ineligible@example.com',
+    ]);
+    ['employee' => $fallback] = makeActionableApprover($company, [
+        'name' => 'Would Be Substitute',
+        'work_email' => 'would-be-substitute@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, null, $fallback);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+        [
+            'type' => LeaveApprovalApproverType::SpecificEmployee,
+            'employee_id' => $maher->id,
+            'required' => true,
+        ],
+    ], $mode);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+    $maherRole = $maherUser->roles->first();
+    expect($maherRole)->not->toBeNull();
+    $maherRole->revokePermissionTo('attendance.leave-requests.approve');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+    $employee->update(['user_id' => $user->id]);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->actingAs($user);
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->from(route('attendance.my-leave.index'))
+        ->post('/attendance/leave-requests', [
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ]);
+
+    $response->assertSessionHasErrors('leave_request');
+    $message = $response->getSession()->get('errors')->first('leave_request');
+
+    expect($message)
+        ->toContain('Specific Employee')
+        ->toContain('leave-request approve permission')
+        ->and(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+})->with([
+    'all_required' => [LeaveApprovalMode::AllRequired],
+    'any_required' => [LeaveApprovalMode::AnyRequired],
+]);
+
+test('inactive designated specific employee fails instead of silent substitute', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company, withParent: true);
+
+    ['employee' => $maher] = makeActionableApprover($company, [
+        'name' => 'Inactive Maher',
+        'work_email' => 'inactive-maher@example.com',
+        'status' => 'inactive',
+    ]);
+    ['employee' => $fallback] = makeActionableApprover($company, [
+        'name' => 'Active Fallback Unused',
+        'work_email' => 'active-fallback-unused@example.com',
+    ]);
+    configureCompanyLeaveApprovalSettings($company, null, $fallback);
+
+    ensureDefaultLeaveApprovalPolicy($company, [
+        [
+            'type' => LeaveApprovalApproverType::SpecificEmployee,
+            'employee_id' => $maher->id,
+            'required' => true,
+        ],
+    ]);
+
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeWorkflowActors($company, $managed['department']);
+
+    try {
+        app(SubmitLeaveRequestWithApprovals::class)->handle(
+            companyId: (int) $company->id,
+            attributes: [
+                'employee_id' => $employee->id,
+                'leave_type_id' => $leaveType->id,
+                'start_date' => '2026-06-10',
+                'end_date' => '2026-06-11',
+                'reason' => 'Invalid specific employee',
+            ],
+            notify: false,
+        );
+        expect(false)->toBeTrue();
+    } catch (ValidationException $exception) {
+        $message = $exception->errors()['leave_request'][0] ?? '';
+        expect($message)
+            ->toContain('Specific Employee')
+            ->toContain('not an active employee')
+            ->and($message)->not->toBe(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+    }
+
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
 });
 
 test('parent manager step resolves distinct parent-level manager', function () {

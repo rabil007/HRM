@@ -140,49 +140,28 @@ final class ResolveLeaveApprovalChain
                     $requesterId,
                     $requesterUserId,
                 )) {
-                    $primaryCandidate = $candidate;
+                    // Ordinary ineligible designated approvers (inactive, unauthorized, visibility,
+                    // etc.) are configuration errors. Automatic substitutes are only for
+                    // self-approval / shared-user conflicts (handled above) and duplicate
+                    // required-step conflicts (handled below) — never to conceal a bad HR /
+                    // Specific Employee selection.
+                    $evaluation = $this->eligibility->evaluate($candidate['employee'], $companyId);
 
-                    // Primary designated approver cannot act on this requester — try a substitute
-                    // (e.g. view_all fallback blocked by EmployeeVisibilityScope).
-                    $candidate = $this->resolveDistinctAlternativeApprover(
-                        companyId: $companyId,
-                        requester: $employee,
-                        requesterEmployeeId: $requesterId,
-                        requesterUserId: $requesterUserId,
-                        managementChain: $managementChain,
-                        usedManagerEmployeeIds: $usedManagerEmployeeIds,
-                        usedRequiredApproverEmployeeIds: $usedRequiredApproverEmployeeIds,
-                        usedRequiredApproverUserIds: $usedRequiredApproverUserIds,
-                        reservedNaturalManagerEmployeeIds: $reservedNaturalManagerEmployeeIds,
-                        settings: $settings,
-                        forStepType: $step->approver_type,
-                    );
+                    if (! $evaluation['actionable']) {
+                        $detail = $evaluation['warnings'][0]
+                            ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
 
-                    if (
-                        $candidate === null
-                        || ! $this->isActionable(
-                            $candidate['employee'],
-                            $companyId,
-                            $employee,
-                            $requesterId,
-                            $requesterUserId,
-                        )
-                    ) {
-                        $evaluation = $this->eligibility->evaluate($primaryCandidate['employee'], $companyId);
-
-                        if (! $evaluation['actionable']) {
-                            $detail = $evaluation['warnings'][0]
-                                ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
-
-                            throw new RuntimeException(sprintf(
-                                'Required approval step "%s" cannot be completed: %s',
-                                $step->approver_type->label(),
-                                $detail,
-                            ));
-                        }
-
-                        throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                        throw new RuntimeException(sprintf(
+                            'Required approval step "%s" cannot be completed: %s',
+                            $step->approver_type->label(),
+                            $detail,
+                        ));
                     }
+
+                    throw new RuntimeException(sprintf(
+                        'Required approval step "%s" cannot be completed: The resolved employee cannot approve leave for this requester under current authorization rules.',
+                        $step->approver_type->label(),
+                    ));
                 }
 
                 if ($this->isAlreadyUsedRequiredApprover(
