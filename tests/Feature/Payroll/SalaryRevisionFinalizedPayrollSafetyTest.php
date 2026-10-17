@@ -228,7 +228,10 @@ test('deleting a later applicable revision that would alter finalized rates is r
 test('editing existing crew contract salary defaults to payroll off', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
-    grantCompanyPermissions($user, $company, ['contracts.update', 'contracts.view']);
+    grantCompanyPermissions($user, $company, [
+        'contracts.salary_revisions.create',
+        'contracts.view',
+    ]);
 
     $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
@@ -242,21 +245,18 @@ test('editing existing crew contract salary defaults to payroll off', function (
     ], createdBy: $user->id);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->put(route('organization.employees.contracts.update', [
+        ->post(route('organization.employees.contracts.salary-revisions.store', [
             'employee' => $employee,
             'employeeContract' => $contract,
         ]), [
-            'start_date' => '2026-01-01',
-            'status' => 'active',
-            'payroll_category' => 'crew',
-            'salary_structure' => 'daily',
+            'effective_from' => '2026-10-01',
             'basic_salary' => 250,
             'site_allowance' => 50,
             'supplementary_allowance' => 25,
-            'revision_effective_from' => '2026-10-01',
-            'revision_apply_to_payroll' => false,
+            'apply_to_payroll' => false,
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     $revision = ContractSalaryRevision::query()
         ->where('contract_id', $contract->id)
@@ -276,7 +276,10 @@ test('editing existing crew contract salary defaults to payroll off', function (
 test('crew contract edit can enable payroll application from selected month', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
-    grantCompanyPermissions($user, $company, ['contracts.update', 'contracts.view']);
+    grantCompanyPermissions($user, $company, [
+        'contracts.salary_revisions.create',
+        'contracts.view',
+    ]);
 
     $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
     $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
@@ -290,22 +293,19 @@ test('crew contract edit can enable payroll application from selected month', fu
     ], createdBy: $user->id);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->put(route('organization.employees.contracts.update', [
+        ->post(route('organization.employees.contracts.salary-revisions.store', [
             'employee' => $employee,
             'employeeContract' => $contract,
         ]), [
-            'start_date' => '2026-01-01',
-            'status' => 'active',
-            'payroll_category' => 'crew',
-            'salary_structure' => 'daily',
+            'effective_from' => '2026-10-01',
             'basic_salary' => 250,
             'site_allowance' => 50,
             'supplementary_allowance' => 25,
-            'revision_effective_from' => '2026-10-01',
-            'revision_apply_to_payroll' => true,
-            'revision_payroll_effective_from' => '2026-10-01',
+            'apply_to_payroll' => true,
+            'payroll_effective_from' => '2026-10-01',
         ])
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     $basic = app(ResolveEffectiveContractSalaryComponents::class)
         ->handle($contract->fresh(), Carbon::parse('2026-10-01'))

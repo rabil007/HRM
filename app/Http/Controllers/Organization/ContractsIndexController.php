@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Contracts\ContractDepartmentTree;
 use App\Support\Contracts\ContractDirectoryFilters;
 use App\Support\Contracts\ContractDirectoryQuery;
+use App\Support\Contracts\ContractFormContext;
 use App\Support\Contracts\ContractPagePermissions;
 use App\Support\Contracts\ContractSummaryQuery;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -24,6 +25,9 @@ class ContractsIndexController extends Controller
         $perPage = $this->resolvePerPage($request, default: 25);
 
         $paginator = (new ContractDirectoryQuery($companyId, $filters, $request->user()))->paginate($perPage);
+
+        $createFor = $request->integer('create_for');
+        $edit = $request->integer('edit');
 
         return Inertia::render('organization/contracts/index', [
             'summary' => $summaryQuery->forCompany($companyId, $filters),
@@ -44,6 +48,12 @@ class ContractsIndexController extends Controller
             ),
             'department_tree_selected_id' => $filters->departmentId !== '' ? (int) $filters->departmentId : null,
             'can' => ContractPagePermissions::for($request->user()),
+            'contract_form' => ContractFormContext::fromRequest(
+                $companyId,
+                $request->user(),
+                $createFor > 0 ? $createFor : null,
+                $edit > 0 ? $edit : null,
+            ),
         ]);
     }
 }

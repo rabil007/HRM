@@ -17,6 +17,7 @@ import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { buildContractEmployeeUrl } from '@/features/organization/contracts/build-contract-employee-url';
+import { buildContractIndexUrl } from '@/features/organization/contracts/build-contract-index-url';
 import {
     contractCrewSalaryTotal,
     contractOfficeSalaryTotal,
@@ -82,11 +83,9 @@ export function ContractsShowContent({
         ? contractCrewSalaryTotal(contract)
         : contractOfficeSalaryTotal(contract);
 
-    const editHref = buildContractEmployeeUrl(
-        contract.employee_id,
-        { from: 'index' },
-        { editContractId: contract.id },
-    );
+    const editHref = buildContractIndexUrl({
+        editContractId: contract.id,
+    });
 
     const headerButtonClass =
         'h-12 rounded-xl border-input bg-background/50 px-6 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10';

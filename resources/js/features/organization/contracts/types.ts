@@ -41,6 +41,17 @@ export type ContractEmployeeSummary = {
     company_visa_type_id: number | null;
 };
 
+export type ContractFormContext = {
+    mode: 'create' | 'edit';
+    employee: ContractEmployeeSummary;
+    contract: EmployeeContractDetails | null;
+    template_contract_fields: Record<
+        string,
+        { visible: boolean; required: boolean }
+    > | null;
+    company_visa_types: CompanyVisaTypeOption[];
+};
+
 export type ContractBackNavigation = {
     href: string;
     label: string;
@@ -74,6 +85,7 @@ export type ContractsIndexProps = {
     department_tree?: DepartmentTreeNode[];
     department_tree_selected_id?: number | null;
     can: ContractPageCan;
+    contract_form?: ContractFormContext | null;
 };
 
 export type NoContractEmployee = {

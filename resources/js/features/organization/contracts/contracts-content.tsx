@@ -1,4 +1,5 @@
-import { Loader2, Upload } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { Loader2, Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -13,8 +14,19 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { buildContractIndexUrl } from '@/features/organization/contracts/build-contract-index-url';
 import { buildContractShowUrl } from '@/features/organization/contracts/build-contract-show-url';
+import { ContractEmployeePicker } from '@/features/organization/contracts/components/contract-employee-picker';
+import type { ContractEmployeeOption } from '@/features/organization/contracts/components/contract-employee-picker';
+import { ContractFormSheet } from '@/features/organization/contracts/components/contract-form-sheet';
 import { LIFECYCLE_FILTER_LABELS } from '@/features/organization/contracts/contracts-format';
 import { ContractsImportDialog } from '@/features/organization/contracts/contracts-import-dialog';
 import { ContractsSummaryCards } from '@/features/organization/contracts/contracts-summary-cards';
@@ -52,8 +64,12 @@ export function ContractsContent({
     department_tree,
     department_tree_selected_id,
     can,
+    contract_form = null,
 }: ContractsIndexProps) {
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const [isEmployeePickerOpen, setIsEmployeePickerOpen] = useState(false);
+    const [pickerEmployee, setPickerEmployee] =
+        useState<ContractEmployeeOption | null>(null);
     const selection = useBulkSelection(contractRows.map((row) => row.id));
     const activePayrollCategory =
         initialPayrollCategory === 'office' ? 'office' : 'crew';
@@ -61,6 +77,67 @@ export function ContractsContent({
         activePayrollCategory === 'crew' && initialSalaryStructure === 'monthly'
             ? 'monthly'
             : 'daily';
+
+    const indexFilterQuery = {
+        search: initialSearch,
+        lifecycle: initialLifecycle,
+        status: initialStatus,
+        payroll_category: activePayrollCategory,
+        salary_structure:
+            activePayrollCategory === 'crew'
+                ? activeSalaryStructure
+                : undefined,
+        branch_id: initialBranchId || undefined,
+        department_id: initialDepartmentId || undefined,
+        page: pagination.current_page,
+    };
+
+    const clearContractFormQuery = () => {
+        router.get(
+            buildContractIndexUrl(indexFilterQuery),
+            {},
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                only: ['contract_form'],
+            },
+        );
+    };
+
+    const openCreateForEmployee = (employeeId: number) => {
+        setIsEmployeePickerOpen(false);
+        setPickerEmployee(null);
+        router.get(
+            buildContractIndexUrl({
+                ...indexFilterQuery,
+                createForEmployeeId: employeeId,
+            }),
+            {},
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                only: ['contract_form'],
+            },
+        );
+    };
+
+    const openEditContract = (contractId: number) => {
+        router.get(
+            buildContractIndexUrl({
+                ...indexFilterQuery,
+                editContractId: contractId,
+            }),
+            {},
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                only: ['contract_form'],
+            },
+        );
+    };
 
     const {
         searchInput,
@@ -171,6 +248,18 @@ export function ContractsContent({
                 }
                 right={
                     <div className="flex items-center gap-2">
+                        {can.create ? (
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    setPickerEmployee(null);
+                                    setIsEmployeePickerOpen(true);
+                                }}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add contract
+                            </Button>
+                        ) : null}
                         {can.import ? (
                             <Button
                                 type="button"
@@ -336,7 +425,7 @@ export function ContractsContent({
                                         </DataTableHead>
                                         {showMonthlyCrewColumns ? (
                                             <DataTableHead className="text-right">
-                                                EOS (Monthly)
+                                                EOS
                                             </DataTableHead>
                                         ) : null}
                                         <DataTableHead className="text-right">
@@ -362,6 +451,11 @@ export function ContractsContent({
                                 <DataTableHead># Contracts</DataTableHead>
                                 <DataTableHead>Start</DataTableHead>
                                 <DataTableHead>End</DataTableHead>
+                                {can.update ? (
+                                    <DataTableHead className="text-right">
+                                        Actions
+                                    </DataTableHead>
+                                ) : null}
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -381,6 +475,13 @@ export function ContractsContent({
                                     selected={selection.isSelected(contract.id)}
                                     onToggleSelection={() =>
                                         selection.toggle(contract.id)
+                                    }
+                                    canUpdate={can.update}
+                                    onEdit={
+                                        can.update
+                                            ? () =>
+                                                  openEditContract(contract.id)
+                                            : undefined
                                     }
                                 />
                             ))}
@@ -406,6 +507,75 @@ export function ContractsContent({
                 open={isImportDialogOpen}
                 onOpenChange={setIsImportDialogOpen}
             />
+
+            <Dialog
+                open={isEmployeePickerOpen}
+                onOpenChange={(open) => {
+                    setIsEmployeePickerOpen(open);
+
+                    if (!open) {
+                        setPickerEmployee(null);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add contract</DialogTitle>
+                    </DialogHeader>
+                    <ContractEmployeePicker
+                        selectedEmployee={pickerEmployee}
+                        onSelect={setPickerEmployee}
+                    />
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsEmployeePickerOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            disabled={!pickerEmployee}
+                            onClick={() => {
+                                if (pickerEmployee) {
+                                    openCreateForEmployee(pickerEmployee.id);
+                                }
+                            }}
+                        >
+                            Continue
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {contract_form ? (
+                <ContractFormSheet
+                    open
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            clearContractFormQuery();
+                        }
+                    }}
+                    mode={contract_form.mode}
+                    employee={contract_form.employee}
+                    editingContract={contract_form.contract}
+                    templateContractFields={
+                        contract_form.template_contract_fields
+                    }
+                    companyVisaTypes={contract_form.company_visa_types}
+                    canCreate={can.create}
+                    canUpdate={can.update}
+                    employeeId={contract_form.employee.id}
+                    reloadOnly={[
+                        'contracts',
+                        'summary',
+                        'pagination',
+                        'contract_form',
+                    ]}
+                    onSuccess={clearContractFormQuery}
+                />
+            ) : null}
         </Main>
     );
 }

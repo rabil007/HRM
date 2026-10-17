@@ -1,9 +1,11 @@
 import { router } from '@inertiajs/react';
 import {
+    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import {
@@ -96,6 +98,8 @@ export function ContractsTableRow({
     showMonthlyCrewColumns,
     selected = false,
     onToggleSelection,
+    canUpdate = false,
+    onEdit,
 }: {
     contract: ContractListItem;
     showHref: string;
@@ -104,6 +108,8 @@ export function ContractsTableRow({
     showMonthlyCrewColumns: boolean;
     selected?: boolean;
     onToggleSelection?: () => void;
+    canUpdate?: boolean;
+    onEdit?: () => void;
 }) {
     const lifecycle = deriveLifecycle(contract.end_date);
     const rowAccent = lifecycle ? LIFECYCLE_ROW_ACCENT[lifecycle] : '';
@@ -264,6 +270,23 @@ export function ContractsTableRow({
                     ) : null}
                 </div>
             </TableCell>
+            {canUpdate ? (
+                <TableCell className={dataTableActionsCellClass()}>
+                    <ListTableCrudActions
+                        showView={false}
+                        showDelete={false}
+                        showEdit={Boolean(onEdit)}
+                        onEdit={
+                            onEdit
+                                ? (event) => {
+                                      event.stopPropagation();
+                                      onEdit();
+                                  }
+                                : undefined
+                        }
+                    />
+                </TableCell>
+            ) : null}
         </TableRow>
     );
 }

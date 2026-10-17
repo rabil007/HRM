@@ -68,6 +68,7 @@ use App\Http\Controllers\Organization\CompanyDocumentReplacementController;
 use App\Http\Controllers\Organization\CompanyDocumentSettingController;
 use App\Http\Controllers\Organization\CompanyDocumentVersionController;
 use App\Http\Controllers\Organization\CompanySwitchController;
+use App\Http\Controllers\Organization\ContractEmployeeSearchController;
 use App\Http\Controllers\Organization\ContractSalaryRevisionController;
 use App\Http\Controllers\Organization\ContractsExportController;
 use App\Http\Controllers\Organization\ContractShowController;
@@ -1309,6 +1310,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/contracts', ContractsIndexController::class)->name('organization.contracts');
         Route::get('organization/contracts/export', [ContractsExportController::class, 'export'])->name('organization.contracts.export');
         Route::get('organization/contracts/no-contract', ContractsNoContractController::class)->name('organization.contracts.no-contract');
+        Route::get('organization/contracts/employees/search', ContractEmployeeSearchController::class)
+            ->middleware('can:contracts.create')
+            ->name('organization.contracts.employees.search');
         Route::get('organization/contracts/employees/{employee}', EmployeeContractsBrowseController::class)->name('organization.contracts.employee');
         Route::get('organization/contracts/import/template', [ContractsImportController::class, 'importTemplate'])
             ->middleware('can:contracts.import')
