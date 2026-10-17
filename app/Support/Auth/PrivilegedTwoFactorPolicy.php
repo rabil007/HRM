@@ -23,6 +23,7 @@ final class PrivilegedTwoFactorPolicy
         'users.create',
         'users.update',
         'users.delete',
+        'users.impersonate',
         'users.password_reset',
         'users.sessions.revoke',
         'settings.application.update',

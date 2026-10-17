@@ -6,6 +6,7 @@ import {
     Shield,
     Trash2,
     User as UserIcon,
+    UserCheck,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export function UserCard({
     onToggleStatus,
     onPasswordReset,
     onRevokeSessions,
+    onImpersonate,
 }: {
     user: User;
     onEdit?: (user: User) => void;
@@ -39,6 +41,7 @@ export function UserCard({
     onToggleStatus?: (user: User, enabled: boolean) => void;
     onPasswordReset?: (user: User) => void;
     onRevokeSessions?: (user: User) => void;
+    onImpersonate?: (user: User) => void;
 }) {
     const statusClass =
         user.status === 'active'
@@ -214,7 +217,9 @@ export function UserCard({
                             </Button>
                         ) : null}
 
-                        {onPasswordReset || onRevokeSessions ? (
+                        {onPasswordReset ||
+                        onRevokeSessions ||
+                        onImpersonate ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
@@ -231,6 +236,18 @@ export function UserCard({
                                     align="end"
                                     className="w-48"
                                 >
+                                    {onImpersonate ? (
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onImpersonate(user);
+                                            }}
+                                            className="cursor-pointer"
+                                        >
+                                            <UserCheck className="mr-2 h-4 w-4" />
+                                            <span>Login as User</span>
+                                        </DropdownMenuItem>
+                                    ) : null}
                                     {onPasswordReset ? (
                                         <DropdownMenuItem
                                             onClick={(e) => {

@@ -330,6 +330,42 @@ Administrators with `users.password_reset` or `users.sessions.revoke` (subject t
 - **Session Revocation**: Uses `InvalidateUserSessions` to rotate the user's `remember_token` and delete all active database sessions, immediately terminating sessions across all devices.
 - **Audit Logging**: All invitation events, security actions, and membership changes are logged to Spatie Activity Log tagged with the company ID.
 
+### User Impersonation (`users.impersonate`)
+
+Authorized administrators with `users.impersonate` (scoped to Spatie company teams and protected by `privileged.2fa`) can temporarily switch into an eligible target user's identity without knowing their password:
+
+- **Full Effective Identity**: Swapping switches `Auth::user()` to the target user. The application operates with the target user's actual roles, Spatie permissions, company memberships, and department visibility scopes. No permissions are inherited from the initiating administrator.
+- **Browser Session Model (Option A)**: Shared single-browser cookie session. Multiple tabs sharing the same cookie share the active impersonation identity.
+- **Protected Accounts**: Impersonation is rejected if the target user:
+  1. Holds platform administration (`platform_access !== null`).
+  2. Holds unrestricted company access.
+  3. Holds the tenant `Owner` role in the active company.
+  4. Holds `users.impersonate` permission (prevents privilege escalation and circular chaining).
+  5. Is the initiating administrator themselves (cannot self-impersonate).
+  6. Has an inactive or suspended account status.
+  7. Belongs to a different company outside the initiating administrator's authorized access.
+- **Recent Authentication**: Initiators must have recent authentication or password confirmation within `config('auth.password_timeout')` (default 3 hours) prior to starting impersonation. Interactive Fortify login (after any required 2FA) and Fortify password confirmation establish `auth.password_confirmed_at`; Remember Me cookie restoration and impersonation start/stop/restore transitions do not.
+- **Session Lifetime**: Impersonation sessions have a finite lifetime (`config('auth.impersonation.lifetime_minutes')`, default 120 minutes). When expired, `EnsureValidImpersonationSession` middleware automatically terminates impersonation and restores the original administrator account.
+- **Restricted Operations During Impersonation**: To protect account ownership and financial safety, the following sensitive actions are strictly blocked (returning HTTP 403) while impersonating:
+  - Password updates (`/user/password`, `settings/security/password`)
+  - Two-Factor Authentication setup, confirmation, or recovery code generation (`/user/two-factor-*`)
+  - User status changes and account deletion (`organization.users.status`, `organization.users.destroy`)
+  - Role creation, modification, duplication, or deletion (`organization.roles.*`)
+  - Irreversible financial approvals or payment releases (`payroll.approve`, `payroll.mark-paid`)
+  - Nested impersonation (`organization.users.impersonate`)
+- **Persistent Return Banner**: A non-dismissible, responsive top banner displays throughout the authenticated layout showing the impersonated user's name, role, original account name, and a **Return to My Account** action (`POST /organization/impersonation/stop`).
+- **Dual-Identity Audit Attribution**: All audit events generated during impersonation record the target user as `causer_id` while embedding dual-identity metadata in `properties['impersonation']`:
+  ```json
+  {
+    "impersonated": true,
+    "original_user_id": 1,
+    "original_user_name": "Rabil Admin",
+    "correlation_id": "uuid-v4"
+  }
+  ```
+  Both Recent Activity widgets and Organization Activity Logs display dual-identity attribution (`via AdminName (impersonated)`).
+- **Fail-Closed Resilience**: If either the target account or original administrator account is suspended or loses requisite permissions during active impersonation, the session fails closed immediately, terminating impersonation and logging the incident to the audit trail.
+
 ### Presence & Directory Telemetry
 
 User presence is computed server-side from database session activity and login history:

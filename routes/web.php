@@ -184,6 +184,7 @@ use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\HistoricalCrewAssignmentController;
 use App\Http\Controllers\Organization\HotelCheckInCheckoutReportController;
+use App\Http\Controllers\Organization\ImpersonationController;
 use App\Http\Controllers\Organization\LeaveBalanceReportController;
 use App\Http\Controllers\Organization\LeaveReportController;
 use App\Http\Controllers\Organization\OrganizationBulkRecordController;
@@ -730,6 +731,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::post('organization/users/{user}/security/password-reset', [UserSecurityController::class, 'sendPasswordResetLink'])->middleware(['can:users.password_reset', 'privileged.2fa'])->name('organization.users.security.password-reset');
     Route::post('organization/users/{user}/security/revoke-sessions', [UserSecurityController::class, 'revokeSessions'])->middleware(['can:users.sessions.revoke', 'privileged.2fa'])->name('organization.users.security.revoke-sessions');
+    Route::post('organization/users/{user}/impersonate', [ImpersonationController::class, 'start'])->middleware(['can:users.impersonate', 'privileged.2fa'])->name('organization.users.impersonate');
+    Route::get('organization/impersonation/confirm', [ImpersonationController::class, 'continuation'])->middleware(['privileged.2fa'])->name('organization.impersonation.confirm');
+    Route::post('organization/impersonation/complete', [ImpersonationController::class, 'complete'])->middleware(['privileged.2fa'])->name('organization.impersonation.complete');
+    Route::post('organization/impersonation/confirm', [ImpersonationController::class, 'complete'])->middleware(['privileged.2fa']);
+    Route::post('organization/impersonation/cancel', [ImpersonationController::class, 'cancel'])->name('organization.impersonation.cancel');
+    Route::post('organization/impersonation/stop', [ImpersonationController::class, 'stop'])->name('organization.impersonation.stop');
 
     Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.overview.view')->name('organization.crew-operations.index');
     Route::get('organization/crew-operations/relief-desk', CrewReliefDeskRedirectController::class)

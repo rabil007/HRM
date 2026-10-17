@@ -15,6 +15,7 @@ export type RecentActivityItem = {
     event: string | null;
     description: string;
     causer: { id: number; name: string; email: string } | null;
+    impersonator?: { id: number; name: string; email: string } | null;
     old_values: Record<string, unknown> | null;
     new_values: Record<string, unknown> | null;
     created_at: string;
@@ -140,6 +141,16 @@ export function RecentActivityCard({
                                                     <span className="text-xs text-muted-foreground/50">
                                                         ({item.causer.email})
                                                     </span>
+                                                ) : null}
+                                                {item.impersonator ? (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="border-amber-500/30 bg-amber-500/10 text-[10px] font-medium text-amber-800 dark:text-amber-300"
+                                                    >
+                                                        via{' '}
+                                                        {item.impersonator.name}{' '}
+                                                        (impersonated)
+                                                    </Badge>
                                                 ) : null}
                                             </div>
 

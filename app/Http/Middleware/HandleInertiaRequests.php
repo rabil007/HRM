@@ -9,6 +9,7 @@ use App\Services\Settings\SettingService;
 use App\Support\AppRefresh\AuthorizationRevision;
 use App\Support\AppRefresh\DeployedApplicationVersion;
 use App\Support\Attendance\LeaveApprovalNeedsActionCounter;
+use App\Support\Auth\ImpersonationService;
 use App\Support\Auth\PrivilegedTwoFactorPolicy;
 use App\Support\Auth\UnrestrictedCompanyAccess;
 use App\Support\Companies\ResolveCompanyAccess;
@@ -235,6 +236,7 @@ class HandleInertiaRequests extends Middleware
                 'roles' => $roleNames,
                 'platform' => PlatformAuthorization::sharedFlags($user),
                 'two_factor' => PrivilegedTwoFactorPolicy::sharedFlags($user),
+                'impersonation' => app(ImpersonationService::class)->getSharedImpersonationData($request),
                 'my_tasks_count' => ($user && $currentCompanyId !== null)
                     ? app(MyTasksCounter::class)->count($user, (int) $currentCompanyId)
                     : 0,

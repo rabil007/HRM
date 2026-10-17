@@ -38,9 +38,18 @@ final class RevokeDisabledUserAccess
             return;
         }
 
-        $guard->logout();
-
         $request = request();
+
+        if ($request instanceof Request && $request->hasSession()) {
+            $impersonationService = app(ImpersonationService::class);
+            if ($impersonationService->isImpersonating($request)) {
+                $impersonationService->expire($request);
+
+                return;
+            }
+        }
+
+        $guard->logout();
 
         if (! $request instanceof Request || ! $request->hasSession()) {
             return;

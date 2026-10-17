@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsureActiveUser;
 use App\Http\Middleware\EnsureCanUpdateEmployeeProfile;
 use App\Http\Middleware\EnsurePlatformAccess;
 use App\Http\Middleware\EnsurePrivilegedTwoFactor;
+use App\Http\Middleware\EnsureValidImpersonationSession;
 use App\Http\Middleware\ExtendRememberedSessionLifetime;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -58,6 +59,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
+            EnsureValidImpersonationSession::class,
             EnsureActiveUser::class,
             ExtendRememberedSessionLifetime::class,
             HandleAppearance::class,

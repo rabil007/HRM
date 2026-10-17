@@ -37,6 +37,7 @@ export type UserCapabilities = {
     can_password_reset: boolean;
     can_revoke_sessions: boolean;
     can_manage_membership: boolean;
+    can_impersonate?: boolean;
 };
 
 export type User = {
