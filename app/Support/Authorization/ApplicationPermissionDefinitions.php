@@ -1731,7 +1731,7 @@ final class ApplicationPermissionDefinitions
                 'description' => 'Allows the user to export Users data for the active company according to existing export rules.',
                 'group' => 'Users',
             ],
-            [
+            357 => [
                 'name' => 'users.impersonate',
                 'label' => 'Login as User',
                 'description' => 'Allows the user to temporarily impersonate eligible users within the active company.',

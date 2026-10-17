@@ -32,6 +32,63 @@ test('every application permission definition includes meaningful metadata', fun
     }
 });
 
+test('users.impersonate is registered once with Login as User metadata', function () {
+    $names = ApplicationPermissionRegistry::names();
+
+    expect($names)->toContain('users.impersonate')
+        ->and(array_values(array_filter($names, fn (string $name): bool => $name === 'users.impersonate')))
+        ->toHaveCount(1);
+
+    $definition = ApplicationPermissionRegistry::find('users.impersonate');
+
+    expect($definition)->not->toBeNull()
+        ->and($definition['name'])->toBe('users.impersonate')
+        ->and($definition['label'])->toBe('Login as User')
+        ->and($definition['group'])->toBe('Users')
+        ->and($definition['description'])->toContain('impersonate');
+});
+
+test('application permission catalog source uses unique explicit numeric keys', function () {
+    $source = file_get_contents(base_path('app/Support/Authorization/ApplicationPermissionDefinitions.php'));
+    expect($source)->not->toBeFalse();
+
+    preg_match_all(
+        "/^\s*(?:(\d+)\s*=>\s*)?\[\s*\n\s*'name'\s*=>\s*'([^']+)'/m",
+        $source,
+        $matches,
+        PREG_SET_ORDER,
+    );
+
+    expect($matches)->not->toBeEmpty();
+
+    $keys = [];
+    $unkeyed = [];
+    $duplicateKeys = [];
+
+    foreach ($matches as $match) {
+        $name = $match[2];
+
+        if ($match[1] === '') {
+            $unkeyed[] = $name;
+
+            continue;
+        }
+
+        $key = (int) $match[1];
+
+        if (isset($keys[$key])) {
+            $duplicateKeys[$key] = [$keys[$key], $name];
+        }
+
+        $keys[$key] = $name;
+    }
+
+    expect($unkeyed)->toBe([])
+        ->and($duplicateKeys)->toBe([])
+        ->and(count($keys))->toBe(count($matches))
+        ->and(array_values($keys))->toContain('users.impersonate');
+});
+
 test('permissions seeder syncs labels and descriptions without changing permission ids', function () {
     Artisan::call('db:seed', ['--class' => PermissionsSeeder::class]);
 
@@ -112,11 +169,15 @@ test('role details page exposes permission labels and descriptions to authorized
             ->has('permissions', count(ApplicationPermissionRegistry::definitions()))
             ->where('permissions', function ($permissions): bool {
                 $employeesView = collect($permissions)->firstWhere('name', 'employees.view');
+                $impersonate = collect($permissions)->firstWhere('name', 'users.impersonate');
 
                 return is_array($employeesView)
                     && ($employeesView['label'] ?? null) === 'View Employees'
                     && str_contains((string) ($employeesView['description'] ?? ''), 'view')
-                    && ($employeesView['group'] ?? null) === 'Employees';
+                    && ($employeesView['group'] ?? null) === 'Employees'
+                    && is_array($impersonate)
+                    && ($impersonate['label'] ?? null) === 'Login as User'
+                    && ($impersonate['group'] ?? null) === 'Users';
             }),
         );
 });
