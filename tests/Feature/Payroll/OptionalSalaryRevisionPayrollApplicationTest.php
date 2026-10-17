@@ -535,8 +535,6 @@ test('finalized payroll locks unsafe edits to an applied revision', function () 
         'approved_at' => now(),
     ]);
 
-    expect(app(AssertContractSalaryRevisionEditable::class)->isLockedByFinalizedPayroll($revision))->toBeTrue();
-
     expect(fn () => app(UpdateContractSalaryRevision::class)->handle(
         $contract->fresh(),
         $revision,
@@ -549,7 +547,7 @@ test('finalized payroll locks unsafe edits to an applied revision', function () 
         'Unsafe',
         true,
         '2026-01-01',
-    ))->toThrow(ValidationException::class);
+    ))->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::LOCKED_MESSAGE);
 });
 
 test('office salary revisions remain payroll applicable by default', function () {

@@ -18,6 +18,7 @@ use App\Support\Settings\CompanyTimezone;
 use App\Support\Settings\PlatformDateFormatter;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 final class BuildCrewPayrollGenerationPreview
 {
@@ -27,6 +28,7 @@ final class BuildCrewPayrollGenerationPreview
         private readonly CrewOperationsPayrollGenerationGuard $legacyGuard,
         private readonly BuildDailyCrewPayrollAllocationPlan $buildAllocationPlan,
         private readonly CollectFuturePayableCrewTimesheetDates $collectFuturePayableDates,
+        private readonly AssertMonthlyCrewSalaryStableAcrossPeriod $assertMonthlySalaryStable,
     ) {}
 
     /**
@@ -236,6 +238,21 @@ final class BuildCrewPayrollGenerationPreview
             $timesheet = $timesheets->get($employeeId);
 
             if ($structure === ContractSalaryStructure::Monthly) {
+                try {
+                    $this->assertMonthlySalaryStable->assert($contract, $period);
+                } catch (ValidationException $exception) {
+                    $blockingIssues[] = [
+                        'employee_id' => $employeeId,
+                        'employee_name' => $employee->name,
+                        'code' => 'salary_revision_period_boundary',
+                        'message' => $exception->errors()['salary_revision'][0]
+                            ?? AssertMonthlyCrewSalaryStableAcrossPeriod::BOUNDARY_MESSAGE,
+                        'action' => $this->actionForCode('salary_revision_period_boundary'),
+                    ];
+
+                    continue;
+                }
+
                 if ($timesheet === null) {
                     $readyIds[] = $employeeId;
 
@@ -796,6 +813,7 @@ final class BuildCrewPayrollGenerationPreview
             'missing_basic_daily_rate' => 'Set an active basic daily rate on the contract/revision covering these work dates.',
             'reserved_conflict' => 'Remove these dates from this timesheet or resolve the competing open payroll that already reserved them.',
             'invalid_timesheet_source', 'invalid_source_for_monthly' => 'Correct the timesheet source for this employee’s salary structure.',
+            'salary_revision_period_boundary' => 'Split the off-cycle period so each range uses one payroll-applicable salary package, or use the authorized correction workflow.',
             'incomplete_movement_range' => 'Complete the Sign-On / Onsite / Sign-Off movement dates if this employee should be paid for a full voyage.',
             'legacy_movement_outside_payroll_period' => 'Correct the legacy flat-field movement dates so they do not extend past this payroll period end, or generate in the matching period.',
             default => null,
