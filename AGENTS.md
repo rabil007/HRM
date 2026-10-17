@@ -28,6 +28,7 @@ Use only the relevant skill when its domain is active:
 - `pest-testing` — Pest tests.
 - `implement-oms-change` — genuinely end-to-end multi-file application changes.
 - `review-oms-security` — auth, tenancy, permissions, secrets, private files, webhooks, imports/exports, privileged actions.
+- `oms-feature-qa` — independent acceptance QA of a completed feature before human review (criteria coverage, focused tests, optional browser checks, QA report).
 
 Do not load every skill for every task.
 
