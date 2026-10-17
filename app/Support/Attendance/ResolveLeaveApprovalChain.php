@@ -4,6 +4,7 @@ namespace App\Support\Attendance;
 
 use App\Enums\LeaveApprovalApproverType;
 use App\Enums\LeaveApprovalMode;
+use App\Enums\LeaveApprovalResolutionReason;
 use App\Enums\LeaveRequestApprovalStatus;
 use App\Models\CompanyLeaveApprovalSetting;
 use App\Models\Department;
@@ -20,7 +21,7 @@ use RuntimeException;
 
 final class ResolveLeaveApprovalChain
 {
-    public const SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE = 'A different approver is required for this leave request. Please configure an eligible alternative approver in Leave Approval Settings.';
+    public const SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE = LeaveApprovalResolutionException::SELF_APPROVAL_MESSAGE;
 
     public function __construct(
         private ResolveLeaveApprovalPolicy $resolvePolicy,
@@ -37,9 +38,9 @@ final class ResolveLeaveApprovalChain
         $effective = $this->resolvePolicy->forEmployee($employee, $companyId);
 
         if ($effective === null) {
-            throw new RuntimeException(
-                'No leave approval policy is configured for this employee. Assign a department policy or set a company default.',
-            );
+            throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::InvalidPolicy, [
+                'No effective policy. Assign an active department policy, inherited policy, or company default in Leave Approval Policies.',
+            ]);
         }
 
         return $this->resolveFromEffectivePolicy($employee, $companyId, $effective);
@@ -54,10 +55,10 @@ final class ResolveLeaveApprovalChain
         $policy->loadMissing(['steps' => fn ($query) => $query->orderBy('sequence')]);
 
         if ($policy->steps->isEmpty()) {
-            throw new RuntimeException(sprintf(
+            throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::InvalidPolicy, [sprintf(
                 'Leave approval policy "%s" has no steps configured.',
                 $policy->name,
-            ));
+            )]);
         }
 
         $employee->loadMissing('user:id,name,email,status');
@@ -79,6 +80,40 @@ final class ResolveLeaveApprovalChain
         $usedRequiredApproverUserIds = [];
         $resolved = [];
 
+        $failure = function (LeaveApprovalResolutionReason $reason, LeaveApprovalPolicyStep $step, ?string $detail = null) use (
+            $companyId, $employee, $settings, $managementChain, $effective,
+            &$usedRequiredApproverEmployeeIds, &$usedRequiredApproverUserIds, $reservedNaturalManagerEmployeeIds,
+        ): LeaveApprovalResolutionException {
+            $diagnostics = [
+                sprintf('Required step %d (%s): %s. Policy #%d (%s).', $step->sequence, $step->approver_type->label(), $reason->value, $effective->policy->id, $effective->source),
+                $detail ?? 'A distinct authorized approver is required.',
+                'Review Leave Approval Settings, Leave Approval Policies, department managers, and company-scoped user permissions/visibility. Permissions are never granted automatically.',
+            ];
+            $candidateIds = [
+                'Designated approver' => $step->approver_employee_id
+                    ?? ($step->approver_type === LeaveApprovalApproverType::HrApprover ? $settings->default_hr_approver_employee_id : null),
+                'Fallback' => $settings->fallback_approver_employee_id,
+            ];
+            foreach ($managementChain as $entry) {
+                $candidateIds['Hierarchy department #'.$entry['source_department']->id] = $entry['manager']->id;
+            }
+            foreach ($candidateIds as $source => $id) {
+                $candidate = $id !== null ? $this->loadCompanyEmployee($companyId, (int) $id) : null;
+                if ($candidate === null) {
+                    $diagnostics[] = $source.': '.($id === null ? 'not configured' : 'not found in this company').'.';
+
+                    continue;
+                }
+                $reasons = $this->candidateRejectionReasons(
+                    $candidate, $companyId, $employee, $usedRequiredApproverEmployeeIds,
+                    $usedRequiredApproverUserIds, str_starts_with($source, 'Hierarchy') && ! $this->isManagerChainType($step->approver_type) ? $reservedNaturalManagerEmployeeIds : [],
+                );
+                $diagnostics[] = $source.' employee #'.$candidate->id.': '.implode(', ', $reasons !== [] ? $reasons : ['eligible; cannot replace an unrelated designated approver or a step that requires hierarchy']).'.';
+            }
+
+            return new LeaveApprovalResolutionException($reason, $diagnostics);
+        };
+
         foreach ($policy->steps as $step) {
             /** @var LeaveApprovalPolicyStep $step */
             $candidate = $this->resolveStep(
@@ -96,7 +131,7 @@ final class ResolveLeaveApprovalChain
 
             if ($candidate === null) {
                 if ($step->is_required) {
-                    throw new RuntimeException($this->missingStepMessage($step));
+                    throw $failure(LeaveApprovalResolutionReason::MissingRequiredApprover, $step, $this->missingStepMessage($step));
                 }
 
                 continue;
@@ -128,7 +163,7 @@ final class ResolveLeaveApprovalChain
                 );
 
                 if ($candidate === null) {
-                    throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                    throw $failure(LeaveApprovalResolutionReason::SelfApprovalConflict, $step);
                 }
             }
 
@@ -151,14 +186,14 @@ final class ResolveLeaveApprovalChain
                         $detail = $evaluation['warnings'][0]
                             ?? 'The resolved employee is not an actionable approver (active employee, linked active user, active company membership, and leave-request view and approve permissions).';
 
-                        throw new RuntimeException(sprintf(
+                        throw $failure(LeaveApprovalResolutionReason::InvalidDesignatedApprover, $step, sprintf(
                             'Required approval step "%s" cannot be completed: %s',
                             $step->approver_type->label(),
                             $detail,
                         ));
                     }
 
-                    throw new RuntimeException(sprintf(
+                    throw $failure(LeaveApprovalResolutionReason::InvalidDesignatedApprover, $step, sprintf(
                         'Required approval step "%s" cannot be completed: The resolved employee cannot approve leave for this requester under current authorization rules.',
                         $step->approver_type->label(),
                     ));
@@ -198,7 +233,7 @@ final class ResolveLeaveApprovalChain
                             $usedRequiredApproverUserIds,
                         )
                     ) {
-                        throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                        throw $failure(LeaveApprovalResolutionReason::DuplicateRequiredApprover, $step);
                     }
                 }
             } elseif (! $this->isNotifiableListener(
@@ -238,9 +273,9 @@ final class ResolveLeaveApprovalChain
         $deduped = $this->dedupeByEmployee($resolved);
 
         if ($deduped === []) {
-            throw new RuntimeException(
+            throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::InvalidPolicy, [
                 'Leave approval chain is empty after resolving policy steps. Configure actionable approvers for the effective policy.',
-            );
+            ]);
         }
 
         $requiredRemain = array_filter(
@@ -249,9 +284,9 @@ final class ResolveLeaveApprovalChain
         );
 
         if ($requiredRemain === []) {
-            throw new RuntimeException(
+            throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::InvalidPolicy, [
                 'Leave approval chain has no required actionable steps after resolution.',
-            );
+            ]);
         }
 
         $steps = [];
@@ -688,10 +723,8 @@ final class ResolveLeaveApprovalChain
             $manager = $entry['manager'];
             $managerId = (int) $manager->id;
 
-            if (isset($usedManagerEmployeeIds[$managerId])) {
-                continue;
-            }
-
+            // Notify-only assignments may be replaced by a required step during deduplication.
+            // Only required approver identities and reserved natural managers exclude alternatives.
             if (isset($reservedNaturalManagerEmployeeIds[$managerId])) {
                 continue;
             }
@@ -745,10 +778,6 @@ final class ResolveLeaveApprovalChain
         }
 
         $fallbackId = (int) $fallbackId;
-
-        if (isset($usedManagerEmployeeIds[$fallbackId])) {
-            return null;
-        }
 
         $fallback = $this->loadCompanyEmployee($companyId, $fallbackId);
 
@@ -903,6 +932,52 @@ final class ResolveLeaveApprovalChain
     }
 
     /**
+     * Read-only diagnostics use the same identity, eligibility and visibility gates as routing.
+     *
+     * @param  array<int, true>  $usedEmployeeIds
+     * @param  array<int, true>  $usedUserIds
+     * @param  array<int, true>  $reservedManagerIds
+     * @return list<string>
+     */
+    private function candidateRejectionReasons(
+        Employee $candidate,
+        int $companyId,
+        Employee $requester,
+        array $usedEmployeeIds,
+        array $usedUserIds,
+        array $reservedManagerIds,
+    ): array {
+        $reasons = [];
+        if ($this->sharesRequesterIdentity($candidate, (int) $requester->id, $requester->user_id)) {
+            $reasons[] = 'requester_identity';
+        }
+        if ($this->isAlreadyUsedRequiredApprover($candidate, $usedEmployeeIds, $usedUserIds)) {
+            $reasons[] = 'already_assigned_required_step';
+        }
+        if (isset($reservedManagerIds[(int) $candidate->id])) {
+            $reasons[] = 'reserved_for_required_manager_step';
+        }
+        $evaluation = $this->eligibility->evaluate($candidate, $companyId);
+        foreach ([
+            'employee_active' => 'inactive_employee',
+            'has_linked_user' => 'missing_linked_user',
+            'linked_user_active' => 'inactive_linked_user',
+            'has_active_company_membership' => 'inactive_company_membership',
+            'has_view_permission' => 'missing_view_permission',
+            'has_approve_permission' => 'missing_approve_permission',
+        ] as $flag => $reason) {
+            if (! $evaluation[$flag]) {
+                $reasons[] = $reason;
+            }
+        }
+        if ($evaluation['actionable'] && ! $this->visibility->assignedApproverCanActOnRequester($candidate->user, $requester, $companyId)) {
+            $reasons[] = 'outside_requester_visibility_scope';
+        }
+
+        return $reasons;
+    }
+
+    /**
      * Notify-only (Required = OFF) recipients need an active identity in the company,
      * but must not require leave approve permission.
      */
@@ -961,7 +1036,7 @@ final class ResolveLeaveApprovalChain
                     $existingRequired = (bool) $existingByUser['step']->is_required;
 
                     if ($existingRequired && $incomingRequired) {
-                        throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                        throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::DuplicateRequiredApprover, ['Required steps must use distinct employee and linked user identities. Review Leave Approval Policies.']);
                     }
 
                     if (! $existingRequired && $incomingRequired) {
@@ -985,7 +1060,7 @@ final class ResolveLeaveApprovalChain
             $existingRequired = (bool) $existing['step']->is_required;
 
             if ($existingRequired && $incomingRequired) {
-                throw new RuntimeException(self::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+                throw new LeaveApprovalResolutionException(LeaveApprovalResolutionReason::DuplicateRequiredApprover, ['Required steps must use distinct employee and linked user identities. Review Leave Approval Policies.']);
             }
 
             if (! $existingRequired && $incomingRequired) {
@@ -994,7 +1069,11 @@ final class ResolveLeaveApprovalChain
             }
         }
 
-        return array_values($byEmployee);
+        // Replacing an earlier listener must not move a later required step forward.
+        $deduped = array_values($byEmployee);
+        usort($deduped, fn (array $left, array $right): int => $left['step']->sequence <=> $right['step']->sequence);
+
+        return $deduped;
     }
 
     private function missingStepMessage(LeaveApprovalPolicyStep $step): string

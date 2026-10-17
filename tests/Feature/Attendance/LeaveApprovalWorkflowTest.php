@@ -18,6 +18,7 @@ use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\Actions\SubmitLeaveRequestWithApprovals;
 use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
+use App\Support\Attendance\LeaveApprovalResolutionException;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
@@ -185,7 +186,7 @@ test('manager then hr policy creates ordered steps and advances on approve', fun
     expect($leaveRequest->fresh()->status)->toBe('approved');
 });
 
-test('store leave request surfaces specific error when hr approver lacks approve permission', function (
+test('invalid hr approver blocks submission without exposing configuration to employees', function (
     LeaveApprovalMode $mode,
 ) {
     ['user' => $user, 'company' => $company] = makeLeaveApprovalWorkflowFixtures();
@@ -232,9 +233,11 @@ test('store leave request surfaces specific error when hr approver lacks approve
     $message = $response->getSession()->get('errors')->first('leave_request');
 
     expect($message)
-        ->toContain('HR Approver')
-        ->toContain('leave-request approve permission')
+        ->toContain('Your leave approval setup needs attention.')
+        ->not->toContain('HR Without Approve')
         ->not->toContain(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE)
+        ->and($response->getSession()->get('errors')->first('leave_approval_reason'))->toBe('invalid_designated_approver')
+        ->and($response->getSession()->get('errors')->has('leave_approval_diagnostics'))->toBeFalse()
         ->and(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
 })->with([
     'all_required' => [LeaveApprovalMode::AllRequired],
@@ -293,8 +296,8 @@ test('ineligible designated specific employee fails instead of silent substitute
     $message = $response->getSession()->get('errors')->first('leave_request');
 
     expect($message)
-        ->toContain('Specific Employee')
-        ->toContain('leave-request approve permission')
+        ->toContain('Your leave approval setup needs attention.')
+        ->and($response->getSession()->get('errors')->first('leave_approval_reason'))->toBe('invalid_designated_approver')
         ->and(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
 })->with([
     'all_required' => [LeaveApprovalMode::AllRequired],
@@ -342,8 +345,8 @@ test('inactive designated specific employee fails instead of silent substitute',
     } catch (ValidationException $exception) {
         $message = $exception->errors()['leave_request'][0] ?? '';
         expect($message)
-            ->toContain('Specific Employee')
-            ->toContain('not an active employee')
+            ->toContain('Your leave approval setup needs attention.')
+            ->and($exception->errors()['leave_approval_reason'][0])->toBe('invalid_designated_approver')
             ->and($message)->not->toBe(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
     }
 
@@ -1109,7 +1112,9 @@ test('manager and hr same person without alternative fails instead of collapsing
         expect(false)->toBeTrue();
     } catch (ValidationException $exception) {
         expect($exception->errors()['leave_request'][0] ?? null)
-            ->toBe(ResolveLeaveApprovalChain::SELF_APPROVAL_ALTERNATIVE_REQUIRED_MESSAGE);
+            ->toContain('required approval steps could not be assigned to different authorized people')
+            ->not->toContain('own request')
+            ->and($exception->errors()['leave_approval_reason'][0])->toBe('duplicate_required_approver');
     }
 
     expect(LeaveRequest::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
@@ -1141,6 +1146,153 @@ function makeHrOwnedDepartmentContext(): array
 
     return compact('company', 'hr', 'hrUser', 'department');
 }
+
+test('notify-only manager does not consume the authorized alternative for hr self-leave', function (bool $hasFallback) {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $hr] = makeActionableApprover($company, [
+        'department_id' => $managed['department']->id,
+    ]);
+    configureCompanyLeaveApprovalSettings($company, $hr, $hasFallback ? $managed['manager'] : null);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $leave = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ],
+        notify: false,
+    );
+
+    expect($leave->status)->toBe('pending')
+        ->and($leave->approvals)->toHaveCount(1)
+        ->and($leave->approvals->first()->approver_type)->toBe(LeaveApprovalApproverType::HrApprover)
+        ->and($leave->approvals->first()->is_required)->toBeTrue()
+        ->and($leave->approvals->first()->status)->toBe(LeaveRequestApprovalStatus::Pending)
+        ->and($leave->approvals->first()->approver_employee_id)->toBe($managed['manager']->id)
+        ->and($leave->approvals->first()->approver_user_id)->not->toBe($hr->user_id);
+})->with([false, true]);
+
+test('self-leave failure gives configuration diagnostics only to settings viewers', function (string $access) {
+    $administrator = $access === 'settings_viewer';
+    ['company' => $company, 'hr' => $hr, 'hrUser' => $hrUser] = makeHrOwnedDepartmentContext();
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company);
+    $fallbackUser->roles()->detach();
+    $fallbackUser->forgetCachedPermissions();
+    configureCompanyLeaveApprovalSettings($company, $hr, $fallback);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $hr->id, 2026);
+    grantCompanyPermissions($hrUser, $company, array_filter([
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+        $administrator ? 'attendance.leave-approval-settings.view' : null,
+    ]));
+    if ($access === 'other_company_settings_viewer') {
+        ['company' => $otherCompany] = makeLeaveApprovalWorkflowFixtures();
+        grantCompanyPermissions($hrUser, $otherCompany, ['attendance.leave-approval-settings.view'], 'foreign-settings-role');
+    }
+    $this->actingAs($hrUser);
+
+    $response = $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/leave-requests', [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ]);
+
+    $response->assertSessionHasErrors('leave_request');
+    $errors = $response->getSession()->get('errors');
+    expect($errors->first('leave_request'))
+        ->toContain("We couldn't find another authorized person to approve your leave.")
+        ->not->toContain((string) $fallback->name)
+        ->and($errors->first('leave_approval_reason'))->toBe('self_approval_conflict')
+        ->and($errors->has('leave_approval_diagnostics'))->toBe($administrator)
+        ->and(LeaveRequest::query()->where('employee_id', $hr->id)->exists())->toBeFalse()
+        ->and(LeaveBalance::query()->where('employee_id', $hr->id)->where('year', 2026)->value('pending_days'))->toEqual(0.0);
+
+    if ($administrator) {
+        expect($errors->first('leave_approval_diagnostics'))
+            ->toContain('Required step 1 (HR Approver)', 'Fallback', 'missing_view_permission', 'missing_approve_permission', 'Leave Approval Settings');
+    }
+})->with(['employee', 'settings_viewer', 'other_company_settings_viewer']);
+
+test('promoting a notify-only manager to hr alternative preserves required policy order', function () {
+    ['company' => $company] = makeLeaveApprovalWorkflowFixtures();
+    $managed = makeManagedDepartment($company);
+    ['employee' => $hr] = makeActionableApprover($company, ['department_id' => $managed['department']->id]);
+    ['employee' => $firstApprover] = makeActionableApprover($company);
+    configureCompanyLeaveApprovalSettings($company, $hr, $managed['manager']);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => LeaveApprovalApproverType::SpecificEmployee, 'employee_id' => $firstApprover->id, 'required' => true],
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active', 'days_per_year' => 30]);
+
+    $leave = app(SubmitLeaveRequestWithApprovals::class)->handle(
+        companyId: (int) $company->id,
+        attributes: [
+            'employee_id' => $hr->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-10',
+            'end_date' => '2026-06-11',
+        ],
+        notify: false,
+    );
+
+    $approvals = $leave->approvals->sortBy('sequence')->values();
+    expect($approvals)->toHaveCount(2)
+        ->and($approvals[0]->approver_employee_id)->toBe($firstApprover->id)
+        ->and($approvals[0]->status)->toBe(LeaveRequestApprovalStatus::Pending)
+        ->and($approvals[1]->approver_employee_id)->toBe($managed['manager']->id)
+        ->and($approvals[1]->status)->toBe(LeaveRequestApprovalStatus::Waiting);
+});
+
+test('self-leave diagnostics identify why each configured fallback is rejected', function (string $scenario, string $expected) {
+    ['company' => $company, 'hr' => $hr, 'hrUser' => $hrUser] = makeHrOwnedDepartmentContext();
+    ['employee' => $fallback, 'user' => $fallbackUser] = makeActionableApprover($company);
+
+    match ($scenario) {
+        'inactive_employee' => $fallback->update(['status' => 'inactive']),
+        'inactive_user' => $fallbackUser->update(['status' => 'inactive']),
+        'inactive_membership' => DB::table('company_user')->where('company_id', $company->id)->where('user_id', $fallbackUser->id)->update(['status' => 'inactive']),
+        'shared_user' => $fallback->update(['user_id' => $hrUser->id]),
+        'missing_user' => $fallback->update(['user_id' => null]),
+        'foreign_employee' => $fallback->update(['company_id' => makeLeaveApprovalWorkflowFixtures()['company']->id]),
+        'missing_fallback' => null,
+    };
+    configureCompanyLeaveApprovalSettings($company, $hr, $scenario === 'missing_fallback' ? null : $fallback);
+    ensureDefaultLeaveApprovalPolicy($company, [
+        ['type' => LeaveApprovalApproverType::HrApprover, 'required' => true],
+    ]);
+
+    try {
+        app(ResolveLeaveApprovalChain::class)->handle($hr->fresh(), (int) $company->id);
+        $this->fail('An ineligible fallback must not allow submission.');
+    } catch (LeaveApprovalResolutionException $exception) {
+        expect($exception->reason->value)->toBe('self_approval_conflict')
+            ->and(implode("\n", $exception->diagnostics))->toContain($expected);
+    }
+})->with([
+    ['inactive_employee', 'inactive_employee'],
+    ['inactive_user', 'inactive_linked_user'],
+    ['inactive_membership', 'inactive_company_membership'],
+    ['shared_user', 'requester_identity'],
+    ['missing_user', 'missing_linked_user'],
+    ['foreign_employee', 'Fallback: not found in this company'],
+    ['missing_fallback', 'Fallback: not configured'],
+]);
 
 test('hr self-request fails clearly when fallback is missing', function () {
     ['company' => $company, 'hr' => $hr, 'hrUser' => $hrUser] = makeHrOwnedDepartmentContext();
