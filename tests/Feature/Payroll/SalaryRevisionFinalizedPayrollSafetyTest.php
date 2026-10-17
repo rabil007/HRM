@@ -222,7 +222,7 @@ test('deleting a later applicable revision that would alter finalized rates is r
     ]);
 
     expect(fn () => app(DeleteContractSalaryRevision::class)->handle($contract->fresh(), $later))
-        ->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::LOCKED_MESSAGE);
+        ->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::REFERENCED_MESSAGE);
 });
 
 test('editing existing crew contract salary defaults to payroll off', function () {
@@ -434,4 +434,389 @@ test('full calendar month monthly crew payroll still succeeds across a month bou
     ]);
     expect(app(GenerateCrewPayroll::class)->handle($november)->generatedCount)->toBe(1);
     expect((float) PayrollRecord::query()->where('period_id', $november->id)->value('gross_salary'))->toBe(56125.0);
+});
+
+test('monthly crew period is blocked when an intermediate month package differs even if start and end match', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ]);
+
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 16000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 1000,
+    ], '2026-11-01', 'November increase', null, true, '2026-11-01');
+
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ], '2026-12-01', 'December restore', null, true, '2026-12-01');
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-10-15',
+        'end_date' => '2026-12-14',
+        'status' => PayrollPeriodStatus::Draft,
+        'regular_period_key' => null,
+    ]);
+
+    expect(fn () => app(AssertMonthlyCrewSalaryStableAcrossPeriod::class)->assert($contract->fresh(), $period))
+        ->toThrow(ValidationException::class, AssertMonthlyCrewSalaryStableAcrossPeriod::BOUNDARY_MESSAGE);
+
+    CrewTimesheet::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'unpaid_leave_days' => 0,
+    ]);
+
+    expect(fn () => app(GenerateCrewPayroll::class)->handle($period))
+        ->toThrow(ValidationException::class);
+});
+
+test('monthly crew period allows intermediate revisions with identical complete packages', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ]);
+
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ], '2026-11-01', 'November same package', null, true, '2026-11-01');
+
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ], '2026-12-01', 'December same package', null, true, '2026-12-01');
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-10-15',
+        'end_date' => '2026-12-14',
+        'status' => PayrollPeriodStatus::Draft,
+        'regular_period_key' => null,
+    ]);
+
+    app(AssertMonthlyCrewSalaryStableAcrossPeriod::class)->assert($contract->fresh(), $period);
+
+    CrewTimesheet::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'unpaid_leave_days' => 0,
+    ]);
+
+    expect(app(GenerateCrewPayroll::class)->handle($period)->generatedCount)->toBe(1);
+});
+
+test('monthly crew period detects component redistribution with the same gross total', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ]);
+
+    // Same gross 55,000, but EOS increased and Other reduced.
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24000,
+        'eos_monthly_amount' => 1000,
+    ], '2026-11-01', 'EOS shift', null, true, '2026-11-01');
+
+    app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ], '2026-12-01', 'Restore', null, true, '2026-12-01');
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-10-15',
+        'end_date' => '2026-12-14',
+        'status' => PayrollPeriodStatus::Draft,
+        'regular_period_key' => null,
+    ]);
+
+    expect(fn () => app(AssertMonthlyCrewSalaryStableAcrossPeriod::class)->assert($contract->fresh(), $period))
+        ->toThrow(ValidationException::class, AssertMonthlyCrewSalaryStableAcrossPeriod::BOUNDARY_MESSAGE);
+});
+
+test('disabling a finalized allocation referenced revision is rejected even with identical replacement rates', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'basic_salary' => 200,
+        'site_allowance' => 50,
+        'supplementary_allowance' => 25,
+    ]);
+
+    $referenced = ContractSalaryRevision::query()->where('contract_id', $contract->id)->sole();
+
+    app(ApplyContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        [
+            'basic_salary' => 200,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        '2026-11-01',
+        'Identical future package',
+        null,
+        true,
+        '2026-11-01',
+    );
+
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
+        'start_date' => '2026-10-01',
+        'end_date' => '2026-10-31',
+        'status' => PayrollPeriodStatus::Paid,
+    ]);
+    PayrollWorkAllocation::query()->create([
+        'company_id' => $company->id,
+        'payroll_period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'work_date' => '2026-10-05',
+        'pay_category' => 'onsite',
+        'period_classification' => 'current',
+        'status' => PayrollWorkAllocationStatus::Paid,
+        'contract_id' => $contract->id,
+        'salary_revision_id' => $referenced->id,
+        'basic_daily_rate' => 200,
+        'site_allowance_daily_rate' => 50,
+        'supplementary_allowance_daily_rate' => 25,
+        'basic_amount' => 200,
+        'site_allowance_amount' => 50,
+        'supplementary_allowance_amount' => 25,
+        'total_amount' => 275,
+        'paid_at' => now(),
+    ]);
+
+    expect(fn () => app(UpdateContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        $referenced,
+        [
+            'basic_salary' => 200,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        '2026-01-01',
+        'Disable referenced',
+        false,
+        null,
+    ))->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::REFERENCED_MESSAGE);
+
+    expect(fn () => app(DeleteContractSalaryRevision::class)->handle($contract->fresh(), $referenced))
+        ->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::REFERENCED_MESSAGE);
+
+    expect(PayrollWorkAllocation::query()->whereKey(
+        PayrollWorkAllocation::query()->where('salary_revision_id', $referenced->id)->value('id')
+    )->value('salary_revision_id'))->toBe($referenced->id);
+});
+
+test('changing component amounts of a finalized allocation referenced revision is rejected', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'basic_salary' => 200,
+        'site_allowance' => 50,
+        'supplementary_allowance' => 25,
+    ]);
+
+    $referenced = ContractSalaryRevision::query()->where('contract_id', $contract->id)->sole();
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
+        'start_date' => '2026-10-01',
+        'end_date' => '2026-10-31',
+        'status' => PayrollPeriodStatus::Approved,
+    ]);
+    PayrollWorkAllocation::query()->create([
+        'company_id' => $company->id,
+        'payroll_period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'work_date' => '2026-10-06',
+        'pay_category' => 'onsite',
+        'period_classification' => 'current',
+        'status' => PayrollWorkAllocationStatus::Approved,
+        'contract_id' => $contract->id,
+        'salary_revision_id' => $referenced->id,
+        'basic_daily_rate' => 200,
+        'site_allowance_daily_rate' => 50,
+        'supplementary_allowance_daily_rate' => 25,
+        'basic_amount' => 200,
+        'site_allowance_amount' => 50,
+        'supplementary_allowance_amount' => 25,
+        'total_amount' => 275,
+        'approved_at' => now(),
+    ]);
+
+    expect(fn () => app(UpdateContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        $referenced,
+        [
+            'basic_salary' => 210,
+            'site_allowance' => 50,
+            'supplementary_allowance' => 25,
+        ],
+        '2026-01-01',
+        'Change amount',
+        true,
+        '2026-01-01',
+    ))->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::REFERENCED_MESSAGE);
+});
+
+test('proposed revision affecting an intermediate month of finalized monthly payroll is rejected', function () {
+    Carbon::setTestNow('2026-12-20');
+
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'monthly',
+        'basic_salary' => 15000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 875,
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-10-15',
+        'end_date' => '2026-12-14',
+        'status' => PayrollPeriodStatus::Approved,
+        'regular_period_key' => null,
+    ]);
+    PayrollRecord::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'contract_id' => $contract->id,
+        'status' => 'approved',
+        'gross_salary' => 55000,
+    ]);
+
+    expect(fn () => app(ApplyContractSalaryRevision::class)->handle($contract->fresh(), [
+        'basic_salary' => 16000,
+        'housing_allowance' => 10000,
+        'transport_allowance' => 5000,
+        'other_allowances' => 24125,
+        'eos_monthly_amount' => 1000,
+    ], '2026-11-01', 'Unsafe intermediate', null, true, '2026-11-01'))
+        ->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::LOCKED_MESSAGE);
+});
+
+test('unreferenced future daily crew revisions remain editable', function () {
+    ['company' => $company] = makePayrollFixtures();
+    $employee = Employee::factory()->forCompany($company)->withoutDefaultContract()->create(['status' => 'active']);
+    $contract = app(UpsertEmployeeContract::class)->handle($company->id, $employee, [
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'salary_structure' => 'daily',
+        'basic_salary' => 200,
+        'site_allowance' => 50,
+        'supplementary_allowance' => 25,
+    ]);
+
+    $baseline = ContractSalaryRevision::query()->where('contract_id', $contract->id)->sole();
+    $period = PayrollPeriod::factory()->for($company)->manualTimesheets()->create([
+        'start_date' => '2026-10-01',
+        'end_date' => '2026-10-31',
+        'status' => PayrollPeriodStatus::Approved,
+    ]);
+    PayrollWorkAllocation::query()->create([
+        'company_id' => $company->id,
+        'payroll_period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'work_date' => '2026-10-05',
+        'pay_category' => 'onsite',
+        'period_classification' => 'current',
+        'status' => PayrollWorkAllocationStatus::Approved,
+        'contract_id' => $contract->id,
+        'salary_revision_id' => $baseline->id,
+        'basic_daily_rate' => 200,
+        'site_allowance_daily_rate' => 50,
+        'supplementary_allowance_daily_rate' => 25,
+        'basic_amount' => 200,
+        'site_allowance_amount' => 50,
+        'supplementary_allowance_amount' => 25,
+        'total_amount' => 275,
+        'approved_at' => now(),
+    ]);
+
+    $future = app(ApplyContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        [
+            'basic_salary' => 275,
+            'site_allowance' => 70,
+            'supplementary_allowance' => 35,
+        ],
+        '2026-11-01',
+        'Future',
+        null,
+        true,
+        '2026-11-01',
+    );
+
+    $updated = app(UpdateContractSalaryRevision::class)->handle(
+        $contract->fresh(),
+        $future,
+        [
+            'basic_salary' => 280,
+            'site_allowance' => 70,
+            'supplementary_allowance' => 35,
+        ],
+        '2026-11-01',
+        'Future edit',
+        true,
+        '2026-11-01',
+    );
+
+    expect((float) $updated->lines->firstWhere('component_code', SalaryComponentCode::Basic)->amount)->toBe(280.0);
 });

@@ -17,6 +17,8 @@ final class AssertContractSalaryRevisionEditable
 {
     public const LOCKED_MESSAGE = 'This salary revision would change rates used by approved or paid payroll. Use the authorized payroll correction workflow.';
 
+    public const REFERENCED_MESSAGE = 'This salary revision is referenced by approved or paid payroll work allocations and cannot be changed. Use the authorized payroll correction workflow.';
+
     /**
      * @param  list<array{component_code: SalaryComponentCode|string, amount: float|int|string}>  $lines
      */
@@ -55,7 +57,16 @@ final class AssertContractSalaryRevisionEditable
         bool $applyToPayroll,
         ?string $payrollEffectiveFrom,
         array $lines,
+        string $effectiveFrom,
     ): void {
+        $this->assertReferencedRevisionRemainsImmutable(
+            $revision,
+            $applyToPayroll,
+            $payrollEffectiveFrom,
+            $lines,
+            $effectiveFrom,
+        );
+
         $before = $this->currentRevisions($contract);
         $after = $before
             ->map(function (ContractSalaryRevision $item) use (
@@ -64,6 +75,7 @@ final class AssertContractSalaryRevisionEditable
                 $applyToPayroll,
                 $payrollEffectiveFrom,
                 $lines,
+                $effectiveFrom,
             ): ContractSalaryRevision {
                 if ((int) $item->id !== (int) $revision->id) {
                     return $item;
@@ -74,7 +86,7 @@ final class AssertContractSalaryRevisionEditable
                 $updated->version = $item->version;
                 $updated->apply_to_payroll = $applyToPayroll;
                 $updated->payroll_effective_from = $payrollEffectiveFrom;
-                $updated->effective_from = $item->effective_from;
+                $updated->effective_from = $effectiveFrom;
                 $updated->setRelation('lines', $this->linesCollection($contract, $lines));
 
                 return $updated;
@@ -88,6 +100,12 @@ final class AssertContractSalaryRevisionEditable
         EmployeeContract $contract,
         ContractSalaryRevision $revision,
     ): void {
+        if ($this->isReferencedByFinalizedAllocations($revision)) {
+            throw ValidationException::withMessages([
+                'salary_revision' => self::REFERENCED_MESSAGE,
+            ]);
+        }
+
         $before = $this->currentRevisions($contract);
         $after = $before
             ->reject(fn (ContractSalaryRevision $item): bool => (int) $item->id === (int) $revision->id)
@@ -113,6 +131,48 @@ final class AssertContractSalaryRevisionEditable
     }
 
     /**
+     * @param  list<array{component_code: SalaryComponentCode|string, amount: float|int|string}>  $lines
+     */
+    private function assertReferencedRevisionRemainsImmutable(
+        ContractSalaryRevision $revision,
+        bool $applyToPayroll,
+        ?string $payrollEffectiveFrom,
+        array $lines,
+        string $effectiveFrom,
+    ): void {
+        if (! $this->isReferencedByFinalizedAllocations($revision)) {
+            return;
+        }
+
+        $currentPayrollFrom = $revision->payrollEffectiveDateString();
+        $currentLinesFingerprint = $this->packageFingerprint($revision);
+        $proposedLinesFingerprint = $this->packageFingerprintFromLines($lines);
+
+        $changesHistoricalSource = ! $applyToPayroll
+            || $payrollEffectiveFrom !== $currentPayrollFrom
+            || $effectiveFrom !== $revision->effective_from?->toDateString()
+            || $proposedLinesFingerprint !== $currentLinesFingerprint;
+
+        if ($changesHistoricalSource) {
+            throw ValidationException::withMessages([
+                'salary_revision' => self::REFERENCED_MESSAGE,
+            ]);
+        }
+    }
+
+    private function isReferencedByFinalizedAllocations(ContractSalaryRevision $revision): bool
+    {
+        return PayrollWorkAllocation::query()
+            ->where('company_id', $revision->company_id)
+            ->where('salary_revision_id', $revision->id)
+            ->whereIn('status', [
+                PayrollWorkAllocationStatus::Approved->value,
+                PayrollWorkAllocationStatus::Paid->value,
+            ])
+            ->exists();
+    }
+
+    /**
      * @param  Collection<int, ContractSalaryRevision>  $before
      * @param  Collection<int, ContractSalaryRevision>  $after
      */
@@ -121,21 +181,17 @@ final class AssertContractSalaryRevisionEditable
         Collection $before,
         Collection $after,
     ): void {
-        $dates = $this->finalizedPayrollDates($contract);
+        $dates = $this->finalizedPayrollDates($contract, $before, $after);
 
         if ($dates === []) {
             return;
         }
 
         foreach ($dates as $date) {
-            $beforeFingerprint = $this->packageFingerprint(
-                $this->resolveApplicable($before, $date),
-            );
-            $afterFingerprint = $this->packageFingerprint(
-                $this->resolveApplicable($after, $date),
-            );
+            $beforeRevision = $this->resolveApplicable($before, $date);
+            $afterRevision = $this->resolveApplicable($after, $date);
 
-            if ($beforeFingerprint !== $afterFingerprint) {
+            if ($this->resolutionIdentity($beforeRevision) !== $this->resolutionIdentity($afterRevision)) {
                 throw ValidationException::withMessages([
                     'salary_revision' => self::LOCKED_MESSAGE,
                 ]);
@@ -144,10 +200,15 @@ final class AssertContractSalaryRevisionEditable
     }
 
     /**
+     * @param  Collection<int, ContractSalaryRevision>  $before
+     * @param  Collection<int, ContractSalaryRevision>  $after
      * @return list<string>
      */
-    private function finalizedPayrollDates(EmployeeContract $contract): array
-    {
+    private function finalizedPayrollDates(
+        EmployeeContract $contract,
+        Collection $before,
+        Collection $after,
+    ): array {
         $allocationDates = PayrollWorkAllocation::query()
             ->where('company_id', $contract->company_id)
             ->where('employee_id', $contract->employee_id)
@@ -160,7 +221,7 @@ final class AssertContractSalaryRevisionEditable
             ->map(fn ($date): string => (string) $date)
             ->all();
 
-        $periodStartDates = PayrollRecord::query()
+        $periodCheckpointDates = PayrollRecord::query()
             ->where('company_id', $contract->company_id)
             ->where('employee_id', $contract->employee_id)
             ->where('contract_id', $contract->id)
@@ -173,7 +234,7 @@ final class AssertContractSalaryRevisionEditable
             })
             ->with('period:id,start_date,end_date')
             ->get()
-            ->flatMap(function (PayrollRecord $record): array {
+            ->flatMap(function (PayrollRecord $record) use ($before, $after): array {
                 $start = $record->period?->start_date?->toDateString();
                 $end = $record->period?->end_date?->toDateString();
 
@@ -181,20 +242,43 @@ final class AssertContractSalaryRevisionEditable
                     return [];
                 }
 
-                $dates = [$start];
+                $end = $end ?? $start;
 
-                if ($end !== null && $end !== $start) {
-                    $dates[] = $end;
-                }
-
-                return $dates;
+                return $this->periodCheckpointDates($start, $end, $before, $after);
             })
             ->all();
 
-        return collect([...$allocationDates, ...$periodStartDates])
+        return collect([...$allocationDates, ...$periodCheckpointDates])
             ->filter()
             ->unique()
             ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, ContractSalaryRevision>  $before
+     * @param  Collection<int, ContractSalaryRevision>  $after
+     * @return list<string>
+     */
+    private function periodCheckpointDates(
+        string $startDate,
+        string $endDate,
+        Collection $before,
+        Collection $after,
+    ): array {
+        $boundaryDates = $before->concat($after)
+            ->filter(fn (ContractSalaryRevision $item): bool => $item->appliesToPayroll())
+            ->map(fn (ContractSalaryRevision $item): ?string => $item->payrollEffectiveDateString())
+            ->filter(function (?string $date) use ($startDate, $endDate): bool {
+                return $date !== null
+                    && $date >= $startDate
+                    && $date <= $endDate;
+            })
+            ->all();
+
+        return collect([$startDate, $endDate, ...$boundaryDates])
+            ->unique()
             ->values()
             ->all();
     }
@@ -234,6 +318,18 @@ final class AssertContractSalaryRevisionEditable
             ->first();
     }
 
+    private function resolutionIdentity(?ContractSalaryRevision $revision): string
+    {
+        if ($revision === null) {
+            return 'none';
+        }
+
+        return implode('|', [
+            (string) ($revision->id ?? 'virtual'),
+            $this->packageFingerprint($revision),
+        ]);
+    }
+
     private function packageFingerprint(?ContractSalaryRevision $revision): string
     {
         if ($revision === null) {
@@ -251,6 +347,23 @@ final class AssertContractSalaryRevisionEditable
                     : (string) $line->component_code;
 
                 return [$code => number_format((float) $line->amount, 2, '.', '')];
+            })
+            ->sortKeys()
+            ->toJson();
+    }
+
+    /**
+     * @param  list<array{component_code: SalaryComponentCode|string, amount: float|int|string}>  $lines
+     */
+    private function packageFingerprintFromLines(array $lines): string
+    {
+        return collect($lines)
+            ->mapWithKeys(function (array $line): array {
+                $code = $line['component_code'] instanceof SalaryComponentCode
+                    ? $line['component_code']->value
+                    : (string) $line['component_code'];
+
+                return [$code => number_format((float) $line['amount'], 2, '.', '')];
             })
             ->sortKeys()
             ->toJson();

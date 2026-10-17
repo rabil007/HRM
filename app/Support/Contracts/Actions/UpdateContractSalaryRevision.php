@@ -129,6 +129,7 @@ final class UpdateContractSalaryRevision
                 $applyToPayroll,
                 $payrollEffectiveDate,
                 $lines,
+                $effectiveDate,
             );
 
             $lockedRevision->update([

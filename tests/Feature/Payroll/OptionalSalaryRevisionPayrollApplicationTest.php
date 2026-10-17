@@ -547,7 +547,7 @@ test('finalized payroll locks unsafe edits to an applied revision', function () 
         'Unsafe',
         true,
         '2026-01-01',
-    ))->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::LOCKED_MESSAGE);
+    ))->toThrow(ValidationException::class, AssertContractSalaryRevisionEditable::REFERENCED_MESSAGE);
 });
 
 test('office salary revisions remain payroll applicable by default', function () {
