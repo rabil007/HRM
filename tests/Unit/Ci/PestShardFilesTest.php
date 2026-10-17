@@ -8,7 +8,7 @@ test('every Pest test file belongs to exactly one shard', function () {
     $total = OMS_CI_PEST_SHARD_COUNT;
 
     expect($all)->not->toBeEmpty()
-        ->and($total)->toBe(8);
+        ->and($total)->toBe(12);
 
     $union = [];
 
@@ -43,9 +43,9 @@ test('shards together equal the phpunit unit and feature suites', function () {
 test('workflow pest matrix matches the shard constant', function () {
     $workflow = (string) file_get_contents(dirname(__DIR__, 3).'/.github/workflows/ci.yml');
 
-    expect(OMS_CI_PEST_SHARD_COUNT)->toBe(8)
+    expect(OMS_CI_PEST_SHARD_COUNT)->toBe(12)
         ->and($workflow)->toContain('PEST_SHARD_TOTAL: '.OMS_CI_PEST_SHARD_COUNT)
-        ->and($workflow)->toContain('shard: [1, 2, 3, 4, 5, 6, 7, 8]')
+        ->and($workflow)->toContain('shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]')
         ->and($workflow)->toContain('--total="${PEST_SHARD_TOTAL}"')
         ->and($workflow)->toContain('php artisan test --compact --ansi "${TEST_FILES[@]}"')
         ->and($workflow)->not->toContain('php artisan test --compact --ansi -- "${TEST_FILES[@]}"')

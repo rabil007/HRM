@@ -15,14 +15,17 @@ Detect changes (system PHP classifier + CI plan artifact)
     |     ESLint + Prettier in parallel (Node-only job)
     |
     +-- Frontend Types                   [if frontend or Wayfinder inputs changed]
-    |     Wayfinder generate, then TypeScript + unit tests in parallel
+    |     Wayfinder generate, then TypeScript
+    |
+    +-- Frontend Unit                    [same classify flag as Frontend Types]
+    |     Wayfinder generate, then frontend unit tests
     |
     +-- Frontend Build                   [if the production bundle is affected]
     |     Vite plugin generates Wayfinder; uploads public/build
     |
     +-- PDF Renderer                     [if Chromium/PDF inputs changed]
     |
-    +-- Pest 1/8 .. Pest 8/8             [if backend/Pest inputs changed]
+    +-- Pest 1/12 .. Pest 12/12          [if backend/Pest inputs changed]
               |
         Quality gates (needs-based aggregator, no checkout)
 ```
@@ -57,10 +60,10 @@ Docs-only paths include `docs/*`, `.cursor/*`, `.agents/*`, `.gemini/*`, root-le
 | Gate | Job / step | Local command |
 |------|------------|---------------|
 | PHP formatting | PHP Style (Pint) → `composer lint:check` | `composer lint:check` (`pint --parallel --test`) |
-| Pest | Pest 1/8 .. 8/8 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
+| Pest | Pest 1/12 .. 12/12 (each file runs in exactly one shard) | `php artisan test --compact` or `composer test` |
 | ESLint | Frontend Lint → `npm run lint:check` | `npm run lint:check` |
 | Prettier | Frontend Lint → `npm run format:check` | `npm run format:check` |
-| Frontend tests | Frontend Types → `npm run test:frontend` | `npm run test:frontend` |
+| Frontend tests | Frontend Unit → `npm run test:frontend` | `npm run test:frontend` |
 | TypeScript | Frontend Types → `npm run types:check` | `npm run types:check` |
 | Production build | Frontend Build → `npm run build` | `npm run build` |
 | PDF Chromium | PDF Renderer job | same three production test files with Puppeteer installed |
@@ -114,7 +117,7 @@ Project `postinstall` installs Chrome unless `CI_SKIP_PUPPETEER_BROWSER_INSTALL=
 
 ## Wayfinder
 
-`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. Frontend Types generates them before `tsc`. Frontend Build relies on the Vite Wayfinder plugin during `npm run build`. Wayfinder-only route/controller changes skip Frontend Lint.
+`resources/js/actions/`, `resources/js/routes/`, and `resources/js/wayfinder/` are **gitignored**. Frontend Types and Frontend Unit each generate them before `tsc` / unit tests. Frontend Build relies on the Vite Wayfinder plugin during `npm run build`. Wayfinder-only route/controller changes skip Frontend Lint.
 
 ## Permissions
 
