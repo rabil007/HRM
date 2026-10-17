@@ -14,6 +14,12 @@ use Illuminate\Validation\ValidationException;
 final class ResolveEffectiveContractSalaryComponents
 {
     /**
+     * Resolve the payroll-applicable salary package for a contract as of a date.
+     *
+     * Revision history remains visible for contract management even when a
+     * revision is not applied to payroll. Payroll rates use only revisions with
+     * apply_to_payroll=true, ordered by payroll_effective_from then version.
+     *
      * @return array{
      *     components: Collection<int, ContractSalaryComponent>,
      *     revision: ContractSalaryRevision|null,
@@ -28,17 +34,26 @@ final class ResolveEffectiveContractSalaryComponents
             ? $contract->salaryRevisionHistory
             : $contract->salaryRevisionHistory()->with('lines')->get();
 
+        $hasRevisionHistory = $revisionHistory->isNotEmpty();
+
         $revision = $revisionHistory
             ->reject(fn (ContractSalaryRevision $item): bool => $item->trashed())
-            ->filter(fn (ContractSalaryRevision $item): bool => $item->effective_from !== null
-                && $item->effective_from->toDateString() <= $asOfDate)
-            ->sortBy([
-                ['effective_from', 'desc'],
-                ['version', 'desc'],
+            ->filter(function (ContractSalaryRevision $item) use ($asOfDate): bool {
+                if (! $item->appliesToPayroll()) {
+                    return false;
+                }
+
+                $payrollFrom = $item->payrollEffectiveDateString();
+
+                return $payrollFrom !== null && $payrollFrom <= $asOfDate;
+            })
+            ->sortByDesc(fn (ContractSalaryRevision $item): array => [
+                $item->payrollEffectiveDateString() ?? '',
+                $item->version ?? 0,
             ])
             ->first();
 
-        if ($revision === null && $revisionHistory->isNotEmpty()) {
+        if ($revision === null && $hasRevisionHistory) {
             return [
                 'components' => collect(),
                 'revision' => null,

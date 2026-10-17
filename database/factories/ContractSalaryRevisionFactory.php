@@ -26,8 +26,18 @@ class ContractSalaryRevisionFactory extends Factory
                 ->value('employee_id'),
             'version' => 1,
             'effective_from' => now()->toDateString(),
+            'apply_to_payroll' => true,
+            'payroll_effective_from' => fn (array $attributes) => $attributes['effective_from'] ?? now()->toDateString(),
             'reason' => null,
             'created_by' => null,
         ];
+    }
+
+    public function notAppliedToPayroll(): static
+    {
+        return $this->state(fn (): array => [
+            'apply_to_payroll' => false,
+            'payroll_effective_from' => null,
+        ]);
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Models\ContractSalaryRevision;
 use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\AssertContractSalaryRevisionEditable;
 use App\Support\Contracts\SalaryRevisionEffectiveMonth;
 use App\Support\Payroll\ContractSalaryComponentCatalog;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,7 @@ final class UpdateContractSalaryRevision
 {
     public function __construct(
         private readonly MirrorLatestContractSalaryRevision $mirrorLatestRevision,
+        private readonly AssertContractSalaryRevisionEditable $assertEditable,
     ) {}
 
     /**
@@ -26,12 +28,16 @@ final class UpdateContractSalaryRevision
         array $amountsByColumn,
         string $effectiveFrom,
         ?string $reason = null,
+        bool $applyToPayroll = true,
+        ?string $payrollEffectiveFrom = null,
     ): ContractSalaryRevision {
         abort_unless(
             $revision->contract_id === $contract->id
             && $revision->company_id === $contract->company_id,
             404,
         );
+
+        $this->assertEditable->assertCanMutate($revision);
 
         $category = $contract->payroll_category ?? PayrollCategory::Office;
         $structure = $contract->resolvedSalaryStructure();
@@ -67,15 +73,47 @@ final class UpdateContractSalaryRevision
 
         $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
 
+        if (! $applyToPayroll) {
+            $payrollEffectiveDate = null;
+        } else {
+            $payrollEffectiveDate = $payrollEffectiveFrom !== null && trim($payrollEffectiveFrom) !== ''
+                ? SalaryRevisionEffectiveMonth::normalize($payrollEffectiveFrom)
+                : $effectiveDate;
+
+            if ($payrollEffectiveDate < $effectiveDate) {
+                throw ValidationException::withMessages([
+                    'payroll_effective_from' => 'Payroll effective month cannot precede the revision effective month.',
+                ]);
+            }
+
+            $conflictingPayrollMonth = ContractSalaryRevision::query()
+                ->where('company_id', $contract->company_id)
+                ->where('contract_id', $contract->id)
+                ->where('apply_to_payroll', true)
+                ->whereDate('payroll_effective_from', $payrollEffectiveDate)
+                ->whereKeyNot($revision->id)
+                ->exists();
+
+            if ($conflictingPayrollMonth) {
+                throw ValidationException::withMessages([
+                    'payroll_effective_from' => 'Another payroll-applicable salary revision already uses this payroll effective month.',
+                ]);
+            }
+        }
+
         return DB::transaction(function () use (
             $contract,
             $revision,
             $effectiveDate,
             $reason,
             $lines,
+            $applyToPayroll,
+            $payrollEffectiveDate,
         ): ContractSalaryRevision {
             $revision->update([
                 'effective_from' => $effectiveDate,
+                'apply_to_payroll' => $applyToPayroll,
+                'payroll_effective_from' => $payrollEffectiveDate,
                 'reason' => $reason,
             ]);
 

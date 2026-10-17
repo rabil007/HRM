@@ -27,6 +27,8 @@ final class ApplyContractSalaryRevision
         string $effectiveFrom,
         ?string $reason = null,
         ?int $createdBy = null,
+        bool $applyToPayroll = true,
+        ?string $payrollEffectiveFrom = null,
     ): ContractSalaryRevision {
         $lines = $this->linesFromAmounts($contract, $amountsByColumn);
 
@@ -37,6 +39,11 @@ final class ApplyContractSalaryRevision
         }
 
         $effectiveDate = SalaryRevisionEffectiveMonth::normalize($effectiveFrom);
+        [$applyToPayroll, $payrollEffectiveDate] = $this->normalizePayrollApplication(
+            $applyToPayroll,
+            $payrollEffectiveFrom,
+            $effectiveDate,
+        );
 
         return DB::transaction(function () use (
             $contract,
@@ -44,6 +51,8 @@ final class ApplyContractSalaryRevision
             $reason,
             $createdBy,
             $lines,
+            $applyToPayroll,
+            $payrollEffectiveDate,
         ): ContractSalaryRevision {
             $lockedContract = EmployeeContract::query()
                 ->whereKey($contract->id)
@@ -61,6 +70,13 @@ final class ApplyContractSalaryRevision
                 throw ValidationException::withMessages([
                     'effective_from' => 'A salary revision already exists for this month.',
                 ]);
+            }
+
+            if ($applyToPayroll && $payrollEffectiveDate !== null) {
+                $this->assertUniquePayrollEffectiveMonth(
+                    $lockedContract,
+                    $payrollEffectiveDate,
+                );
             }
 
             $hasRevisionHistory = ContractSalaryRevision::query()
@@ -86,6 +102,8 @@ final class ApplyContractSalaryRevision
                         $baselineDate,
                         'Historical contract salary baseline',
                         $createdBy,
+                        true,
+                        $baselineDate,
                     );
                 }
             }
@@ -96,12 +114,62 @@ final class ApplyContractSalaryRevision
                 $effectiveDate,
                 $reason,
                 $createdBy,
+                $applyToPayroll,
+                $payrollEffectiveDate,
             );
 
             $this->mirrorLatestRevision->handle($lockedContract->fresh());
 
             return $revision->load('lines');
         });
+    }
+
+    /**
+     * @return array{0: bool, 1: ?string}
+     */
+    private function normalizePayrollApplication(
+        bool $applyToPayroll,
+        ?string $payrollEffectiveFrom,
+        string $effectiveDate,
+    ): array {
+        if (! $applyToPayroll) {
+            return [false, null];
+        }
+
+        $payrollEffectiveDate = $payrollEffectiveFrom !== null && trim($payrollEffectiveFrom) !== ''
+            ? SalaryRevisionEffectiveMonth::normalize($payrollEffectiveFrom)
+            : $effectiveDate;
+
+        if ($payrollEffectiveDate < $effectiveDate) {
+            throw ValidationException::withMessages([
+                'payroll_effective_from' => 'Payroll effective month cannot precede the revision effective month.',
+            ]);
+        }
+
+        return [true, $payrollEffectiveDate];
+    }
+
+    private function assertUniquePayrollEffectiveMonth(
+        EmployeeContract $contract,
+        string $payrollEffectiveDate,
+        ?int $ignoreRevisionId = null,
+    ): void {
+        $exists = ContractSalaryRevision::query()
+            ->where('company_id', $contract->company_id)
+            ->where('contract_id', $contract->id)
+            ->where('apply_to_payroll', true)
+            ->whereDate('payroll_effective_from', $payrollEffectiveDate)
+            ->when(
+                $ignoreRevisionId !== null,
+                fn ($query) => $query->whereKeyNot($ignoreRevisionId),
+            )
+            ->exists();
+
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'payroll_effective_from' => 'Another payroll-applicable salary revision already uses this payroll effective month.',
+            ]);
+        }
     }
 
     /**
@@ -148,6 +216,8 @@ final class ApplyContractSalaryRevision
         string $effectiveFrom,
         ?string $reason,
         ?int $createdBy,
+        bool $applyToPayroll,
+        ?string $payrollEffectiveFrom,
     ): ContractSalaryRevision {
         $nextVersion = (int) ContractSalaryRevision::query()
             ->withTrashed()
@@ -161,6 +231,8 @@ final class ApplyContractSalaryRevision
             'employee_id' => $contract->employee_id,
             'version' => $nextVersion,
             'effective_from' => $effectiveFrom,
+            'apply_to_payroll' => $applyToPayroll,
+            'payroll_effective_from' => $payrollEffectiveFrom,
             'reason' => $reason,
             'created_by' => $createdBy,
         ]);

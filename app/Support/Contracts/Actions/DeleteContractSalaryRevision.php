@@ -5,6 +5,7 @@ namespace App\Support\Contracts\Actions;
 use App\Models\ContractSalaryRevision;
 use App\Models\ContractSalaryRevisionLine;
 use App\Models\EmployeeContract;
+use App\Support\Contracts\AssertContractSalaryRevisionEditable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -12,6 +13,7 @@ final class DeleteContractSalaryRevision
 {
     public function __construct(
         private readonly MirrorLatestContractSalaryRevision $mirrorLatestRevision,
+        private readonly AssertContractSalaryRevisionEditable $assertEditable,
     ) {}
 
     public function handle(EmployeeContract $contract, ContractSalaryRevision $revision): void
@@ -21,6 +23,8 @@ final class DeleteContractSalaryRevision
             && $revision->company_id === $contract->company_id,
             404,
         );
+
+        $this->assertEditable->assertCanMutate($revision);
 
         $remainingCount = ContractSalaryRevision::query()
             ->where('contract_id', $contract->id)
