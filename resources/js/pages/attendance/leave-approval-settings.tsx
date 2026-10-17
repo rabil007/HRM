@@ -1,8 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Info } from 'lucide-react';
 import type { FormEvent, ReactNode } from 'react';
-import { index as leaveApprovalPolicies } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalPolicyController';
-import { update as updateLeaveApprovalSettings } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalSettingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -18,6 +16,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { index as leaveApprovalPolicies } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalPolicyController';
+import { update as updateLeaveApprovalSettings } from '@/actions/App/Http/Controllers/Attendance/LeaveApprovalSettingController';
 
 type EmployeeOption = {
     id: number;
@@ -235,7 +235,7 @@ export default function LeaveApprovalSettings({
                         <Alert className="border-border/60 bg-muted/20 dark:border-white/10 dark:bg-white/5">
                             <Info className="size-4 text-muted-foreground" />
                             <AlertTitle className="text-sm font-semibold">
-                                How this works
+                                Example — how this works
                             </AlertTitle>
                             <AlertDescription className="space-y-3 text-xs text-muted-foreground">
                                 <p>
@@ -246,7 +246,7 @@ export default function LeaveApprovalSettings({
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 font-mono leading-relaxed dark:bg-black/20">
                                         <p className="mb-1 font-sans text-[10px] font-semibold tracking-wide text-foreground uppercase">
-                                            Policy
+                                            Example policy
                                         </p>
                                         <p>1. Department Manager</p>
                                         <p>2. HR Approver</p>
@@ -254,7 +254,7 @@ export default function LeaveApprovalSettings({
                                     </div>
                                     <div className="rounded-lg border border-border/50 bg-background/60 px-3 py-2 font-mono leading-relaxed dark:bg-black/20">
                                         <p className="mb-1 font-sans text-[10px] font-semibold tracking-wide text-foreground uppercase">
-                                            Approver defaults
+                                            Example approver defaults
                                         </p>
                                         <p>Default HR Approver: Rima</p>
                                         <p>
@@ -272,8 +272,45 @@ export default function LeaveApprovalSettings({
                                     approve the HR step instead — employees
                                     never approve their own requests.
                                 </p>
+                                <p>
+                                    These names are examples, not your saved
+                                    settings. HR employees can request leave for
+                                    themselves, but another authorized employee
+                                    must approve every required step. Each
+                                    required step needs a distinct approver with
+                                    an active company account, leave view and
+                                    approve permissions, and access to the
+                                    requester.
+                                </p>
                             </AlertDescription>
                         </Alert>
+
+                        <div className="space-y-1 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                            <p className="font-semibold">
+                                Saved company selections
+                            </p>
+                            <p>
+                                Default HR Approver:{' '}
+                                {settings.default_hr_approver
+                                    ? employeeOptionLabel(
+                                          settings.default_hr_approver,
+                                      )
+                                    : 'Not configured'}
+                            </p>
+                            <p>
+                                Alternative / Fallback Approver:{' '}
+                                {settings.fallback_approver
+                                    ? employeeOptionLabel(
+                                          settings.fallback_approver,
+                                      )
+                                    : 'Not configured'}
+                            </p>
+                            <p className="text-muted-foreground">
+                                Changes in the fields below apply after saving.
+                                A policy step with an explicit HR employee
+                                overrides the company default.
+                            </p>
+                        </div>
 
                         <div className="space-y-2">
                             <Label className="text-xs font-semibold tracking-wider text-muted-foreground/70 uppercase">

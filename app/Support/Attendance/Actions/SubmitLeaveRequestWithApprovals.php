@@ -10,6 +10,7 @@ use App\Support\Attendance\AssertLeaveApprovalWorkflowInvariant;
 use App\Support\Attendance\AssertLeaveRequestOverlap;
 use App\Support\Attendance\AttendanceLeaveDepartmentScope;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Attendance\LeaveApprovalResolutionException;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\ResolveLeaveApprovalChain;
@@ -167,6 +168,8 @@ final class SubmitLeaveRequestWithApprovals
 
                 try {
                     $chain = $this->resolveChain->handle($employee, $companyId);
+                } catch (LeaveApprovalResolutionException $exception) {
+                    throw ValidationException::withMessages($exception->validationErrors($companyId));
                 } catch (RuntimeException $exception) {
                     throw ValidationException::withMessages([
                         'leave_request' => $exception->getMessage(),

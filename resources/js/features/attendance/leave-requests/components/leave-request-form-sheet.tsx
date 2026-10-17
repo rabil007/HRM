@@ -102,8 +102,23 @@ export function LeaveRequestFormSheet({
                     {bagErrors.leave_request ? (
                         <div className="flex gap-2 rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
                             <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                            <p className="font-medium">
-                                {bagErrors.leave_request}
+                            <div className="space-y-1">
+                                <p className="font-semibold">
+                                    {leaveRequest
+                                        ? 'Leave request not saved'
+                                        : 'Leave request not submitted'}
+                                </p>
+                                <p>{bagErrors.leave_request}</p>
+                            </div>
+                        </div>
+                    ) : null}
+                    {bagErrors.leave_approval_diagnostics ? (
+                        <div className="space-y-2 rounded-xl border border-border bg-muted/30 p-3 text-xs">
+                            <p className="font-semibold">
+                                Administrator diagnostics
+                            </p>
+                            <p className="whitespace-pre-line">
+                                {bagErrors.leave_approval_diagnostics}
                             </p>
                         </div>
                     ) : null}

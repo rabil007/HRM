@@ -296,6 +296,23 @@ test('duplicate required and notify-only person is treated as approver without d
     expect($managerMails)->toBe(1);
 });
 
+test('notify-only manager promoted to required manager receives one actionable mail and no duplicate FYI', function () {
+    $context = makeFinalCorrectionContext();
+    LeaveApprovalPolicy::query()->where('company_id', $context['company']->id)->delete();
+    ensureDefaultLeaveApprovalPolicy($context['company'], [
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => false],
+        ['type' => LeaveApprovalApproverType::DepartmentManager, 'required' => true],
+    ]);
+
+    $leave = submitNotifyOnlyRequest($context);
+
+    expect($leave->approvals)->toHaveCount(1)
+        ->and($leave->approvals[0]->is_required)->toBeTrue()
+        ->and($leave->approvals[0]->approver_employee_id)->toBe($context['managerEmployee']->id);
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, 1);
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, fn (LeaveRequestSubmittedMail $mail): bool => $mail->hasTo('dept-manager@example.com') && str_contains($mail->introMessage ?? '', 'requires your review'));
+});
+
 test('disabled submission notification setting suppresses notify-only FYI email', function () {
     $fixtures = makeNotifyOnlyFixtures();
 
